@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Iterator, List, cast
 
+from docx.enum.section import WD_SECTION_START
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
 from docx.oxml.text.run import CT_R
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
     from docx.oxml.text.paragraph import CT_P
+    from docx.section import Section
     from docx.styles.style import CharacterStyle
 
 
@@ -88,6 +90,15 @@ class Paragraph(StoryChild):
                 r.getparent().remove(r)
 
     @property
+    def has_section_break(self) -> bool:
+        """``True`` if this paragraph contains a section break (``<w:sectPr>`` in its
+        ``<w:pPr>``)."""
+        pPr = self._p.pPr
+        if pPr is None:
+            return False
+        return pPr.sectPr is not None
+
+    @property
     def contains_page_break(self) -> bool:
         """`True` when one or more rendered page-breaks occur in this paragraph."""
         return bool(self._p.lastRenderedPageBreaks)
@@ -101,6 +112,33 @@ class Paragraph(StoryChild):
     def hyperlinks(self) -> List[Hyperlink]:
         """A |Hyperlink| instance for each hyperlink in this paragraph."""
         return [Hyperlink(hyperlink, self) for hyperlink in self._p.hyperlink_lst]
+
+    def insert_section_break(
+        self, start_type: WD_SECTION_START = WD_SECTION_START.NEW_PAGE
+    ) -> Section:
+        """Insert a section break in this paragraph and return the new |Section|.
+
+        `start_type` is a member of :ref:`WdSectionStart` and defaults to
+        ``WD_SECTION.NEW_PAGE``. If this paragraph already contains a section break,
+        its type is replaced rather than a new one being added.
+        """
+        from docx.section import Section as SectionCls
+
+        pPr = self._p.get_or_add_pPr()
+        sectPr = pPr.get_or_add_sectPr()
+        sectPr.start_type = start_type
+        return SectionCls(sectPr, self.part)
+
+    def remove_section_break(self) -> None:
+        """Remove the section break from this paragraph, if one is present.
+
+        Calling this on a paragraph that has no section break is a no-op.
+        """
+        pPr = self._p.pPr
+        if pPr is None:
+            return
+        if pPr.sectPr is not None:
+            pPr._remove_sectPr()
 
     def insert_paragraph_before(
         self, text: str | None = None, style: str | ParagraphStyle | None = None
