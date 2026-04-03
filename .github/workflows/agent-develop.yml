@@ -47,8 +47,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install uv
+        run: pip install uv
+
       - name: Install dependencies
-        run: pip install -e ".[dev]" 2>/dev/null || pip install -e . && pip install pytest lxml
+        run: uv sync --group dev
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -71,16 +74,15 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           cat > /tmp/prompt.txt <<INSTRUCTIONS
-          You are a developer agent working on the python-docx library fork.
-          Implement the feature described below.
+          You are a developer agent. Implement the feature described below.
 
           ## Instructions
-          1. Read CLAUDE.md for architecture patterns, test conventions, and commands.
-          2. Study existing similar code before writing new code (e.g., read CommentsPart before writing FootnotesPart).
-          3. Follow the three-layer pattern: oxml CT_ classes -> Part class -> proxy API.
-          4. Register new CT_ elements in src/docx/oxml/__init__.py.
-          5. Write tests following the Describe*/it_* BDD pattern in tests/.
-          6. Run tests: pytest tests/ -x -v
+          1. Read CLAUDE.md if it exists for project conventions.
+          2. Understand the existing codebase before making changes.
+          3. Implement the feature with clean, production-quality code.
+          4. Follow existing patterns and conventions in the codebase.
+          5. Run tests: \`uv run pytest\`
+          6. Run acceptance tests: \`uv run behave --stop\`
           7. If tests fail, fix the issues and re-run (up to 3 attempts).
           8. Commit your changes with a descriptive message referencing issue #${ISSUE_NUMBER}.
 
@@ -133,4 +135,6 @@ jobs:
         run: |
           PR_URL=$(gh pr view "$BRANCH" --json url -q .url)
           gh issue comment "$ISSUE_NUMBER" \
-            --body "**Developer Agent** has created a PR: $PR_URL"
+            --body "**Developer Agent** has created a PR: $PR_URL
+
+          The security and review agents will now evaluate the changes."
