@@ -9,7 +9,6 @@ from typing import IO, TYPE_CHECKING, Iterator, List, Sequence
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_SECTION
-from docx.enum.text import WD_BREAK
 from docx.section import Section, Sections
 from docx.shared import ElementProxy, Emu, Inches, Length
 from docx.text.run import Run
@@ -100,10 +99,10 @@ class Document(ElementProxy):
         style = "Title" if level == 0 else "Heading %d" % level
         return self.add_paragraph(text, style)
 
-    def add_page_break(self):
+    def add_page_break(self) -> Paragraph:
         """Return newly |Paragraph| object containing only a page break."""
         paragraph = self.add_paragraph()
-        paragraph.add_run().add_break(WD_BREAK.PAGE)
+        paragraph.add_page_break()
         return paragraph
 
     def add_paragraph(self, text: str = "", style: str | ParagraphStyle | None = None) -> Paragraph:

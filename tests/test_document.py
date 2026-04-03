@@ -12,7 +12,6 @@ import pytest
 from docx.comments import Comment, Comments
 from docx.document import Document, _Body
 from docx.enum.section import WD_SECTION
-from docx.enum.text import WD_BREAK
 from docx.opc.coreprops import CoreProperties
 from docx.oxml.document import CT_Body, CT_Document
 from docx.parts.document import DocumentPart
@@ -79,16 +78,15 @@ class DescribeDocument:
             document.add_heading(level=10)
 
     def it_can_add_a_page_break(
-        self, document: Document, add_paragraph_: Mock, paragraph_: Mock, run_: Mock
+        self, document: Document, add_paragraph_: Mock, paragraph_: Mock
     ):
         add_paragraph_.return_value = paragraph_
-        paragraph_.add_run.return_value = run_
+        paragraph_.add_page_break.return_value = paragraph_
 
         paragraph = document.add_page_break()
 
         add_paragraph_.assert_called_once_with(document)
-        paragraph_.add_run.assert_called_once_with()
-        run_.add_break.assert_called_once_with(WD_BREAK.PAGE)
+        paragraph_.add_page_break.assert_called_once_with()
         assert paragraph is paragraph_
 
     @pytest.mark.parametrize(

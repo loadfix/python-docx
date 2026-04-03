@@ -21,6 +21,65 @@ from ..unitutil.mock import call, class_mock, instance_mock, method_mock, proper
 class DescribeParagraph:
     """Unit-test suite for `docx.text.run.Paragraph`."""
 
+    def it_can_add_a_page_break(self, fake_parent: t.ProvidesStoryPart):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+
+        result = paragraph.add_page_break()
+
+        assert result is paragraph
+        assert paragraph.has_page_break is True
+        assert len(paragraph.runs) == 1
+        assert paragraph._p.xml == xml("w:p/w:r/w:br{w:type=page}")
+
+    @pytest.mark.parametrize(
+        ("p_cxml", "expected_value"),
+        [
+            ("w:p", False),
+            ("w:p/w:r", False),
+            ('w:p/w:r/w:t"foobar"', False),
+            ("w:p/w:r/w:br{w:type=page}", True),
+            ("w:p/w:r/w:br", False),
+            ('w:p/(w:r/w:t"abc",w:r/w:br{w:type=page})', True),
+        ],
+    )
+    def it_knows_whether_it_has_a_page_break(
+        self, p_cxml: str, expected_value: bool, fake_parent: t.ProvidesStoryPart
+    ):
+        p = cast(CT_P, element(p_cxml))
+        paragraph = Paragraph(p, fake_parent)
+
+        assert paragraph.has_page_break == expected_value
+
+    @pytest.mark.parametrize(
+        ("p_cxml", "expected_cxml"),
+        [
+            # --- no page breaks: no-op ---
+            ("w:p", "w:p"),
+            ("w:p/w:r", "w:p/w:r"),
+            # --- run with only page break is removed entirely ---
+            ("w:p/w:r/w:br{w:type=page}", "w:p"),
+            # --- run with text and page break: only br removed ---
+            ('w:p/w:r/(w:t"abc",w:br{w:type=page})', 'w:p/w:r/w:t"abc"'),
+            # --- multiple page breaks ---
+            (
+                'w:p/(w:r/w:br{w:type=page},w:r/w:t"abc",w:r/w:br{w:type=page})',
+                'w:p/w:r/w:t"abc"',
+            ),
+            # --- line break (not page) is preserved ---
+            ("w:p/w:r/w:br", "w:p/w:r/w:br"),
+        ],
+    )
+    def it_can_clear_page_breaks(
+        self, p_cxml: str, expected_cxml: str, fake_parent: t.ProvidesStoryPart
+    ):
+        p = cast(CT_P, element(p_cxml))
+        paragraph = Paragraph(p, fake_parent)
+
+        paragraph.clear_page_breaks()
+
+        assert paragraph._p.xml == xml(expected_cxml)
+
     @pytest.mark.parametrize(
         ("p_cxml", "expected_value"),
         [
