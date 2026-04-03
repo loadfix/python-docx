@@ -102,7 +102,7 @@ jobs:
           runuser -u agent -- claude -p \
             --model au.anthropic.claude-opus-4-6-v1 \
             --max-turns 20 \
-            --dangerously-skip-permissions \
+            --allow-dangerously-skip-permissions --dangerously-skip-permissions \
             "You are a developer agent fixing issues raised during code review of PR #${{ github.event.pull_request.number }}.
 
           ## Review Feedback

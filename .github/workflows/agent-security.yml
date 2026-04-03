@@ -64,7 +64,7 @@ jobs:
           runuser -u agent -- claude -p \
             --model au.anthropic.claude-sonnet-4-6 \
             --max-turns 15 \
-            --dangerously-skip-permissions \
+            --allow-dangerously-skip-permissions --dangerously-skip-permissions \
             "You are a security agent reviewing PR #${{ github.event.pull_request.number }}.
 
           ## Instructions

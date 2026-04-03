@@ -108,12 +108,12 @@ jobs:
           cat /tmp/debug-prompt.txt | claude -p \
             --model au.anthropic.claude-sonnet-4-6 \
             --max-turns 5 \
-            --dangerously-skip-permissions 2>/dev/null || \
+            --allow-dangerously-skip-permissions --dangerously-skip-permissions 2>/dev/null || \
           cat /tmp/debug-prompt.txt | claude -p \
             --model au.anthropic.claude-sonnet-4-6 \
             --max-turns 5 \
             --allow-dangerously-skip-permissions \
-            --dangerously-skip-permissions
+            --allow-dangerously-skip-permissions --dangerously-skip-permissions
 
       - name: Process diagnosis and take action
         env:
