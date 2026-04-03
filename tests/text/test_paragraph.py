@@ -5,11 +5,13 @@ from typing import List, cast
 import pytest
 
 from docx import types as t
+from docx.enum.section import WD_SECTION_START
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.text.run import CT_R
 from docx.parts.document import DocumentPart
+from docx.section import Section
 from docx.text.paragraph import Paragraph
 from docx.text.parfmt import ParagraphFormat
 from docx.text.run import Run
@@ -79,6 +81,79 @@ class DescribeParagraph:
         paragraph.clear_page_breaks()
 
         assert paragraph._p.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("p_cxml", "expected_value"),
+        [
+            ("w:p", False),
+            ("w:p/w:pPr", False),
+            ("w:p/w:pPr/w:sectPr", True),
+            ("w:p/w:pPr/w:sectPr/w:type{w:val=continuous}", True),
+        ],
+    )
+    def it_knows_whether_it_has_a_section_break(
+        self, p_cxml: str, expected_value: bool
+    ):
+        paragraph = Paragraph(cast(CT_P, element(p_cxml)), None)
+        assert paragraph.has_section_break is expected_value
+
+    @pytest.mark.parametrize(
+        ("p_cxml", "start_type", "expected_start_type"),
+        [
+            ("w:p", WD_SECTION_START.NEW_PAGE, WD_SECTION_START.NEW_PAGE),
+            ("w:p", WD_SECTION_START.CONTINUOUS, WD_SECTION_START.CONTINUOUS),
+            ("w:p", WD_SECTION_START.ODD_PAGE, WD_SECTION_START.ODD_PAGE),
+            ("w:p", WD_SECTION_START.EVEN_PAGE, WD_SECTION_START.EVEN_PAGE),
+            # --- replacing existing sectPr type ---
+            (
+                "w:p/w:pPr/w:sectPr/w:type{w:val=continuous}",
+                WD_SECTION_START.ODD_PAGE,
+                WD_SECTION_START.ODD_PAGE,
+            ),
+        ],
+    )
+    def it_can_insert_a_section_break(
+        self,
+        p_cxml: str,
+        start_type: WD_SECTION_START,
+        expected_start_type: WD_SECTION_START,
+        part_prop_: DocumentPart,
+    ):
+        paragraph = Paragraph(cast(CT_P, element(p_cxml)), None)
+        section = paragraph.insert_section_break(start_type)
+        assert isinstance(section, Section)
+        assert section.start_type == expected_start_type
+        assert paragraph.has_section_break is True
+
+    def it_inserts_a_section_break_with_default_start_type(self, part_prop_: DocumentPart):
+        paragraph = Paragraph(cast(CT_P, element("w:p")), None)
+        section = paragraph.insert_section_break()
+        assert isinstance(section, Section)
+        assert section.start_type == WD_SECTION_START.NEW_PAGE
+
+    def it_does_not_duplicate_sectPr_on_repeated_insert(self, part_prop_: DocumentPart):
+        paragraph = Paragraph(cast(CT_P, element("w:p")), None)
+        paragraph.insert_section_break(WD_SECTION_START.CONTINUOUS)
+        paragraph.insert_section_break(WD_SECTION_START.ODD_PAGE)
+        sectPr_elements = paragraph._p.pPr.xpath("w:sectPr")
+        assert len(sectPr_elements) == 1
+        assert paragraph.has_section_break is True
+
+    @pytest.mark.parametrize(
+        ("p_cxml", "expected_has_break_after"),
+        [
+            ("w:p/w:pPr/w:sectPr", False),
+            ("w:p/w:pPr/w:sectPr/w:type{w:val=continuous}", False),
+            ("w:p", False),
+            ("w:p/w:pPr", False),
+        ],
+    )
+    def it_can_remove_a_section_break(
+        self, p_cxml: str, expected_has_break_after: bool
+    ):
+        paragraph = Paragraph(cast(CT_P, element(p_cxml)), None)
+        paragraph.remove_section_break()
+        assert paragraph.has_section_break is expected_has_break_after
 
     @pytest.mark.parametrize(
         ("p_cxml", "expected_value"),
@@ -253,6 +328,30 @@ class DescribeParagraph:
         assert new_paragraph.add_run.call_args_list == add_run_calls
         assert new_paragraph.style == style
         assert new_paragraph is paragraph_
+
+    def it_updates_section_count_on_insert_and_remove(self, part_prop_: DocumentPart):
+        document_elm = element(
+            "w:document/w:body/(w:p,w:p,w:sectPr)"
+        )
+        body = document_elm[0]
+        p1 = body[0]
+        p2 = body[1]
+        paragraph1 = Paragraph(cast(CT_P, p1), None)
+        paragraph2 = Paragraph(cast(CT_P, p2), None)
+        # --- starts with 1 section (the body sectPr) ---
+        assert len(document_elm.sectPr_lst) == 1
+        # --- insert section break on paragraph1 ---
+        paragraph1.insert_section_break(WD_SECTION_START.CONTINUOUS)
+        assert len(document_elm.sectPr_lst) == 2
+        # --- insert section break on paragraph2 ---
+        paragraph2.insert_section_break(WD_SECTION_START.ODD_PAGE)
+        assert len(document_elm.sectPr_lst) == 3
+        # --- remove section break from paragraph1 ---
+        paragraph1.remove_section_break()
+        assert len(document_elm.sectPr_lst) == 2
+        # --- remove section break from paragraph2 ---
+        paragraph2.remove_section_break()
+        assert len(document_elm.sectPr_lst) == 1
 
     def it_can_remove_its_content_while_preserving_formatting(self, clear_fixture):
         paragraph, expected_xml = clear_fixture
