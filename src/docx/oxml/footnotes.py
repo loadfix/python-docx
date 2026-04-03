@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from docx.oxml.simpletypes import ST_DecimalNumber
+from docx.oxml.simpletypes import ST_DecimalNumber, ST_String
 from docx.oxml.xmlchemy import BaseOxmlElement, OptionalAttribute, RequiredAttribute, ZeroOrMore
 
 if TYPE_CHECKING:
@@ -27,7 +27,7 @@ class CT_Footnote(BaseOxmlElement):
     """
 
     id: int = RequiredAttribute("w:id", ST_DecimalNumber)  # pyright: ignore[reportAssignmentType]
-    type: str | None = OptionalAttribute("w:type", str)  # pyright: ignore[reportAssignmentType]
+    type: str | None = OptionalAttribute("w:type", ST_String)  # pyright: ignore[reportAssignmentType]
 
     p = ZeroOrMore("w:p", successors=())
     tbl = ZeroOrMore("w:tbl", successors=())

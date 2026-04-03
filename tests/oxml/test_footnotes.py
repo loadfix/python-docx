@@ -29,6 +29,16 @@ class DescribeCT_Footnote:
 
         assert footnote.id == 42
 
+    def it_provides_access_to_its_type(self):
+        footnote = cast(CT_Footnote, element("w:footnote{w:id=0,w:type=separator}"))
+
+        assert footnote.type == "separator"
+
+    def it_returns_None_for_type_when_not_present(self):
+        footnote = cast(CT_Footnote, element("w:footnote{w:id=2}"))
+
+        assert footnote.type is None
+
     def it_provides_access_to_its_inner_content_elements(self):
         footnote = cast(
             CT_Footnote,
