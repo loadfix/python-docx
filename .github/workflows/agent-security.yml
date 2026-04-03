@@ -47,6 +47,12 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Set up non-root user for Claude Code
+        run: |
+          useradd -m agent
+          chown -R agent:agent "$GITHUB_WORKSPACE"
+          chown -R agent:agent /tmp
+
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code
 
@@ -54,7 +60,7 @@ jobs:
         env:
           CLAUDE_CODE_USE_BEDROCK: "1"
         run: |
-          claude -p \
+          runuser -u agent -- claude -p \
             --model au.anthropic.claude-sonnet-4-6 \
             --max-turns 15 \
             --dangerously-skip-permissions \
