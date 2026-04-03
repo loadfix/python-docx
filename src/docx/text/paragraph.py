@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterator, List, cast
 
 from docx.enum.style import WD_STYLE_TYPE
+from docx.enum.text import WD_BREAK
 from docx.oxml.text.run import CT_R
 from docx.shared import StoryChild
 from docx.styles.style import ParagraphStyle
@@ -43,6 +44,12 @@ class Paragraph(StoryChild):
             run.style = style
         return run
 
+    def add_page_break(self) -> Paragraph:
+        """Append a page-break run to this paragraph and return self."""
+        run = self.add_run()
+        run.add_break(WD_BREAK.PAGE)
+        return self
+
     @property
     def alignment(self) -> WD_PARAGRAPH_ALIGNMENT | None:
         """A member of the :ref:`WdParagraphAlignment` enumeration specifying the
@@ -66,10 +73,29 @@ class Paragraph(StoryChild):
         self._p.clear_content()
         return self
 
+    def clear_page_breaks(self) -> None:
+        """Remove all ``<w:br w:type="page"/>`` elements from this paragraph.
+
+        If a run contains only a page break and no other content, the entire run is
+        removed. If a run contains other content alongside the page break, only the
+        ``<w:br>`` element is removed. Does nothing when no page breaks are present.
+        """
+        for br in self._p.xpath('.//w:br[@w:type="page"]'):
+            r = br.getparent()
+            r.remove(br)
+            # --- remove the run if it's now empty (no child elements and no text) ---
+            if len(r) == 0 and not r.text:
+                r.getparent().remove(r)
+
     @property
     def contains_page_break(self) -> bool:
         """`True` when one or more rendered page-breaks occur in this paragraph."""
         return bool(self._p.lastRenderedPageBreaks)
+
+    @property
+    def has_page_break(self) -> bool:
+        """`True` if this paragraph contains at least one ``<w:br w:type="page"/>``."""
+        return bool(self._p.xpath('.//w:br[@w:type="page"]'))
 
     @property
     def hyperlinks(self) -> List[Hyperlink]:
