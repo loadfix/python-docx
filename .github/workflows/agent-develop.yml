@@ -96,10 +96,18 @@ jobs:
         env:
           CLAUDE_CODE_USE_BEDROCK: "1"
         run: |
-          cat /tmp/prompt.txt | claude -p \
-            --model au.anthropic.claude-opus-4-6-v1 \
-            --max-turns 50 \
-            --dangerously-skip-permissions
+          # Create non-root user if running as root (self-hosted runners)
+          if [ "$(id -u)" = "0" ]; then
+            useradd -m agent 2>/dev/null || true
+            cp -r /root/.aws /home/agent/.aws 2>/dev/null || true
+            chown -R agent:agent . /tmp/prompt.txt /home/agent 2>/dev/null || true
+            su agent -c "CLAUDE_CODE_USE_BEDROCK=1 AWS_REGION=$AWS_REGION AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN cat /tmp/prompt.txt | claude -p --model au.anthropic.claude-opus-4-6-v1 --max-turns 50 --dangerously-skip-permissions"
+          else
+            cat /tmp/prompt.txt | claude -p \
+              --model au.anthropic.claude-opus-4-6-v1 \
+              --max-turns 50 \
+              --dangerously-skip-permissions
+          fi
 
       - name: Push branch
         run: |
