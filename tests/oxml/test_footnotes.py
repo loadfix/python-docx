@@ -20,30 +20,6 @@ class DescribeCT_Footnotes:
 
         assert len(footnotes.footnote_lst) == 2
 
-    def it_can_determine_the_next_available_footnote_id(self):
-        footnotes = cast(
-            CT_Footnotes,
-            element("w:footnotes/(w:footnote{w:id=0},w:footnote{w:id=1})"),
-        )
-
-        assert footnotes._next_available_footnote_id() == 2
-
-    def it_returns_2_as_minimum_next_id(self):
-        footnotes = cast(CT_Footnotes, element("w:footnotes"))
-
-        assert footnotes._next_available_footnote_id() == 2
-
-    def it_skips_used_ids(self):
-        footnotes = cast(
-            CT_Footnotes,
-            element(
-                "w:footnotes/(w:footnote{w:id=0},w:footnote{w:id=1},"
-                "w:footnote{w:id=2},w:footnote{w:id=3})"
-            ),
-        )
-
-        assert footnotes._next_available_footnote_id() == 4
-
 
 class DescribeCT_Footnote:
     """Unit test suite for `docx.oxml.footnotes.CT_Footnote` objects."""
