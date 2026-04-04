@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import cast
 
 from docx.oxml.footnotes import CT_Footnote, CT_Footnotes
+from docx.oxml.ns import qn
 
 from ..unitutil.cxml import element
 
@@ -19,6 +20,57 @@ class DescribeCT_Footnotes:
         )
 
         assert len(footnotes.footnote_lst) == 2
+
+    def it_can_add_a_footnote(self):
+        footnotes = cast(
+            CT_Footnotes,
+            element(
+                "w:footnotes/(w:footnote{w:id=0,w:type=separator}"
+                ",w:footnote{w:id=1,w:type=continuationSeparator})"
+            ),
+        )
+
+        footnote = footnotes.add_footnote()
+
+        assert footnote.id == 2
+        # -- the footnote has a paragraph with FootnoteText style --
+        assert len(footnote.p_lst) == 1
+        p = footnote.p_lst[0]
+        assert p.style == "FootnoteText"
+        # -- the paragraph has a run with FootnoteReference style and footnoteRef --
+        assert len(p.r_lst) == 1
+        r = p.r_lst[0]
+        assert r.style == "FootnoteReference"
+        assert r[-1].tag == qn("w:footnoteRef")
+
+    def it_assigns_sequential_ids_to_added_footnotes(self):
+        footnotes = cast(
+            CT_Footnotes,
+            element(
+                "w:footnotes/(w:footnote{w:id=0,w:type=separator}"
+                ",w:footnote{w:id=1,w:type=continuationSeparator})"
+            ),
+        )
+
+        fn1 = footnotes.add_footnote()
+        fn2 = footnotes.add_footnote()
+
+        assert fn1.id == 2
+        assert fn2.id == 3
+
+    def it_skips_used_ids_when_assigning(self):
+        footnotes = cast(
+            CT_Footnotes,
+            element(
+                "w:footnotes/(w:footnote{w:id=0,w:type=separator}"
+                ",w:footnote{w:id=1,w:type=continuationSeparator}"
+                ",w:footnote{w:id=2})"
+            ),
+        )
+
+        footnote = footnotes.add_footnote()
+
+        assert footnote.id == 3
 
 
 class DescribeCT_Footnote:

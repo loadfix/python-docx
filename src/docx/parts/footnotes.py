@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, cast
 
 from typing_extensions import Self
 
+from docx.footnotes import Footnotes
 from docx.opc.constants import CONTENT_TYPE as CT
 from docx.opc.packuri import PackURI
 from docx.oxml.footnotes import CT_Footnotes
@@ -25,6 +26,11 @@ class FootnotesPart(StoryPart):
     ):
         super().__init__(partname, content_type, element, package)
         self._footnotes = element
+
+    @property
+    def footnotes(self) -> Footnotes:
+        """A |Footnotes| proxy object for the `w:footnotes` root element of this part."""
+        return Footnotes(self._footnotes, self)
 
     @property
     def footnotes_element(self) -> CT_Footnotes:

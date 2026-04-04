@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, cast
 
+from docx.oxml.ns import nsdecls
+from docx.oxml.parser import parse_xml
 from docx.oxml.simpletypes import ST_DecimalNumber, ST_String
 from docx.oxml.xmlchemy import BaseOxmlElement, OptionalAttribute, RequiredAttribute, ZeroOrMore
 
@@ -19,6 +21,58 @@ class CT_Footnotes(BaseOxmlElement):
 
     footnote = ZeroOrMore("w:footnote")
 
+    def add_footnote(self) -> CT_Footnote:
+        """Return newly added `w:footnote` child element.
+
+        The returned `w:footnote` element has a unique `w:id` value and contains a single
+        paragraph with a footnote reference run. Content is added by adding runs to this first
+        paragraph and by adding additional paragraphs as needed.
+        """
+        next_id = self._next_available_footnote_id()
+        footnote = cast(
+            CT_Footnote,
+            parse_xml(
+                f'<w:footnote {nsdecls("w")} w:id="{next_id}">'
+                f"  <w:p>"
+                f"    <w:pPr>"
+                f'      <w:pStyle w:val="FootnoteText"/>'
+                f"    </w:pPr>"
+                f"    <w:r>"
+                f"      <w:rPr>"
+                f'        <w:rStyle w:val="FootnoteReference"/>'
+                f"      </w:rPr>"
+                f"      <w:footnoteRef/>"
+                f"    </w:r>"
+                f"  </w:p>"
+                f"</w:footnote>"
+            ),
+        )
+        self.append(footnote)
+        return footnote
+
+    def _next_available_footnote_id(self) -> int:
+        """The next available footnote id.
+
+        IDs 0 and 1 are reserved for the separator and continuation separator. User footnotes
+        start at 2.
+        """
+        used_ids = [int(x) for x in self.xpath("./w:footnote/@w:id")]
+
+        next_id = max(used_ids, default=1) + 1
+
+        if next_id < 2:
+            return 2
+
+        if next_id <= 2**31 - 1:
+            return next_id
+
+        # -- fall-back to enumerating all used ids to find the first unused one --
+        for expected_id in range(2, 2**31):
+            if expected_id not in used_ids:
+                return expected_id
+
+        return len(used_ids)
+
 
 class CT_Footnote(BaseOxmlElement):
     """`w:footnote` element, representing a single footnote.
@@ -31,6 +85,12 @@ class CT_Footnote(BaseOxmlElement):
 
     p = ZeroOrMore("w:p", successors=())
     tbl = ZeroOrMore("w:tbl", successors=())
+
+    # -- type-declarations for methods added by metaclass --
+    add_p: Callable[[], CT_P]
+    p_lst: list[CT_P]
+    tbl_lst: list[CT_Tbl]
+    _insert_tbl: Callable[[CT_Tbl], CT_Tbl]
 
     @property
     def inner_content_elements(self) -> list[CT_P | CT_Tbl]:

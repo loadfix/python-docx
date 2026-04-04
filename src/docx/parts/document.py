@@ -19,6 +19,7 @@ from docx.shared import lazyproperty
 if TYPE_CHECKING:
     from docx.comments import Comments
     from docx.enum.style import WD_STYLE_TYPE
+    from docx.footnotes import Footnotes
     from docx.opc.coreprops import CoreProperties
     from docx.settings import Settings
     from docx.styles.style import BaseStyle
@@ -49,6 +50,11 @@ class DocumentPart(StoryPart):
     def comments(self) -> Comments:
         """|Comments| object providing access to the comments added to this document."""
         return self._comments_part.comments
+
+    @property
+    def footnotes(self) -> Footnotes:
+        """|Footnotes| object providing access to the footnotes in this document."""
+        return self._footnotes_part.footnotes
 
     @property
     def _footnotes_part(self) -> FootnotesPart:
