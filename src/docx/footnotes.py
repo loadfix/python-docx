@@ -10,7 +10,6 @@ if TYPE_CHECKING:
     from docx.oxml.footnotes import CT_Footnote, CT_Footnotes
     from docx.parts.footnotes import FootnotesPart
     from docx.styles.style import ParagraphStyle
-    from docx.text.paragraph import Paragraph
     from docx.text.run import Run
 
 
@@ -31,8 +30,8 @@ class Footnotes:
     def __len__(self) -> int:
         return sum(1 for fn in self._footnotes_elm.footnote_lst if fn.type is None)
 
-    def add(self, paragraph: Paragraph, run: Run, text: str = "") -> Footnote:
-        """Add a new footnote referenced from `run` in `paragraph` and return it.
+    def add(self, run: Run, text: str = "") -> Footnote:
+        """Add a new footnote referenced from `run` and return it.
 
         A `w:footnoteReference` element is inserted into `run`, styled with the
         "FootnoteReference" character style. The new footnote contains a single paragraph
@@ -43,7 +42,7 @@ class Footnotes:
         footnote = Footnote(footnote_elm, self._footnotes_part)
 
         # -- insert footnoteReference into the specified run in the document body --
-        run._r.insert_footnote_reference(footnote_elm.id)
+        run._r.insert_footnote_reference(footnote_elm.id)  # pyright: ignore[reportPrivateUsage]
 
         # -- add text to the first paragraph if provided --
         if text:

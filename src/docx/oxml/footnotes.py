@@ -67,11 +67,12 @@ class CT_Footnotes(BaseOxmlElement):
             return next_id
 
         # -- fall-back to enumerating all used ids to find the first unused one --
+        used_id_set = set(used_ids)
         for expected_id in range(2, 2**31):
-            if expected_id not in used_ids:
+            if expected_id not in used_id_set:
                 return expected_id
 
-        return len(used_ids)
+        raise ValueError("No available footnote ID: document has reached the maximum footnote count.")
 
 
 class CT_Footnote(BaseOxmlElement):

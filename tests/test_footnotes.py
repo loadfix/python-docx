@@ -16,7 +16,6 @@ from docx.oxml.ns import qn
 from docx.oxml.text.run import CT_R
 from docx.package import Package
 from docx.parts.footnotes import FootnotesPart
-from docx.text.paragraph import Paragraph
 from docx.text.run import Run
 
 from .unitutil.cxml import element
@@ -98,13 +97,12 @@ class DescribeFootnotes:
         )
         footnotes = Footnotes(footnotes_elm, footnotes_part)
 
-        # -- create a paragraph and run to anchor the footnote reference --
+        # -- create a run to anchor the footnote reference --
         para_elm = element("w:p/w:r")
-        paragraph = Paragraph(para_elm, footnotes_part)
         r_elm = cast(CT_R, para_elm[0])
         run = Run(r_elm, footnotes_part)
 
-        footnote = footnotes.add(paragraph, run)
+        footnote = footnotes.add(run)
 
         # -- a Footnote is returned --
         assert isinstance(footnote, Footnote)
@@ -135,11 +133,10 @@ class DescribeFootnotes:
         footnotes = Footnotes(footnotes_elm, footnotes_part)
 
         para_elm = element("w:p/w:r")
-        paragraph = Paragraph(para_elm, footnotes_part)
         r_elm = cast(CT_R, para_elm[0])
         run = Run(r_elm, footnotes_part)
 
-        footnote = footnotes.add(paragraph, run, text="This is a footnote.")
+        footnote = footnotes.add(run, text="This is a footnote.")
 
         # -- the first paragraph has the text after the footnote ref run --
         first_para = footnote.paragraphs[0]
