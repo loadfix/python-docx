@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from docx.oxml.footnotes import CT_Footnote, CT_Footnotes
     from docx.parts.footnotes import FootnotesPart
     from docx.styles.style import ParagraphStyle
+    from docx.text.paragraph import Paragraph
     from docx.text.run import Run
 
 
