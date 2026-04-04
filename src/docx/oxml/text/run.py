@@ -146,6 +146,23 @@ class CT_R(BaseOxmlElement):
         self.insert(0, rPr)
         return rPr
 
+    def insert_footnote_reference(self, footnote_id: int) -> None:
+        """Append a `w:footnoteReference` element to this run.
+
+        The run is styled with the "FootnoteReference" character style and a
+        `w:footnoteReference` element referencing `footnote_id` is appended.
+
+        Should produce XML like:
+
+            <w:r>
+              <w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr>
+              <w:footnoteReference w:id="2"/>
+            </w:r>
+        """
+        rPr = self.get_or_add_rPr()
+        rPr.style = "FootnoteReference"
+        self.append(OxmlElement("w:footnoteReference", attrs={qn("w:id"): str(footnote_id)}))
+
     def _new_comment_reference_run(self, comment_id: int) -> CT_R:
         """Return a new `w:r` element with `w:commentReference` referencing `comment_id`.
 

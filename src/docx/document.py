@@ -16,6 +16,7 @@ from docx.text.run import Run
 if TYPE_CHECKING:
     import docx.types as t
     from docx.comments import Comment, Comments
+    from docx.footnotes import Footnotes
     from docx.oxml.document import CT_Body, CT_Document
     from docx.parts.document import DocumentPart
     from docx.settings import Settings
@@ -160,6 +161,11 @@ class Document(ElementProxy):
     def comments(self) -> Comments:
         """A |Comments| object providing access to comments added to the document."""
         return self._part.comments
+
+    @property
+    def footnotes(self) -> Footnotes:
+        """A |Footnotes| object providing access to footnotes in the document."""
+        return self._part.footnotes
 
     @property
     def core_properties(self):
