@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable, List, cast
 
+from docx.oxml.ns import qn
 from docx.oxml.parser import OxmlElement
 from docx.oxml.xmlchemy import BaseOxmlElement, ZeroOrMore, ZeroOrOne
 
@@ -30,6 +31,27 @@ class CT_P(BaseOxmlElement):
     pPr: CT_PPr | None = ZeroOrOne("w:pPr")  # pyright: ignore[reportAssignmentType]
     hyperlink = ZeroOrMore("w:hyperlink")
     r = ZeroOrMore("w:r")
+
+    def add_bookmark(self, bookmark_id: int, name: str) -> None:
+        """Add bookmarkStart/bookmarkEnd pair to this paragraph.
+
+        When no specific run positions are given, the bookmark wraps the entire
+        paragraph content (all runs).
+        """
+        bookmarkStart = OxmlElement(
+            "w:bookmarkStart",
+            attrs={qn("w:id"): str(bookmark_id), qn("w:name"): name},
+        )
+        bookmarkEnd = OxmlElement(
+            "w:bookmarkEnd",
+            attrs={qn("w:id"): str(bookmark_id)},
+        )
+        # -- insert bookmarkStart after pPr (or at beginning) and bookmarkEnd at end --
+        if self.pPr is not None:
+            self.pPr.addnext(bookmarkStart)
+        else:
+            self.insert(0, bookmarkStart)
+        self.append(bookmarkEnd)
 
     def add_p_before(self) -> CT_P:
         """Return a new `<w:p>` element inserted directly prior to this one."""
