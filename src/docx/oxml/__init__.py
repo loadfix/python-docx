@@ -281,3 +281,17 @@ register_element_cls("w:spacing", CT_Spacing)
 register_element_cls("w:tab", CT_TabStop)
 register_element_cls("w:tabs", CT_TabStops)
 register_element_cls("w:widowControl", CT_OnOff)
+
+# ---------------------------------------------------------------------------
+# Annotation reference elements — used in comments/footnotes markup but do not
+# need custom behaviour beyond what BaseOxmlElement provides.  Registering them
+# ensures they are recognised by the parser's element-class lookup.
+
+from docx.oxml.xmlchemy import BaseOxmlElement as _Base  # noqa: E402
+
+register_element_cls("w:annotationRef", _Base)
+register_element_cls("w:commentRangeEnd", _Base)
+register_element_cls("w:commentRangeStart", _Base)
+register_element_cls("w:commentReference", _Base)
+register_element_cls("w:footnoteRef", _Base)
+register_element_cls("w:footnoteReference", _Base)

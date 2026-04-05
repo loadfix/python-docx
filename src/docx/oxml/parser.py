@@ -15,8 +15,15 @@ if TYPE_CHECKING:
 
 
 # -- configure XML parser --
+# Security: resolve_entities=False prevents XXE attacks, no_network=True prevents
+# network access during parsing, huge_tree=False prevents XML bombs (billion laughs).
 element_class_lookup = etree.ElementNamespaceClassLookup()
-oxml_parser = etree.XMLParser(remove_blank_text=True, resolve_entities=False)
+oxml_parser = etree.XMLParser(
+    remove_blank_text=True,
+    resolve_entities=False,
+    no_network=True,
+    huge_tree=False,
+)
 oxml_parser.set_element_class_lookup(element_class_lookup)
 
 

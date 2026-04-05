@@ -44,6 +44,13 @@ class _DirPkgReader(PhysPkgReader):
     def blob_for(self, pack_uri):
         """Return contents of file corresponding to `pack_uri` in package directory."""
         path = os.path.join(self._path, pack_uri.membername)
+        # Guard against path traversal — resolved path must remain within package dir
+        real_path = os.path.realpath(path)
+        real_root = os.path.realpath(self._path)
+        if not real_path.startswith(real_root + os.sep) and real_path != real_root:
+            raise ValueError(
+                "Pack URI '%s' resolves outside package directory" % pack_uri
+            )
         with open(path, "rb") as f:
             blob = f.read()
         return blob
