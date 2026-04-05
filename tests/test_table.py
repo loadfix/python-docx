@@ -661,6 +661,35 @@ class Describe_Row:
     @pytest.mark.parametrize(
         ("tr_cxml", "expected_value"),
         [
+            ("w:tr", True),
+            ("w:tr/w:trPr", True),
+            ("w:tr/w:trPr/w:cantSplit", False),
+            ("w:tr/w:trPr/w:cantSplit{w:val=false}", True),
+        ],
+    )
+    def it_knows_whether_it_allows_break_across_pages(
+        self, tr_cxml: str, expected_value: bool, parent_: Mock
+    ):
+        row = _Row(cast(CT_Row, element(tr_cxml)), parent_)
+        assert row.allow_break_across_pages is expected_value
+
+    @pytest.mark.parametrize(
+        ("tr_cxml", "new_value", "expected_cxml"),
+        [
+            ("w:tr", False, "w:tr/w:trPr/w:cantSplit"),
+            ("w:tr/w:trPr/w:cantSplit", True, "w:tr/w:trPr"),
+        ],
+    )
+    def it_can_change_whether_it_allows_break_across_pages(
+        self, tr_cxml: str, new_value: bool, expected_cxml: str, parent_: Mock
+    ):
+        row = _Row(cast(CT_Row, element(tr_cxml)), parent_)
+        row.allow_break_across_pages = new_value
+        assert row._tr.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("tr_cxml", "expected_value"),
+        [
             ("w:tr", 0),
             ("w:tr/w:trPr", 0),
             ("w:tr/w:trPr/w:gridAfter{w:val=0}", 0),

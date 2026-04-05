@@ -61,6 +61,23 @@ class CT_Row(BaseOxmlElement):
     tc = ZeroOrMore("w:tc")
 
     @property
+    def allow_break_across_pages(self) -> bool:
+        """Value of `./w:trPr/w:cantSplit`, with inverted logic.
+
+        |True| when row is allowed to break across pages (default), |False| when the
+        entire row must be kept on a single page.
+        """
+        trPr = self.trPr
+        if trPr is None:
+            return True
+        return trPr.allow_break_across_pages  # pyright: ignore[reportReturnType]
+
+    @allow_break_across_pages.setter
+    def allow_break_across_pages(self, value: bool | None):
+        trPr = self.get_or_add_trPr()
+        trPr.allow_break_across_pages = value
+
+    @property
     def grid_after(self) -> int:
         """The number of unpopulated layout-grid cells at the end of this row."""
         trPr = self.trPr
@@ -892,7 +909,9 @@ class CT_TcPr(BaseOxmlElement):
 class CT_TrPr(BaseOxmlElement):
     """``<w:trPr>`` element, defining table row properties."""
 
+    get_or_add_cantSplit: Callable[[], CT_OnOff]
     get_or_add_trHeight: Callable[[], CT_Height]
+    _remove_cantSplit: Callable[[], None]
 
     _tag_seq = (
         "w:cnfStyle",
@@ -911,6 +930,9 @@ class CT_TrPr(BaseOxmlElement):
         "w:del",
         "w:trPrChange",
     )
+    cantSplit: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:cantSplit", successors=_tag_seq[7:]
+    )
     gridAfter: CT_DecimalNumber | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:gridAfter", successors=_tag_seq[4:]
     )
@@ -921,6 +943,26 @@ class CT_TrPr(BaseOxmlElement):
         "w:trHeight", successors=_tag_seq[8:]
     )
     del _tag_seq
+
+    @property
+    def allow_break_across_pages(self) -> bool | None:
+        """Value of `w:cantSplit` element, with inverted logic.
+
+        |True| when `w:cantSplit` is not present or its val is False, |False| when
+        `w:cantSplit` is present and its val is True, |None| is not used because
+        presence semantics give us a definitive answer.
+        """
+        cantSplit = self.cantSplit
+        if cantSplit is None:
+            return True
+        return not cantSplit.val
+
+    @allow_break_across_pages.setter
+    def allow_break_across_pages(self, value: bool | None):
+        if value is None or value is True:
+            self._remove_cantSplit()
+        else:
+            self.get_or_add_cantSplit().val = True
 
     @property
     def grid_after(self) -> int:
