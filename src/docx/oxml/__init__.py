@@ -95,6 +95,11 @@ from .coreprops import CT_CoreProperties
 
 register_element_cls("cp:coreProperties", CT_CoreProperties)
 
+from .custom_properties import CT_CustomProperties, CT_CustomProperty
+
+register_element_cls("cust:Properties", CT_CustomProperties)
+register_element_cls("cust:property", CT_CustomProperty)
+
 from .document import CT_Body, CT_Document
 
 register_element_cls("w:body", CT_Body)
