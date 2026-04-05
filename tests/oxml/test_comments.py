@@ -5,13 +5,10 @@
 from __future__ import annotations
 
 from typing import cast
-from unittest.mock import patch
 
 import pytest
 
 from docx.oxml.comments import CT_Comment, CT_Comments
-from docx.oxml.ns import nsdecls, qn
-from docx.oxml.parser import parse_xml
 
 from ..unitutil.cxml import element
 

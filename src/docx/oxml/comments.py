@@ -41,26 +41,7 @@ class CT_Comments(BaseOxmlElement):
         """
         next_id = self._next_available_comment_id()
         para_id = self._next_unique_para_id()
-        comment = cast(
-            CT_Comment,
-            parse_xml(
-                f'<w:comment {nsdecls("w", "w16cid")}'
-                f' w:id="{next_id}" w:author=""'
-                f' w16cid:paraId="{para_id}">'
-                f"  <w:p>"
-                f"    <w:pPr>"
-                f'      <w:pStyle w:val="CommentText"/>'
-                f"    </w:pPr>"
-                f"    <w:r>"
-                f"      <w:rPr>"
-                f'        <w:rStyle w:val="CommentReference"/>'
-                f"      </w:rPr>"
-                f"      <w:annotationRef/>"
-                f"    </w:r>"
-                f"  </w:p>"
-                f"</w:comment>"
-            ),
-        )
+        comment = cast(CT_Comment, parse_xml(self._new_comment_xml(next_id, para_id)))
         self.append(comment)
         return comment
 
@@ -72,29 +53,30 @@ class CT_Comments(BaseOxmlElement):
         """
         next_id = self._next_available_comment_id()
         para_id = self._next_unique_para_id()
-        comment = cast(
-            CT_Comment,
-            parse_xml(
-                f'<w:comment {nsdecls("w", "w16cid")}'
-                f' w:id="{next_id}" w:author=""'
-                f' w16cid:paraId="{para_id}">'
-                f"  <w:p>"
-                f"    <w:pPr>"
-                f'      <w:pStyle w:val="CommentText"/>'
-                f"    </w:pPr>"
-                f"    <w:r>"
-                f"      <w:rPr>"
-                f'        <w:rStyle w:val="CommentReference"/>'
-                f"      </w:rPr>"
-                f"      <w:annotationRef/>"
-                f"    </w:r>"
-                f"  </w:p>"
-                f"</w:comment>"
-            ),
-        )
+        comment = cast(CT_Comment, parse_xml(self._new_comment_xml(next_id, para_id)))
         comment.set(qn("w16cid:paraIdParent"), parent_paraId)
         self.append(comment)
         return comment
+
+    def _new_comment_xml(self, comment_id: int, para_id: str) -> str:
+        """Return XML string for a new `w:comment` element."""
+        return (
+            f'<w:comment {nsdecls("w", "w16cid")}'
+            f' w:id="{comment_id}" w:author=""'
+            f' w16cid:paraId="{para_id}">'
+            f"  <w:p>"
+            f"    <w:pPr>"
+            f'      <w:pStyle w:val="CommentText"/>'
+            f"    </w:pPr>"
+            f"    <w:r>"
+            f"      <w:rPr>"
+            f'        <w:rStyle w:val="CommentReference"/>'
+            f"      </w:rPr>"
+            f"      <w:annotationRef/>"
+            f"    </w:r>"
+            f"  </w:p>"
+            f"</w:comment>"
+        )
 
     def get_replies_for(self, para_id: str) -> list[CT_Comment]:
         """Return list of `w:comment` elements whose `w16cid:paraIdParent` matches `para_id`."""
