@@ -44,6 +44,8 @@ class CT_Fonts(BaseOxmlElement):
 
     ascii: str | None = OptionalAttribute("w:ascii", ST_String)
     hAnsi: str | None = OptionalAttribute("w:hAnsi", ST_String)
+    eastAsia: str | None = OptionalAttribute("w:eastAsia", ST_String)
+    cs: str | None = OptionalAttribute("w:cs", ST_String)
 
 
 class CT_Highlight(BaseOxmlElement):
@@ -204,6 +206,36 @@ class CT_RPr(BaseOxmlElement):
             return
         rFonts = self.get_or_add_rFonts()
         rFonts.hAnsi = value
+
+    @property
+    def rFonts_eastAsia(self) -> str | None:
+        """The value of `w:rFonts/@w:eastAsia` or |None| if not present."""
+        rFonts = self.rFonts
+        if rFonts is None:
+            return None
+        return rFonts.eastAsia
+
+    @rFonts_eastAsia.setter
+    def rFonts_eastAsia(self, value: str | None):
+        if value is None and self.rFonts is None:
+            return
+        rFonts = self.get_or_add_rFonts()
+        rFonts.eastAsia = value
+
+    @property
+    def rFonts_cs(self) -> str | None:
+        """The value of `w:rFonts/@w:cs` or |None| if not present."""
+        rFonts = self.rFonts
+        if rFonts is None:
+            return None
+        return rFonts.cs
+
+    @rFonts_cs.setter
+    def rFonts_cs(self, value: str | None):
+        if value is None and self.rFonts is None:
+            return
+        rFonts = self.get_or_add_rFonts()
+        rFonts.cs = value
 
     @property
     def style(self) -> str | None:

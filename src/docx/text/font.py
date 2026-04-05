@@ -200,6 +200,53 @@ class Font(ElementProxy):
         rPr.rFonts_hAnsi = value
 
     @property
+    def name_cs(self) -> str | None:
+        """The Complex Script typeface name for this |Font|.
+
+        Corresponds to the `w:cs` attribute of `w:rFonts`. |None| indicates the typeface
+        is inherited from the style hierarchy.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        return rPr.rFonts_cs
+
+    @name_cs.setter
+    def name_cs(self, value: str | None) -> None:
+        rPr = self._element.get_or_add_rPr()
+        rPr.rFonts_cs = value
+
+    @property
+    def name_east_asia(self) -> str | None:
+        """The East Asian typeface name for this |Font|.
+
+        Alias for :attr:`name_far_east`. Corresponds to the `w:eastAsia` attribute of
+        `w:rFonts`. |None| indicates the typeface is inherited from the style hierarchy.
+        """
+        return self.name_far_east
+
+    @name_east_asia.setter
+    def name_east_asia(self, value: str | None) -> None:
+        self.name_far_east = value
+
+    @property
+    def name_far_east(self) -> str | None:
+        """The East Asian (CJK) typeface name for this |Font|.
+
+        Corresponds to the `w:eastAsia` attribute of `w:rFonts`. |None| indicates the
+        typeface is inherited from the style hierarchy.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        return rPr.rFonts_eastAsia
+
+    @name_far_east.setter
+    def name_far_east(self, value: str | None) -> None:
+        rPr = self._element.get_or_add_rPr()
+        rPr.rFonts_eastAsia = value
+
+    @property
     def no_proof(self) -> bool | None:
         """Read/write tri-state value.
 

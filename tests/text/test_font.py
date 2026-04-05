@@ -76,6 +76,100 @@ class DescribeFont:
         [
             ("w:r", None),
             ("w:r/w:rPr", None),
+            ("w:r/w:rPr/w:rFonts", None),
+            ('w:r/w:rPr/w:rFonts{w:cs=Naskh}', "Naskh"),
+        ],
+    )
+    def it_knows_its_complex_script_typeface_name(self, r_cxml: str, expected_value: str | None):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        assert font.name_cs == expected_value
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "value", "expected_r_cxml"),
+        [
+            ("w:r", "Naskh", "w:r/w:rPr/w:rFonts{w:cs=Naskh}"),
+            ("w:r/w:rPr", "Naskh", "w:r/w:rPr/w:rFonts{w:cs=Naskh}"),
+            (
+                "w:r/w:rPr/w:rFonts{w:cs=Naskh}",
+                "Nazli",
+                "w:r/w:rPr/w:rFonts{w:cs=Nazli}",
+            ),
+            (
+                "w:r/w:rPr/w:rFonts{w:ascii=Arial,w:cs=Naskh}",
+                None,
+                "w:r/w:rPr/w:rFonts{w:ascii=Arial}",
+            ),
+        ],
+    )
+    def it_can_change_its_complex_script_typeface_name(
+        self, r_cxml: str, value: str | None, expected_r_cxml: str
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        expected_xml = xml(expected_r_cxml)
+
+        font.name_cs = value
+
+        assert font._element.xml == expected_xml
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r/w:rPr", None),
+            ("w:r/w:rPr/w:rFonts", None),
+            ('w:r/w:rPr/w:rFonts{w:eastAsia=SimSun}', "SimSun"),
+        ],
+    )
+    def it_knows_its_east_asian_typeface_name(self, r_cxml: str, expected_value: str | None):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        assert font.name_far_east == expected_value
+        assert font.name_east_asia == expected_value
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "value", "expected_r_cxml"),
+        [
+            ("w:r", "SimSun", "w:r/w:rPr/w:rFonts{w:eastAsia=SimSun}"),
+            ("w:r/w:rPr", "SimSun", "w:r/w:rPr/w:rFonts{w:eastAsia=SimSun}"),
+            (
+                "w:r/w:rPr/w:rFonts{w:eastAsia=SimSun}",
+                "MS Mincho",
+                "w:r/w:rPr/w:rFonts{w:eastAsia=MS Mincho}",
+            ),
+            (
+                "w:r/w:rPr/w:rFonts{w:ascii=Arial,w:eastAsia=SimSun}",
+                None,
+                "w:r/w:rPr/w:rFonts{w:ascii=Arial}",
+            ),
+        ],
+    )
+    def it_can_change_its_east_asian_typeface_name(
+        self, r_cxml: str, value: str | None, expected_r_cxml: str
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        expected_xml = xml(expected_r_cxml)
+
+        font.name_far_east = value
+
+        assert font._element.xml == expected_xml
+
+    def it_can_change_its_east_asian_typeface_name_via_alias(self):
+        r = cast(CT_R, element("w:r"))
+        font = Font(r)
+
+        font.name_east_asia = "SimSun"
+
+        assert font.name_far_east == "SimSun"
+        assert font.name_east_asia == "SimSun"
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r/w:rPr", None),
             ("w:r/w:rPr/w:sz{w:val=28}", Pt(14)),
         ],
     )
