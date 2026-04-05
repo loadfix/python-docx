@@ -341,12 +341,17 @@ class CT_PPr(BaseOxmlElement):
 
 class CT_Spacing(BaseOxmlElement):
     """``<w:spacing>`` element, specifying paragraph spacing attributes such as space
-    before and line spacing."""
+    before and line spacing.
+
+    Also used in run properties (``w:rPr``) for character spacing, where the ``w:val``
+    attribute specifies expanded/condensed spacing in twips.
+    """
 
     after = OptionalAttribute("w:after", ST_TwipsMeasure)
     before = OptionalAttribute("w:before", ST_TwipsMeasure)
     line = OptionalAttribute("w:line", ST_SignedTwipsMeasure)
     lineRule = OptionalAttribute("w:lineRule", WD_LINE_SPACING)
+    val: Length | None = OptionalAttribute("w:val", ST_SignedTwipsMeasure)
 
 
 class CT_TabStop(BaseOxmlElement):

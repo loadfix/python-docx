@@ -12,7 +12,7 @@ from _pytest.fixtures import FixtureRequest
 from docx.dml.color import ColorFormat
 from docx.enum.text import WD_COLOR, WD_UNDERLINE
 from docx.oxml.text.run import CT_R
-from docx.shared import Length, Pt
+from docx.shared import Emu, Length, Pt, Twips
 from docx.text.font import Font
 
 from ..unitutil.cxml import element, xml
@@ -21,6 +21,73 @@ from ..unitutil.mock import Mock, class_mock, instance_mock
 
 class DescribeFont:
     """Unit-test suite for `docx.text.font.Font`."""
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r/w:rPr", None),
+            ("w:r/w:rPr/w:spacing{w:val=40}", Twips(40)),
+            ("w:r/w:rPr/w:spacing{w:val=-20}", Twips(-20)),
+        ],
+    )
+    def it_knows_its_character_spacing(self, r_cxml: str, expected_value: Length | None):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        assert font.character_spacing == expected_value
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "value", "expected_r_cxml"),
+        [
+            ("w:r", Pt(2), "w:r/w:rPr/w:spacing{w:val=40}"),
+            ("w:r/w:rPr", Pt(2), "w:r/w:rPr/w:spacing{w:val=40}"),
+            ("w:r/w:rPr/w:spacing{w:val=40}", Pt(3), "w:r/w:rPr/w:spacing{w:val=60}"),
+            ("w:r/w:rPr/w:spacing{w:val=40}", None, "w:r/w:rPr"),
+        ],
+    )
+    def it_can_change_its_character_spacing(
+        self, r_cxml: str, value: Length | None, expected_r_cxml: str
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        expected_xml = xml(expected_r_cxml)
+
+        font.character_spacing = value
+
+        assert font._element.xml == expected_xml
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r/w:rPr", None),
+            ("w:r/w:rPr/w:kern{w:val=28}", Pt(14)),
+        ],
+    )
+    def it_knows_its_kerning(self, r_cxml: str, expected_value: Length | None):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        assert font.kerning == expected_value
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "value", "expected_r_cxml"),
+        [
+            ("w:r", Pt(14), "w:r/w:rPr/w:kern{w:val=28}"),
+            ("w:r/w:rPr", Pt(14), "w:r/w:rPr/w:kern{w:val=28}"),
+            ("w:r/w:rPr/w:kern{w:val=28}", Pt(16), "w:r/w:rPr/w:kern{w:val=32}"),
+            ("w:r/w:rPr/w:kern{w:val=28}", None, "w:r/w:rPr"),
+        ],
+    )
+    def it_can_change_its_kerning(
+        self, r_cxml: str, value: Length | None, expected_r_cxml: str
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        expected_xml = xml(expected_r_cxml)
+
+        font.kerning = value
+
+        assert font._element.xml == expected_xml
 
     def it_provides_access_to_its_color_object(self, ColorFormat_: Mock, color_: Mock):
         r = cast(CT_R, element("w:r"))
