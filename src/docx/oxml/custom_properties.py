@@ -44,14 +44,20 @@ class CT_CustomProperties(BaseOxmlElement):
 
     def add_property(self, name: str) -> CT_CustomProperty:
         """Add a new ``<property>`` child element with `name` and return it."""
+        from lxml.etree import SubElement
+
         prop = cast(
             CT_CustomProperty,
-            parse_xml(
-                '<cust:property %s fmtid="%s" pid="%d" name="%s"/>\n'
-                % (nsdecls("cust", "vt"), _CUSTOM_PROPS_FMTID, self._next_pid, name)
+            SubElement(
+                self,
+                qn("cust:property"),
+                attrib={
+                    "fmtid": _CUSTOM_PROPS_FMTID,
+                    "pid": str(self._next_pid),
+                    "name": name,
+                },
             ),
         )
-        self.append(prop)
         return prop
 
     def get_property_by_name(self, name: str) -> CT_CustomProperty | None:
