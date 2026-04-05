@@ -13,7 +13,7 @@ from docx.exceptions import InvalidSpanError
 from docx.oxml.parser import parse_xml
 from docx.oxml.table import CT_Row, CT_Shd, CT_Tbl, CT_Tc, CT_TcPr
 from docx.oxml.text.paragraph import CT_P
-from docx.shared import RGBColor
+from docx.shared import Inches, RGBColor
 
 from ..unitutil.cxml import element, xml
 from ..unitutil.file import snippet_seq
@@ -82,6 +82,58 @@ class DescribeCT_TcPr:
         # shd should appear between tcW and vAlign
         expected_xml = xml("w:tcPr/(w:tcW,w:shd,w:vAlign{w:val=center})")
         assert tcPr.xml == expected_xml
+
+
+class DescribeCT_TblPr:
+    """Unit-test suite for `docx.oxml.table.CT_TblPr` objects."""
+
+    @pytest.mark.parametrize(
+        ("tblPr_cxml", "expected_value"),
+        [
+            ("w:tblPr", None),
+            ("w:tblPr/w:tblW{w:w=0,w:type=auto}", None),
+            ("w:tblPr/w:tblW{w:w=5000,w:type=pct}", None),
+            ("w:tblPr/w:tblW{w:w=4320,w:type=dxa}", 2743200),
+        ],
+    )
+    def it_knows_its_preferred_width(
+        self, tblPr_cxml: str, expected_value: int | None
+    ):
+        from docx.oxml.table import CT_TblPr
+
+        tblPr = cast(CT_TblPr, element(tblPr_cxml))
+        assert tblPr.preferred_width == expected_value
+
+    @pytest.mark.parametrize(
+        ("tblPr_cxml", "new_value", "expected_cxml"),
+        [
+            ("w:tblPr", Inches(3), "w:tblPr/w:tblW{w:w=4320,w:type=dxa}"),
+            (
+                "w:tblPr/w:tblW{w:w=0,w:type=auto}",
+                Inches(2),
+                "w:tblPr/w:tblW{w:w=2880,w:type=dxa}",
+            ),
+            ("w:tblPr/w:tblW{w:w=4320,w:type=dxa}", None, "w:tblPr"),
+        ],
+    )
+    def it_can_change_its_preferred_width(
+        self, tblPr_cxml: str, new_value: int | None, expected_cxml: str
+    ):
+        from docx.oxml.table import CT_TblPr
+
+        tblPr = cast(CT_TblPr, element(tblPr_cxml))
+        tblPr.preferred_width = new_value
+        assert tblPr.xml == xml(expected_cxml)
+
+    def it_inserts_tblW_in_the_right_position(self):
+        from docx.oxml.table import CT_TblPr
+
+        tblPr = cast(CT_TblPr, element("w:tblPr/(w:tblStyle{w:val=Foo},w:jc{w:val=center})"))
+        tblPr.preferred_width = Inches(3)
+        expected = xml(
+            "w:tblPr/(w:tblStyle{w:val=Foo},w:tblW{w:w=4320,w:type=dxa},w:jc{w:val=center})"
+        )
+        assert tblPr.xml == expected
 
 
 class DescribeCT_Row:

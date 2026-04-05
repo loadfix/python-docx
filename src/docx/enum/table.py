@@ -240,6 +240,40 @@ class WD_SHADING_PATTERN(BaseXmlEnum):
     """No shading."""
 
 
+class WD_TABLE_AUTOFIT(BaseEnum):
+    """Specifies the AutoFit behavior for a table.
+
+    Example::
+
+        from docx.enum.table import WD_TABLE_AUTOFIT
+
+        table = document.add_table(3, 3)
+        table.autofit_behavior = WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW
+
+    MS API name: `WdAutoFitBehavior`
+
+    https://learn.microsoft.com/en-us/office/vba/api/word.wdautofitbehavior
+    """
+
+    FIXED_WIDTH = (
+        0,
+        "Table column widths are fixed regardless of cell contents.",
+    )
+    """Table column widths are fixed regardless of cell contents."""
+
+    AUTOFIT_TO_CONTENTS = (
+        1,
+        "Table column widths are adjusted to fit cell contents.",
+    )
+    """Table column widths are adjusted to fit cell contents."""
+
+    AUTOFIT_TO_WINDOW = (
+        2,
+        "Table is resized to fit the window or container width.",
+    )
+    """Table is resized to fit the window or container width."""
+
+
 class WD_TABLE_DIRECTION(BaseEnum):
     """Specifies the direction in which an application orders cells in the specified
     table or row.

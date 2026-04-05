@@ -9,7 +9,7 @@ from typing_extensions import TypeAlias
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.style import WD_STYLE_TYPE
-from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_SHADING_PATTERN
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_SHADING_PATTERN, WD_TABLE_AUTOFIT
 from docx.oxml.simpletypes import ST_Merge
 from docx.oxml.table import CT_TblGridCol
 from docx.shared import Inches, Parented, RGBColor, StoryChild, lazyproperty
@@ -95,6 +95,51 @@ class Table(StoryChild):
     def autofit(self, value: bool):
         self._tblPr.autofit = value
 
+    @property
+    def allow_autofit(self) -> bool:
+        """|True| if column widths can be automatically adjusted to improve the fit of
+        cell contents.
+
+        |False| if table layout is fixed. Read/write boolean.
+        """
+        return self._tblPr.autofit
+
+    @allow_autofit.setter
+    def allow_autofit(self, value: bool):
+        self._tblPr.autofit = value
+
+    @property
+    def autofit_behavior(self) -> WD_TABLE_AUTOFIT:
+        """A member of :ref:`WdAutoFitBehavior` indicating the AutoFit behavior for this
+        table.
+
+        Read/write. Returns the current AutoFit setting based on the combination of table
+        layout and table width settings.
+        """
+        tblPr = self._tblPr
+        if not tblPr.autofit:
+            return WD_TABLE_AUTOFIT.FIXED_WIDTH
+        tblW = tblPr.tblW
+        if tblW is not None and tblW.type == "pct":
+            return WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW
+        return WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS
+
+    @autofit_behavior.setter
+    def autofit_behavior(self, value: WD_TABLE_AUTOFIT):
+        tblPr = self._tblPr
+        if value == WD_TABLE_AUTOFIT.FIXED_WIDTH:
+            tblPr.autofit = False
+        elif value == WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW:
+            tblPr.autofit = True
+            tblW = tblPr.get_or_add_tblW()
+            tblW.type = "pct"
+            tblW.w = 5000
+        elif value == WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS:
+            tblPr.autofit = True
+            tblW = tblPr.get_or_add_tblW()
+            tblW.type = "auto"
+            tblW.w = 0
+
     def cell(self, row_idx: int, col_idx: int) -> _Cell:
         """|_Cell| at `row_idx`, `col_idx` intersection.
 
@@ -128,6 +173,19 @@ class Table(StoryChild):
         start = row_idx * column_count
         end = start + column_count
         return self._cells[start:end]
+
+    @property
+    def preferred_width(self) -> Length | None:
+        """The preferred width of this table in EMU, or |None| if no explicit width is set.
+
+        Read/write. When set, the table width type is set to 'dxa' (fixed width in twips).
+        Assigning |None| removes the preferred width setting.
+        """
+        return self._tblPr.preferred_width
+
+    @preferred_width.setter
+    def preferred_width(self, value: Length | None):
+        self._tblPr.preferred_width = value
 
     @lazyproperty
     def rows(self) -> _Rows:
@@ -430,6 +488,28 @@ class _Column(Parented):
     @width.setter
     def width(self, value: Length | None):
         self._gridCol.w = value
+        self._update_cell_widths(value)
+
+    def _update_cell_widths(self, width: Length | None) -> None:
+        """Set the width of each cell in this column to `width`.
+
+        Skips cells that span multiple columns. Does nothing if `width` is |None|
+        or if the gridCol is not part of a table (e.g. standalone element).
+        """
+        if width is None:
+            return
+        tblGrid = self._gridCol.getparent()
+        if tblGrid is None:
+            return
+        col_idx = self._index
+        tbl = self.table._tbl
+        for tr in tbl.tr_lst:
+            try:
+                tc = tr.tc_at_grid_offset(col_idx)
+            except ValueError:
+                continue
+            if tc.grid_span == 1:
+                tc.width = width
 
     @property
     def _index(self):
