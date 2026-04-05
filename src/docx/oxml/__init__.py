@@ -287,7 +287,7 @@ register_element_cls("w:widowControl", CT_OnOff)
 # need custom behaviour beyond what BaseOxmlElement provides.  Registering them
 # ensures they are recognised by the parser's element-class lookup.
 
-from docx.oxml.xmlchemy import BaseOxmlElement as _Base  # noqa: E402
+from docx.oxml.xmlchemy import BaseOxmlElement as _Base
 
 register_element_cls("w:annotationRef", _Base)
 register_element_cls("w:commentRangeEnd", _Base)

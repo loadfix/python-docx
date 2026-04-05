@@ -58,7 +58,6 @@ class CT_NumPr(BaseOxmlElement):
     numId = ZeroOrOne("w:numId", successors=("w:numberingChange", "w:ins"))
 
 
-
 class CT_Numbering(BaseOxmlElement):
     """``<w:numbering>`` element, the root element of a numbering part, i.e.
     numbering.xml."""
