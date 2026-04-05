@@ -79,6 +79,16 @@ jobs:
           gh issue view "$ISSUE_NUMBER" --json title,body --jq '.title' > /tmp/issue-title.txt
           gh issue view "$ISSUE_NUMBER" --json title,body --jq '.body' > /tmp/issue-body.txt
 
+          # Append recent comments so the Product Agent has full context
+          COMMENT_COUNT=$(gh api repos/${{ github.repository }}/issues/$ISSUE_NUMBER/comments --jq 'length' 2>/dev/null || echo "0")
+          if [ "$COMMENT_COUNT" -gt 0 ]; then
+            echo "" >> /tmp/issue-body.txt
+            echo "---" >> /tmp/issue-body.txt
+            echo "## Discussion ($COMMENT_COUNT comments)" >> /tmp/issue-body.txt
+            gh api repos/${{ github.repository }}/issues/$ISSUE_NUMBER/comments \
+              --jq '.[-10:] | .[] | "**@\(.user.login)** (\(.created_at[:10])):\n\(.body[:500])\n"' >> /tmp/issue-body.txt
+          fi
+
       - name: Write prompt file
         run: |
           ISSUE_TITLE=$(cat /tmp/issue-title.txt)
