@@ -149,4 +149,4 @@ jobs:
             --remove-label "review-changes-needed" \
             --remove-label "security-passed" \
             --remove-label "review-approved" 2>/dev/null || true
-          gh workflow run agent-security.yml -f pr_number="$PR_NUM"
+          GH_TOKEN=${{ github.token }} gh workflow run agent-security.yml -f pr_number="$PR_NUM"
