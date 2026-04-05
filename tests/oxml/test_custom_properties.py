@@ -10,8 +10,7 @@ from typing import cast
 import pytest
 
 from docx.oxml.custom_properties import CT_CustomProperties, CT_CustomProperty
-from docx.oxml.ns import nsdecls, qn
-from docx.oxml.parser import parse_xml
+from docx.oxml.ns import qn
 
 
 class DescribeCT_CustomProperties:
@@ -109,6 +108,14 @@ class DescribeCT_CustomProperty:
         prop.value = value
 
         assert prop.value == value
+
+    def it_raises_on_naive_datetime(self):
+        props = CT_CustomProperties.new()
+        prop = props.add_property("Date")
+        naive = dt.datetime(2024, 6, 15, 8, 30, 0)
+
+        with pytest.raises(ValueError, match="timezone-aware"):
+            prop.value = naive
 
     def it_returns_empty_string_for_no_value_child(self):
         props = CT_CustomProperties.new()

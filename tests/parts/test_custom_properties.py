@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from docx.custom_properties import CustomProperties
 from docx.opc.constants import CONTENT_TYPE as CT
 from docx.opc.packuri import PackURI

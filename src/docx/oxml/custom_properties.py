@@ -9,6 +9,8 @@ from __future__ import annotations
 import datetime as dt
 from typing import cast
 
+from lxml.etree import SubElement
+
 from docx.oxml.ns import nsdecls, qn
 from docx.oxml.parser import parse_xml
 from docx.oxml.xmlchemy import BaseOxmlElement
@@ -44,8 +46,6 @@ class CT_CustomProperties(BaseOxmlElement):
 
     def add_property(self, name: str) -> CT_CustomProperty:
         """Add a new ``<property>`` child element with `name` and return it."""
-        from lxml.etree import SubElement
-
         prop = cast(
             CT_CustomProperty,
             SubElement(
@@ -118,13 +118,13 @@ class CT_CustomProperty(BaseOxmlElement):
             child_tag = qn("vt:r8")
             text = str(val)
         elif isinstance(val, dt.datetime):
+            if val.tzinfo is None:
+                raise ValueError("datetime value must be timezone-aware (use dt.timezone.utc)")
             child_tag = qn("vt:filetime")
-            text = val.strftime("%Y-%m-%dT%H:%M:%SZ")
+            text = val.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         else:
             child_tag = qn("vt:lpwstr")
             text = str(val)
-
-        from lxml.etree import SubElement
 
         child_elm = SubElement(self, child_tag)
         child_elm.text = text

@@ -6,12 +6,14 @@ from __future__ import annotations
 
 import pytest
 
+from docx.custom_properties import CustomProperties
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.opc.coreprops import CoreProperties
 from docx.opc.package import OpcPackage, Unmarshaller
 from docx.opc.packuri import PACKAGE_URI, PackURI
 from docx.opc.part import Part
 from docx.opc.parts.coreprops import CorePropertiesPart
+from docx.opc.parts.custom_properties import CustomPropertiesPart
 from docx.opc.pkgreader import PackageReader
 from docx.opc.rel import Relationships, _Relationship
 
@@ -152,6 +154,42 @@ class DescribeOpcPackage:
         relate_to_.assert_called_once_with(opc_package, core_properties_part_, RT.CORE_PROPERTIES)
         assert core_properties_part is core_properties_part_
 
+    def it_provides_access_to_the_custom_properties(
+        self, _custom_properties_part_prop_, custom_properties_part_, custom_properties_
+    ):
+        opc_package = OpcPackage()
+        _custom_properties_part_prop_.return_value = custom_properties_part_
+        custom_properties_part_.custom_properties = custom_properties_
+
+        custom_properties = opc_package.custom_properties
+
+        assert custom_properties is custom_properties_
+
+    def it_provides_access_to_the_custom_properties_part_to_help(
+        self, part_related_by_, custom_properties_part_
+    ):
+        part_related_by_.return_value = custom_properties_part_
+        opc_package = OpcPackage()
+
+        custom_properties_part = opc_package._custom_properties_part
+
+        assert custom_properties_part is custom_properties_part_
+
+    def it_creates_a_default_custom_props_part_if_none_present(
+        self, part_related_by_, CustomPropertiesPart_, relate_to_, custom_properties_part_
+    ):
+        part_related_by_.side_effect = KeyError
+        CustomPropertiesPart_.default.return_value = custom_properties_part_
+        opc_package = OpcPackage()
+
+        custom_properties_part = opc_package._custom_properties_part
+
+        CustomPropertiesPart_.default.assert_called_once_with(opc_package)
+        relate_to_.assert_called_once_with(
+            opc_package, custom_properties_part_, RT.CUSTOM_PROPERTIES
+        )
+        assert custom_properties_part is custom_properties_part_
+
     # fixtures ---------------------------------------------
 
     @pytest.fixture
@@ -188,6 +226,22 @@ class DescribeOpcPackage:
         return pkg, "http://rel/type", related_part_
 
     # fixture components -----------------------------------
+
+    @pytest.fixture
+    def CustomPropertiesPart_(self, request: FixtureRequest):
+        return class_mock(request, "docx.opc.package.CustomPropertiesPart")
+
+    @pytest.fixture
+    def custom_properties_(self, request: FixtureRequest):
+        return instance_mock(request, CustomProperties)
+
+    @pytest.fixture
+    def custom_properties_part_(self, request: FixtureRequest):
+        return instance_mock(request, CustomPropertiesPart)
+
+    @pytest.fixture
+    def _custom_properties_part_prop_(self, request: FixtureRequest):
+        return property_mock(request, OpcPackage, "_custom_properties_part")
 
     @pytest.fixture
     def CorePropertiesPart_(self, request: FixtureRequest):
