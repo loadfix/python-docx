@@ -8,7 +8,6 @@ from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_HEADER_FOOTER
 from docx.oxml.text.paragraph import CT_P
 from docx.parts.hdrftr import FooterPart, HeaderPart
-from docx.shared import lazyproperty
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
@@ -99,7 +98,7 @@ class Section:
         """
         return _Header(self._sectPr, self._document_part, WD_HEADER_FOOTER.FIRST_PAGE)
 
-    @lazyproperty
+    @property
     def footer(self) -> _Footer:
         """|_Footer| object representing default page footer for this section.
 
@@ -137,7 +136,7 @@ class Section:
     def gutter(self, value: int | Length | None):
         self._sectPr.gutter = value
 
-    @lazyproperty
+    @property
     def header(self) -> _Header:
         """|_Header| object representing default page header for this section.
 

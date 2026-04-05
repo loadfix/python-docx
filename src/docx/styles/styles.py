@@ -58,9 +58,9 @@ class Styles(ElementProxy):
         A builtin style can be defined by passing True for the optional `builtin`
         argument.
         """
-        style_name = BabelFish.ui2internal(name)
-        if style_name in self:
+        if name in self:
             raise ValueError("document already contains style '%s'" % name)
+        style_name = BabelFish.ui2internal(name)
         style = self._element.add_style_of_type(style_name, style_type, builtin)
         return StyleFactory(style)
 

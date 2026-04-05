@@ -189,10 +189,6 @@ class CharacterStyle(BaseStyle):
         return Font(self._element)
 
 
-# -- just in case someone uses the old name in an extension function --
-_CharacterStyle = CharacterStyle
-
-
 class ParagraphStyle(CharacterStyle):
     """A paragraph style.
 
@@ -230,10 +226,6 @@ class ParagraphStyle(CharacterStyle):
         """The |ParagraphFormat| object providing access to the paragraph formatting
         properties for this style such as indentation."""
         return ParagraphFormat(self._element)
-
-
-# -- just in case someone uses the old name in an extension function --
-_ParagraphStyle = ParagraphStyle
 
 
 class _TableStyle(ParagraphStyle):
