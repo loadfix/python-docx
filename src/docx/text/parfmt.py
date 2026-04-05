@@ -9,7 +9,7 @@ from docx.shared import ElementProxy, Emu, Length, Pt, RGBColor, Twips, lazyprop
 from docx.text.tabstops import TabStops
 
 if TYPE_CHECKING:
-    from docx.oxml.text.parfmt import CT_Border, CT_PBdr
+    from docx.oxml.text.parfmt import CT_Border, CT_PBdr, CT_PPr
 
 
 class ParagraphFormat(ElementProxy):
@@ -329,39 +329,34 @@ class ParagraphBorders(ElementProxy):
     not intended to be constructed directly.
     """
 
-    def __init__(self, element: CT_PBdr):
+    def __init__(self, element: CT_PPr):
         super().__init__(element, None)
         self._pPr = element
 
     @property
     def bottom(self) -> Border:
         """The |Border| object for the bottom border."""
-        pBdr = self._pPr.get_or_add_pBdr()
-        return Border(pBdr, "bottom")
+        return Border(self._pPr, "bottom")
 
     @property
     def top(self) -> Border:
         """The |Border| object for the top border."""
-        pBdr = self._pPr.get_or_add_pBdr()
-        return Border(pBdr, "top")
+        return Border(self._pPr, "top")
 
     @property
     def left(self) -> Border:
         """The |Border| object for the left border."""
-        pBdr = self._pPr.get_or_add_pBdr()
-        return Border(pBdr, "left")
+        return Border(self._pPr, "left")
 
     @property
     def right(self) -> Border:
         """The |Border| object for the right border."""
-        pBdr = self._pPr.get_or_add_pBdr()
-        return Border(pBdr, "right")
+        return Border(self._pPr, "right")
 
     @property
     def between(self) -> Border:
         """The |Border| object for the between border."""
-        pBdr = self._pPr.get_or_add_pBdr()
-        return Border(pBdr, "between")
+        return Border(self._pPr, "between")
 
 
 class Border:
@@ -386,15 +381,19 @@ class Border:
         "between": lambda pBdr: pBdr.get_or_add_between(),
     }
 
-    def __init__(self, pBdr: CT_PBdr, side: str):
-        self._pBdr = pBdr
+    def __init__(self, pPr: CT_PPr, side: str):
+        self._pPr = pPr
         self._side = side
 
     def _get_border(self) -> CT_Border | None:
-        return self._SIDE_GETTERS[self._side](self._pBdr)
+        pBdr = self._pPr.pBdr
+        if pBdr is None:
+            return None
+        return self._SIDE_GETTERS[self._side](pBdr)
 
     def _get_or_add_border(self) -> CT_Border:
-        return self._SIDE_ADDERS[self._side](self._pBdr)
+        pBdr = self._pPr.get_or_add_pBdr()
+        return self._SIDE_ADDERS[self._side](pBdr)
 
     @property
     def style(self) -> WD_BORDER_STYLE | None:

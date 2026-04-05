@@ -14,11 +14,11 @@ from docx.enum.text import (
 from docx.oxml.shared import CT_DecimalNumber
 from docx.oxml.simpletypes import (
     ST_EighthPointMeasure,
+    ST_HexColor,
     ST_PointMeasure,
     ST_SignedTwipsMeasure,
     ST_TwipsMeasure,
 )
-from docx.oxml.simpletypes import ST_HexColor
 from docx.oxml.xmlchemy import (
     BaseOxmlElement,
     OneOrMore,

@@ -526,178 +526,188 @@ class DescribeParagraphBorders:
 
 class DescribeBorder:
     def it_can_get_style(self, style_get_fixture):
-        pBdr, side, expected_value = style_get_fixture
-        border = Border(pBdr, side)
+        pPr, side, expected_value = style_get_fixture
+        border = Border(pPr, side)
         assert border.style == expected_value
 
     def it_can_set_style(self, style_set_fixture):
-        pBdr, side, value, expected_xml_ = style_set_fixture
-        border = Border(pBdr, side)
+        pPr, side, value, expected_xml_ = style_set_fixture
+        border = Border(pPr, side)
         border.style = value
-        assert pBdr.xml == expected_xml_
+        assert pPr.xml == expected_xml_
 
     def it_can_get_width(self, width_get_fixture):
-        pBdr, side, expected_value = width_get_fixture
-        border = Border(pBdr, side)
+        pPr, side, expected_value = width_get_fixture
+        border = Border(pPr, side)
         assert border.width == expected_value
 
     def it_can_set_width(self, width_set_fixture):
-        pBdr, side, value, expected_xml_ = width_set_fixture
-        border = Border(pBdr, side)
+        pPr, side, value, expected_xml_ = width_set_fixture
+        border = Border(pPr, side)
         border.width = value
-        assert pBdr.xml == expected_xml_
+        assert pPr.xml == expected_xml_
 
     def it_can_get_color(self, color_get_fixture):
-        pBdr, side, expected_value = color_get_fixture
-        border = Border(pBdr, side)
+        pPr, side, expected_value = color_get_fixture
+        border = Border(pPr, side)
         assert border.color == expected_value
 
     def it_can_set_color(self, color_set_fixture):
-        pBdr, side, value, expected_xml_ = color_set_fixture
-        border = Border(pBdr, side)
+        pPr, side, value, expected_xml_ = color_set_fixture
+        border = Border(pPr, side)
         border.color = value
-        assert pBdr.xml == expected_xml_
+        assert pPr.xml == expected_xml_
 
     def it_can_get_space(self, space_get_fixture):
-        pBdr, side, expected_value = space_get_fixture
-        border = Border(pBdr, side)
+        pPr, side, expected_value = space_get_fixture
+        border = Border(pPr, side)
         assert border.space == expected_value
 
     def it_can_set_space(self, space_set_fixture):
-        pBdr, side, value, expected_xml_ = space_set_fixture
-        border = Border(pBdr, side)
+        pPr, side, value, expected_xml_ = space_set_fixture
+        border = Border(pPr, side)
         border.space = value
-        assert pBdr.xml == expected_xml_
+        assert pPr.xml == expected_xml_
+
+    def it_does_not_create_pBdr_on_read(self):
+        pPr = element("w:pPr")
+        border = Border(pPr, "bottom")
+        assert border.style is None
+        assert pPr.pBdr is None
 
     @pytest.fixture(
         params=[
-            ("w:pBdr", "bottom", None),
-            ("w:pBdr/w:bottom{w:val=single}", "bottom", WD_BORDER_STYLE.SINGLE),
-            ("w:pBdr/w:top{w:val=double}", "top", WD_BORDER_STYLE.DOUBLE),
+            ("w:pPr", "bottom", None),
+            ("w:pPr/w:pBdr", "bottom", None),
+            ("w:pPr/w:pBdr/w:bottom{w:val=single}", "bottom", WD_BORDER_STYLE.SINGLE),
+            ("w:pPr/w:pBdr/w:top{w:val=double}", "top", WD_BORDER_STYLE.DOUBLE),
         ]
     )
     def style_get_fixture(self, request):
         cxml, side, expected_value = request.param
-        pBdr = element(cxml)
-        return pBdr, side, expected_value
+        pPr = element(cxml)
+        return pPr, side, expected_value
 
     @pytest.fixture(
         params=[
             (
-                "w:pBdr",
+                "w:pPr/w:pBdr",
                 "bottom",
                 WD_BORDER_STYLE.SINGLE,
-                "w:pBdr/w:bottom{w:val=single}",
+                "w:pPr/w:pBdr/w:bottom{w:val=single}",
             ),
             (
-                "w:pBdr/w:bottom{w:val=single}",
+                "w:pPr/w:pBdr/w:bottom{w:val=single}",
                 "bottom",
                 WD_BORDER_STYLE.DOUBLE,
-                "w:pBdr/w:bottom{w:val=double}",
+                "w:pPr/w:pBdr/w:bottom{w:val=double}",
             ),
             (
-                "w:pBdr/w:bottom{w:val=single}",
+                "w:pPr/w:pBdr/w:bottom{w:val=single}",
                 "bottom",
                 None,
-                "w:pBdr/w:bottom",
+                "w:pPr/w:pBdr/w:bottom",
             ),
         ]
     )
     def style_set_fixture(self, request):
         cxml, side, value, expected_cxml = request.param
-        pBdr = element(cxml)
+        pPr = element(cxml)
         expected_xml_ = xml(expected_cxml)
-        return pBdr, side, value, expected_xml_
+        return pPr, side, value, expected_xml_
 
     @pytest.fixture(
         params=[
-            ("w:pBdr", "bottom", None),
-            ("w:pBdr/w:bottom{w:sz=8}", "bottom", Pt(1)),
-            ("w:pBdr/w:top{w:sz=24}", "top", Pt(3)),
+            ("w:pPr", "bottom", None),
+            ("w:pPr/w:pBdr", "bottom", None),
+            ("w:pPr/w:pBdr/w:bottom{w:sz=8}", "bottom", Pt(1)),
+            ("w:pPr/w:pBdr/w:top{w:sz=24}", "top", Pt(3)),
         ]
     )
     def width_get_fixture(self, request):
         cxml, side, expected_value = request.param
-        pBdr = element(cxml)
-        return pBdr, side, expected_value
+        pPr = element(cxml)
+        return pPr, side, expected_value
 
     @pytest.fixture(
         params=[
-            ("w:pBdr", "bottom", Pt(1), "w:pBdr/w:bottom{w:sz=8}"),
+            ("w:pPr/w:pBdr", "bottom", Pt(1), "w:pPr/w:pBdr/w:bottom{w:sz=8}"),
             (
-                "w:pBdr/w:bottom{w:sz=8}",
+                "w:pPr/w:pBdr/w:bottom{w:sz=8}",
                 "bottom",
                 Pt(3),
-                "w:pBdr/w:bottom{w:sz=24}",
+                "w:pPr/w:pBdr/w:bottom{w:sz=24}",
             ),
-            ("w:pBdr/w:bottom{w:sz=8}", "bottom", None, "w:pBdr/w:bottom"),
+            ("w:pPr/w:pBdr/w:bottom{w:sz=8}", "bottom", None, "w:pPr/w:pBdr/w:bottom"),
         ]
     )
     def width_set_fixture(self, request):
         cxml, side, value, expected_cxml = request.param
-        pBdr = element(cxml)
+        pPr = element(cxml)
         expected_xml_ = xml(expected_cxml)
-        return pBdr, side, value, expected_xml_
+        return pPr, side, value, expected_xml_
 
     @pytest.fixture(
         params=[
-            ("w:pBdr", "bottom", None),
-            ("w:pBdr/w:bottom{w:color=FF0000}", "bottom", RGBColor(0xFF, 0, 0)),
+            ("w:pPr", "bottom", None),
+            ("w:pPr/w:pBdr", "bottom", None),
+            ("w:pPr/w:pBdr/w:bottom{w:color=FF0000}", "bottom", RGBColor(0xFF, 0, 0)),
         ]
     )
     def color_get_fixture(self, request):
         cxml, side, expected_value = request.param
-        pBdr = element(cxml)
-        return pBdr, side, expected_value
+        pPr = element(cxml)
+        return pPr, side, expected_value
 
     @pytest.fixture(
         params=[
             (
-                "w:pBdr",
+                "w:pPr/w:pBdr",
                 "bottom",
                 RGBColor(0xFF, 0, 0),
-                "w:pBdr/w:bottom{w:color=FF0000}",
+                "w:pPr/w:pBdr/w:bottom{w:color=FF0000}",
             ),
             (
-                "w:pBdr/w:bottom{w:color=FF0000}",
+                "w:pPr/w:pBdr/w:bottom{w:color=FF0000}",
                 "bottom",
                 None,
-                "w:pBdr/w:bottom",
+                "w:pPr/w:pBdr/w:bottom",
             ),
         ]
     )
     def color_set_fixture(self, request):
         cxml, side, value, expected_cxml = request.param
-        pBdr = element(cxml)
+        pPr = element(cxml)
         expected_xml_ = xml(expected_cxml)
-        return pBdr, side, value, expected_xml_
+        return pPr, side, value, expected_xml_
 
     @pytest.fixture(
         params=[
-            ("w:pBdr", "bottom", None),
-            ("w:pBdr/w:bottom{w:space=1}", "bottom", Pt(1)),
-            ("w:pBdr/w:top{w:space=4}", "top", Pt(4)),
+            ("w:pPr", "bottom", None),
+            ("w:pPr/w:pBdr", "bottom", None),
+            ("w:pPr/w:pBdr/w:bottom{w:space=1}", "bottom", Pt(1)),
+            ("w:pPr/w:pBdr/w:top{w:space=4}", "top", Pt(4)),
         ]
     )
     def space_get_fixture(self, request):
         cxml, side, expected_value = request.param
-        pBdr = element(cxml)
-        return pBdr, side, expected_value
+        pPr = element(cxml)
+        return pPr, side, expected_value
 
     @pytest.fixture(
         params=[
-            ("w:pBdr", "bottom", Pt(1), "w:pBdr/w:bottom{w:space=1}"),
+            ("w:pPr/w:pBdr", "bottom", Pt(1), "w:pPr/w:pBdr/w:bottom{w:space=1}"),
             (
-                "w:pBdr/w:bottom{w:space=1}",
+                "w:pPr/w:pBdr/w:bottom{w:space=1}",
                 "bottom",
                 Pt(4),
-                "w:pBdr/w:bottom{w:space=4}",
+                "w:pPr/w:pBdr/w:bottom{w:space=4}",
             ),
-            ("w:pBdr/w:bottom{w:space=4}", "bottom", None, "w:pBdr/w:bottom"),
+            ("w:pPr/w:pBdr/w:bottom{w:space=4}", "bottom", None, "w:pPr/w:pBdr/w:bottom"),
         ]
     )
     def space_set_fixture(self, request):
         cxml, side, value, expected_cxml = request.param
-        pBdr = element(cxml)
+        pPr = element(cxml)
         expected_xml_ = xml(expected_cxml)
-        return pBdr, side, value, expected_xml_
+        return pPr, side, value, expected_xml_
