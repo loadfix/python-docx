@@ -10,6 +10,7 @@ import pytest
 
 from docx.enum.table import WD_SHADING_PATTERN
 from docx.exceptions import InvalidSpanError
+from docx.oxml.ns import qn
 from docx.oxml.parser import parse_xml
 from docx.oxml.table import CT_Row, CT_Shd, CT_Tbl, CT_Tc, CT_TcPr
 from docx.oxml.text.paragraph import CT_P
@@ -18,6 +19,19 @@ from docx.shared import RGBColor
 from ..unitutil.cxml import element, xml
 from ..unitutil.file import snippet_seq
 from ..unitutil.mock import FixtureRequest, Mock, call, instance_mock, method_mock, property_mock
+
+
+class DescribeCT_Tbl:
+    """Unit-test suite for `docx.oxml.table.CT_Tbl` objects."""
+
+    def it_can_add_a_p_after_itself(self):
+        body = cast(CT_P, element("w:body/w:tbl"))
+        tbl = cast(CT_Tbl, body[0])
+
+        new_p = tbl.add_p_after()
+
+        assert new_p.tag == qn("w:p")
+        assert tbl.getnext() is new_p
 
 
 class DescribeCT_Shd:

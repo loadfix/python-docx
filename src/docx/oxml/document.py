@@ -78,18 +78,6 @@ class CT_Body(BaseOxmlElement):
         for content_elm in self.xpath("./*[not(self::w:sectPr)]"):
             self.remove(content_elm)
 
-    def insert_before(
-        self,
-        new_element: CT_P | CT_Tbl,
-        reference_element: CT_P | CT_Tbl,
-    ) -> CT_P | CT_Tbl:
-        """Insert `new_element` directly before `reference_element` and return it.
-
-        `reference_element` must be a child of this body element.
-        """
-        reference_element.addprevious(new_element)
-        return new_element
-
     @property
     def inner_content_elements(self) -> List[CT_P | CT_Tbl]:
         """Generate all `w:p` and `w:tbl` elements in this document-body.

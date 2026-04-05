@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.bookmarks import Bookmarks
     from docx.comments import Comment, Comments
-    from docx.oxml.xmlchemy import BaseOxmlElement
     from docx.footnotes import Footnotes
     from docx.oxml.document import CT_Body, CT_Document
     from docx.parts.document import DocumentPart
@@ -288,14 +287,3 @@ class _Body(BlockItemContainer):
         self._body.clear_content()
         return self
 
-    def insert_element_before(
-        self,
-        new_element: BaseOxmlElement,
-        reference_element: BaseOxmlElement,
-    ) -> BaseOxmlElement:
-        """Insert `new_element` directly before `reference_element` and return it.
-
-        Both elements must be block-level elements (``<w:p>`` or ``<w:tbl>``).
-        `reference_element` must be a child of this body element.
-        """
-        return self._body.insert_before(new_element, reference_element)

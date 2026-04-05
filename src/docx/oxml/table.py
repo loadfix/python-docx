@@ -190,6 +190,14 @@ class CT_Tbl(BaseOxmlElement):
     tblGrid: CT_TblGrid = OneAndOnlyOne("w:tblGrid")  # pyright: ignore[reportAssignmentType]
     tr = ZeroOrMore("w:tr")
 
+    def add_p_after(self) -> CT_P:
+        """Return a new `<w:p>` element inserted directly after this element."""
+        from docx.oxml.parser import OxmlElement
+
+        new_p = cast(CT_P, OxmlElement("w:p"))
+        self.addnext(new_p)
+        return new_p
+
     @property
     def bidiVisual_val(self) -> bool | None:
         """Value of `./w:tblPr/w:bidiVisual/@w:val` or |None| if not present.

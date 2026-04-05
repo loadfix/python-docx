@@ -259,7 +259,7 @@ class Paragraph(StoryChild):
         from docx.table import Table
 
         tbl = CT_Tbl.new_tbl(rows, cols, width)
-        self._p.addnext(tbl)
+        self._p.add_tbl_after(tbl)
         return Table(tbl, self._parent)
 
     def iter_inner_content(self) -> Iterator[Run | Hyperlink]:

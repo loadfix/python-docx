@@ -58,10 +58,7 @@ class Table(StoryChild):
         If `text` is supplied, the new paragraph contains that text in a single run. If
         `style` is provided, that style is assigned to the new paragraph.
         """
-        from docx.oxml.parser import OxmlElement
-
-        new_p = OxmlElement("w:p")
-        self._tbl.addnext(new_p)
+        new_p = self._tbl.add_p_after()
         paragraph = Paragraph(new_p, self._parent)
         if text:
             paragraph.add_run(text)
