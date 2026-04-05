@@ -8,6 +8,7 @@ from docx.drawing import Drawing
 from docx.enum.section import WD_SECTION_START
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml.drawing import CT_Drawing
 from docx.oxml.text.run import CT_R
 from docx.shared import StoryChild
@@ -86,6 +87,48 @@ class Paragraph(StoryChild):
         """Return the next available bookmark ID in the document body."""
         used_ids = [int(x) for x in body.xpath(".//w:bookmarkStart/@w:id")]
         return max(used_ids, default=-1) + 1
+
+    def add_hyperlink(
+        self,
+        url: str | None = None,
+        text: str | None = None,
+        style: str | CharacterStyle | None = "Hyperlink",
+        anchor: str | None = None,
+    ) -> Hyperlink:
+        """Append a hyperlink to this paragraph and return a |Hyperlink| object.
+
+        `url` is the target URL for an external hyperlink (e.g. "https://example.com").
+        `text` is the visible link text; defaults to `url` or `anchor` when not provided.
+        `style` is the character style for the hyperlink run, defaulting to "Hyperlink".
+        `anchor` is a bookmark name for an internal document link.
+
+        Either `url` or `anchor` must be provided, but not both.
+        """
+        if url is None and anchor is None:
+            raise ValueError("Either url or anchor must be provided")
+        if url is not None and anchor is not None:
+            raise ValueError("Only one of url or anchor may be provided, not both")
+
+        display_text = text if text is not None else (url or anchor or "")
+
+        rId = None
+        if url is not None:
+            rId = self.part.relate_to(url, RT.HYPERLINK, is_external=True)
+
+        rPr = None
+        if style is not None:
+            from docx.oxml.ns import qn
+            from docx.oxml.parser import OxmlElement
+
+            style_id = self.part.get_style_id(style, WD_STYLE_TYPE.CHARACTER)
+            if style_id is not None:
+                rPr = OxmlElement("w:rPr")
+                rStyle = OxmlElement("w:rStyle")
+                rStyle.set(qn("w:val"), style_id)
+                rPr.append(rStyle)
+
+        hyperlink_elm = self._p.add_hyperlink(rId, anchor, display_text, rPr)
+        return Hyperlink(hyperlink_elm, self)
 
     def add_run(self, text: str | None = None, style: str | CharacterStyle | None = None) -> Run:
         """Append run containing `text` and having character-style `style`.

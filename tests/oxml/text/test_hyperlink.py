@@ -43,3 +43,11 @@ class DescribeCT_Hyperlink:
         assert [type(r) for r in rs] == [CT_R, CT_R]
         assert rs[0].text == "blog"
         assert rs[1].text == " post"
+
+    def it_can_add_a_run(self):
+        hyperlink = cast(CT_Hyperlink, element("w:hyperlink"))
+
+        r = hyperlink.add_r()
+
+        assert isinstance(r, CT_R)
+        assert len(hyperlink.r_lst) == 1
