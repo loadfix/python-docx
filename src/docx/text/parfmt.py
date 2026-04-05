@@ -1,13 +1,49 @@
 """Paragraph-related proxy types."""
 
-from docx.enum.text import WD_LINE_SPACING
-from docx.shared import ElementProxy, Emu, Length, Pt, Twips, lazyproperty
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from docx.enum.text import WD_BORDER_STYLE, WD_LINE_SPACING
+from docx.shared import ElementProxy, Emu, Length, Pt, RGBColor, Twips, lazyproperty
 from docx.text.tabstops import TabStops
+
+if TYPE_CHECKING:
+    from docx.oxml.text.parfmt import CT_Border, CT_PBdr
 
 
 class ParagraphFormat(ElementProxy):
     """Provides access to paragraph formatting such as justification, indentation, line
     spacing, space before and after, and widow/orphan control."""
+
+    @lazyproperty
+    def borders(self) -> ParagraphBorders:
+        """|ParagraphBorders| object providing access to the borders defined for this
+        paragraph format."""
+        pPr = self._element.get_or_add_pPr()
+        return ParagraphBorders(pPr)
+
+    def bottom_border(
+        self,
+        style: WD_BORDER_STYLE = WD_BORDER_STYLE.SINGLE,
+        width: Length | None = None,
+        color: RGBColor | str | None = None,
+        space: Length | None = None,
+    ) -> Border:
+        """Convenience method to set the bottom border of this paragraph.
+
+        Returns the |Border| object for the bottom border after applying the specified
+        settings.
+        """
+        border = self.borders.bottom
+        border.style = style
+        if width is not None:
+            border.width = width
+        if color is not None:
+            border.color = color if isinstance(color, RGBColor) else RGBColor.from_string(color)
+        if space is not None:
+            border.space = space
+        return border
 
     @property
     def alignment(self):
@@ -284,3 +320,154 @@ class ParagraphFormat(ElementProxy):
             if line == Twips(480):
                 return WD_LINE_SPACING.DOUBLE
         return lineRule
+
+
+class ParagraphBorders(ElementProxy):
+    """Provides access to the border settings of a paragraph.
+
+    Accessed using the :attr:`~.ParagraphFormat.borders` property of ParagraphFormat;
+    not intended to be constructed directly.
+    """
+
+    def __init__(self, element: CT_PBdr):
+        super().__init__(element, None)
+        self._pPr = element
+
+    @property
+    def bottom(self) -> Border:
+        """The |Border| object for the bottom border."""
+        pBdr = self._pPr.get_or_add_pBdr()
+        return Border(pBdr, "bottom")
+
+    @property
+    def top(self) -> Border:
+        """The |Border| object for the top border."""
+        pBdr = self._pPr.get_or_add_pBdr()
+        return Border(pBdr, "top")
+
+    @property
+    def left(self) -> Border:
+        """The |Border| object for the left border."""
+        pBdr = self._pPr.get_or_add_pBdr()
+        return Border(pBdr, "left")
+
+    @property
+    def right(self) -> Border:
+        """The |Border| object for the right border."""
+        pBdr = self._pPr.get_or_add_pBdr()
+        return Border(pBdr, "right")
+
+    @property
+    def between(self) -> Border:
+        """The |Border| object for the between border."""
+        pBdr = self._pPr.get_or_add_pBdr()
+        return Border(pBdr, "between")
+
+
+class Border:
+    """Provides access to a single border's properties (style, width, color, space).
+
+    Lazily creates the underlying XML element on first write.
+    """
+
+    _SIDE_GETTERS = {
+        "top": lambda pBdr: pBdr.top,
+        "bottom": lambda pBdr: pBdr.bottom,
+        "left": lambda pBdr: pBdr.left,
+        "right": lambda pBdr: pBdr.right,
+        "between": lambda pBdr: pBdr.between,
+    }
+
+    _SIDE_ADDERS = {
+        "top": lambda pBdr: pBdr.get_or_add_top(),
+        "bottom": lambda pBdr: pBdr.get_or_add_bottom(),
+        "left": lambda pBdr: pBdr.get_or_add_left(),
+        "right": lambda pBdr: pBdr.get_or_add_right(),
+        "between": lambda pBdr: pBdr.get_or_add_between(),
+    }
+
+    def __init__(self, pBdr: CT_PBdr, side: str):
+        self._pBdr = pBdr
+        self._side = side
+
+    def _get_border(self) -> CT_Border | None:
+        return self._SIDE_GETTERS[self._side](self._pBdr)
+
+    def _get_or_add_border(self) -> CT_Border:
+        return self._SIDE_ADDERS[self._side](self._pBdr)
+
+    @property
+    def style(self) -> WD_BORDER_STYLE | None:
+        """The border style as a member of :ref:`WdBorderStyle`, or |None| if no
+        border is defined."""
+        border = self._get_border()
+        if border is None:
+            return None
+        return border.val
+
+    @style.setter
+    def style(self, value: WD_BORDER_STYLE | None):
+        if value is None:
+            border = self._get_border()
+            if border is not None:
+                border.val = None
+            return
+        self._get_or_add_border().val = value
+
+    @property
+    def width(self) -> Length | None:
+        """The border width as a |Length| value, or |None| if not specified.
+
+        The XML ``w:sz`` attribute is stored in eighths of a point.
+        """
+        border = self._get_border()
+        if border is None:
+            return None
+        return border.sz
+
+    @width.setter
+    def width(self, value: Length | None):
+        if value is None:
+            border = self._get_border()
+            if border is not None:
+                border.sz = None
+            return
+        self._get_or_add_border().sz = value
+
+    @property
+    def color(self) -> RGBColor | None:
+        """The border color as an |RGBColor|, or |None| if not specified."""
+        border = self._get_border()
+        if border is None:
+            return None
+        return border.color
+
+    @color.setter
+    def color(self, value: RGBColor | None):
+        if value is None:
+            border = self._get_border()
+            if border is not None:
+                border.color = None
+            return
+        self._get_or_add_border().color = value
+
+    @property
+    def space(self) -> Length | None:
+        """The spacing between the border and paragraph text as a |Length| value, or
+        |None| if not specified.
+
+        The XML ``w:space`` attribute is stored in points.
+        """
+        border = self._get_border()
+        if border is None:
+            return None
+        return border.space
+
+    @space.setter
+    def space(self, value: Length | None):
+        if value is None:
+            border = self._get_border()
+            if border is not None:
+                border.space = None
+            return
+        self._get_or_add_border().space = value

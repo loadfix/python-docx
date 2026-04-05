@@ -234,23 +234,32 @@ from .text.paragraph import CT_P
 register_element_cls("w:p", CT_P)
 
 from .text.parfmt import (
+    CT_Border,
     CT_Ind,
     CT_Jc,
+    CT_PBdr,
     CT_PPr,
     CT_Spacing,
     CT_TabStop,
     CT_TabStops,
 )
 
+register_element_cls("w:bar", CT_Border)
+register_element_cls("w:between", CT_Border)
+register_element_cls("w:bottom", CT_Border)
 register_element_cls("w:ind", CT_Ind)
 register_element_cls("w:jc", CT_Jc)
 register_element_cls("w:keepLines", CT_OnOff)
 register_element_cls("w:keepNext", CT_OnOff)
 register_element_cls("w:outlineLvl", CT_DecimalNumber)
 register_element_cls("w:pageBreakBefore", CT_OnOff)
+register_element_cls("w:left", CT_Border)
+register_element_cls("w:pBdr", CT_PBdr)
 register_element_cls("w:pPr", CT_PPr)
 register_element_cls("w:pStyle", CT_String)
+register_element_cls("w:right", CT_Border)
 register_element_cls("w:spacing", CT_Spacing)
 register_element_cls("w:tab", CT_TabStop)
 register_element_cls("w:tabs", CT_TabStops)
+register_element_cls("w:top", CT_Border)
 register_element_cls("w:widowControl", CT_OnOff)

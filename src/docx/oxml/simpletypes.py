@@ -178,6 +178,34 @@ class XsdUnsignedLong(BaseIntType):
         cls.validate_int_in_range(value, 0, 18446744073709551615)
 
 
+class ST_EighthPointMeasure(BaseIntType):
+    """Measurement in eighths of a point, e.g. 8 = 1pt."""
+
+    @classmethod
+    def convert_from_xml(cls, str_value: str) -> Length:
+        return Pt(int(str_value) / 8.0)
+
+    @classmethod
+    def convert_to_xml(cls, value: int | Length) -> str:
+        emu = Emu(value)
+        eighth_points = int(round(emu.pt * 8))
+        return str(eighth_points)
+
+
+class ST_PointMeasure(BaseIntType):
+    """Measurement in points, e.g. 1 = 1pt."""
+
+    @classmethod
+    def convert_from_xml(cls, str_value: str) -> Length:
+        return Pt(int(str_value))
+
+    @classmethod
+    def convert_to_xml(cls, value: int | Length) -> str:
+        emu = Emu(value)
+        points = int(round(emu.pt))
+        return str(points)
+
+
 class ST_BrClear(XsdString):
     @classmethod
     def validate(cls, value: str) -> None:

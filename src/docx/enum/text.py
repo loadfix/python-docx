@@ -67,6 +67,135 @@ class WD_PARAGRAPH_ALIGNMENT(BaseXmlEnum):
 WD_ALIGN_PARAGRAPH = WD_PARAGRAPH_ALIGNMENT
 
 
+class WD_BORDER_STYLE(BaseXmlEnum):
+    """Specifies the style of border to apply.
+
+    Example::
+
+        from docx.enum.text import WD_BORDER_STYLE
+
+        paragraph = document.add_paragraph()
+        paragraph.paragraph_format.borders.bottom.style = WD_BORDER_STYLE.SINGLE
+    """
+
+    NONE = (0, "none", "No border.")
+    """No border."""
+
+    SINGLE = (1, "single", "A single line.")
+    """A single line."""
+
+    THICK = (2, "thick", "A single thick line.")
+    """A single thick line."""
+
+    DOUBLE = (3, "double", "A double line.")
+    """A double line."""
+
+    DOTTED = (4, "dotted", "A dotted line.")
+    """A dotted line."""
+
+    DASHED = (5, "dashed", "A dashed line.")
+    """A dashed line."""
+
+    DOT_DASH = (6, "dotDash", "An alternating dot-dash line.")
+    """An alternating dot-dash line."""
+
+    DOT_DOT_DASH = (7, "dotDotDash", "An alternating dot-dot-dash line.")
+    """An alternating dot-dot-dash line."""
+
+    TRIPLE = (8, "triple", "A triple line.")
+    """A triple line."""
+
+    THIN_THICK_SMALL_GAP = (
+        9,
+        "thinThickSmallGap",
+        "A thin-thick line with a small gap.",
+    )
+    """A thin-thick line with a small gap."""
+
+    THICK_THIN_SMALL_GAP = (
+        10,
+        "thickThinSmallGap",
+        "A thick-thin line with a small gap.",
+    )
+    """A thick-thin line with a small gap."""
+
+    THIN_THICK_THIN_SMALL_GAP = (
+        11,
+        "thinThickThinSmallGap",
+        "A thin-thick-thin line with a small gap.",
+    )
+    """A thin-thick-thin line with a small gap."""
+
+    THIN_THICK_MEDIUM_GAP = (
+        12,
+        "thinThickMediumGap",
+        "A thin-thick line with a medium gap.",
+    )
+    """A thin-thick line with a medium gap."""
+
+    THICK_THIN_MEDIUM_GAP = (
+        13,
+        "thickThinMediumGap",
+        "A thick-thin line with a medium gap.",
+    )
+    """A thick-thin line with a medium gap."""
+
+    THIN_THICK_THIN_MEDIUM_GAP = (
+        14,
+        "thinThickThinMediumGap",
+        "A thin-thick-thin line with a medium gap.",
+    )
+    """A thin-thick-thin line with a medium gap."""
+
+    THIN_THICK_LARGE_GAP = (
+        15,
+        "thinThickLargeGap",
+        "A thin-thick line with a large gap.",
+    )
+    """A thin-thick line with a large gap."""
+
+    THICK_THIN_LARGE_GAP = (
+        16,
+        "thickThinLargeGap",
+        "A thick-thin line with a large gap.",
+    )
+    """A thick-thin line with a large gap."""
+
+    THIN_THICK_THIN_LARGE_GAP = (
+        17,
+        "thinThickThinLargeGap",
+        "A thin-thick-thin line with a large gap.",
+    )
+    """A thin-thick-thin line with a large gap."""
+
+    WAVE = (18, "wave", "A wavy line.")
+    """A wavy line."""
+
+    DOUBLE_WAVE = (19, "doubleWave", "A double wavy line.")
+    """A double wavy line."""
+
+    DASH_SMALL_GAP = (20, "dashSmallGap", "A dashed line with a small gap.")
+    """A dashed line with a small gap."""
+
+    DASH_DOT_STROKED = (21, "dashDotStroked", "A dash-dot stroked line.")
+    """A dash-dot stroked line."""
+
+    THREE_D_EMBOSS = (22, "threeDEmboss", "A 3D embossed line.")
+    """A 3D embossed line."""
+
+    THREE_D_ENGRAVE = (23, "threeDEngrave", "A 3D engraved line.")
+    """A 3D engraved line."""
+
+    OUTSET = (24, "outset", "An outset line.")
+    """An outset line."""
+
+    INSET = (25, "inset", "An inset line.")
+    """An inset line."""
+
+    NIL = (26, "nil", "No border. Overrides any inherited border.")
+    """No border. Overrides any inherited border."""
+
+
 class WD_BREAK_TYPE(enum.Enum):
     """Corresponds to WdBreakType enumeration.
 

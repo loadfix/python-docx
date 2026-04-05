@@ -6,12 +6,19 @@ from typing import TYPE_CHECKING, Callable
 
 from docx.enum.text import (
     WD_ALIGN_PARAGRAPH,
+    WD_BORDER_STYLE,
     WD_LINE_SPACING,
     WD_TAB_ALIGNMENT,
     WD_TAB_LEADER,
 )
 from docx.oxml.shared import CT_DecimalNumber
-from docx.oxml.simpletypes import ST_SignedTwipsMeasure, ST_TwipsMeasure
+from docx.oxml.simpletypes import (
+    ST_EighthPointMeasure,
+    ST_PointMeasure,
+    ST_SignedTwipsMeasure,
+    ST_TwipsMeasure,
+)
+from docx.oxml.simpletypes import ST_HexColor
 from docx.oxml.xmlchemy import (
     BaseOxmlElement,
     OneOrMore,
@@ -24,6 +31,45 @@ from docx.shared import Length
 if TYPE_CHECKING:
     from docx.oxml.section import CT_SectPr
     from docx.oxml.shared import CT_String
+
+
+class CT_Border(BaseOxmlElement):
+    """``<w:top>``, ``<w:bottom>``, etc. element, specifying a single border."""
+
+    val: WD_BORDER_STYLE | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:val", WD_BORDER_STYLE
+    )
+    sz: Length | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:sz", ST_EighthPointMeasure
+    )
+    color: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:color", ST_HexColor
+    )
+    space: Length | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:space", ST_PointMeasure
+    )
+
+
+class CT_PBdr(BaseOxmlElement):
+    """``<w:pBdr>`` element, containing the borders for a paragraph."""
+
+    _tag_seq = ("w:top", "w:left", "w:bottom", "w:right", "w:between", "w:bar")
+    top: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:top", successors=_tag_seq[1:]
+    )
+    left: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:left", successors=_tag_seq[2:]
+    )
+    bottom: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:bottom", successors=_tag_seq[3:]
+    )
+    right: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:right", successors=_tag_seq[4:]
+    )
+    between: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:between", successors=_tag_seq[5:]
+    )
+    del _tag_seq
 
 
 class CT_Ind(BaseOxmlElement):
@@ -55,9 +101,11 @@ class CT_PPr(BaseOxmlElement):
     """``<w:pPr>`` element, containing the properties for a paragraph."""
 
     get_or_add_ind: Callable[[], CT_Ind]
+    get_or_add_pBdr: Callable[[], CT_PBdr]
     get_or_add_pStyle: Callable[[], CT_String]
     get_or_add_sectPr: Callable[[], CT_SectPr]
     _insert_sectPr: Callable[[CT_SectPr], None]
+    _remove_pBdr: Callable[[], None]
     _remove_pStyle: Callable[[], None]
     _remove_sectPr: Callable[[], None]
 
@@ -107,6 +155,9 @@ class CT_PPr(BaseOxmlElement):
     pageBreakBefore = ZeroOrOne("w:pageBreakBefore", successors=_tag_seq[4:])
     widowControl = ZeroOrOne("w:widowControl", successors=_tag_seq[6:])
     numPr = ZeroOrOne("w:numPr", successors=_tag_seq[7:])
+    pBdr: CT_PBdr | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:pBdr", successors=_tag_seq[9:]
+    )
     tabs = ZeroOrOne("w:tabs", successors=_tag_seq[11:])
     spacing = ZeroOrOne("w:spacing", successors=_tag_seq[22:])
     ind: CT_Ind | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
