@@ -306,10 +306,8 @@ class Column:
         return self._col.space
 
     @space.setter
-    def space(self, value: int | Length | None):
-        from docx.shared import Length as _Length
-
-        self._col.space = value if value is None or isinstance(value, _Length) else _Length(value)
+    def space(self, value: Length | None):
+        self._col.space = value
 
     @property
     def width(self) -> Length | None:
@@ -320,10 +318,8 @@ class Column:
         return self._col.w
 
     @width.setter
-    def width(self, value: int | Length | None):
-        from docx.shared import Length as _Length
-
-        self._col.w = value if value is None or isinstance(value, _Length) else _Length(value)
+    def width(self, value: Length | None):
+        self._col.w = value
 
 
 class SectionColumns(Sequence[Column]):
@@ -406,11 +402,9 @@ class SectionColumns(Sequence[Column]):
         return cols.space
 
     @space.setter
-    def space(self, value: int | Length | None):
-        from docx.shared import Length as _Length
-
+    def space(self, value: Length | None):
         cols = self._sectPr.get_or_add_cols()
-        cols.space = value if value is None or isinstance(value, _Length) else _Length(value)
+        cols.space = value
 
 
 class _BaseHeaderFooter(BlockItemContainer):
