@@ -202,6 +202,8 @@ class ST_EighthPointMeasure(BaseSimpleType):
 
     @classmethod
     def validate(cls, value: Any) -> None:
+        # OOXML spec limits w:sz to 2–96 (eighths of a point) but no validation is
+        # enforced here, consistent with other simple-type validators in this module.
         pass
 
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator, cast, overload
+from typing import TYPE_CHECKING, Callable, Iterator, cast, overload
 
 from typing_extensions import TypeAlias
 
@@ -11,7 +11,7 @@ from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.table import WD_BORDER_STYLE, WD_CELL_VERTICAL_ALIGNMENT
 from docx.oxml.simpletypes import ST_Merge
 from docx.oxml.table import CT_Border, CT_TblGridCol
-from docx.shared import ElementProxy, Inches, Parented, RGBColor, StoryChild, lazyproperty
+from docx.shared import ElementProxy, Inches, Parented, Pt, RGBColor, StoryChild, lazyproperty
 
 if TYPE_CHECKING:
     import docx.types as t
@@ -23,7 +23,6 @@ if TYPE_CHECKING:
         CT_TblPr,
         CT_Tc,
         CT_TcBorders,
-        CT_TcPr,
     )
     from docx.shared import Length
     from docx.styles.style import (
@@ -221,13 +220,14 @@ class Table(StoryChild):
     ) -> None:
         """Set table borders to a single-line style for each side specified as |True|.
 
-        Sides specified as |False| (the default) are set to no border. This is a
-        convenience method for common border patterns like APA 7 tables::
+        This is a "clear and reset" method: sides specified as |False| (the default) are
+        explicitly set to no border (``w:val="none"``), which overrides any border that
+        the table style would otherwise provide. This is a convenience method for common
+        border patterns like APA 7 tables::
 
             table.set_borders(top=True, bottom=True, inside_h=True)
         """
         borders = self.borders
-        from docx.shared import Pt
 
         for attr, enabled in [
             ("top", top),
@@ -253,117 +253,148 @@ class Table(StoryChild):
 class BorderElement:
     """Proxy for a single border edge element (e.g. `w:top`, `w:bottom`).
 
-    Provides read/write access to border style, width, and color.
+    Provides read/write access to border style, width, and color. The underlying XML
+    element is created lazily on first write, so read access never mutates the document.
     """
 
-    def __init__(self, border_elm: CT_Border):
+    def __init__(
+        self, border_elm: CT_Border | None, get_or_create: Callable[[], CT_Border]
+    ):
         self._element = border_elm
+        self._get_or_create = get_or_create
+
+    def _ensure_element(self) -> CT_Border:
+        if self._element is None:
+            self._element = self._get_or_create()
+        return self._element
 
     @property
     def style(self) -> WD_BORDER_STYLE | None:
         """The border style, a member of :ref:`WdBorderStyle`, or |None|."""
+        if self._element is None:
+            return None
         return self._element.style
 
     @style.setter
     def style(self, value: WD_BORDER_STYLE | None) -> None:
-        self._element.style = value
+        self._ensure_element().style = value
 
     @property
     def width(self) -> Length | None:
         """Border width as an EMU |Length| value, or |None| if not set."""
+        if self._element is None:
+            return None
         return self._element.width
 
     @width.setter
     def width(self, value: Length | None) -> None:
-        self._element.width = value
+        self._ensure_element().width = value
 
     @property
     def color(self) -> RGBColor | str | None:
         """Border color as an |RGBColor|, or |None| if not set."""
+        if self._element is None:
+            return None
         return self._element.color
 
     @color.setter
     def color(self, value: RGBColor | None) -> None:
-        self._element.color = value
+        self._ensure_element().color = value
 
 
 class TableBorders:
     """Proxy for the `w:tblBorders` element of a table.
 
     Provides access to the six border edges of a table: top, bottom, left, right,
-    inside_h, and inside_v.
+    inside_h, and inside_v. Read access does not mutate the document; XML elements
+    are created lazily only on write.
     """
 
     def __init__(self, tblPr: CT_TblPr):
         self._tblPr = tblPr
 
+    def _border_for(self, attr: str, add_attr: str) -> BorderElement:
+        tblBorders = self._tblPr.tblBorders
+        border = getattr(tblBorders, attr) if tblBorders is not None else None
+        return BorderElement(
+            border,
+            lambda add_attr=add_attr: getattr(
+                self._tblPr.get_or_add_tblBorders(), add_attr
+            )(),
+        )
+
     @property
     def top(self) -> BorderElement:
         """A |BorderElement| for the top border of the table."""
-        return BorderElement(self._tblBorders.get_or_add_top())
+        return self._border_for("top", "get_or_add_top")
 
     @property
     def bottom(self) -> BorderElement:
         """A |BorderElement| for the bottom border of the table."""
-        return BorderElement(self._tblBorders.get_or_add_bottom())
+        return self._border_for("bottom", "get_or_add_bottom")
 
     @property
     def left(self) -> BorderElement:
         """A |BorderElement| for the left border of the table."""
-        return BorderElement(self._tblBorders.get_or_add_left())
+        return self._border_for("left", "get_or_add_left")
 
     @property
     def right(self) -> BorderElement:
         """A |BorderElement| for the right border of the table."""
-        return BorderElement(self._tblBorders.get_or_add_right())
+        return self._border_for("right", "get_or_add_right")
 
     @property
     def inside_h(self) -> BorderElement:
         """A |BorderElement| for the inside horizontal border of the table."""
-        return BorderElement(self._tblBorders.get_or_add_insideH())
+        return self._border_for("insideH", "get_or_add_insideH")
 
     @property
     def inside_v(self) -> BorderElement:
         """A |BorderElement| for the inside vertical border of the table."""
-        return BorderElement(self._tblBorders.get_or_add_insideV())
-
-    @property
-    def _tblBorders(self) -> CT_TblBorders:
-        return self._tblPr.get_or_add_tblBorders()
+        return self._border_for("insideV", "get_or_add_insideV")
 
 
 class CellBorders:
     """Proxy for the `w:tcBorders` element of a cell.
 
     Provides access to the four border edges of a cell: top, bottom, left, and right.
+    Read access does not mutate the document; XML elements are created lazily only on
+    write.
     """
 
-    def __init__(self, tcPr: CT_TcPr):
-        self._tcPr = tcPr
+    def __init__(self, tc: CT_Tc):
+        self._tc = tc
+
+    def _border_for(self, attr: str, add_attr: str) -> BorderElement:
+        tcPr = self._tc.tcPr
+        tcBorders = tcPr.tcBorders if tcPr is not None else None
+        border = getattr(tcBorders, attr) if tcBorders is not None else None
+        return BorderElement(
+            border,
+            lambda add_attr=add_attr: getattr(
+                self._tc.get_or_add_tcPr().get_or_add_tcBorders(), add_attr
+            )(),
+        )
 
     @property
     def top(self) -> BorderElement:
         """A |BorderElement| for the top border of the cell."""
-        return BorderElement(self._tcBorders.get_or_add_top())
+        return self._border_for("top", "get_or_add_top")
 
     @property
     def bottom(self) -> BorderElement:
         """A |BorderElement| for the bottom border of the cell."""
-        return BorderElement(self._tcBorders.get_or_add_bottom())
+        return self._border_for("bottom", "get_or_add_bottom")
 
     @property
     def left(self) -> BorderElement:
         """A |BorderElement| for the left border of the cell."""
-        return BorderElement(self._tcBorders.get_or_add_left())
+        return self._border_for("left", "get_or_add_left")
 
     @property
     def right(self) -> BorderElement:
         """A |BorderElement| for the right border of the cell."""
-        return BorderElement(self._tcBorders.get_or_add_right())
-
-    @property
-    def _tcBorders(self) -> CT_TcBorders:
-        return self._tcPr.get_or_add_tcBorders()
+        return self._border_for("right", "get_or_add_right")
 
 
 class _Cell(BlockItemContainer):
@@ -377,7 +408,7 @@ class _Cell(BlockItemContainer):
     @property
     def borders(self) -> CellBorders:
         """A |CellBorders| object providing access to the border settings for this cell."""
-        return CellBorders(self._tc.get_or_add_tcPr())
+        return CellBorders(self._tc)
 
     def add_paragraph(self, text: str = "", style: str | ParagraphStyle | None = None):
         """Return a paragraph newly added to the end of the content in this cell.

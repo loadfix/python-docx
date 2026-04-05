@@ -958,6 +958,15 @@ class DescribeBorderElement:
         top = borders.top
         assert top.style is None
 
+    def it_does_not_mutate_on_read(self):
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblPr"))
+        table = Table(tbl, Mock())
+        # reading border properties should not create any XML elements
+        _ = table.borders.top.style
+        _ = table.borders.top.width
+        _ = table.borders.top.color
+        assert tbl.tblPr.tblBorders is None
+
     def it_can_set_its_style(self):
         tbl = cast(CT_Tbl, element("w:tbl/w:tblPr"))
         table = Table(tbl, Mock())
@@ -1003,7 +1012,17 @@ class DescribeTableBorders:
             border = getattr(borders, attr)
             assert isinstance(border, BorderElement)
 
-    def it_creates_tblBorders_element_on_first_access(self):
+    def it_does_not_create_tblBorders_on_read(self):
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblPr"))
+        table = Table(tbl, Mock())
+        borders = table.borders
+
+        for attr in ("top", "bottom", "left", "right", "inside_h", "inside_v"):
+            assert getattr(borders, attr).style is None
+
+        assert tbl.tblPr.tblBorders is None
+
+    def it_creates_tblBorders_element_on_first_write(self):
         tbl = cast(CT_Tbl, element("w:tbl/w:tblPr"))
         table = Table(tbl, Mock())
         borders = table.borders
@@ -1029,7 +1048,17 @@ class DescribeCellBorders:
             border = getattr(borders, attr)
             assert isinstance(border, BorderElement)
 
-    def it_creates_tcBorders_element_on_first_access(self):
+    def it_does_not_create_tcPr_or_tcBorders_on_read(self):
+        tc = cast(CT_Tc, element("w:tc/w:p"))
+        cell = _Cell(tc, Mock())
+        borders = cell.borders
+
+        for attr in ("top", "bottom", "left", "right"):
+            assert getattr(borders, attr).style is None
+
+        assert tc.tcPr is None
+
+    def it_creates_tcBorders_element_on_first_write(self):
         tc = cast(CT_Tc, element("w:tc/w:p"))
         cell = _Cell(tc, Mock())
         borders = cell.borders
