@@ -8,16 +8,169 @@ from typing import cast
 
 import pytest
 
-from docx.enum.table import WD_SHADING_PATTERN
+from docx.enum.table import WD_BORDER_STYLE, WD_SHADING_PATTERN
 from docx.exceptions import InvalidSpanError
 from docx.oxml.parser import parse_xml
-from docx.oxml.table import CT_Row, CT_Shd, CT_Tbl, CT_Tc, CT_TcPr
+from docx.oxml.table import (
+    CT_Border,
+    CT_Row,
+    CT_Shd,
+    CT_Tbl,
+    CT_TblBorders,
+    CT_TblPr,
+    CT_Tc,
+    CT_TcBorders,
+    CT_TcPr,
+)
 from docx.oxml.text.paragraph import CT_P
 from docx.shared import RGBColor
 
 from ..unitutil.cxml import element, xml
 from ..unitutil.file import snippet_seq
 from ..unitutil.mock import FixtureRequest, Mock, call, instance_mock, method_mock, property_mock
+
+
+class DescribeCT_Border:
+    """Unit-test suite for `docx.oxml.table.CT_Border` objects."""
+
+    @pytest.mark.parametrize(
+        ("border_cxml", "expected_val"),
+        [
+            ("w:top", None),
+            ("w:top{w:val=single}", WD_BORDER_STYLE.SINGLE),
+            ("w:top{w:val=double}", WD_BORDER_STYLE.DOUBLE),
+            ("w:top{w:val=none}", WD_BORDER_STYLE.NONE),
+        ],
+    )
+    def it_can_get_the_val_attribute(
+        self, border_cxml: str, expected_val: WD_BORDER_STYLE | None
+    ):
+        border = cast(CT_Border, element(border_cxml))
+        assert border.val == expected_val
+
+    @pytest.mark.parametrize(
+        ("border_cxml", "expected_sz"),
+        [
+            ("w:top", None),
+            ("w:top{w:sz=4}", 4),
+            ("w:top{w:sz=12}", 12),
+        ],
+    )
+    def it_can_get_the_sz_attribute(self, border_cxml: str, expected_sz: int | None):
+        border = cast(CT_Border, element(border_cxml))
+        assert border.sz == expected_sz
+
+    @pytest.mark.parametrize(
+        ("border_cxml", "expected_color"),
+        [
+            ("w:top", None),
+            ("w:top{w:color=FF0000}", RGBColor(0xFF, 0x00, 0x00)),
+            ("w:top{w:color=auto}", "auto"),
+        ],
+    )
+    def it_can_get_the_color_attribute(
+        self, border_cxml: str, expected_color: RGBColor | str | None
+    ):
+        border = cast(CT_Border, element(border_cxml))
+        assert border.color == expected_color
+
+    @pytest.mark.parametrize(
+        ("border_cxml", "expected_space"),
+        [
+            ("w:top", None),
+            ("w:top{w:space=0}", 0),
+            ("w:top{w:space=4}", 4),
+        ],
+    )
+    def it_can_get_the_space_attribute(self, border_cxml: str, expected_space: int | None):
+        border = cast(CT_Border, element(border_cxml))
+        assert border.space == expected_space
+
+
+class DescribeCT_TblBorders:
+    """Unit-test suite for `docx.oxml.table.CT_TblBorders` objects."""
+
+    def it_can_get_and_add_border_children(self):
+        tblBorders = cast(CT_TblBorders, element("w:tblBorders"))
+        assert tblBorders.top is None
+        top = tblBorders.get_or_add_top()
+        assert isinstance(top, CT_Border)
+        assert tblBorders.top is top
+
+    def it_inserts_borders_in_the_right_order(self):
+        tblBorders = cast(CT_TblBorders, element("w:tblBorders"))
+        tblBorders.get_or_add_insideV()
+        tblBorders.get_or_add_top()
+        expected = xml("w:tblBorders/(w:top,w:insideV)")
+        assert tblBorders.xml == expected
+
+    @pytest.mark.parametrize("attr", ["top", "left", "bottom", "right", "insideH", "insideV"])
+    def it_can_remove_each_border(self, attr: str):
+        tblBorders = cast(CT_TblBorders, element("w:tblBorders"))
+        get_or_add = getattr(tblBorders, f"get_or_add_{attr}")
+        remove = getattr(tblBorders, f"_remove_{attr}")
+        get_or_add()
+        assert getattr(tblBorders, attr) is not None
+        remove()
+        assert getattr(tblBorders, attr) is None
+
+
+class DescribeCT_TcBorders:
+    """Unit-test suite for `docx.oxml.table.CT_TcBorders` objects."""
+
+    def it_can_get_and_add_border_children(self):
+        tcBorders = cast(CT_TcBorders, element("w:tcBorders"))
+        assert tcBorders.top is None
+        top = tcBorders.get_or_add_top()
+        assert isinstance(top, CT_Border)
+        assert tcBorders.top is top
+
+    def it_inserts_borders_in_the_right_order(self):
+        tcBorders = cast(CT_TcBorders, element("w:tcBorders"))
+        tcBorders.get_or_add_right()
+        tcBorders.get_or_add_top()
+        expected = xml("w:tcBorders/(w:top,w:right)")
+        assert tcBorders.xml == expected
+
+
+class DescribeCT_TblPr_borders:
+    """Unit-test suite for border-related features of CT_TblPr."""
+
+    def it_can_get_the_tblBorders_child(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        assert tblPr.tblBorders is None
+
+    def it_can_add_tblBorders(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        tblBorders = tblPr.get_or_add_tblBorders()
+        assert isinstance(tblBorders, CT_TblBorders)
+        assert tblPr.tblBorders is tblBorders
+
+    def it_inserts_tblBorders_in_the_right_position(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr/(w:tblStyle,w:tblLayout)"))
+        tblPr.get_or_add_tblBorders()
+        expected = xml("w:tblPr/(w:tblStyle,w:tblBorders,w:tblLayout)")
+        assert tblPr.xml == expected
+
+
+class DescribeCT_TcPr_borders:
+    """Unit-test suite for border-related features of CT_TcPr."""
+
+    def it_can_get_the_tcBorders_child(self):
+        tcPr = cast(CT_TcPr, element("w:tcPr"))
+        assert tcPr.tcBorders is None
+
+    def it_can_add_tcBorders(self):
+        tcPr = cast(CT_TcPr, element("w:tcPr"))
+        tcBorders = tcPr.get_or_add_tcBorders()
+        assert isinstance(tcBorders, CT_TcBorders)
+        assert tcPr.tcBorders is tcBorders
+
+    def it_inserts_tcBorders_in_the_right_position(self):
+        tcPr = cast(CT_TcPr, element("w:tcPr/(w:tcW,w:shd)"))
+        tcPr.get_or_add_tcBorders()
+        expected = xml("w:tcPr/(w:tcW,w:tcBorders,w:shd)")
+        assert tcPr.xml == expected
 
 
 class DescribeCT_Shd:

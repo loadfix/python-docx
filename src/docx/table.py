@@ -9,15 +9,24 @@ from typing_extensions import TypeAlias
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.style import WD_STYLE_TYPE
-from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_SHADING_PATTERN
+from docx.enum.table import WD_BORDER_STYLE, WD_CELL_VERTICAL_ALIGNMENT, WD_SHADING_PATTERN
 from docx.oxml.simpletypes import ST_Merge
 from docx.oxml.table import CT_TblGridCol
-from docx.shared import Inches, Parented, RGBColor, StoryChild, lazyproperty
+from docx.shared import Emu, Inches, Parented, Pt, RGBColor, StoryChild, lazyproperty
 
 if TYPE_CHECKING:
     import docx.types as t
     from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_TABLE_ALIGNMENT, WD_TABLE_DIRECTION
-    from docx.oxml.table import CT_Row, CT_Shd, CT_Tbl, CT_TblPr, CT_Tc
+    from docx.oxml.table import (
+        CT_Border,
+        CT_Row,
+        CT_Shd,
+        CT_Tbl,
+        CT_TblBorders,
+        CT_TblPr,
+        CT_Tc,
+        CT_TcBorders,
+    )
     from docx.shared import Length
     from docx.styles.style import (
         ParagraphStyle,
@@ -94,6 +103,58 @@ class Table(StoryChild):
     @autofit.setter
     def autofit(self, value: bool):
         self._tblPr.autofit = value
+
+    @property
+    def borders(self) -> TableBorders:
+        """Read-only. |TableBorders| object providing access to table border properties.
+
+        Always returns a |TableBorders| object; setting border properties on it will
+        create the required XML elements on demand.
+        """
+        return TableBorders(self._tbl)
+
+    def set_borders(
+        self,
+        top: bool = False,
+        bottom: bool = False,
+        left: bool = False,
+        right: bool = False,
+        inside_h: bool = False,
+        inside_v: bool = False,
+        style: WD_BORDER_STYLE = WD_BORDER_STYLE.SINGLE,
+        width: Length | None = None,
+        color: RGBColor | None = None,
+    ) -> None:
+        """Convenience method to set multiple table borders at once.
+
+        Each boolean parameter controls whether that border edge is enabled.
+        Enabled borders use the specified `style`, `width`, and `color`.
+        Disabled borders are set to ``WD_BORDER_STYLE.NONE``.
+
+        Example for APA 7 tables (horizontal-only borders)::
+
+            table.set_borders(top=True, bottom=True, inside_h=True)
+        """
+        border_width = width if width is not None else Pt(0.5)
+        border_color = color if color is not None else RGBColor(0, 0, 0)
+        borders = self.borders
+        for attr, enabled in [
+            ("top", top),
+            ("bottom", bottom),
+            ("left", left),
+            ("right", right),
+            ("inside_h", inside_h),
+            ("inside_v", inside_v),
+        ]:
+            border = getattr(borders, attr)
+            if enabled:
+                border.style = style
+                border.width = border_width
+                border.color = border_color
+            else:
+                border.style = WD_BORDER_STYLE.NONE
+                border.width = None
+                border.color = None
 
     def cell(self, row_idx: int, col_idx: int) -> _Cell:
         """|_Cell| at `row_idx`, `col_idx` intersection.
@@ -227,6 +288,15 @@ class _Cell(BlockItemContainer):
         characters, each of which is converted to a line break.
         """
         return super(_Cell, self).add_paragraph(text, style)
+
+    @property
+    def borders(self) -> CellBorders:
+        """Read-only. |CellBorders| object providing access to cell border properties.
+
+        Always returns a |CellBorders| object; setting border properties on it will
+        create the required XML elements on demand.
+        """
+        return CellBorders(self._tc)
 
     def add_table(  # pyright: ignore[reportIncompatibleMethodOverride]
         self, rows: int, cols: int
@@ -402,6 +472,229 @@ class CellShading:
         if shd.val is None:
             shd.val = WD_SHADING_PATTERN.CLEAR
         return shd
+
+
+class BorderElement:
+    """Provides access to properties of a single border edge.
+
+    Wraps a ``CT_Border`` element (e.g. ``<w:top>``, ``<w:bottom>``).
+    """
+
+    def __init__(self, border: CT_Border | None, get_or_add: Callable[[], CT_Border]):
+        self._border = border
+        self._get_or_add = get_or_add
+
+    @property
+    def style(self) -> WD_BORDER_STYLE | None:
+        """The border style as a |WD_BORDER_STYLE| value, or |None| if not set."""
+        border = self._border
+        if border is None:
+            return None
+        return border.val
+
+    @style.setter
+    def style(self, value: WD_BORDER_STYLE | None):
+        if value is None:
+            border = self._border
+            if border is not None:
+                border.val = None
+            return
+        border = self._get_or_add()
+        self._border = border
+        border.val = value
+
+    @property
+    def width(self) -> Length | None:
+        """The border width as an EMU |Length| value, or |None| if not set.
+
+        The ``w:sz`` attribute stores the width in eighths of a point.
+        """
+        border = self._border
+        if border is None:
+            return None
+        sz = border.sz
+        if sz is None:
+            return None
+        return Pt(sz / 8.0)
+
+    @width.setter
+    def width(self, value: Length | None):
+        if value is None:
+            border = self._border
+            if border is not None:
+                border.sz = None
+            return
+        border = self._get_or_add()
+        self._border = border
+        border.sz = int(Emu(value).pt * 8)
+
+    @property
+    def color(self) -> RGBColor | None:
+        """The border color as an |RGBColor| value, or |None| if not set."""
+        border = self._border
+        if border is None:
+            return None
+        color = border.color
+        if color is None or not isinstance(color, RGBColor):
+            return None
+        return color
+
+    @color.setter
+    def color(self, value: RGBColor | None):
+        if value is None:
+            border = self._border
+            if border is not None:
+                border.color = None
+            return
+        border = self._get_or_add()
+        self._border = border
+        border.color = value
+
+    @property
+    def space(self) -> int | None:
+        """The border spacing in points, or |None| if not set."""
+        border = self._border
+        if border is None:
+            return None
+        return border.space
+
+    @space.setter
+    def space(self, value: int | None):
+        if value is None:
+            border = self._border
+            if border is not None:
+                border.space = None
+            return
+        border = self._get_or_add()
+        self._border = border
+        border.space = value
+
+
+class TableBorders:
+    """Provides access to border properties for a table.
+
+    Accessed via ``Table.borders``.
+    """
+
+    def __init__(self, tbl: CT_Tbl):
+        self._tbl = tbl
+
+    @property
+    def top(self) -> BorderElement:
+        """The top border of the table."""
+        tblBorders = self._tblBorders
+        return BorderElement(
+            tblBorders.top if tblBorders is not None else None,
+            lambda: self._get_or_add_tblBorders().get_or_add_top(),
+        )
+
+    @property
+    def bottom(self) -> BorderElement:
+        """The bottom border of the table."""
+        tblBorders = self._tblBorders
+        return BorderElement(
+            tblBorders.bottom if tblBorders is not None else None,
+            lambda: self._get_or_add_tblBorders().get_or_add_bottom(),
+        )
+
+    @property
+    def left(self) -> BorderElement:
+        """The left border of the table."""
+        tblBorders = self._tblBorders
+        return BorderElement(
+            tblBorders.left if tblBorders is not None else None,
+            lambda: self._get_or_add_tblBorders().get_or_add_left(),
+        )
+
+    @property
+    def right(self) -> BorderElement:
+        """The right border of the table."""
+        tblBorders = self._tblBorders
+        return BorderElement(
+            tblBorders.right if tblBorders is not None else None,
+            lambda: self._get_or_add_tblBorders().get_or_add_right(),
+        )
+
+    @property
+    def inside_h(self) -> BorderElement:
+        """The inside horizontal border of the table."""
+        tblBorders = self._tblBorders
+        return BorderElement(
+            tblBorders.insideH if tblBorders is not None else None,
+            lambda: self._get_or_add_tblBorders().get_or_add_insideH(),
+        )
+
+    @property
+    def inside_v(self) -> BorderElement:
+        """The inside vertical border of the table."""
+        tblBorders = self._tblBorders
+        return BorderElement(
+            tblBorders.insideV if tblBorders is not None else None,
+            lambda: self._get_or_add_tblBorders().get_or_add_insideV(),
+        )
+
+    @property
+    def _tblBorders(self) -> CT_TblBorders | None:
+        return self._tbl.tblPr.tblBorders
+
+    def _get_or_add_tblBorders(self) -> CT_TblBorders:
+        return self._tbl.tblPr.get_or_add_tblBorders()
+
+
+class CellBorders:
+    """Provides access to border properties for a table cell.
+
+    Accessed via ``_Cell.borders``.
+    """
+
+    def __init__(self, tc: CT_Tc):
+        self._tc = tc
+
+    @property
+    def top(self) -> BorderElement:
+        """The top border of the cell."""
+        tcBorders = self._tcBorders
+        return BorderElement(
+            tcBorders.top if tcBorders is not None else None,
+            lambda: self._get_or_add_tcBorders().get_or_add_top(),
+        )
+
+    @property
+    def bottom(self) -> BorderElement:
+        """The bottom border of the cell."""
+        tcBorders = self._tcBorders
+        return BorderElement(
+            tcBorders.bottom if tcBorders is not None else None,
+            lambda: self._get_or_add_tcBorders().get_or_add_bottom(),
+        )
+
+    @property
+    def left(self) -> BorderElement:
+        """The left border of the cell."""
+        tcBorders = self._tcBorders
+        return BorderElement(
+            tcBorders.left if tcBorders is not None else None,
+            lambda: self._get_or_add_tcBorders().get_or_add_left(),
+        )
+
+    @property
+    def right(self) -> BorderElement:
+        """The right border of the cell."""
+        tcBorders = self._tcBorders
+        return BorderElement(
+            tcBorders.right if tcBorders is not None else None,
+            lambda: self._get_or_add_tcBorders().get_or_add_right(),
+        )
+
+    @property
+    def _tcBorders(self) -> CT_TcBorders | None:
+        tcPr = self._tc.tcPr
+        if tcPr is None:
+            return None
+        return tcPr.tcBorders
+
+    def _get_or_add_tcBorders(self) -> CT_TcBorders:
+        return self._tc.get_or_add_tcPr().get_or_add_tcBorders()
 
 
 class _Column(Parented):

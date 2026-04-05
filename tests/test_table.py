@@ -12,6 +12,7 @@ from docx.document import Document
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.table import (
     WD_ALIGN_VERTICAL,
+    WD_BORDER_STYLE,
     WD_ROW_HEIGHT,
     WD_SHADING_PATTERN,
     WD_TABLE_ALIGNMENT,
@@ -20,8 +21,19 @@ from docx.enum.table import (
 from docx.oxml.parser import parse_xml
 from docx.oxml.table import CT_Row, CT_Tbl, CT_TblGridCol, CT_Tc
 from docx.parts.document import DocumentPart
-from docx.shared import Emu, Inches, Length, RGBColor
-from docx.table import CellShading, Table, _Cell, _Column, _Columns, _Row, _Rows
+from docx.shared import Emu, Inches, Length, Pt, RGBColor
+from docx.table import (
+    BorderElement,
+    CellBorders,
+    CellShading,
+    Table,
+    TableBorders,
+    _Cell,
+    _Column,
+    _Columns,
+    _Row,
+    _Rows,
+)
 from docx.text.paragraph import Paragraph
 
 from .unitutil.cxml import element, xml
@@ -667,6 +679,161 @@ class DescribeCellShading:
         shading = CellShading(tc)
         shading.pattern = new_pattern
         assert tc.xml == xml(expected_cxml)
+
+
+class DescribeTableBorders:
+    """Unit-test suite for `docx.table.TableBorders` objects."""
+
+    def it_provides_access_to_table_borders(self, document_: Mock):
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblPr"))
+        table = Table(tbl, document_)
+        borders = table.borders
+        assert isinstance(borders, TableBorders)
+
+    def it_can_get_border_properties_when_no_borders_exist(self, document_: Mock):
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblPr"))
+        table = Table(tbl, document_)
+        borders = table.borders
+        assert borders.top.style is None
+        assert borders.bottom.style is None
+        assert borders.left.style is None
+        assert borders.right.style is None
+        assert borders.inside_h.style is None
+        assert borders.inside_v.style is None
+
+    def it_can_set_a_table_border(self, document_: Mock):
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblPr"))
+        table = Table(tbl, document_)
+        borders = table.borders
+        borders.top.style = WD_BORDER_STYLE.SINGLE
+        borders.top.width = Pt(1)
+        borders.top.color = RGBColor(0, 0, 0)
+        assert borders.top.style == WD_BORDER_STYLE.SINGLE
+        assert borders.top.color == RGBColor(0, 0, 0)
+
+    def it_can_use_set_borders_convenience(self, document_: Mock):
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblPr"))
+        table = Table(tbl, document_)
+        table.set_borders(top=True, bottom=True, inside_h=True)
+        borders = table.borders
+        assert borders.top.style == WD_BORDER_STYLE.SINGLE
+        assert borders.bottom.style == WD_BORDER_STYLE.SINGLE
+        assert borders.inside_h.style == WD_BORDER_STYLE.SINGLE
+        assert borders.left.style == WD_BORDER_STYLE.NONE
+        assert borders.right.style == WD_BORDER_STYLE.NONE
+        assert borders.inside_v.style == WD_BORDER_STYLE.NONE
+
+    def it_can_set_borders_with_custom_style(self, document_: Mock):
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblPr"))
+        table = Table(tbl, document_)
+        table.set_borders(
+            top=True,
+            bottom=True,
+            style=WD_BORDER_STYLE.DOUBLE,
+            width=Pt(2),
+            color=RGBColor(0xFF, 0, 0),
+        )
+        borders = table.borders
+        assert borders.top.style == WD_BORDER_STYLE.DOUBLE
+        assert borders.top.color == RGBColor(0xFF, 0, 0)
+        assert borders.bottom.style == WD_BORDER_STYLE.DOUBLE
+
+    # fixtures -------------------------------------------------------
+
+    @pytest.fixture
+    def document_(self, request: FixtureRequest):
+        return instance_mock(request, Document)
+
+
+class DescribeCellBorders:
+    """Unit-test suite for `docx.table.CellBorders` objects."""
+
+    def it_provides_access_to_cell_borders(self, parent_: Mock):
+        tc = cast(CT_Tc, element("w:tc"))
+        cell = _Cell(tc, parent_)
+        borders = cell.borders
+        assert isinstance(borders, CellBorders)
+
+    def it_can_get_border_properties_when_no_borders_exist(self, parent_: Mock):
+        tc = cast(CT_Tc, element("w:tc"))
+        cell = _Cell(tc, parent_)
+        borders = cell.borders
+        assert borders.top.style is None
+        assert borders.bottom.style is None
+        assert borders.left.style is None
+        assert borders.right.style is None
+
+    def it_can_set_a_cell_border(self, parent_: Mock):
+        tc = cast(CT_Tc, element("w:tc"))
+        cell = _Cell(tc, parent_)
+        borders = cell.borders
+        borders.top.style = WD_BORDER_STYLE.SINGLE
+        borders.top.width = Pt(0.5)
+        borders.top.color = RGBColor(0, 0, 0)
+        # re-read to verify
+        borders2 = cell.borders
+        assert borders2.top.style == WD_BORDER_STYLE.SINGLE
+        assert borders2.top.color == RGBColor(0, 0, 0)
+
+    def it_can_clear_a_cell_border(self, parent_: Mock):
+        tc = cast(CT_Tc, element("w:tc"))
+        cell = _Cell(tc, parent_)
+        borders = cell.borders
+        borders.top.style = WD_BORDER_STYLE.SINGLE
+        borders.top.width = Pt(1)
+        # now clear
+        borders2 = cell.borders
+        borders2.top.style = None
+        borders2.top.width = None
+        borders3 = cell.borders
+        assert borders3.top.style is None
+        assert borders3.top.width is None
+
+    # fixtures -------------------------------------------------------
+
+    @pytest.fixture
+    def parent_(self, request: FixtureRequest):
+        return instance_mock(request, Table)
+
+
+class DescribeBorderElement:
+    """Unit-test suite for `docx.table.BorderElement` objects."""
+
+    def it_can_get_the_style(self):
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblPr/w:tblBorders/w:top{w:val=single}"))
+        tblBorders = tbl.tblPr.tblBorders
+        border_el = BorderElement(tblBorders.top, tblBorders.get_or_add_top)
+        assert border_el.style == WD_BORDER_STYLE.SINGLE
+
+    def it_can_get_the_width(self):
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblPr/w:tblBorders/w:top{w:val=single,w:sz=8}"))
+        tblBorders = tbl.tblPr.tblBorders
+        border_el = BorderElement(tblBorders.top, tblBorders.get_or_add_top)
+        # sz=8 means 8 eighths of a point = 1 point
+        assert border_el.width == Pt(1)
+
+    def it_can_get_the_color(self):
+        tbl = cast(
+            CT_Tbl, element("w:tbl/w:tblPr/w:tblBorders/w:top{w:val=single,w:color=FF0000}")
+        )
+        tblBorders = tbl.tblPr.tblBorders
+        border_el = BorderElement(tblBorders.top, tblBorders.get_or_add_top)
+        assert border_el.color == RGBColor(0xFF, 0, 0)
+
+    def it_can_get_the_space(self):
+        tbl = cast(
+            CT_Tbl, element("w:tbl/w:tblPr/w:tblBorders/w:top{w:val=single,w:space=4}")
+        )
+        tblBorders = tbl.tblPr.tblBorders
+        border_el = BorderElement(tblBorders.top, tblBorders.get_or_add_top)
+        assert border_el.space == 4
+
+    def it_returns_none_when_no_border_element(self):
+        border_el = BorderElement(None, lambda: None)  # type: ignore
+        assert border_el.style is None
+        assert border_el.width is None
+        assert border_el.color is None
+        assert border_el.space is None
 
 
 class Describe_Column:

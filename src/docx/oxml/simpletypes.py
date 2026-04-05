@@ -178,6 +178,24 @@ class XsdUnsignedLong(BaseIntType):
         cls.validate_int_in_range(value, 0, 18446744073709551615)
 
 
+class ST_EighthPointMeasure(BaseIntType):
+    """Measurement in eighths of a point, used for border widths (w:sz attribute)."""
+
+    @classmethod
+    def convert_from_xml(cls, str_value: str) -> int:
+        return int(str_value)
+
+    @classmethod
+    def convert_to_xml(cls, value: int) -> str:
+        return str(value)
+
+    @classmethod
+    def validate(cls, value: Any) -> None:
+        cls.validate_int(value)
+        if value < 0 or value > 255:
+            raise ValueError("value must be in range 0 to 255 inclusive, got %d" % value)
+
+
 class ST_BrClear(XsdString):
     @classmethod
     def validate(cls, value: str) -> None:
