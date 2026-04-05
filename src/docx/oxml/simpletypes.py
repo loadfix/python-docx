@@ -214,6 +214,34 @@ class ST_CoordinateUnqualified(XsdLong):
         cls.validate_int_in_range(value, -27273042329600, 27273042316900)
 
 
+class ST_EighthPointMeasure(BaseIntType):
+    """Measurement in eighths of a point, e.g. sz="8" represents 1 point."""
+
+    @classmethod
+    def convert_from_xml(cls, str_value: str) -> Length:
+        return Pt(int(str_value) / 8.0)
+
+    @classmethod
+    def convert_to_xml(cls, value: int | Length) -> str:
+        emu = Emu(value)
+        eighth_points = int(round(emu.pt * 8))
+        return str(eighth_points)
+
+
+class ST_PointMeasure(BaseIntType):
+    """Measurement in whole points, e.g. space="4" represents 4 points."""
+
+    @classmethod
+    def convert_from_xml(cls, str_value: str) -> Length:
+        return Pt(int(str_value))
+
+    @classmethod
+    def convert_to_xml(cls, value: int | Length) -> str:
+        emu = Emu(value)
+        points = int(round(emu.pt))
+        return str(points)
+
+
 class ST_DateTime(BaseSimpleType):
     @classmethod
     def convert_from_xml(cls, str_value: str) -> dt.datetime:
