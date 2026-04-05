@@ -11,7 +11,6 @@ from docx.opc.packuri import PackURI
 from docx.parts.image import ImagePart
 from docx.shared import lazyproperty
 
-
 class Package(OpcPackage):
     """Customizations specific to a WordprocessingML package."""
 
@@ -45,7 +44,6 @@ class Package(OpcPackage):
             if rel.target_part in self.image_parts:
                 continue
             self.image_parts.append(cast("ImagePart", rel.target_part))
-
 
 class ImageParts:
     """Collection of |ImagePart| objects corresponding to images in the package."""
@@ -101,7 +99,7 @@ class ImageParts:
         """
 
         def image_partname(n: int) -> PackURI:
-            return PackURI("/word/media/image%d.%s" % (n, ext))
+            return PackURI(f"/word/media/image{n}.{ext}")
 
         used_numbers = [image_part.partname.idx for image_part in self]
         for n in range(1, len(self) + 1):

@@ -1,4 +1,5 @@
 """Provides mappings that embody aspects of the Open XML spec ISO/IEC 29500."""
+from __future__ import annotations
 
 from docx.opc.constants import CONTENT_TYPE as CT
 

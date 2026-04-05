@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from docx.oxml.xmlchemy import BaseOxmlElement
     from docx.shared import Length
 
-
 class Settings(ElementProxy):
     """Provides access to document-level settings for a document.
 
@@ -113,7 +112,6 @@ class Settings(ElementProxy):
     @zoom_percent.setter
     def zoom_percent(self, value: int | None):
         self._settings.zoom_percent = value
-
 
 class _DocumentProtection:
     """Read-only access to document-protection settings."""

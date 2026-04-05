@@ -1,4 +1,5 @@
 """|NumberingPart| and closely related objects."""
+from __future__ import annotations
 
 from ..opc.part import XmlPart
 from ..shared import lazyproperty

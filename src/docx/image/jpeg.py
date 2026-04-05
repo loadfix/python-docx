@@ -2,6 +2,7 @@
 
 Includes both JFIF and Exif sub-formats.
 """
+from __future__ import annotations
 
 import io
 
@@ -73,17 +74,11 @@ class _JfifMarkers:
         """Returns a tabular listing of the markers in this instance, which can be handy
         for debugging and perhaps other uses."""
         header = " offset  seglen  mc  name\n=======  ======  ==  ====="
-        tmpl = "%7d  %6d  %02X  %s"
         rows = []
         for marker in self._markers:
             rows.append(
-                tmpl
-                % (
-                    marker.offset,
-                    marker.segment_length,
-                    ord(marker.marker_code),
-                    marker.name,
-                )
+                f"{marker.offset:7d}  {marker.segment_length:6d}"
+                f"  {ord(marker.marker_code):02X}  {marker.name}"
             )
         lines = [header] + rows
         return "\n".join(lines)

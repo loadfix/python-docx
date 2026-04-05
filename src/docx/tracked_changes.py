@@ -10,7 +10,6 @@ from docx.shared import ElementProxy
 if TYPE_CHECKING:
     from docx.oxml.tracked_changes import CT_RunTrackChange
 
-
 class TrackedChange(ElementProxy):
     """Proxy for a single tracked change (insertion or deletion) in a paragraph.
 

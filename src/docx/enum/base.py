@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import enum
 import textwrap
-from typing import TYPE_CHECKING, Any, Dict, Type, TypeVar
+from typing import Any, TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
     from typing_extensions import Self
 
 _T = TypeVar("_T", bound="BaseXmlEnum")
-
 
 class BaseEnum(int, enum.Enum):
     """Base class for Enums that do not map XML attr values.
@@ -28,7 +27,6 @@ class BaseEnum(int, enum.Enum):
     def __str__(self):
         """The symbolic name and string value of this member, e.g. 'MIDDLE (3)'."""
         return f"{self.name} ({self.value})"
-
 
 class BaseXmlEnum(int, enum.Enum):
     """Base class for Enums that also map XML attr values.
@@ -66,7 +64,7 @@ class BaseXmlEnum(int, enum.Enum):
         return member
 
     @classmethod
-    def to_xml(cls: Type[_T], value: int | _T | None) -> str | None:
+    def to_xml(cls: type[_T], value: int | _T | None) -> str | None:
         """XML value of this enum member, generally an XML attribute value."""
         # -- presence of multi-arg `__new__()` method fools type-checker, but getting a
         # -- member by its value using EnumCls(val) works as usual.
@@ -76,7 +74,6 @@ class BaseXmlEnum(int, enum.Enum):
             raise ValueError(f"{cls.__name__}.{member.name} has no XML representation")
         return xml_value
 
-
 class DocsPageFormatter:
     """Generate an .rst doc page for an enumeration.
 
@@ -84,7 +81,7 @@ class DocsPageFormatter:
     passed to the constructor. An immutable one-shot service object.
     """
 
-    def __init__(self, clsname: str, clsdict: Dict[str, Any]):
+    def __init__(self, clsname: str, clsdict: dict[str, Any]):
         self._clsname = clsname
         self._clsdict = clsdict
 
@@ -94,14 +91,10 @@ class DocsPageFormatter:
 
         This is the only API member for the class.
         """
-        tmpl = ".. _%s:\n\n%s\n\n%s\n\n----\n\n%s"
-        components = (
-            self._ms_name,
-            self._page_title,
-            self._intro_text,
-            self._member_defs,
+        return (
+            f".. _{self._ms_name}:\n\n{self._page_title}\n\n"
+            f"{self._intro_text}\n\n----\n\n{self._member_defs}"
         )
-        return tmpl % components
 
     @property
     def _intro_text(self):
@@ -127,7 +120,7 @@ class DocsPageFormatter:
             initial_indent=" " * 4,
             subsequent_indent=" " * 4,
         )
-        return "%s\n%s\n" % (member.name, member_docstring)
+        return f"{member.name}\n{member_docstring}\n"
 
     @property
     def _member_defs(self):
@@ -147,4 +140,4 @@ class DocsPageFormatter:
         """The title for the documentation page, formatted as code (surrounded in
         double-backtics) and underlined with '=' characters."""
         title_underscore = "=" * (len(self._clsname) + 4)
-        return "``%s``\n%s" % (self._clsname, title_underscore)
+        return f"``{self._clsname}``\n{title_underscore}"

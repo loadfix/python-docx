@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from docx.opc.package import OpcPackage
     from docx.opc.packuri import PackURI
 
-
 class ImagePart(Part):
     """An image part.
 
@@ -54,7 +53,7 @@ class ImagePart(Part):
         """
         if self._image is not None:
             return self._image.filename
-        return "image.%s" % self.partname.ext
+        return f"image.{self.partname.ext}"
 
     @classmethod
     def from_image(cls, image: Image, partname: PackURI):

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
+from collections.abc import Iterator
 
 from docx.blkcntnr import BlockItemContainer
 
@@ -12,7 +13,6 @@ if TYPE_CHECKING:
     from docx.styles.style import ParagraphStyle
     from docx.text.paragraph import Paragraph
     from docx.text.run import Run
-
 
 class Footnotes:
     """Collection containing the footnotes in this document."""
@@ -51,7 +51,6 @@ class Footnotes:
             first_para.add_run(text)
 
         return footnote
-
 
 class Footnote(BlockItemContainer):
     """Proxy for a single footnote in the document.

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import TYPE_CHECKING, Iterator, cast
+from typing import TYPE_CHECKING, cast
+from collections.abc import Iterator
 
 from docx.blkcntnr import BlockItemContainer
 
@@ -12,7 +13,6 @@ if TYPE_CHECKING:
     from docx.parts.comments import CommentsPart
     from docx.styles.style import ParagraphStyle
     from docx.text.paragraph import Paragraph
-
 
 class Comments:
     """Collection containing the comments added to this document."""
@@ -78,7 +78,6 @@ class Comments:
         """Return the comment identified by `comment_id`, or |None| if not found."""
         comment_elm = self._comments_elm.get_comment_by_id(comment_id)
         return Comment(comment_elm, self._comments_part) if comment_elm is not None else None
-
 
 class Comment(BlockItemContainer):
     """Proxy for a single comment in the document.

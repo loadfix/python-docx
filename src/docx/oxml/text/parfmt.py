@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 from docx.enum.text import (
     WD_ALIGN_PARAGRAPH,
@@ -25,7 +26,6 @@ if TYPE_CHECKING:
     from docx.oxml.section import CT_SectPr
     from docx.oxml.shared import CT_String
 
-
 class CT_Ind(BaseOxmlElement):
     """``<w:ind>`` element, specifying paragraph indentation."""
 
@@ -42,14 +42,12 @@ class CT_Ind(BaseOxmlElement):
         "w:hanging", ST_TwipsMeasure
     )
 
-
 class CT_Jc(BaseOxmlElement):
     """``<w:jc>`` element, specifying paragraph justification."""
 
     val: WD_ALIGN_PARAGRAPH = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
         "w:val", WD_ALIGN_PARAGRAPH
     )
-
 
 class CT_PPr(BaseOxmlElement):
     """``<w:pPr>`` element, containing the properties for a paragraph."""
@@ -338,7 +336,6 @@ class CT_PPr(BaseOxmlElement):
         else:
             self.get_or_add_widowControl().val = value
 
-
 class CT_Spacing(BaseOxmlElement):
     """``<w:spacing>`` element, specifying paragraph spacing attributes such as space
     before and line spacing."""
@@ -347,7 +344,6 @@ class CT_Spacing(BaseOxmlElement):
     before = OptionalAttribute("w:before", ST_TwipsMeasure)
     line = OptionalAttribute("w:line", ST_SignedTwipsMeasure)
     lineRule = OptionalAttribute("w:lineRule", WD_LINE_SPACING)
-
 
 class CT_TabStop(BaseOxmlElement):
     """`<w:tab>` element, representing an individual tab stop.
@@ -373,7 +369,6 @@ class CT_TabStop(BaseOxmlElement):
         inner-content.
         """
         return "\t"
-
 
 class CT_TabStops(BaseOxmlElement):
     """``<w:tabs>`` element, container for a sorted sequence of tab stops."""

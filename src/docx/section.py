@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator, List, Sequence, Union, overload
+from typing import TYPE_CHECKING, overload
+from collections.abc import Iterator, Sequence
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_HEADER_FOOTER
@@ -19,7 +20,6 @@ if TYPE_CHECKING:
     from docx.parts.document import DocumentPart
     from docx.parts.story import StoryPart
     from docx.shared import Length
-
 
 class Section:
     """Document section, providing access to section and page setup settings.
@@ -257,7 +257,6 @@ class Section:
     def top_margin(self, value: Length | None):
         self._sectPr.top_margin = value
 
-
 class Sections(Sequence[Section]):
     """Sequence of |Section| objects corresponding to the sections in the document.
 
@@ -273,9 +272,9 @@ class Sections(Sequence[Section]):
     def __getitem__(self, key: int) -> Section: ...
 
     @overload
-    def __getitem__(self, key: slice) -> List[Section]: ...
+    def __getitem__(self, key: slice) -> list[Section]: ...
 
-    def __getitem__(self, key: int | slice) -> Section | List[Section]:
+    def __getitem__(self, key: int | slice) -> Section | list[Section]:
         if isinstance(key, slice):
             return [
                 Section(sectPr, self._document_part)
@@ -289,7 +288,6 @@ class Sections(Sequence[Section]):
 
     def __len__(self) -> int:
         return len(self._document_elm.sectPr_lst)
-
 
 class Column:
     """Proxy for a ``<w:col>`` element, representing an individual column definition."""
@@ -321,7 +319,6 @@ class Column:
     def width(self, value: Length | None):
         self._col.w = value
 
-
 class SectionColumns(Sequence[Column]):
     """Proxy for a ``<w:cols>`` element, providing access to column layout settings.
 
@@ -335,9 +332,9 @@ class SectionColumns(Sequence[Column]):
     def __getitem__(self, key: int) -> Column: ...
 
     @overload
-    def __getitem__(self, key: slice) -> List[Column]: ...
+    def __getitem__(self, key: slice) -> list[Column]: ...
 
-    def __getitem__(self, key: Union[int, slice]) -> Union[Column, List[Column]]:
+    def __getitem__(self, key: int | slice) -> Column | list[Column]:
         cols = self._sectPr.cols
         col_lst = cols.col_lst if cols is not None else []
         if isinstance(key, slice):
@@ -405,7 +402,6 @@ class SectionColumns(Sequence[Column]):
     def space(self, value: Length | None):
         cols = self._sectPr.get_or_add_cols()
         cols.space = value
-
 
 class _BaseHeaderFooter(BlockItemContainer):
     """Base class for header and footer classes."""
@@ -507,7 +503,6 @@ class _BaseHeaderFooter(BlockItemContainer):
         """
         raise NotImplementedError("must be implemented by each subclass")
 
-
 class _Footer(_BaseHeaderFooter):
     """Page footer, used for all three types (default, even-page, and first-page).
 
@@ -552,7 +547,6 @@ class _Footer(_BaseHeaderFooter):
             if preceding_sectPr is None
             else _Footer(preceding_sectPr, self._document_part, self._hdrftr_index)
         )
-
 
 class _Header(_BaseHeaderFooter):
     """Page header, used for all three types (default, even-page, and first-page).

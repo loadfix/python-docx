@@ -1,4 +1,5 @@
 """Enumerations related to the main document in WordprocessingML files."""
+from __future__ import annotations
 
 from .base import BaseXmlEnum
 

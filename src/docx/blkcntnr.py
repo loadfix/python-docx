@@ -8,7 +8,8 @@ specialized ones like structured document tags.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
+from collections.abc import Iterator
 
 from typing_extensions import TypeAlias
 
@@ -29,7 +30,6 @@ if TYPE_CHECKING:
     from docx.table import Table
 
 BlockItemElement: TypeAlias = "CT_Body | CT_Comment | CT_Footnote | CT_HdrFtr | CT_Tc"
-
 
 class BlockItemContainer(StoryChild):
     """Base class for proxy objects that can contain block items.

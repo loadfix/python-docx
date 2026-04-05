@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Iterator, List, cast
+from typing import TYPE_CHECKING, cast
+from collections.abc import Callable, Iterator
 
 from docx.oxml.drawing import CT_Drawing
 from docx.oxml.ns import qn
@@ -19,7 +20,6 @@ if TYPE_CHECKING:
 
 # ------------------------------------------------------------------------------------
 # Run-level elements
-
 
 class CT_R(BaseOxmlElement):
     """`<w:r>` element, containing the properties and text for a run."""
@@ -60,7 +60,7 @@ class CT_R(BaseOxmlElement):
             self.remove(e)
 
     @property
-    def inner_content_items(self) -> List[str | CT_Drawing | CT_LastRenderedPageBreak]:
+    def inner_content_items(self) -> list[str | CT_Drawing | CT_LastRenderedPageBreak]:
         """Text of run, possibly punctuated by `w:lastRenderedPageBreak` elements."""
         from docx.oxml.text.pagebreak import CT_LastRenderedPageBreak
 
@@ -115,7 +115,7 @@ class CT_R(BaseOxmlElement):
         self.addprevious(OxmlElement("w:commentRangeStart", attrs={qn("w:id"): str(comment_id)}))
 
     @property
-    def lastRenderedPageBreaks(self) -> List[CT_LastRenderedPageBreak]:
+    def lastRenderedPageBreaks(self) -> list[CT_LastRenderedPageBreak]:
         """All `w:lastRenderedPageBreaks` descendants of this run."""
         return self.xpath("./w:lastRenderedPageBreak")
 
@@ -193,10 +193,8 @@ class CT_R(BaseOxmlElement):
         r.append(OxmlElement("w:commentReference", attrs={qn("w:id"): str(comment_id)}))
         return r
 
-
 # ------------------------------------------------------------------------------------
 # Run inner-content elements
-
 
 class CT_Br(BaseOxmlElement):
     """`<w:br>` element, indicating a line, page, or column break in a run."""
@@ -217,7 +215,6 @@ class CT_Br(BaseOxmlElement):
         """
         return "\n" if self.type == "textWrapping" else ""
 
-
 class CT_Cr(BaseOxmlElement):
     """`<w:cr>` element, representing a carriage-return (0x0D) character within a run.
 
@@ -235,7 +232,6 @@ class CT_Cr(BaseOxmlElement):
         """Text equivalent of this element, a single newline ("\n")."""
         return "\n"
 
-
 class CT_NoBreakHyphen(BaseOxmlElement):
     """`<w:noBreakHyphen>` element, a hyphen ineligible for a line-wrap position.
 
@@ -249,7 +245,6 @@ class CT_NoBreakHyphen(BaseOxmlElement):
     def __str__(self) -> str:
         """Text equivalent of this element, a single dash character ("-")."""
         return "-"
-
 
 class CT_PTab(BaseOxmlElement):
     """`<w:ptab>` element, representing an absolute-position tab character within a run.
@@ -266,11 +261,9 @@ class CT_PTab(BaseOxmlElement):
         """
         return "\t"
 
-
 # -- CT_Tab functionality is provided by CT_TabStop which also uses `w:tab` tag. That
 # -- element class provides the __str__() method for this empty element, unconditionally
 # -- returning "\t".
-
 
 class CT_Text(BaseOxmlElement):
     """`<w:t>` element, containing a sequence of characters within a run."""
@@ -284,10 +277,8 @@ class CT_Text(BaseOxmlElement):
         """
         return self.text or ""
 
-
 # ------------------------------------------------------------------------------------
 # Utility
-
 
 class _RunContentAppender:
     """Translates a Python string into run content elements appended in a `w:r` element.
@@ -300,7 +291,7 @@ class _RunContentAppender:
 
     def __init__(self, r: CT_R):
         self._r = r
-        self._bfr: List[str] = []
+        self._bfr: list[str] = []
 
     @classmethod
     def append_to_run_from_text(cls, r: CT_R, text: str):

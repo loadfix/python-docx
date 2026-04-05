@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import datetime as dt
 import secrets
-from typing import TYPE_CHECKING, Callable, cast
+from typing import TYPE_CHECKING, cast
+from collections.abc import Callable
 
 from docx.oxml.ns import nsdecls, qn
 from docx.oxml.parser import parse_xml
@@ -14,7 +15,6 @@ from docx.oxml.xmlchemy import BaseOxmlElement, OptionalAttribute, RequiredAttri
 if TYPE_CHECKING:
     from docx.oxml.table import CT_Tbl
     from docx.oxml.text.paragraph import CT_P
-
 
 class CT_Comments(BaseOxmlElement):
     """`w:comments` element, the root element for the comments part.
@@ -122,7 +122,6 @@ class CT_Comments(BaseOxmlElement):
                 return expected
 
         return len(used_ids)
-
 
 class CT_Comment(BaseOxmlElement):
     """`w:comment` element, representing a single comment.

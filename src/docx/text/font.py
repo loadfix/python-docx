@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any, TYPE_CHECKING
 
 from docx.dml.color import ColorFormat
 from docx.enum.text import WD_UNDERLINE
@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from docx.enum.text import WD_COLOR_INDEX
     from docx.oxml.text.run import CT_R
     from docx.shared import Length
-
 
 class Font(ElementProxy):
     """Proxy object for parent of a `<w:rPr>` element and providing access to

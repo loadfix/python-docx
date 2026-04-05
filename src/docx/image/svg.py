@@ -5,11 +5,10 @@ from __future__ import annotations
 import re
 import struct
 import zlib
-from typing import IO, Tuple
+from typing import IO
 
 from docx.image.constants import MIME_TYPE
 from docx.image.image import BaseImageHeader
-
 
 class Svg(BaseImageHeader):
     """Image header parser for SVG images."""
@@ -35,7 +34,7 @@ class Svg(BaseImageHeader):
         return cls(px_width, px_height, 96, 96)
 
     @classmethod
-    def _parse_dimensions(cls, svg_text: str) -> Tuple[int, int]:
+    def _parse_dimensions(cls, svg_text: str) -> tuple[int, int]:
         import defusedxml.ElementTree as SafeET
 
         try:
@@ -91,7 +90,6 @@ class Svg(BaseImageHeader):
         elif unit == "mm":
             return int(round(value * 96 / 25.4))
 
-
 def is_svg_stream(stream: IO[bytes]) -> bool:
     """Return True if `stream` contains an SVG image."""
     stream.seek(0)
@@ -103,7 +101,6 @@ def is_svg_stream(stream: IO[bytes]) -> bool:
     return stripped.startswith(b"<svg") or (
         stripped.startswith(b"<?xml") and b"<svg" in stripped
     )
-
 
 def generate_fallback_png() -> bytes:
     """Generate a minimal 1x1 transparent PNG for SVG fallback."""

@@ -3,6 +3,7 @@
 That characterization is as to content type and size, as a required step in including
 them in a document.
 """
+from __future__ import annotations
 
 from docx.image.bmp import Bmp
 from docx.image.gif import Gif

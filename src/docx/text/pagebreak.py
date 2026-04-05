@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.text.paragraph import Paragraph
 
-
 class RenderedPageBreak(Parented):
     """A page-break inserted by Word during page-layout for print or display purposes.
 

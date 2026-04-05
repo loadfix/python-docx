@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator, cast, overload
+from typing import TYPE_CHECKING, cast, overload
+from collections.abc import Iterator
 
 from typing_extensions import TypeAlias
 
@@ -24,7 +25,6 @@ if TYPE_CHECKING:
     )
 
 TableParent: TypeAlias = "Table | _Columns | _Rows"
-
 
 class Table(StoryChild):
     """Proxy class for a WordprocessingML ``<w:tbl>`` element."""
@@ -200,7 +200,6 @@ class Table(StoryChild):
     def _tblPr(self) -> CT_TblPr:
         return self._tbl.tblPr
 
-
 class _Cell(BlockItemContainer):
     """Table cell."""
 
@@ -331,7 +330,6 @@ class _Cell(BlockItemContainer):
     def width(self, value: Length):
         self._tc.width = value
 
-
 class CellShading:
     """Provides access to shading properties for a table cell.
 
@@ -397,7 +395,6 @@ class CellShading:
             shd.val = WD_SHADING_PATTERN.CLEAR
         return shd
 
-
 class _Column(Parented):
     """Table column."""
 
@@ -430,7 +427,6 @@ class _Column(Parented):
         """Index of this column in its table, starting from zero."""
         return self._gridCol.gridCol_idx
 
-
 class _Columns(Parented):
     """Sequence of |_Column| instances corresponding to the columns in a table.
 
@@ -447,7 +443,7 @@ class _Columns(Parented):
         try:
             gridCol = self._gridCol_lst[idx]
         except IndexError:
-            msg = "column index [%d] is out of range" % idx
+            msg = f"column index [{idx}] is out of range"
             raise IndexError(msg)
         return _Column(gridCol, self)
 
@@ -469,7 +465,6 @@ class _Columns(Parented):
         representing a table column."""
         tblGrid = self._tbl.tblGrid
         return tblGrid.gridCol_lst
-
 
 class _Row(Parented):
     """Table row."""
@@ -602,7 +597,6 @@ class _Row(Parented):
     def _index(self) -> int:
         """Index of this row in its table, starting from zero."""
         return self._tr.tr_idx
-
 
 class _Rows(Parented):
     """Sequence of |_Row| objects corresponding to the rows in a table.

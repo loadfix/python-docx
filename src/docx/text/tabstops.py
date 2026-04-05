@@ -1,4 +1,5 @@
 """Tabstop-related proxy types."""
+from __future__ import annotations
 
 from docx.enum.text import WD_TAB_ALIGNMENT, WD_TAB_LEADER
 from docx.shared import ElementProxy

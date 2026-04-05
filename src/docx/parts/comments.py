@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from typing_extensions import Self
@@ -18,7 +18,6 @@ from docx.parts.story import StoryPart
 if TYPE_CHECKING:
     from docx.oxml.comments import CT_Comments
     from docx.package import Package
-
 
 class CommentsPart(StoryPart):
     """Container part for comments added to the document."""
@@ -45,7 +44,5 @@ class CommentsPart(StoryPart):
     @classmethod
     def _default_comments_xml(cls) -> bytes:
         """A byte-string containing XML for a default comments part."""
-        path = os.path.join(os.path.split(__file__)[0], "..", "templates", "default-comments.xml")
-        with open(path, "rb") as f:
-            xml_bytes = f.read()
-        return xml_bytes
+        path = Path(__file__).parent.parent / "templates" / "default-comments.xml"
+        return path.read_bytes()

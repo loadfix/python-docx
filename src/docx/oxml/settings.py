@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 from docx.oxml.simpletypes import ST_DecimalNumber, ST_OnOff, ST_String, ST_TwipsMeasure
 from docx.oxml.xmlchemy import (
@@ -17,14 +18,12 @@ if TYPE_CHECKING:
     from docx.oxml.shared import CT_OnOff
     from docx.shared import Length
 
-
 class CT_Zoom(BaseOxmlElement):
     """`w:zoom` element, specifying the magnification level for the document."""
 
     percent: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:percent", ST_DecimalNumber
     )
-
 
 class CT_DocProtect(BaseOxmlElement):
     """`w:documentProtection` element, specifying document editing restrictions."""
@@ -36,14 +35,12 @@ class CT_DocProtect(BaseOxmlElement):
         "w:enforcement", ST_OnOff, default=False
     )
 
-
 class CT_CompatSetting(BaseOxmlElement):
     """`w:compatSetting` element, a single compatibility setting name/value pair."""
 
     name: str = RequiredAttribute("w:name", ST_String)  # pyright: ignore[reportAssignmentType]
     uri: str = RequiredAttribute("w:uri", ST_String)  # pyright: ignore[reportAssignmentType]
     val: str = RequiredAttribute("w:val", ST_String)  # pyright: ignore[reportAssignmentType]
-
 
 class CT_Compat(BaseOxmlElement):
     """`w:compat` element, containing document compatibility settings."""
@@ -53,14 +50,12 @@ class CT_Compat(BaseOxmlElement):
 
     compatSetting = ZeroOrMore("w:compatSetting", successors=())
 
-
 class CT_DefaultTabStop(BaseOxmlElement):
     """`w:defaultTabStop` element, specifying default tab-stop interval."""
 
     val: Length = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
         "w:val", ST_TwipsMeasure
     )
-
 
 class CT_Settings(BaseOxmlElement):
     """`w:settings` element, root element for the settings part."""

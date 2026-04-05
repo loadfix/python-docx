@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .constants import MIME_TYPE, TIFF_FLD, TIFF_TAG
 from .helpers import BIG_ENDIAN, LITTLE_ENDIAN, StreamReader
 from .image import BaseImageHeader

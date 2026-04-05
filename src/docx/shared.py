@@ -3,24 +3,14 @@
 from __future__ import annotations
 
 import functools
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Generic,
-    Iterator,
-    List,
-    Tuple,
-    TypeVar,
-    cast,
-)
+from typing import Any, Generic, TYPE_CHECKING, TypeVar, cast
+from collections.abc import Callable, Iterator
 
 if TYPE_CHECKING:
     import docx.types as t
     from docx.opc.part import XmlPart
     from docx.oxml.xmlchemy import BaseOxmlElement
     from docx.parts.story import StoryPart
-
 
 class Length(int):
     """Base class for length constructor classes Inches, Cm, Mm, Px, and Emu.
@@ -69,14 +59,12 @@ class Length(int):
         """The equivalent length expressed in twips (int)."""
         return int(round(self / float(self._EMUS_PER_TWIP)))
 
-
 class Inches(Length):
     """Convenience constructor for length in inches, e.g. ``width = Inches(0.5)``."""
 
     def __new__(cls, inches: float):
         emu = int(inches * Length._EMUS_PER_INCH)
         return Length.__new__(cls, emu)
-
 
 class Cm(Length):
     """Convenience constructor for length in centimeters, e.g. ``height = Cm(12)``."""
@@ -85,14 +73,12 @@ class Cm(Length):
         emu = int(cm * Length._EMUS_PER_CM)
         return Length.__new__(cls, emu)
 
-
 class Emu(Length):
     """Convenience constructor for length in English Metric Units, e.g. ``width =
     Emu(457200)``."""
 
     def __new__(cls, emu: int):
         return Length.__new__(cls, int(emu))
-
 
 class Mm(Length):
     """Convenience constructor for length in millimeters, e.g. ``width = Mm(240.5)``."""
@@ -101,14 +87,12 @@ class Mm(Length):
         emu = int(mm * Length._EMUS_PER_MM)
         return Length.__new__(cls, emu)
 
-
 class Pt(Length):
     """Convenience value class for specifying a length in points."""
 
     def __new__(cls, points: float):
         emu = int(points * Length._EMUS_PER_PT)
         return Length.__new__(cls, emu)
-
 
 class Twips(Length):
     """Convenience constructor for length in twips, e.g. ``width = Twips(42)``.
@@ -120,8 +104,7 @@ class Twips(Length):
         emu = int(twips * Length._EMUS_PER_TWIP)
         return Length.__new__(cls, emu)
 
-
-class RGBColor(Tuple[int, int, int]):
+class RGBColor(tuple[int, int, int]):
     """Immutable value object defining a particular RGB color."""
 
     def __new__(cls, r: int, g: int, b: int):
@@ -134,11 +117,13 @@ class RGBColor(Tuple[int, int, int]):
         return super(RGBColor, cls).__new__(cls, (r, g, b))
 
     def __repr__(self):
-        return "RGBColor(0x%02x, 0x%02x, 0x%02x)" % self
+        r, g, b = self
+        return f"RGBColor(0x{r:02x}, 0x{g:02x}, 0x{b:02x})"
 
     def __str__(self):
         """Return a hex string rgb value, like '3C2F80'."""
-        return "%02X%02X%02X" % self
+        r, g, b = self
+        return f"{r:02X}{g:02X}{b:02X}"
 
     @classmethod
     def from_string(cls, rgb_hex_str: str) -> RGBColor:
@@ -148,9 +133,7 @@ class RGBColor(Tuple[int, int, int]):
         b = int(rgb_hex_str[4:], 16)
         return cls(r, g, b)
 
-
 T = TypeVar("T")
-
 
 class lazyproperty(Generic[T]):
     """Decorator like @property, but evaluated only on first access.
@@ -262,7 +245,6 @@ class lazyproperty(Generic[T]):
         """
         raise AttributeError("can't set attribute")
 
-
 def write_only_property(f: Callable[[Any, Any], None]):
     """@write_only_property decorator.
 
@@ -272,7 +254,6 @@ def write_only_property(f: Callable[[Any, Any], None]):
     docstring = f.__doc__
 
     return property(fset=f, doc=docstring)
-
 
 class ElementProxy:
     """Base class for lxml element proxy classes.
@@ -315,7 +296,6 @@ class ElementProxy:
             raise ValueError("part is not accessible from this element")
         return self._parent.part
 
-
 class Parented:
     """Provides common services for document elements that occur below a part but may
     occasionally require an ancestor object to provide a service, such as add or drop a
@@ -331,7 +311,6 @@ class Parented:
     def part(self) -> XmlPart:
         """The package part containing this object."""
         return self._parent.part
-
 
 class StoryChild:
     """A document element within a story part.
@@ -352,7 +331,6 @@ class StoryChild:
         """The package part containing this object."""
         return self._parent.part
 
-
 class TextAccumulator:
     """Accepts `str` fragments and joins them together, in order, on `.pop().
 
@@ -363,7 +341,7 @@ class TextAccumulator:
 
     def __init__(self, separator: str = ""):
         self._separator = separator
-        self._texts: List[str] = []
+        self._texts: list[str] = []
 
     def push(self, text: str) -> None:
         """Add a text fragment to the accumulator."""

@@ -10,7 +10,6 @@ if TYPE_CHECKING:
     from docx.opc.part import XmlPart
     from docx.parts.story import StoryPart
 
-
 class ProvidesStoryPart(Protocol):
     """An object that provides access to the StoryPart.
 
@@ -20,7 +19,6 @@ class ProvidesStoryPart(Protocol):
 
     @property
     def part(self) -> StoryPart: ...
-
 
 class ProvidesXmlPart(Protocol):
     """An object that provides access to its XmlPart.

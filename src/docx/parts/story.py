@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import io
-from typing import IO, TYPE_CHECKING, Tuple, cast
+from typing import IO, TYPE_CHECKING, cast
 
 from docx.image.constants import MIME_TYPE
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from docx.parts.document import DocumentPart
     from docx.styles.style import BaseStyle
 
-
 class StoryPart(XmlPart):
     """Base class for story parts.
 
@@ -26,7 +25,7 @@ class StoryPart(XmlPart):
     `.add_paragraph()`, `.add_table()` etc.
     """
 
-    def get_or_add_image(self, image_descriptor: str | IO[bytes]) -> Tuple[str, Image]:
+    def get_or_add_image(self, image_descriptor: str | IO[bytes]) -> tuple[str, Image]:
         """Return (rId, image) pair for image identified by `image_descriptor`.
 
         `rId` is the str key (often like "rId7") for the relationship between this story

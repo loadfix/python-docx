@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import IO, TYPE_CHECKING, Iterator, cast
+from typing import IO, TYPE_CHECKING, cast
+from collections.abc import Iterator
 
 from docx.drawing import Drawing
 from docx.enum.style import WD_STYLE_TYPE
@@ -20,7 +21,6 @@ if TYPE_CHECKING:
     from docx.enum.text import WD_UNDERLINE
     from docx.oxml.text.run import CT_R, CT_Text
     from docx.shared import Length
-
 
 class Run(StoryChild):
     """Proxy object wrapping `<w:r>` element.
@@ -259,7 +259,6 @@ class Run(StoryChild):
     @underline.setter
     def underline(self, value: bool | WD_UNDERLINE | None):
         self.font.underline = value
-
 
 class _Text:
     """Proxy object wrapping `<w:t>` element."""

@@ -1,4 +1,5 @@
 """Exceptions specific the the image sub-package."""
+from __future__ import annotations
 
 
 class InvalidImageStreamError(Exception):

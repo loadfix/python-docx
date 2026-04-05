@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-from typing import IO, TYPE_CHECKING, Iterator, List, Sequence
+from typing import IO, TYPE_CHECKING
+from collections.abc import Iterator, Sequence
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_SECTION
@@ -25,7 +26,6 @@ if TYPE_CHECKING:
     from docx.styles.style import ParagraphStyle, _TableStyle
     from docx.table import Table
     from docx.text.paragraph import Paragraph
-
 
 class Document(ElementProxy):
     """WordprocessingML (WML) document.
@@ -98,8 +98,8 @@ class Document(ElementProxy):
         {level}`. Raises |ValueError| if `level` is outside the range 0-9.
         """
         if not 0 <= level <= 9:
-            raise ValueError("level must be in range 0-9, got %d" % level)
-        style = "Title" if level == 0 else "Heading %d" % level
+            raise ValueError(f"level must be in range 0-9, got {level}")
+        style = "Title" if level == 0 else f"Heading {level}"
         return self.add_paragraph(text, style)
 
     def add_page_break(self) -> Paragraph:
@@ -205,7 +205,7 @@ class Document(ElementProxy):
         return self._body.iter_inner_content()
 
     @property
-    def paragraphs(self) -> List[Paragraph]:
+    def paragraphs(self) -> list[Paragraph]:
         """The |Paragraph| instances in the document, in document order.
 
         Note that paragraphs within revision marks such as ``<w:ins>`` or ``<w:del>`` do
@@ -242,7 +242,7 @@ class Document(ElementProxy):
         return self._part.styles
 
     @property
-    def tables(self) -> List[Table]:
+    def tables(self) -> list[Table]:
         """All |Table| instances in the document, in document order.
 
         Note that only tables appearing at the top level of the document appear in this
@@ -267,7 +267,6 @@ class Document(ElementProxy):
         if self.__body is None:
             self.__body = _Body(self._element.body, self)
         return self.__body
-
 
 class _Body(BlockItemContainer):
     """Proxy for `<w:body>` element in this document.

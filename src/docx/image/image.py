@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import hashlib
 import io
-import os
-from typing import IO, Tuple
+from pathlib import PurePath
+from typing import IO
 
 from docx.image.exceptions import UnrecognizedImageError
 from docx.shared import Emu, Inches, Length, lazyproperty
-
 
 class Image:
     """Graphical image stream such as JPEG, PNG, or GIF with properties and methods
@@ -41,7 +40,7 @@ class Image:
             with open(path, "rb") as f:
                 blob = f.read()
                 stream = io.BytesIO(blob)
-            filename = os.path.basename(path)
+            filename = PurePath(path).name
         else:
             stream = image_descriptor
             stream.seek(0)
@@ -67,7 +66,7 @@ class Image:
         canonical extension is assigned based on the content type. Does not contain the
         leading period, e.g. 'jpg', not '.jpg'.
         """
-        return os.path.splitext(self._filename)[1][1:]
+        return PurePath(self._filename).suffix[1:]
 
     @property
     def filename(self):
@@ -115,7 +114,7 @@ class Image:
 
     def scaled_dimensions(
         self, width: int | Length | None = None, height: int | Length | None = None
-    ) -> Tuple[Length, Length]:
+    ) -> tuple[Length, Length]:
         """(cx, cy) pair representing scaled dimensions of this image.
 
         The native dimensions of the image are scaled by applying the following rules to
@@ -161,9 +160,8 @@ class Image:
         image in `stream`."""
         image_header = _ImageHeaderFactory(stream)
         if filename is None:
-            filename = "image.%s" % image_header.default_ext
+            filename = f"image.{image_header.default_ext}"
         return cls(blob, filename, image_header)
-
 
 def _ImageHeaderFactory(stream: IO[bytes]):
     """A |BaseImageHeader| subclass instance that can parse headers of image in `stream`."""
@@ -187,7 +185,6 @@ def _ImageHeaderFactory(stream: IO[bytes]):
         return Svg.from_stream(stream)
 
     raise UnrecognizedImageError
-
 
 class BaseImageHeader:
     """Base class for image header subclasses like |Jpeg| and |Tiff|."""

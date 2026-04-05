@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import IO, TYPE_CHECKING, Iterator, cast
+from typing import IO, TYPE_CHECKING, cast
+from collections.abc import Iterator
 
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.opc.packuri import PACKAGE_URI, PackURI
@@ -19,7 +20,6 @@ if TYPE_CHECKING:
     from docx.opc.coreprops import CoreProperties
     from docx.opc.part import Part
     from docx.opc.rel import _Relationship  # pyright: ignore[reportPrivateUsage]
-
 
 class OpcPackage:
     """Main API class for |python-opc|.
@@ -177,7 +177,6 @@ class OpcPackage:
             core_properties_part = CorePropertiesPart.default(self)
             self.relate_to(core_properties_part, RT.CORE_PROPERTIES)
             return core_properties_part
-
 
 class Unmarshaller:
     """Hosts static methods for unmarshalling a package from a |PackageReader|."""

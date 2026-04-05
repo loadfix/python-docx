@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 # -- other element types can be a parent of an `w:rPr` element, but for now only `w:r` is --
 RPrParent: TypeAlias = "CT_R"
 
-
 class ColorFormat(ElementProxy):
     """Provides access to color settings like RGB color, theme color, and luminance adjustments."""
 

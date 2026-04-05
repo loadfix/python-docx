@@ -4,7 +4,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 from docx.enum.dml import MSO_THEME_COLOR
 from docx.enum.text import WD_COLOR_INDEX, WD_UNDERLINE
@@ -28,13 +29,11 @@ if TYPE_CHECKING:
     from docx.oxml.shared import CT_OnOff, CT_String
     from docx.shared import Length
 
-
 class CT_Color(BaseOxmlElement):
     """`w:color` element, specifying the color of a font and perhaps other objects."""
 
     val: RGBColor | str = RequiredAttribute("w:val", ST_HexColor)
     themeColor: MSO_THEME_COLOR | None = OptionalAttribute("w:themeColor", MSO_THEME_COLOR)
-
 
 class CT_Fonts(BaseOxmlElement):
     """`<w:rFonts>` element.
@@ -45,18 +44,15 @@ class CT_Fonts(BaseOxmlElement):
     ascii: str | None = OptionalAttribute("w:ascii", ST_String)
     hAnsi: str | None = OptionalAttribute("w:hAnsi", ST_String)
 
-
 class CT_Highlight(BaseOxmlElement):
     """`w:highlight` element, specifying font highlighting/background color."""
 
     val: WD_COLOR_INDEX = RequiredAttribute("w:val", WD_COLOR_INDEX)
 
-
 class CT_HpsMeasure(BaseOxmlElement):
     """Used for `<w:sz>` element and others, specifying font size in half-points."""
 
     val: Length = RequiredAttribute("w:val", ST_HpsMeasure)
-
 
 class CT_RPr(BaseOxmlElement):
     """`<w:rPr>` element, containing the properties for a run."""
@@ -148,7 +144,7 @@ class CT_RPr(BaseOxmlElement):
 
     def _new_color(self):
         """Override metaclass method to set `w:color/@val` to RGB black on create."""
-        return parse_xml('<w:color %s w:val="000000"/>' % nsdecls("w"))
+        return parse_xml(f'<w:color {nsdecls("w")} w:val="000000"/>')
 
     @property
     def highlight_val(self) -> WD_COLOR_INDEX | None:
@@ -313,17 +309,15 @@ class CT_RPr(BaseOxmlElement):
 
     def _set_bool_val(self, name: str, value: bool | None):
         if value is None:
-            getattr(self, "_remove_%s" % name)()
+            getattr(self, f"_remove_{name}")()
             return
-        element = getattr(self, "get_or_add_%s" % name)()
+        element = getattr(self, f"get_or_add_{name}")()
         element.val = value
-
 
 class CT_Underline(BaseOxmlElement):
     """`<w:u>` element, specifying the underlining style for a run."""
 
     val: WD_UNDERLINE | None = OptionalAttribute("w:val", WD_UNDERLINE)
-
 
 class CT_VerticalAlignRun(BaseOxmlElement):
     """`<w:vertAlign>` element, specifying subscript or superscript."""

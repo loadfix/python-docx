@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
+from collections.abc import Iterator
 
 from docx.oxml.bookmarks import CT_BookmarkStart
 
 if TYPE_CHECKING:
     from docx.oxml.document import CT_Body
-
 
 class Bookmarks:
     """Collection of |Bookmark| objects in the document."""
@@ -36,7 +36,6 @@ class Bookmarks:
             if bs.name == name:
                 return Bookmark(bs, self._body)
         return None
-
 
 class Bookmark:
     """Proxy for a bookmark defined by a w:bookmarkStart/w:bookmarkEnd pair."""

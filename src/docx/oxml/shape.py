@@ -25,10 +25,8 @@ from docx.oxml.xmlchemy import (
 if TYPE_CHECKING:
     from docx.shared import Length
 
-
 class CT_Anchor(BaseOxmlElement):
     """`<wp:anchor>` element, container for a "floating" shape."""
-
 
 class CT_Blip(BaseOxmlElement):
     """``<a:blip>`` element, specifies image source and adjustments such as alpha and
@@ -41,14 +39,12 @@ class CT_Blip(BaseOxmlElement):
         "r:link", ST_RelationshipId
     )
 
-
 class CT_BlipFillProperties(BaseOxmlElement):
     """``<pic:blipFill>`` element, specifies picture properties."""
 
     blip: CT_Blip = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "a:blip", successors=("a:srcRect", "a:tile", "a:stretch")
     )
-
 
 class CT_GraphicalObject(BaseOxmlElement):
     """``<a:graphic>`` element, container for a DrawingML object."""
@@ -57,13 +53,11 @@ class CT_GraphicalObject(BaseOxmlElement):
         "a:graphicData"
     )
 
-
 class CT_GraphicalObjectData(BaseOxmlElement):
     """``<a:graphicData>`` element, container for the XML of a DrawingML object."""
 
     pic: CT_Picture = ZeroOrOne("pic:pic")  # pyright: ignore[reportAssignmentType]
     uri: str = RequiredAttribute("uri", XsdToken)  # pyright: ignore[reportAssignmentType]
-
 
 class CT_Inline(BaseOxmlElement):
     """`<wp:inline>` element, container for an inline shape."""
@@ -84,7 +78,7 @@ class CT_Inline(BaseOxmlElement):
         inline.extent.cx = cx
         inline.extent.cy = cy
         inline.docPr.id = shape_id
-        inline.docPr.name = "Picture %d" % shape_id
+        inline.docPr.name = f"Picture {shape_id}"
         inline.graphic.graphicData.uri = "http://schemas.openxmlformats.org/drawingml/2006/picture"
         inline.graphic.graphicData._insert_pic(pic)
         return inline
@@ -125,19 +119,19 @@ class CT_Inline(BaseOxmlElement):
     @classmethod
     def _inline_xml(cls):
         return (
-            '<wp:inline distT="0" distB="0" distL="0" distR="0" %s>\n'
-            '  <wp:extent cx="914400" cy="914400"/>\n'
-            '  <wp:effectExtent l="0" t="0" r="0" b="0"/>\n'
-            '  <wp:docPr id="666" name="unnamed"/>\n'
-            "  <wp:cNvGraphicFramePr>\n"
-            '    <a:graphicFrameLocks noChangeAspect="1"/>\n'
-            "  </wp:cNvGraphicFramePr>\n"
-            "  <a:graphic>\n"
-            '    <a:graphicData uri="URI not set"/>\n'
-            "  </a:graphic>\n"
-            "</wp:inline>" % nsdecls("wp", "a", "pic", "r")
+            f'<wp:inline distT="0" distB="0" distL="0" distR="0"'
+            f' {nsdecls("wp", "a", "pic", "r")}>\n'
+            f'  <wp:extent cx="914400" cy="914400"/>\n'
+            f'  <wp:effectExtent l="0" t="0" r="0" b="0"/>\n'
+            f'  <wp:docPr id="666" name="unnamed"/>\n'
+            f"  <wp:cNvGraphicFramePr>\n"
+            f'    <a:graphicFrameLocks noChangeAspect="1"/>\n'
+            f"  </wp:cNvGraphicFramePr>\n"
+            f"  <a:graphic>\n"
+            f'    <a:graphicData uri="URI not set"/>\n'
+            f"  </a:graphic>\n"
+            f"</wp:inline>"
         )
-
 
 class CT_NonVisualDrawingProps(BaseOxmlElement):
     """Used for ``<wp:docPr>`` element, and perhaps others.
@@ -148,10 +142,8 @@ class CT_NonVisualDrawingProps(BaseOxmlElement):
     id = RequiredAttribute("id", ST_DrawingElementId)
     name = RequiredAttribute("name", XsdString)
 
-
 class CT_NonVisualPictureProperties(BaseOxmlElement):
     """``<pic:cNvPicPr>`` element, specifies picture locking and resize behaviors."""
-
 
 class CT_Picture(BaseOxmlElement):
     """``<pic:pic>`` element, a DrawingML picture."""
@@ -203,63 +195,61 @@ class CT_Picture(BaseOxmlElement):
     @classmethod
     def _svg_pic_xml(cls) -> str:
         return (
-            "<pic:pic %s>\n"
-            "  <pic:nvPicPr>\n"
-            '    <pic:cNvPr id="666" name="unnamed"/>\n'
-            "    <pic:cNvPicPr/>\n"
-            "  </pic:nvPicPr>\n"
-            "  <pic:blipFill>\n"
-            "    <a:blip>\n"
-            "      <a:extLst>\n"
-            '        <a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">\n'
-            '          <asvg:svgBlip r:embed="placeholder"/>\n'
-            "        </a:ext>\n"
-            "      </a:extLst>\n"
-            "    </a:blip>\n"
-            "    <a:stretch>\n"
-            "      <a:fillRect/>\n"
-            "    </a:stretch>\n"
-            "  </pic:blipFill>\n"
-            "  <pic:spPr>\n"
-            "    <a:xfrm>\n"
-            '      <a:off x="0" y="0"/>\n'
-            '      <a:ext cx="914400" cy="914400"/>\n'
-            "    </a:xfrm>\n"
-            '    <a:prstGeom prst="rect"/>\n'
-            "  </pic:spPr>\n"
-            "</pic:pic>" % nsdecls("pic", "a", "r", "asvg")
+            f'<pic:pic {nsdecls("pic", "a", "r", "asvg")}>\n'
+            f"  <pic:nvPicPr>\n"
+            f'    <pic:cNvPr id="666" name="unnamed"/>\n'
+            f"    <pic:cNvPicPr/>\n"
+            f"  </pic:nvPicPr>\n"
+            f"  <pic:blipFill>\n"
+            f"    <a:blip>\n"
+            f"      <a:extLst>\n"
+            f'        <a:ext uri="{{96DAC541-7B7A-43D3-8B79-37D633B846F1}}">\n'
+            f'          <asvg:svgBlip r:embed="placeholder"/>\n'
+            f"        </a:ext>\n"
+            f"      </a:extLst>\n"
+            f"    </a:blip>\n"
+            f"    <a:stretch>\n"
+            f"      <a:fillRect/>\n"
+            f"    </a:stretch>\n"
+            f"  </pic:blipFill>\n"
+            f"  <pic:spPr>\n"
+            f"    <a:xfrm>\n"
+            f'      <a:off x="0" y="0"/>\n'
+            f'      <a:ext cx="914400" cy="914400"/>\n'
+            f"    </a:xfrm>\n"
+            f'    <a:prstGeom prst="rect"/>\n'
+            f"  </pic:spPr>\n"
+            f"</pic:pic>"
         )
 
     @classmethod
     def _pic_xml(cls):
         return (
-            "<pic:pic %s>\n"
-            "  <pic:nvPicPr>\n"
-            '    <pic:cNvPr id="666" name="unnamed"/>\n'
-            "    <pic:cNvPicPr/>\n"
-            "  </pic:nvPicPr>\n"
-            "  <pic:blipFill>\n"
-            "    <a:blip/>\n"
-            "    <a:stretch>\n"
-            "      <a:fillRect/>\n"
-            "    </a:stretch>\n"
-            "  </pic:blipFill>\n"
-            "  <pic:spPr>\n"
-            "    <a:xfrm>\n"
-            '      <a:off x="0" y="0"/>\n'
-            '      <a:ext cx="914400" cy="914400"/>\n'
-            "    </a:xfrm>\n"
-            '    <a:prstGeom prst="rect"/>\n'
-            "  </pic:spPr>\n"
-            "</pic:pic>" % nsdecls("pic", "a", "r")
+            f'<pic:pic {nsdecls("pic", "a", "r")}>\n'
+            f"  <pic:nvPicPr>\n"
+            f'    <pic:cNvPr id="666" name="unnamed"/>\n'
+            f"    <pic:cNvPicPr/>\n"
+            f"  </pic:nvPicPr>\n"
+            f"  <pic:blipFill>\n"
+            f"    <a:blip/>\n"
+            f"    <a:stretch>\n"
+            f"      <a:fillRect/>\n"
+            f"    </a:stretch>\n"
+            f"  </pic:blipFill>\n"
+            f"  <pic:spPr>\n"
+            f"    <a:xfrm>\n"
+            f'      <a:off x="0" y="0"/>\n'
+            f'      <a:ext cx="914400" cy="914400"/>\n'
+            f"    </a:xfrm>\n"
+            f'    <a:prstGeom prst="rect"/>\n'
+            f"  </pic:spPr>\n"
+            f"</pic:pic>"
         )
-
 
 class CT_PictureNonVisual(BaseOxmlElement):
     """``<pic:nvPicPr>`` element, non-visual picture properties."""
 
     cNvPr = OneAndOnlyOne("pic:cNvPr")
-
 
 class CT_Point2D(BaseOxmlElement):
     """Used for ``<a:off>`` element, and perhaps others.
@@ -269,7 +259,6 @@ class CT_Point2D(BaseOxmlElement):
 
     x = RequiredAttribute("x", ST_Coordinate)
     y = RequiredAttribute("y", ST_Coordinate)
-
 
 class CT_PositiveSize2D(BaseOxmlElement):
     """Used for ``<wp:extent>`` element, and perhaps others later.
@@ -284,16 +273,13 @@ class CT_PositiveSize2D(BaseOxmlElement):
         "cy", ST_PositiveCoordinate
     )
 
-
 class CT_PresetGeometry2D(BaseOxmlElement):
     """``<a:prstGeom>`` element, specifies an preset autoshape geometry, such as
     ``rect``."""
 
-
 class CT_RelativeRect(BaseOxmlElement):
     """``<a:fillRect>`` element, specifying picture should fill containing rectangle
     shape."""
-
 
 class CT_ShapeProperties(BaseOxmlElement):
     """``<pic:spPr>`` element, specifies size and shape of picture container."""
@@ -338,11 +324,9 @@ class CT_ShapeProperties(BaseOxmlElement):
         xfrm = self.get_or_add_xfrm()
         xfrm.cy = value
 
-
 class CT_StretchInfoProperties(BaseOxmlElement):
     """``<a:stretch>`` element, specifies how picture should fill its containing
     shape."""
-
 
 class CT_Transform2D(BaseOxmlElement):
     """``<a:xfrm>`` element, specifies size and shape of picture container."""

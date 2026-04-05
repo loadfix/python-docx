@@ -13,7 +13,6 @@ from docx.oxml.coreprops import CT_CoreProperties
 if TYPE_CHECKING:
     from docx.oxml.coreprops import CT_CoreProperties
 
-
 class CoreProperties:
     """Corresponds to part named ``/docProps/core.xml``, containing the core document
     properties for this document package."""

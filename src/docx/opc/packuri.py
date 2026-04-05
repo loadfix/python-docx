@@ -19,8 +19,7 @@ class PackURI(str):
 
     def __new__(cls, pack_uri_str: str):
         if pack_uri_str[0] != "/":
-            tmpl = "PackURI must begin with slash, got '%s'"
-            raise ValueError(tmpl % pack_uri_str)
+            raise ValueError(f"PackURI must begin with slash, got '{pack_uri_str}'")
         return str.__new__(cls, pack_uri_str)
 
     @staticmethod
@@ -100,7 +99,7 @@ class PackURI(str):
         Only produces sensible output if the pack URI is a partname or the package
         pseudo-partname '/'.
         """
-        rels_filename = "%s.rels" % self.filename
+        rels_filename = f"{self.filename}.rels"
         rels_uri_str = posixpath.join(self.baseURI, "_rels", rels_filename)
         return PackURI(rels_uri_str)
 

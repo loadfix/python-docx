@@ -1,4 +1,5 @@
 """Provides a general interface to a `physical` OPC package, such as a zip file."""
+from __future__ import annotations
 
 import os
 from zipfile import ZIP_DEFLATED, ZipFile, is_zipfile
@@ -18,7 +19,7 @@ class PhysPkgReader:
             elif is_zipfile(pkg_file):
                 reader_cls = _ZipPkgReader
             else:
-                raise PackageNotFoundError("Package not found at '%s'" % pkg_file)
+                raise PackageNotFoundError(f"Package not found at '{pkg_file}'")
         else:  # assume it's a stream and pass it to Zip reader to sort out
             reader_cls = _ZipPkgReader
 

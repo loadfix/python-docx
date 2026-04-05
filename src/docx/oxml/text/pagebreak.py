@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from docx.oxml.text.hyperlink import CT_Hyperlink
     from docx.oxml.text.paragraph import CT_P
 
-
 class CT_LastRenderedPageBreak(BaseOxmlElement):
     """`<w:lastRenderedPageBreak>` element, indicating page break inserted by renderer.
 

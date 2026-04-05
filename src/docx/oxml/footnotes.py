@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, cast
+from typing import TYPE_CHECKING, cast
+from collections.abc import Callable
 
 from docx.oxml.ns import nsdecls
 from docx.oxml.parser import parse_xml
@@ -12,7 +13,6 @@ from docx.oxml.xmlchemy import BaseOxmlElement, OptionalAttribute, RequiredAttri
 if TYPE_CHECKING:
     from docx.oxml.table import CT_Tbl
     from docx.oxml.text.paragraph import CT_P
-
 
 class CT_Footnotes(BaseOxmlElement):
     """`w:footnotes` element, the root element for the footnotes part."""
@@ -73,7 +73,6 @@ class CT_Footnotes(BaseOxmlElement):
                 return expected_id
 
         raise ValueError("No available footnote ID: document has reached the maximum footnote count.")
-
 
 class CT_Footnote(BaseOxmlElement):
     """`w:footnote` element, representing a single footnote.

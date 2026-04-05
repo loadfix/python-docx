@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Callable, Iterator, List, Sequence, cast
+from typing import cast
+from collections.abc import Callable, Iterator, Sequence
 
 from lxml import etree
 from typing_extensions import TypeAlias
@@ -31,7 +32,6 @@ from docx.shared import Length, lazyproperty
 
 BlockElement: TypeAlias = "CT_P | CT_Tbl"
 
-
 class CT_Col(BaseOxmlElement):
     """``<w:col>`` element, defining width and spacing for an individual column."""
 
@@ -42,11 +42,10 @@ class CT_Col(BaseOxmlElement):
         "w:space", ST_TwipsMeasure
     )
 
-
 class CT_Cols(BaseOxmlElement):
     """``<w:cols>`` element, defining column layout for a section."""
 
-    col_lst: List[CT_Col]
+    col_lst: list[CT_Col]
 
     col = ZeroOrMore("w:col", successors=())
 
@@ -60,13 +59,12 @@ class CT_Cols(BaseOxmlElement):
         "w:equalWidth", ST_OnOff
     )
 
-
 class CT_HdrFtr(BaseOxmlElement):
     """`w:hdr` and `w:ftr`, the root element for header and footer part respectively."""
 
     add_p: Callable[[], CT_P]
-    p_lst: List[CT_P]
-    tbl_lst: List[CT_Tbl]
+    p_lst: list[CT_P]
+    tbl_lst: list[CT_Tbl]
 
     _insert_tbl: Callable[[CT_Tbl], CT_Tbl]
 
@@ -74,14 +72,13 @@ class CT_HdrFtr(BaseOxmlElement):
     tbl = ZeroOrMore("w:tbl", successors=())
 
     @property
-    def inner_content_elements(self) -> List[CT_P | CT_Tbl]:
+    def inner_content_elements(self) -> list[CT_P | CT_Tbl]:
         """Generate all `w:p` and `w:tbl` elements in this header or footer.
 
         Elements appear in document order. Elements shaded by nesting in a `w:ins` or
         other "wrapper" element will not be included.
         """
         return self.xpath("./w:p | ./w:tbl")
-
 
 class CT_HdrFtrRef(BaseOxmlElement):
     """`w:headerReference` and `w:footerReference` elements."""
@@ -90,7 +87,6 @@ class CT_HdrFtrRef(BaseOxmlElement):
         "w:type", WD_HEADER_FOOTER
     )
     rId: str = RequiredAttribute("r:id", XsdString)  # pyright: ignore[reportAssignmentType]
-
 
 class CT_PageMar(BaseOxmlElement):
     """``<w:pgMar>`` element, defining page margins."""
@@ -117,7 +113,6 @@ class CT_PageMar(BaseOxmlElement):
         "w:gutter", ST_TwipsMeasure
     )
 
-
 class CT_PageSz(BaseOxmlElement):
     """``<w:pgSz>`` element, defining page dimensions and orientation."""
 
@@ -130,7 +125,6 @@ class CT_PageSz(BaseOxmlElement):
     orient: WD_ORIENTATION = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:orient", WD_ORIENTATION, default=WD_ORIENTATION.PORTRAIT
     )
-
 
 class CT_SectPr(BaseOxmlElement):
     """`w:sectPr` element, the container element for section properties."""
@@ -252,7 +246,7 @@ class CT_SectPr(BaseOxmlElement):
 
     def get_footerReference(self, type_: WD_HEADER_FOOTER) -> CT_HdrFtrRef | None:
         """Return footerReference element of `type_` or None if not present."""
-        path = "./w:footerReference[@w:type='%s']" % WD_HEADER_FOOTER.to_xml(type_)
+        path = f"./w:footerReference[@w:type='{WD_HEADER_FOOTER.to_xml(type_)}']"
         footerReferences = self.xpath(path)
         if not footerReferences:
             return None
@@ -261,7 +255,7 @@ class CT_SectPr(BaseOxmlElement):
     def get_headerReference(self, type_: WD_HEADER_FOOTER) -> CT_HdrFtrRef | None:
         """Return headerReference element of `type_` or None if not present."""
         matching_headerReferences = self.xpath(
-            "./w:headerReference[@w:type='%s']" % WD_HEADER_FOOTER.to_xml(type_)
+            f"./w:headerReference[@w:type='{WD_HEADER_FOOTER.to_xml(type_)}']"
         )
         if len(matching_headerReferences) == 0:
             return None
@@ -461,7 +455,6 @@ class CT_SectPr(BaseOxmlElement):
         pgMar = self.get_or_add_pgMar()
         pgMar.top = value
 
-
 class CT_SectType(BaseOxmlElement):
     """``<w:sectType>`` element, defining the section start type."""
 
@@ -469,9 +462,7 @@ class CT_SectType(BaseOxmlElement):
         "w:val", WD_SECTION_START
     )
 
-
 # == HELPERS =========================================================================
-
 
 class _SectBlockElementIterator:
     """Generates the block-item XML elements in a section.

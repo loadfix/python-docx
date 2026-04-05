@@ -1,4 +1,5 @@
 """Custom element classes related to the numbering part."""
+from __future__ import annotations
 
 from docx.oxml.parser import OxmlElement
 from docx.oxml.shared import CT_DecimalNumber
@@ -91,11 +92,11 @@ class CT_Numbering(BaseOxmlElement):
     def num_having_numId(self, numId):
         """Return the ``<w:num>`` child element having ``numId`` attribute matching
         `numId`."""
-        xpath = './w:num[@w:numId="%d"]' % numId
+        xpath = f'./w:num[@w:numId="{numId}"]'
         try:
             return self.xpath(xpath)[0]
         except IndexError:
-            raise KeyError("no <w:num> element with numId %d" % numId)
+            raise KeyError(f"no <w:num> element with numId {numId}")
 
     @property
     def _next_numId(self):

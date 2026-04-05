@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.oxml.text.hyperlink import CT_Hyperlink
 
-
 class Hyperlink(Parented):
     """Proxy object wrapping a `<w:hyperlink>` element.
 

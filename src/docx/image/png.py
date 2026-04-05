@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .constants import MIME_TYPE, PNG_CHUNK_TYPE
 from .exceptions import InvalidImageStreamError
 from .helpers import BIG_ENDIAN, StreamReader

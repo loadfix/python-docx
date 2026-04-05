@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from struct import Struct
 
 from .exceptions import UnexpectedEndOfFileError
@@ -54,7 +56,7 @@ class StreamReader:
         determined by self._base_offset + `base` + `offset`."""
 
         def str_struct(char_count):
-            format_ = "%ds" % char_count
+            format_ = f"{char_count}s"
             return Struct(format_)
 
         struct = str_struct(char_count)

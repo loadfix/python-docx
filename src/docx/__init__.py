@@ -6,7 +6,7 @@ the part-classe that implements that type.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING
 
 from docx.api import Document
 
@@ -15,9 +15,7 @@ if TYPE_CHECKING:
 
 __version__ = "1.2.0"
 
-
 __all__ = ["Document"]
-
 
 # -- register custom Part classes with opc package reader --
 
@@ -34,12 +32,10 @@ from docx.parts.numbering import NumberingPart
 from docx.parts.settings import SettingsPart
 from docx.parts.styles import StylesPart
 
-
-def part_class_selector(content_type: str, reltype: str) -> Type[Part] | None:
+def part_class_selector(content_type: str, reltype: str) -> type[Part] | None:
     if reltype == RT.IMAGE:
         return ImagePart
     return None
-
 
 PartFactory.part_class_selector = part_class_selector
 PartFactory.part_type_for[CT.OPC_CORE_PROPERTIES] = CorePropertiesPart

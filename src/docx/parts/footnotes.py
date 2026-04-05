@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from typing_extensions import Self
@@ -16,7 +16,6 @@ from docx.parts.story import StoryPart
 
 if TYPE_CHECKING:
     from docx.package import Package
-
 
 class FootnotesPart(StoryPart):
     """Proxy for the footnotes.xml part containing footnotes for a document."""
@@ -48,7 +47,5 @@ class FootnotesPart(StoryPart):
     @classmethod
     def _default_footnotes_xml(cls) -> bytes:
         """A byte-string containing XML for a default footnotes part."""
-        path = os.path.join(os.path.split(__file__)[0], "..", "templates", "default-footnotes.xml")
-        with open(path, "rb") as f:
-            xml_bytes = f.read()
-        return xml_bytes
+        path = Path(__file__).parent.parent / "templates" / "default-footnotes.xml"
+        return path.read_bytes()

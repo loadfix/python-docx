@@ -1,4 +1,5 @@
 """Low-level, read-only API to a serialized Open Packaging Convention (OPC) package."""
+from __future__ import annotations
 
 from docx.opc.constants import RELATIONSHIP_TARGET_MODE as RTM
 from docx.opc.oxml import parse_xml
@@ -95,14 +96,14 @@ class _ContentTypeMap:
     def __getitem__(self, partname):
         """Return content type for part identified by `partname`."""
         if not isinstance(partname, PackURI):
-            tmpl = "_ContentTypeMap key must be <type 'PackURI'>, got %s"
-            raise KeyError(tmpl % type(partname))
+            raise KeyError(
+                f"_ContentTypeMap key must be <type 'PackURI'>, got {type(partname)}"
+            )
         if partname in self._overrides:
             return self._overrides[partname]
         if partname.ext in self._defaults:
             return self._defaults[partname.ext]
-        tmpl = "no content type for partname '%s' in [Content_Types].xml"
-        raise KeyError(tmpl % partname)
+        raise KeyError(f"no content type for partname '{partname}' in [Content_Types].xml")
 
     @staticmethod
     def from_xml(content_types_xml):

@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     from docx.settings import Settings
     from docx.styles.style import BaseStyle
 
-
 class DocumentPart(StoryPart):
     """Main document part of a WordprocessingML (WML) package, aka a .docx file.
 

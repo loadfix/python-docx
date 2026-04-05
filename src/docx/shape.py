@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from docx.parts.story import StoryPart
     from docx.shared import Length
 
-
 class InlineShapes(Parented):
     """Sequence of |InlineShape| instances, supporting len(), iteration, and indexed access."""
 
@@ -30,7 +29,7 @@ class InlineShapes(Parented):
         try:
             inline = self._inline_lst[idx]
         except IndexError:
-            msg = "inline shape index [%d] out of range" % idx
+            msg = f"inline shape index [{idx}] out of range"
             raise IndexError(msg)
 
         return InlineShape(inline)
@@ -46,7 +45,6 @@ class InlineShapes(Parented):
         body = self._body
         xpath = "//w:p/w:r/w:drawing/wp:inline"
         return body.xpath(xpath)
-
 
 class InlineShape:
     """Proxy for an ``<wp:inline>`` element, representing the container for an inline

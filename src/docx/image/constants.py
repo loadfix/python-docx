@@ -1,4 +1,5 @@
 """Constants specific the the image sub-package."""
+from __future__ import annotations
 
 
 class JPEG_MARKER_CODE:

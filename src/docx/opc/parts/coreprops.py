@@ -14,7 +14,6 @@ from docx.oxml.coreprops import CT_CoreProperties
 if TYPE_CHECKING:
     from docx.opc.package import OpcPackage
 
-
 class CorePropertiesPart(XmlPart):
     """Corresponds to part named ``/docProps/core.xml``.
 

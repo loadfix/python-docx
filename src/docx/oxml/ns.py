@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Dict
-
 nsmap = {
     "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
     "asvg": "http://schemas.microsoft.com/office/drawing/2016/SVG/main",
@@ -29,7 +27,6 @@ nsmap = {
 
 pfxmap = {value: key for key, value in nsmap.items()}
 
-
 class NamespacePrefixedTag(str):
     """Value object that knows the semantics of an XML tag having a namespace prefix."""
 
@@ -42,12 +39,12 @@ class NamespacePrefixedTag(str):
 
     @property
     def clark_name(self) -> str:
-        return "{%s}%s" % (self._ns_uri, self._local_part)
+        return f"{{{self._ns_uri}}}{self._local_part}"
 
     @classmethod
     def from_clark_name(cls, clark_name: str) -> NamespacePrefixedTag:
         nsuri, local_name = clark_name[1:].split("}")
-        nstag = "%s:%s" % (pfxmap[nsuri], local_name)
+        nstag = f"{pfxmap[nsuri]}:{local_name}"
         return cls(nstag)
 
     @property
@@ -59,7 +56,7 @@ class NamespacePrefixedTag(str):
         return self._local_part
 
     @property
-    def nsmap(self) -> Dict[str, str]:
+    def nsmap(self) -> dict[str, str]:
         """Single-member dict mapping prefix of this tag to it's namespace name.
 
         Example: `{"f": "http://foo/bar"}`. This is handy for passing to xpath calls
@@ -84,22 +81,19 @@ class NamespacePrefixedTag(str):
         """
         return self._ns_uri
 
-
 def nsdecls(*prefixes: str) -> str:
     """Namespace declaration including each namespace-prefix in `prefixes`.
 
     Handy for adding required namespace declarations to a tree root element.
     """
-    return " ".join(['xmlns:%s="%s"' % (pfx, nsmap[pfx]) for pfx in prefixes])
+    return " ".join([f'xmlns:{pfx}="{nsmap[pfx]}"' for pfx in prefixes])
 
-
-def nspfxmap(*nspfxs: str) -> Dict[str, str]:
+def nspfxmap(*nspfxs: str) -> dict[str, str]:
     """Subset namespace-prefix mappings specified by *nspfxs*.
 
     Any number of namespace prefixes can be supplied, e.g. namespaces("a", "r", "p").
     """
     return {pfx: nsmap[pfx] for pfx in nspfxs}
-
 
 def qn(tag: str) -> str:
     """Stands for "qualified name".
@@ -110,4 +104,4 @@ def qn(tag: str) -> str:
     """
     prefix, tagroot = tag.split(":")
     uri = nsmap[prefix]
-    return "{%s}%s" % (uri, tagroot)
+    return f"{{{uri}}}{tagroot}"

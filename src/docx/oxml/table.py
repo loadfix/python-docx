@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, cast
+from typing import TYPE_CHECKING, cast
+from collections.abc import Callable
 
 from docx.enum.table import (
     WD_CELL_VERTICAL_ALIGNMENT,
@@ -40,7 +41,6 @@ if TYPE_CHECKING:
     from docx.oxml.shared import CT_OnOff, CT_String
     from docx.oxml.text.parfmt import CT_Jc
 
-
 class CT_Shd(BaseOxmlElement):
     """`w:shd` element, specifying shading (background color and pattern) for a table cell."""
 
@@ -54,7 +54,6 @@ class CT_Shd(BaseOxmlElement):
         "w:fill", ST_HexColor
     )
 
-
 class CT_Height(BaseOxmlElement):
     """Used for `w:trHeight` to specify a row height and row height rule."""
 
@@ -64,7 +63,6 @@ class CT_Height(BaseOxmlElement):
     hRule: WD_ROW_HEIGHT_RULE | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:hRule", WD_ROW_HEIGHT_RULE
     )
-
 
 class CT_Row(BaseOxmlElement):
     """``<w:tr>`` element."""
@@ -179,7 +177,6 @@ class CT_Row(BaseOxmlElement):
     def _new_tc(self):
         return CT_Tc.new()
 
-
 class CT_Tbl(BaseOxmlElement):
     """``<w:tbl>`` element."""
 
@@ -273,7 +270,7 @@ class CT_Tbl(BaseOxmlElement):
     def _tblGrid_xml(cls, col_count: int, col_width: Length) -> str:
         xml = "  <w:tblGrid>\n"
         for _ in range(col_count):
-            xml += '    <w:gridCol w:w="%d"/>\n' % col_width.twips
+            xml += f'    <w:gridCol w:w="{col_width.twips}"/>\n'
         xml += "  </w:tblGrid>\n"
         return xml
 
@@ -292,7 +289,6 @@ class CT_Tbl(BaseOxmlElement):
             f"    </w:tc>\n"
         ) * col_count
 
-
 class CT_TblGrid(BaseOxmlElement):
     """`w:tblGrid` element.
 
@@ -303,7 +299,6 @@ class CT_TblGrid(BaseOxmlElement):
     gridCol_lst: list[CT_TblGridCol]
 
     gridCol = ZeroOrMore("w:gridCol", successors=("w:tblGridChange",))
-
 
 class CT_TblGridCol(BaseOxmlElement):
     """`w:gridCol` element, child of `w:tblGrid`, defines a table column."""
@@ -318,7 +313,6 @@ class CT_TblGridCol(BaseOxmlElement):
         tblGrid = cast(CT_TblGrid, self.getparent())
         return tblGrid.gridCol_lst.index(self)
 
-
 class CT_TblLayoutType(BaseOxmlElement):
     """`w:tblLayout` element.
 
@@ -329,7 +323,6 @@ class CT_TblLayoutType(BaseOxmlElement):
     type: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:type", ST_TblLayoutType
     )
-
 
 class CT_TblPr(BaseOxmlElement):
     """``<w:tblPr>`` element, child of ``<w:tbl>``, holds child elements that define
@@ -423,7 +416,6 @@ class CT_TblPr(BaseOxmlElement):
             return
         self._add_tblStyle().val = value
 
-
 class CT_TblPrEx(BaseOxmlElement):
     """`w:tblPrEx` element, exceptions to table-properties.
 
@@ -431,7 +423,6 @@ class CT_TblPrEx(BaseOxmlElement):
     two tables are merged. For more see:
     http://officeopenxml.com/WPtablePropertyExceptions.php
     """
-
 
 class CT_TblWidth(BaseOxmlElement):
     """Used for `w:tblW` and `w:tcW` and others, specifies a table-related width."""
@@ -453,7 +444,6 @@ class CT_TblWidth(BaseOxmlElement):
     def width(self, value: Length):
         self.type = "dxa"
         self.w = Emu(value).twips
-
 
 class CT_Tc(BaseOxmlElement):
     """`w:tc` table cell element."""
@@ -556,7 +546,7 @@ class CT_Tc(BaseOxmlElement):
     @classmethod
     def new(cls) -> CT_Tc:
         """A new `w:tc` element, containing an empty paragraph as the required EG_BlockLevelElt."""
-        return cast(CT_Tc, parse_xml("<w:tc %s><w:p/></w:tc>" % nsdecls("w")))
+        return cast(CT_Tc, parse_xml(f'<w:tc {nsdecls("w")}><w:p/></w:tc>'))
 
     @property
     def right(self) -> int:
@@ -817,7 +807,6 @@ class CT_Tc(BaseOxmlElement):
         """The row index of the tr element this tc element appears in."""
         return self._tbl.tr_lst.index(self._tr)
 
-
 class CT_TcPr(BaseOxmlElement):
     """``<w:tcPr>`` element, defining table cell properties."""
 
@@ -930,7 +919,6 @@ class CT_TcPr(BaseOxmlElement):
         tcW = self.get_or_add_tcW()
         tcW.width = value
 
-
 class CT_TrPr(BaseOxmlElement):
     """``<w:trPr>`` element, defining table row properties."""
 
@@ -1027,14 +1015,12 @@ class CT_TrPr(BaseOxmlElement):
         trHeight = self.get_or_add_trHeight()
         trHeight.val = value
 
-
 class CT_VerticalJc(BaseOxmlElement):
     """`w:vAlign` element, specifying vertical alignment of cell."""
 
     val: WD_CELL_VERTICAL_ALIGNMENT = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
         "w:val", WD_CELL_VERTICAL_ALIGNMENT
     )
-
 
 class CT_VMerge(BaseOxmlElement):
     """``<w:vMerge>`` element, specifying vertical merging behavior of a cell."""

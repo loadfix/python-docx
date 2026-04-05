@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .constants import MIME_TYPE
 from .helpers import LITTLE_ENDIAN, StreamReader
 from .image import BaseImageHeader

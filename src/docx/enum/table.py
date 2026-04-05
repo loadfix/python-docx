@@ -1,4 +1,5 @@
 """Enumerations related to tables in WordprocessingML files."""
+from __future__ import annotations
 
 from docx.enum.base import BaseEnum, BaseXmlEnum
 

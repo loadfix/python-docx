@@ -2,6 +2,7 @@
 
 The base exception class is PythonDocxError.
 """
+from __future__ import annotations
 
 
 class PythonDocxError(Exception):

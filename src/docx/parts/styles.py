@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from docx.opc.constants import CONTENT_TYPE as CT
@@ -13,7 +13,6 @@ from docx.styles.styles import Styles
 
 if TYPE_CHECKING:
     from docx.opc.package import OpcPackage
-
 
 class StylesPart(XmlPart):
     """Proxy for the styles.xml part containing style definitions for a document or
@@ -36,7 +35,5 @@ class StylesPart(XmlPart):
     @classmethod
     def _default_styles_xml(cls):
         """Return a bytestream containing XML for a default styles part."""
-        path = os.path.join(os.path.split(__file__)[0], "..", "templates", "default-styles.xml")
-        with open(path, "rb") as f:
-            xml_bytes = f.read()
-        return xml_bytes
+        path = Path(__file__).parent.parent / "templates" / "default-styles.xml"
+        return path.read_bytes()

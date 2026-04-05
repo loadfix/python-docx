@@ -2,6 +2,7 @@
 
 In particular it includes content types and relationship types.
 """
+from __future__ import annotations
 
 
 class CONTENT_TYPE:

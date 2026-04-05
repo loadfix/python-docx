@@ -6,7 +6,8 @@ OpcPackage.save().
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
+from collections.abc import Iterable
 
 from docx.opc.constants import CONTENT_TYPE as CT
 from docx.opc.oxml import CT_Types, serialize_part_xml
@@ -17,7 +18,6 @@ from docx.opc.spec import default_content_types
 
 if TYPE_CHECKING:
     from docx.opc.part import Part
-
 
 class PackageWriter:
     """Writes a zip-format OPC package to `pkg_file`, where `pkg_file` can be either a
@@ -57,7 +57,6 @@ class PackageWriter:
     def _write_pkg_rels(phys_writer, pkg_rels):
         """Write the XML rels item for `pkg_rels` ('/_rels/.rels') to the package."""
         phys_writer.write(PACKAGE_URI.rels_uri, pkg_rels.xml)
-
 
 class _ContentTypesItem:
     """Service class that composes a content types item ([Content_Types].xml) based on a
