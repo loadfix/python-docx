@@ -9,6 +9,7 @@ from typing import IO, TYPE_CHECKING, Iterator, List, Sequence
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_SECTION
+from docx.search import SearchMatch, replace_in_paragraphs, search_paragraphs
 from docx.section import Section, Sections
 from docx.shared import ElementProxy, Emu, Inches, Length
 from docx.text.run import Run
@@ -86,6 +87,42 @@ class Document(ElementProxy):
         first_run.mark_comment_range(last_run, comment.comment_id)
 
         return comment
+
+    def search(
+        self,
+        text: str,
+        case_sensitive: bool = True,
+        whole_word: bool = False,
+    ) -> List[SearchMatch]:
+        """Return a list of |SearchMatch| objects for each occurrence of `text`.
+
+        Each match records the paragraph, paragraph index, run indices, and character
+        offsets within the paragraph text. Text that spans multiple runs is found
+        correctly.
+
+        `case_sensitive` defaults to |True|. Set to |False| for case-insensitive search.
+        `whole_word` defaults to |False|. Set to |True| to match only whole words.
+        """
+        return search_paragraphs(self.paragraphs, text, case_sensitive, whole_word)
+
+    def replace(
+        self,
+        old_text: str,
+        new_text: str,
+        case_sensitive: bool = True,
+        whole_word: bool = False,
+    ) -> int:
+        """Replace all occurrences of `old_text` with `new_text` in the document.
+
+        The formatting of the first character's run is preserved for each replacement.
+        Returns the number of replacements made.
+
+        `case_sensitive` defaults to |True|. Set to |False| for case-insensitive matching.
+        `whole_word` defaults to |False|. Set to |True| to match only whole words.
+        """
+        return replace_in_paragraphs(
+            self.paragraphs, old_text, new_text, case_sensitive, whole_word
+        )
 
     def add_heading(self, text: str = "", level: int = 1):
         """Return a heading paragraph newly added to the end of the document.
