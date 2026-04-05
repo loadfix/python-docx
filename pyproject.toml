@@ -13,18 +13,18 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Office/Business :: Office Suites",
     "Topic :: Software Development :: Libraries",
 ]
 dependencies = [
     "defusedxml>=0.7.0",
-    "lxml>=3.1.0",
-    "typing_extensions>=4.9.0",
+    "lxml>=4.9.1",
+    "typing-extensions>=4.9.0",
 ]
 description = "Create, read, and update Microsoft Word .docx files."
 dynamic = ["version"]
@@ -72,14 +72,7 @@ venv = ".venv"
 filterwarnings = [
     # -- exit on any warning not explicitly ignored here --
     "error",
-
-    # -- pytest-xdist plugin may warn about `looponfailroots` deprecation --
-    "ignore::DeprecationWarning:xdist",
-
-    # -- pytest complains when pytest-xdist is not installed --
-    "ignore:Unknown config option. looponfailroots:pytest.PytestConfigWarning",
 ]
-looponfailroots = ["src", "tests"]
 norecursedirs = [
     "doc",
     "docx",
@@ -97,7 +90,7 @@ python_functions = ["it_", "its_", "they_", "and_", "but_"]
 [tool.ruff]
 exclude = []
 line-length = 100
-target-version = "py38"
+target-version = "py39"
 
 [tool.ruff.lint]
 ignore = [
