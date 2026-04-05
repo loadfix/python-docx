@@ -121,9 +121,9 @@ jobs:
 
           if echo "$REPORT" | grep -q "SECURITY_FAIL"; then
             gh pr edit "$PR_NUM" --add-label "security-failed"
-            GH_TOKEN=${{ github.token }} gh workflow run agent-revise.yml -f pr_number="$PR_NUM"
+            gh workflow run agent-revise.yml -f pr_number="$PR_NUM"
             exit 1
           else
             gh pr edit "$PR_NUM" --add-label "security-passed"
-            GH_TOKEN=${{ github.token }} gh workflow run agent-review.yml -f pr_number="$PR_NUM"
+            gh workflow run agent-review.yml -f pr_number="$PR_NUM"
           fi
