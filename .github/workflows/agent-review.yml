@@ -3,40 +3,58 @@ name: Review Agent
 on:
   pull_request:
     types: [labeled]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to review"
+        required: true
+        type: string
 
 concurrency:
-  group: agent-review-${{ github.event.pull_request.number }}
+  group: agent-review-${{ github.event.inputs.pr_number || github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 permissions:
   contents: read
   pull-requests: write
+  actions: write
   id-token: write
 
 jobs:
   review:
     if: |
-      github.event.label.name == 'security-passed' &&
-      contains(github.event.pull_request.labels.*.name, 'agent-pr')
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.label.name == 'security-passed' &&
+       contains(github.event.pull_request.labels.*.name, 'agent-pr'))
     runs-on:
       - codebuild-github-runner-python-docx-${{ github.run_id }}-${{ github.run_attempt }}
     timeout-minutes: 15
     env:
       ANTHROPIC_MODEL: au.anthropic.claude-sonnet-4-6
+      PR_NUM: ${{ github.event.inputs.pr_number || github.event.pull_request.number }}
 
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          fetch-depth: 0
-
       - name: Generate GitHub App token
         id: app-token
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Checkout PR branch (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          HEAD_REF=$(gh pr view "$PR_NUM" --json headRefName -q .headRefName)
+          git fetch origin "$HEAD_REF"
+          git checkout "$HEAD_REF"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -67,7 +85,7 @@ jobs:
             --model au.anthropic.claude-sonnet-4-6 \
             --max-turns 30 \
             --allow-dangerously-skip-permissions --dangerously-skip-permissions \
-            "You are a code review agent reviewing PR #${{ github.event.pull_request.number }}.
+            "You are a code review agent reviewing PR #${PR_NUM}.
 
           ## Instructions
           1. Read CLAUDE.md if it exists for project conventions.
@@ -99,13 +117,15 @@ jobs:
             REPORT="Review agent completed but did not produce a report."
           fi
 
-          gh pr comment ${{ github.event.pull_request.number }} \
+          gh pr comment "$PR_NUM" \
             --body "**Review Agent**
 
           $REPORT"
 
           if echo "$REPORT" | grep -q "REVIEW_APPROVED"; then
-            gh pr edit ${{ github.event.pull_request.number }} --add-label "review-approved"
+            gh pr edit "$PR_NUM" --add-label "review-approved"
+            gh workflow run agent-merge.yml -f pr_number="$PR_NUM"
           else
-            gh pr edit ${{ github.event.pull_request.number }} --add-label "review-changes-needed"
+            gh pr edit "$PR_NUM" --add-label "review-changes-needed"
+            gh workflow run agent-revise.yml -f pr_number="$PR_NUM"
           fi

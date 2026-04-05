@@ -5,19 +5,27 @@ on:
     types: [labeled]
   issue_comment:
     types: [created]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to review"
+        required: true
+        type: string
 
 concurrency:
-  group: agent-product-${{ github.event.issue.number }}
+  group: agent-product-${{ github.event.inputs.issue_number || github.event.issue.number || github.run_id }}
   cancel-in-progress: true
 
 permissions:
   contents: read
   issues: write
+  actions: write
   id-token: write
 
 jobs:
   review:
     if: |
+      github.event_name == 'workflow_dispatch' ||
       github.event.label.name == 'agent' ||
       (github.event_name == 'issue_comment' &&
        !contains(github.event.comment.user.login, '[bot]') &&
@@ -28,6 +36,7 @@ jobs:
     env:
       ANTHROPIC_MODEL: au.anthropic.claude-sonnet-4-20250514-v1:0
       CLAUDE_CODE_USE_BEDROCK: "1"
+      ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number }}
 
     steps:
       - name: Generate GitHub App token
@@ -63,12 +72,17 @@ jobs:
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code
 
-      - name: Write prompt file
+      - name: Fetch issue details
         env:
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
+          gh issue view "$ISSUE_NUMBER" --json title,body --jq '.title' > /tmp/issue-title.txt
+          gh issue view "$ISSUE_NUMBER" --json title,body --jq '.body' > /tmp/issue-body.txt
+
+      - name: Write prompt file
+        run: |
+          ISSUE_TITLE=$(cat /tmp/issue-title.txt)
+          ISSUE_BODY=$(cat /tmp/issue-body.txt)
           cat > /tmp/prompt.txt <<INSTRUCTIONS
           You are a Product Manager agent for python-docx — a Python library for creating, reading, and updating Microsoft Word (.docx) files programmatically. It provides a clean API for manipulating document elements like paragraphs, tables, styles, headers, and images.
 
@@ -107,7 +121,7 @@ jobs:
         run: |
           OUTPUT=$(runuser -u agent -- bash -c 'cat /tmp/prompt.txt | claude -p \
             --model au.anthropic.claude-sonnet-4-20250514-v1:0 \
-            --max-turns 5 \
+            --max-turns 15 \
             --dangerously-skip-permissions')
           echo "$OUTPUT" > /tmp/review-output.txt
           VERDICT=$(echo "$OUTPUT" | head -1 | tr -d '[:space:]')
@@ -118,7 +132,6 @@ jobs:
         if: steps.review.outputs.verdict == 'APPROVED'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           REVIEW=$(cat /tmp/review-output.txt)
           gh issue comment "$ISSUE_NUMBER" \
@@ -128,12 +141,12 @@ jobs:
 
           Handing off to the Developer Agent."
           gh issue label add "$ISSUE_NUMBER" --label "product-approved"
+          gh workflow run agent-develop.yml -f issue_number="$ISSUE_NUMBER"
 
       - name: Handle NEEDS_CLARIFICATION
         if: steps.review.outputs.verdict == 'NEEDS_CLARIFICATION'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           REVIEW=$(cat /tmp/review-output.txt)
           gh issue comment "$ISSUE_NUMBER" \
@@ -149,7 +162,6 @@ jobs:
         if: steps.review.outputs.verdict == 'REJECTED'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           REVIEW=$(cat /tmp/review-output.txt)
           gh issue comment "$ISSUE_NUMBER" \
