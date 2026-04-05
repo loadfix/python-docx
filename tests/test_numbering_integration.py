@@ -52,7 +52,8 @@ class DescribeParagraph_list_level:
 
         paragraph.list_level = None
 
-        assert p.pPr.numPr.ilvl_val is None
+        # -- numPr is removed when both ilvl and numId are gone --
+        assert p.pPr.numPr is None
 
 
 class DescribeParagraph_list_format:

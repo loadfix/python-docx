@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator, List
+from typing import TYPE_CHECKING, List
 
-from docx.shared import Twips
+from docx.oxml.ns import qn
+from docx.oxml.parser import OxmlElement
 
 if TYPE_CHECKING:
     from docx.oxml.numbering import CT_AbstractNum, CT_Lvl, CT_Num, CT_Numbering
@@ -66,9 +67,6 @@ class Numbering:
 
             indent = level_spec.get("indent")
             if indent is not None:
-                from docx.oxml.parser import OxmlElement
-                from docx.oxml.ns import qn
-
                 pPr = lvl.get_or_add_pPr()
                 ind = OxmlElement("w:ind")
                 ind.attrib[qn("w:left")] = str(indent)
@@ -77,9 +75,6 @@ class Numbering:
 
             font = level_spec.get("font")
             if font is not None:
-                from docx.oxml.parser import OxmlElement
-                from docx.oxml.ns import qn
-
                 rPr = lvl.get_or_add_rPr()
                 rFonts = OxmlElement("w:rFonts")
                 rFonts.attrib[qn("w:ascii")] = font

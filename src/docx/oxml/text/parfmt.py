@@ -342,6 +342,9 @@ class CT_PPr(BaseOxmlElement):
             numPr = self.numPr
             if numPr is not None:
                 numPr.ilvl_val = None
+                # -- remove numPr if both children gone --
+                if numPr.ilvl is None and numPr.numId is None:
+                    self._remove_numPr()
             return
         self.get_or_add_numPr().ilvl_val = value
 
