@@ -108,8 +108,11 @@ class CT_CustomProperty(BaseOxmlElement):
         elif isinstance(value, float):
             return "vt:r8", str(value)
         elif isinstance(value, dt.datetime):
-            if value.tzinfo is not None:
-                value = value.astimezone(dt.timezone.utc)
+            if value.tzinfo is None:
+                raise ValueError(
+                    "datetime values must be timezone-aware; use dt.timezone.utc or another tzinfo"
+                )
+            value = value.astimezone(dt.timezone.utc)
             return "vt:filetime", value.strftime("%Y-%m-%dT%H:%M:%SZ")
         else:
             return "vt:lpwstr", escape(str(value))

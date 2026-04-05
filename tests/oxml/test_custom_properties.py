@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import datetime as dt
 
+import pytest
+
 from docx.oxml.custom_properties import CT_CustomProperties, CT_CustomProperty
 
 
@@ -63,6 +65,12 @@ class DescribeCT_CustomProperties:
 
         expected = dt.datetime(2024, 1, 15, 5, 0, 0, tzinfo=dt.timezone.utc)
         assert prop.value == expected
+
+    def it_raises_on_naive_datetime(self):
+        props = CT_CustomProperties.new()
+
+        with pytest.raises(ValueError, match="timezone-aware"):
+            props.add_property("Date", dt.datetime(2024, 1, 15, 10, 0, 0))
 
     def it_assigns_incrementing_pids(self):
         props = CT_CustomProperties.new()
