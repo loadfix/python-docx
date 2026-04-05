@@ -6,8 +6,6 @@ import os
 import tempfile
 import zipfile
 
-import pytest
-
 from docx import Document
 from docx.opc.constants import CONTENT_TYPE as CT
 
