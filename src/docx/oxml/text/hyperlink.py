@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, Callable, List
 
 from docx.oxml.simpletypes import ST_OnOff, ST_String, XsdString
 from docx.oxml.text.run import CT_R
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 class CT_Hyperlink(BaseOxmlElement):
     """`<w:hyperlink>` element, containing the text and address for a hyperlink."""
 
+    add_r: Callable[[], CT_R]
     r_lst: List[CT_R]
 
     rId: str | None = OptionalAttribute("r:id", XsdString)  # pyright: ignore[reportAssignmentType]
