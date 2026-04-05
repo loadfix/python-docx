@@ -165,6 +165,7 @@ register_element_cls("w:unhideWhenUsed", CT_OnOff)
 from .table import (
     CT_Height,
     CT_Row,
+    CT_Shd,
     CT_Tbl,
     CT_TblGrid,
     CT_TblGridCol,
@@ -185,6 +186,7 @@ register_element_cls("w:gridAfter", CT_DecimalNumber)
 register_element_cls("w:gridBefore", CT_DecimalNumber)
 register_element_cls("w:gridCol", CT_TblGridCol)
 register_element_cls("w:gridSpan", CT_DecimalNumber)
+register_element_cls("w:shd", CT_Shd)
 register_element_cls("w:tbl", CT_Tbl)
 register_element_cls("w:tblGrid", CT_TblGrid)
 register_element_cls("w:tblLayout", CT_TblLayoutType)

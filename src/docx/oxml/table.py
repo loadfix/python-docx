@@ -4,12 +4,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable, cast
 
-from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_ROW_HEIGHT_RULE, WD_TABLE_DIRECTION
+from docx.enum.table import (
+    WD_CELL_VERTICAL_ALIGNMENT,
+    WD_ROW_HEIGHT_RULE,
+    WD_SHADING_PATTERN,
+    WD_TABLE_DIRECTION,
+)
 from docx.exceptions import InvalidSpanError
 from docx.oxml.ns import nsdecls, qn
 from docx.oxml.parser import parse_xml
 from docx.oxml.shared import CT_DecimalNumber
 from docx.oxml.simpletypes import (
+    ST_HexColor,
     ST_Merge,
     ST_TblLayoutType,
     ST_TblWidth,
@@ -33,6 +39,20 @@ if TYPE_CHECKING:
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.oxml.shared import CT_OnOff, CT_String
     from docx.oxml.text.parfmt import CT_Jc
+
+
+class CT_Shd(BaseOxmlElement):
+    """`w:shd` element, specifying shading (background color and pattern) for a table cell."""
+
+    val: WD_SHADING_PATTERN | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:val", WD_SHADING_PATTERN
+    )
+    color: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:color", ST_HexColor
+    )
+    fill: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:fill", ST_HexColor
+    )
 
 
 class CT_Height(BaseOxmlElement):
@@ -802,10 +822,12 @@ class CT_TcPr(BaseOxmlElement):
     """``<w:tcPr>`` element, defining table cell properties."""
 
     get_or_add_gridSpan: Callable[[], CT_DecimalNumber]
+    get_or_add_shd: Callable[[], CT_Shd]
     get_or_add_tcW: Callable[[], CT_TblWidth]
     get_or_add_vAlign: Callable[[], CT_VerticalJc]
     _add_vMerge: Callable[[], CT_VMerge]
     _remove_gridSpan: Callable[[], None]
+    _remove_shd: Callable[[], None]
     _remove_vAlign: Callable[[], None]
     _remove_vMerge: Callable[[], None]
 
@@ -837,6 +859,9 @@ class CT_TcPr(BaseOxmlElement):
     )
     vMerge: CT_VMerge | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:vMerge", successors=_tag_seq[5:]
+    )
+    shd: CT_Shd | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:shd", successors=_tag_seq[7:]
     )
     vAlign: CT_VerticalJc | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:vAlign", successors=_tag_seq[12:]
