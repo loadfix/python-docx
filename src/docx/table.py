@@ -343,7 +343,10 @@ class CellShading:
 
     @property
     def fill_color(self) -> RGBColor | None:
-        """The background fill color as an |RGBColor| value, or |None| if not set."""
+        """The background fill color as an |RGBColor| value, or |None| if not set.
+
+        Note: returns |None| when the fill attribute is ``"auto"`` (foreground-dependent).
+        """
         shd = self._shd
         if shd is None:
             return None
@@ -389,7 +392,10 @@ class CellShading:
 
     def _get_or_add_shd(self) -> CT_Shd:
         tcPr = self._tc.get_or_add_tcPr()
-        return tcPr.get_or_add_shd()
+        shd = tcPr.get_or_add_shd()
+        if shd.val is None:
+            shd.val = WD_SHADING_PATTERN.CLEAR
+        return shd
 
 
 class _Column(Parented):

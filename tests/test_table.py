@@ -596,12 +596,12 @@ class DescribeCellShading:
             (
                 "w:tc",
                 RGBColor(0xD9, 0xE2, 0xF3),
-                "w:tc/w:tcPr/w:shd{w:fill=D9E2F3}",
+                "w:tc/w:tcPr/w:shd{w:val=clear,w:fill=D9E2F3}",
             ),
             (
                 "w:tc/w:tcPr/w:shd{w:fill=FF0000}",
                 RGBColor(0x00, 0x00, 0xFF),
-                "w:tc/w:tcPr/w:shd{w:fill=0000FF}",
+                "w:tc/w:tcPr/w:shd{w:val=clear,w:fill=0000FF}",
             ),
             (
                 "w:tc/w:tcPr/w:shd{w:val=clear,w:fill=D9E2F3}",
