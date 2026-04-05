@@ -6,6 +6,8 @@ from typing import IO, TYPE_CHECKING, Iterator, List, Sequence, Union, overload
 
 from xml.sax.saxutils import escape as xml_escape
 
+_XML_QUOTE_ENTITIES = {'"': "&quot;"}
+
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_HEADER_FOOTER
 from docx.oxml.ns import qn
@@ -19,7 +21,8 @@ from docx.text.paragraph import Paragraph
 if TYPE_CHECKING:
     from docx.enum.section import WD_ORIENTATION, WD_SECTION_START
     from docx.oxml.document import CT_Document
-    from docx.oxml.section import CT_Col, CT_Cols, CT_SectPr
+    from docx.oxml.section import CT_Col, CT_Cols, CT_HdrFtr, CT_SectPr
+    from docx.oxml.xmlchemy import BaseOxmlElement
     from docx.parts.document import DocumentPart
     from docx.parts.story import StoryPart
 
@@ -182,14 +185,19 @@ class Section:
             color: Text color as an |RGBColor| value (default silver).
             layout: Either ``"diagonal"`` or ``"horizontal"`` (default ``"diagonal"``).
         """
+        if layout not in ("diagonal", "horizontal"):
+            raise ValueError(f"layout must be 'diagonal' or 'horizontal', got {layout!r}")
         self.remove_watermark()
-        header_part = self.header.part
+        header = self.header
+        if header.is_linked_to_previous:
+            header.is_linked_to_previous = False
+        header_part = header.part
         hdr_element = header_part.element
         size_pt = Length(int(size)).pt
         rotation = "315" if layout == "diagonal" else "0"
         color_hex = str(color)
-        safe_text = xml_escape(text, {'"': '&quot;'})
-        safe_font = xml_escape(font, {'"': '&quot;'})
+        safe_text = xml_escape(text, _XML_QUOTE_ENTITIES)
+        safe_font = xml_escape(font, _XML_QUOTE_ENTITIES)
         pict_xml = (
             '<w:pict xmlns:v="urn:schemas-microsoft-com:vml"'
             ' xmlns:o="urn:schemas-microsoft-com:office:office"'
@@ -261,7 +269,10 @@ class Section:
             height: Height of the watermark image.
         """
         self.remove_watermark()
-        header_part = self.header.part
+        header = self.header
+        if header.is_linked_to_previous:
+            header.is_linked_to_previous = False
+        header_part = header.part
         hdr_element = header_part.element
         rId, _image = header_part.get_or_add_image(image_path)
 
@@ -306,7 +317,7 @@ class Section:
             f'mso-position-vertical:center;'
             f'mso-position-vertical-relative:margin"'
             f' o:allowincell="f">'
-            f'<v:imagedata r:id="{xml_escape(rId, {chr(34): "&quot;"})}" o:title="watermark"/>'
+            f'<v:imagedata r:id="{xml_escape(rId, _XML_QUOTE_ENTITIES)}" o:title="watermark"/>'
             '<w10:wrap anchorx="margin" anchory="margin"/>'
             '</v:shape>'
             '</w:pict>'
@@ -314,7 +325,9 @@ class Section:
         pict_element = parse_xml(pict_xml)
         self._insert_watermark_pict(hdr_element, pict_element)
 
-    def _insert_watermark_pict(self, hdr_element, pict_element) -> None:
+    def _insert_watermark_pict(
+        self, hdr_element: CT_HdrFtr | BaseOxmlElement, pict_element: BaseOxmlElement
+    ) -> None:
         """Insert `pict_element` wrapped in a watermark paragraph at start of header."""
         p = hdr_element.makeelement(qn("w:p"), {})
         r = hdr_element.makeelement(qn("w:r"), {})
