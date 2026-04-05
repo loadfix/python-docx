@@ -173,9 +173,24 @@ class Document(ElementProxy):
         """A |Comments| object providing access to comments added to the document."""
         return self._part.comments
 
+    def add_content_control(
+        self,
+        control_type: WD_CONTENT_CONTROL_TYPE = WD_CONTENT_CONTROL_TYPE.RICH_TEXT,
+        tag: str | None = None,
+        title: str | None = None,
+    ) -> ContentControl:
+        """Add a block-level content control at the end of the document body.
+
+        Returns a |ContentControl| proxy for the new SDT element.
+        """
+        return self._body.add_content_control(control_type, tag, title)
+
     @property
     def content_controls(self) -> List[ContentControl]:
-        """All content controls (structured document tags) in the document body."""
+        """Block-level content controls that are direct children of the document body.
+
+        For inline content controls within a paragraph, use ``Paragraph.content_controls``.
+        """
         return self._body.content_controls
 
     @property
@@ -288,7 +303,7 @@ class _Body(BlockItemContainer):
 
     def add_content_control(
         self,
-        type: WD_CONTENT_CONTROL_TYPE = WD_CONTENT_CONTROL_TYPE.RICH_TEXT,
+        control_type: WD_CONTENT_CONTROL_TYPE = WD_CONTENT_CONTROL_TYPE.RICH_TEXT,
         tag: str | None = None,
         title: str | None = None,
     ) -> ContentControl:
@@ -299,7 +314,7 @@ class _Body(BlockItemContainer):
         from docx.oxml.sdt import CT_Sdt
         from docx.sdt import ContentControl
 
-        sdt = CT_Sdt.new_block(type.value, tag, title)
+        sdt = CT_Sdt.new_block(control_type.value, tag, title)
         self._body._insert_sdt(sdt)
         return ContentControl(sdt, self)
 

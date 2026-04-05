@@ -107,7 +107,7 @@ class Paragraph(StoryChild):
 
     def add_content_control(
         self,
-        type: WD_CONTENT_CONTROL_TYPE = WD_CONTENT_CONTROL_TYPE.RICH_TEXT,
+        control_type: WD_CONTENT_CONTROL_TYPE = WD_CONTENT_CONTROL_TYPE.RICH_TEXT,
         tag: str | None = None,
         title: str | None = None,
     ) -> ContentControl:
@@ -118,7 +118,7 @@ class Paragraph(StoryChild):
         from docx.oxml.sdt import CT_Sdt
         from docx.sdt import ContentControl
 
-        sdt = CT_Sdt.new_inline(type.value, tag, title)
+        sdt = CT_Sdt.new_inline(control_type.value, tag, title)
         self._p.append(sdt)
         return ContentControl(sdt, self)
 
