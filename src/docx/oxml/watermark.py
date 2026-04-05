@@ -48,10 +48,15 @@ def text_watermark_xml(
 
     The paragraph is suitable for insertion into a header part (`w:hdr`).
     """
-    style = _DIAGONAL_STYLE if layout == "diagonal" else _HORIZONTAL_STYLE
+    if layout == "diagonal":
+        style = _DIAGONAL_STYLE
+    elif layout == "horizontal":
+        style = _HORIZONTAL_STYLE
+    else:
+        raise ValueError(f"layout must be 'diagonal' or 'horizontal', got {layout!r}")
 
     # -- build the w:p/w:r/w:pict/v:shape structure --
-    p = etree.SubElement(etree.Element("_dummy"), f"{{{_W_NS}}}p")
+    p = etree.Element(f"{{{_W_NS}}}p")
     r = etree.SubElement(p, f"{{{_W_NS}}}r")
     pict = etree.SubElement(r, f"{{{_W_NS}}}pict")
 
@@ -87,7 +92,7 @@ def image_watermark_xml(rId: str, width_pt: float, height_pt: float) -> bytes:
     """
     style = _IMAGE_STYLE_TMPL.format(width=width_pt, height=height_pt)
 
-    p = etree.SubElement(etree.Element("_dummy"), f"{{{_W_NS}}}p")
+    p = etree.Element(f"{{{_W_NS}}}p")
     r = etree.SubElement(p, f"{{{_W_NS}}}r")
     pict = etree.SubElement(r, f"{{{_W_NS}}}pict")
 

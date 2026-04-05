@@ -196,6 +196,32 @@ class DescribeSectionWatermark:
         assert len(imagedata) == 1
         assert imagedata[0].get(f"{{{r_ns}}}id") == "rId1"
 
+    def it_does_nothing_when_removing_watermark_with_no_header_definition(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.oxml.section import CT_SectPr
+
+        header_mock = MagicMock()
+        type(header_mock)._has_definition = PropertyMock(return_value=False)
+
+        sectPr = MagicMock(spec=CT_SectPr)
+        document_part = MagicMock()
+        section = Section(sectPr, document_part)
+
+        with patch.object(type(section), "header", new_callable=PropertyMock) as mock_header:
+            mock_header.return_value = header_mock
+            section.remove_watermark()
+
+        # -- should not attempt to access _element --
+        header_mock._element  # noqa: B018
+        assert not header_mock._element.called
+
+    def it_raises_on_invalid_layout(self, request: pytest.FixtureRequest):
+        from docx.oxml.watermark import text_watermark_xml
+
+        with pytest.raises(ValueError, match="layout must be 'diagonal' or 'horizontal'"):
+            text_watermark_xml("DRAFT", "Calibri", 72, "C0C0C0", "vertical")
+
     def it_replaces_existing_watermark_when_adding(self, request: pytest.FixtureRequest):
         from lxml import etree
 

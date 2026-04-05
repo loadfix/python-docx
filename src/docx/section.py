@@ -336,17 +336,13 @@ class Section:
 
         Does nothing if no watermark is present.
         """
-        from docx.oxml.watermark import (
-            has_watermark,
-            remove_watermark_from_header,
-        )
+        from docx.oxml.watermark import remove_watermark_from_header
 
         # -- only act if a header definition exists --
         if not self.header._has_definition:
             return
         hdr_element = self.header._element
-        if has_watermark(hdr_element):
-            remove_watermark_from_header(hdr_element)
+        remove_watermark_from_header(hdr_element)
 
     @property
     def has_watermark(self) -> bool:
