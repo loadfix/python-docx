@@ -25,7 +25,9 @@ if TYPE_CHECKING:
     from docx.oxml.document import CT_Body
     from docx.oxml.text.paragraph import CT_P
     from docx.section import Section
+    from docx.shared import Length
     from docx.styles.style import CharacterStyle
+    from docx.table import Table
 
 
 class Paragraph(StoryChild):
@@ -217,6 +219,22 @@ class Paragraph(StoryChild):
         if pPr.sectPr is not None:
             pPr._remove_sectPr()
 
+    def insert_paragraph_after(
+        self, text: str | None = None, style: str | ParagraphStyle | None = None
+    ) -> Paragraph:
+        """Return a newly created paragraph, inserted directly after this paragraph.
+
+        If `text` is supplied, the new paragraph contains that text in a single run. If
+        `style` is provided, that style is assigned to the new paragraph.
+        """
+        p = self._p.add_p_after()
+        paragraph = Paragraph(p, self._parent)
+        if text:
+            paragraph.add_run(text)
+        if style is not None:
+            paragraph.style = style
+        return paragraph
+
     def insert_paragraph_before(
         self, text: str | None = None, style: str | ParagraphStyle | None = None
     ) -> Paragraph:
@@ -231,6 +249,18 @@ class Paragraph(StoryChild):
         if style is not None:
             paragraph.style = style
         return paragraph
+
+    def insert_table_after(self, rows: int, cols: int, width: Length) -> Table:
+        """Return a table of `width` having `rows` rows and `cols` columns.
+
+        The new table is inserted directly after this paragraph.
+        """
+        from docx.oxml.table import CT_Tbl
+        from docx.table import Table
+
+        tbl = CT_Tbl.new_tbl(rows, cols, width)
+        self._p.addnext(tbl)
+        return Table(tbl, self._parent)
 
     def iter_inner_content(self) -> Iterator[Run | Hyperlink]:
         """Generate the runs and hyperlinks in this paragraph, in the order they appear.

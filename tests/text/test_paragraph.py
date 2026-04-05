@@ -401,6 +401,48 @@ class DescribeParagraph:
         assert new_paragraph.style == style
         assert new_paragraph is paragraph_
 
+    def it_can_insert_a_paragraph_after_itself(self, fake_parent: t.ProvidesStoryPart):
+        body = element("w:body/(w:p{id=1},w:p{id=2})")
+        p1 = cast(CT_P, body[0])
+        paragraph = Paragraph(p1, fake_parent)
+
+        new_paragraph = paragraph.insert_paragraph_after("new text")
+
+        assert isinstance(new_paragraph, Paragraph)
+        assert new_paragraph.text == "new text"
+        # --- new paragraph is between p1 and p2 ---
+        assert body.xml == xml("w:body/(w:p{id=1},w:p/w:r/w:t\"new text\",w:p{id=2})")
+
+    def it_can_insert_an_empty_paragraph_after_itself(self, fake_parent: t.ProvidesStoryPart):
+        body = element("w:body/(w:p{id=1},w:p{id=2})")
+        p1 = cast(CT_P, body[0])
+        paragraph = Paragraph(p1, fake_parent)
+
+        new_paragraph = paragraph.insert_paragraph_after()
+
+        assert isinstance(new_paragraph, Paragraph)
+        assert new_paragraph.text == ""
+        assert body.xml == xml("w:body/(w:p{id=1},w:p,w:p{id=2})")
+
+    def it_can_insert_a_table_after_itself(self, fake_parent: t.ProvidesStoryPart):
+        from docx.shared import Inches
+        from docx.table import Table as TableCls
+
+        body = element("w:body/(w:p{id=1},w:p{id=2})")
+        p1 = cast(CT_P, body[0])
+        paragraph = Paragraph(p1, fake_parent)
+
+        table = paragraph.insert_table_after(2, 2, Inches(6))
+
+        assert isinstance(table, TableCls)
+        assert len(table.rows) == 2
+        assert len(table.columns) == 2
+        # --- table element is between p1 and p2 ---
+        children = list(body)
+        assert children[0].tag.endswith("}p")
+        assert children[1].tag.endswith("}tbl")
+        assert children[2].tag.endswith("}p")
+
     def it_updates_section_count_on_insert_and_remove(self, part_prop_: DocumentPart):
         document_elm = element(
             "w:document/w:body/(w:p,w:p,w:sectPr)"
