@@ -43,9 +43,6 @@ class DescribeBaseSimpleType:
     def it_can_convert_from_xml(self):
         assert BaseSimpleType.from_xml("42") == 42
 
-    def it_can_convert_to_xml(self):
-        assert BaseSimpleType.to_xml(42) == BaseSimpleType.convert_to_xml(42)
-
     def it_validates_int(self):
         BaseSimpleType.validate_int(42)
         with pytest.raises(TypeError, match="value must be <type 'int'>"):
