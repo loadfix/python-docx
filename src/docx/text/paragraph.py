@@ -103,7 +103,11 @@ class Paragraph(StoryChild):
 
     @property
     def content_controls(self) -> List[InlineContentControl]:
-        """All inline content controls within this paragraph."""
+        """All inline content controls within this paragraph.
+
+        Note: text inside inline content controls is not included in
+        ``Paragraph.text``. Use ``cc.text`` on each content control to retrieve it.
+        """
         return [InlineContentControl(sdt, self) for sdt in self._p.sdt_lst]
 
     def clear_page_breaks(self) -> None:

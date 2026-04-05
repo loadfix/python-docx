@@ -10,10 +10,14 @@ from typing import cast
 import pytest
 
 from docx.comments import Comment, Comments
+from docx.contentcontrol import BlockContentControl
 from docx.document import Document, _Body
+from docx.enum.contentcontrol import WD_CONTENT_CONTROL_TYPE
 from docx.enum.section import WD_SECTION
 from docx.opc.coreprops import CoreProperties
 from docx.oxml.document import CT_Body, CT_Document
+from docx.oxml.ns import nsdecls
+from docx.oxml.parser import parse_xml
 from docx.parts.document import DocumentPart
 from docx.section import Section, Sections
 from docx.settings import Settings
@@ -394,6 +398,44 @@ class DescribeDocument:
 
 class Describe_Body:
     """Unit-test suite for `docx.document._Body`."""
+
+    def it_can_add_a_block_content_control(self, document_: Mock):
+        body_elm = cast(CT_Body, element("w:body/(w:p,w:sectPr)"))
+        body = _Body(body_elm, document_)
+
+        cc = body.add_content_control(
+            WD_CONTENT_CONTROL_TYPE.RICH_TEXT, tag="block_tag", title="Block CC"
+        )
+
+        assert isinstance(cc, BlockContentControl)
+        assert cc.tag == "block_tag"
+        assert cc.title == "Block CC"
+        assert cc.type == WD_CONTENT_CONTROL_TYPE.RICH_TEXT
+
+    def it_provides_access_to_block_content_controls(self, document_: Mock):
+        body_elm = cast(
+            CT_Body,
+            parse_xml(
+                f"<w:body {nsdecls('w')}>"
+                f"  <w:p/>"
+                f"  <w:sdt><w:sdtPr/>"
+                f"    <w:sdtContent><w:p><w:r><w:t>cc1</w:t></w:r></w:p></w:sdtContent>"
+                f"  </w:sdt>"
+                f"  <w:sdt><w:sdtPr/>"
+                f"    <w:sdtContent><w:p><w:r><w:t>cc2</w:t></w:r></w:p></w:sdtContent>"
+                f"  </w:sdt>"
+                f"  <w:sectPr/>"
+                f"</w:body>"
+            ),
+        )
+        body = _Body(body_elm, document_)
+
+        ccs = body.content_controls
+
+        assert len(ccs) == 2
+        assert all(isinstance(cc, BlockContentControl) for cc in ccs)
+        assert ccs[0].text == "cc1"
+        assert ccs[1].text == "cc2"
 
     @pytest.mark.parametrize(
         ("cxml", "expected_cxml"),

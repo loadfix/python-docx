@@ -5,9 +5,13 @@ from typing import List, cast
 import pytest
 
 from docx import types as t
+from docx.contentcontrol import InlineContentControl
+from docx.enum.contentcontrol import WD_CONTENT_CONTROL_TYPE
 from docx.enum.section import WD_SECTION_START
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import nsdecls
+from docx.oxml.parser import parse_xml
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.text.run import CT_R
 from docx.parts.document import DocumentPart
@@ -381,6 +385,39 @@ class DescribeParagraph:
         # --- remove section break from paragraph2 ---
         paragraph2.remove_section_break()
         assert len(document_elm.sectPr_lst) == 1
+
+    def it_can_add_an_inline_content_control(self, fake_parent: t.ProvidesStoryPart):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+
+        cc = paragraph.add_content_control(
+            WD_CONTENT_CONTROL_TYPE.PLAIN_TEXT, tag="my_tag", title="My CC"
+        )
+
+        assert isinstance(cc, InlineContentControl)
+        assert cc.tag == "my_tag"
+        assert cc.title == "My CC"
+        assert cc.type == WD_CONTENT_CONTROL_TYPE.PLAIN_TEXT
+
+    def it_provides_access_to_inline_content_controls(self, fake_parent: t.ProvidesStoryPart):
+        p = cast(
+            CT_P,
+            parse_xml(
+                f"<w:p {nsdecls('w')}>"
+                f"  <w:r><w:t>text</w:t></w:r>"
+                f"  <w:sdt><w:sdtPr/><w:sdtContent><w:r><w:t>cc1</w:t></w:r></w:sdtContent></w:sdt>"
+                f"  <w:sdt><w:sdtPr/><w:sdtContent><w:r><w:t>cc2</w:t></w:r></w:sdtContent></w:sdt>"
+                f"</w:p>"
+            ),
+        )
+        paragraph = Paragraph(p, fake_parent)
+
+        ccs = paragraph.content_controls
+
+        assert len(ccs) == 2
+        assert all(isinstance(cc, InlineContentControl) for cc in ccs)
+        assert ccs[0].text == "cc1"
+        assert ccs[1].text == "cc2"
 
     def it_can_remove_its_content_while_preserving_formatting(self, clear_fixture):
         paragraph, expected_xml = clear_fixture

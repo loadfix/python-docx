@@ -212,6 +212,29 @@ class DescribeInlineContentControl:
 
         assert cc.text == "new text"
 
+    def it_clears_all_children_when_setting_text(self):
+        sdt = cast(
+            CT_Sdt,
+            parse_xml(
+                f"<w:sdt {nsdecls('w')}>"
+                f"  <w:sdtPr/>"
+                f"  <w:sdtContent>"
+                f"    <w:bookmarkStart w:id=\"0\" w:name=\"bm1\"/>"
+                f"    <w:r><w:t>old</w:t></w:r>"
+                f"    <w:bookmarkEnd w:id=\"0\"/>"
+                f"  </w:sdtContent>"
+                f"</w:sdt>"
+            ),
+        )
+        cc = InlineContentControl(sdt, Mock())
+
+        cc.text = "new text"
+
+        assert cc.text == "new text"
+        sdtContent = sdt.sdtContent
+        assert len(list(sdtContent)) == 1
+        assert sdtContent[0].tag == qn("w:r")
+
     @pytest.mark.parametrize(
         ("type_xml", "expected_type"),
         [

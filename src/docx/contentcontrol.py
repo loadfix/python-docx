@@ -104,9 +104,9 @@ class InlineContentControl(_ContentControlBase):
     def text(self, value: str) -> None:
         """Set the text content of this inline content control."""
         sdtContent = self._sdt.get_or_add_sdtContent()
-        # -- remove existing runs --
-        for r in sdtContent.r_lst:
-            sdtContent.remove(r)
+        # -- remove all child elements before writing new content --
+        for child in list(sdtContent):
+            sdtContent.remove(child)
         # -- add new run with text --
         if value:
             r = sdtContent.add_r()
