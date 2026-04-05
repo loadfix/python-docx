@@ -233,6 +233,12 @@ from .text.paragraph import CT_P
 
 register_element_cls("w:p", CT_P)
 
+from .tracked_changes import CT_Del, CT_DelText, CT_Ins
+
+register_element_cls("w:del", CT_Del)
+register_element_cls("w:delText", CT_DelText)
+register_element_cls("w:ins", CT_Ins)
+
 from .text.parfmt import (
     CT_Ind,
     CT_Jc,

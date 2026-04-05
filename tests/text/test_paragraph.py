@@ -283,6 +283,27 @@ class DescribeParagraph:
         paragraph = Paragraph(element(p_cxml), None)
         assert paragraph.text == expected_value
 
+    @pytest.mark.parametrize(
+        ("p_cxml", "count"),
+        [
+            ("w:p", 0),
+            ('w:p/w:r/w:t"no changes"', 0),
+            ('w:p/w:ins{w:id=1,w:author=A}/w:r/w:t"added"', 1),
+            ('w:p/w:del{w:id=2,w:author=B}/w:r/w:delText"removed"', 1),
+            (
+                'w:p/(w:ins{w:id=1,w:author=A}/w:r/w:t"added"'
+                ',w:del{w:id=2,w:author=B}/w:r/w:delText"removed")',
+                2,
+            ),
+        ],
+    )
+    def it_provides_access_to_tracked_changes(self, p_cxml: str, count: int):
+        paragraph = Paragraph(element(p_cxml), None)
+
+        tracked_changes = paragraph.tracked_changes
+
+        assert len(tracked_changes) == count
+
     def it_can_replace_the_text_it_contains(self, text_set_fixture):
         paragraph, text, expected_text = text_set_fixture
         paragraph.text = text
