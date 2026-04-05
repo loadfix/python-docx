@@ -83,6 +83,35 @@ class DescribeParagraph:
         assert paragraph._p.xml == xml(expected_cxml)
 
     @pytest.mark.parametrize(
+        ("body_cxml", "p_idx", "expected_cxml"),
+        [
+            # --- paragraph is removed from body ---
+            ("w:body/(w:p,w:p)", 0, "w:body/w:p"),
+            # --- last paragraph in body can be removed ---
+            ("w:body/w:p", 0, "w:body"),
+            # --- paragraph with formatting is removed ---
+            ('w:body/(w:p/w:pPr/w:pStyle{w:val=Heading1},w:p/w:r/w:t"keep")', 0,
+             'w:body/w:p/w:r/w:t"keep"'),
+            # --- middle paragraph removed ---
+            ("w:body/(w:p,w:p,w:p)", 1, "w:body/(w:p,w:p)"),
+        ],
+    )
+    def it_can_delete_itself(
+        self,
+        body_cxml: str,
+        p_idx: int,
+        expected_cxml: str,
+        fake_parent: t.ProvidesStoryPart,
+    ):
+        body = element(body_cxml)
+        p = body[p_idx]
+        paragraph = Paragraph(cast(CT_P, p), fake_parent)
+
+        paragraph.delete()
+
+        assert body.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
         ("p_cxml", "expected_value"),
         [
             ("w:p", False),
