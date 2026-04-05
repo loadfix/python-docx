@@ -119,6 +119,7 @@ class DescribeCT_Settings:
                 False,
             ),
             ("w:settings/w:documentProtection{w:edit=forms}", "forms", False),
+            ("w:settings/w:documentProtection", None, False),
         ],
     )
     def it_can_get_document_protection(
@@ -158,6 +159,7 @@ class DescribeCT_Settings:
         assert settings.compatibilityMode == 15
         settings.compatibilityMode = None
         assert settings.compatibilityMode is None
+        assert settings.xml == xml("w:settings")
 
     @pytest.mark.parametrize(
         ("cxml", "expected_value"),

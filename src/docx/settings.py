@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, cast
 
 from docx.shared import ElementProxy
@@ -71,13 +72,23 @@ class Settings(ElementProxy):
     def odd_and_even_pages_header_footer(self) -> bool:
         """True if this document has distinct odd and even page headers and footers.
 
-        Read/write.
+        Read/write. Deprecated: use `even_and_odd_headers` instead.
         """
-        return self._settings.evenAndOddHeaders_val
+        warnings.warn(
+            "odd_and_even_pages_header_footer is deprecated, use even_and_odd_headers instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.even_and_odd_headers
 
     @odd_and_even_pages_header_footer.setter
     def odd_and_even_pages_header_footer(self, value: bool):
-        self._settings.evenAndOddHeaders_val = value
+        warnings.warn(
+            "odd_and_even_pages_header_footer is deprecated, use even_and_odd_headers instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.even_and_odd_headers = value
 
     @property
     def track_revisions(self) -> bool:

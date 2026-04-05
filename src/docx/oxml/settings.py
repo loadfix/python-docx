@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, List
+from typing import TYPE_CHECKING, Callable
 
 from docx.oxml.simpletypes import ST_DecimalNumber, ST_OnOff, ST_String, ST_TwipsMeasure
 from docx.oxml.xmlchemy import (
@@ -49,7 +49,7 @@ class CT_Compat(BaseOxmlElement):
     """`w:compat` element, containing document compatibility settings."""
 
     _add_compatSetting: Callable[..., CT_CompatSetting]
-    compatSetting_lst: List[CT_CompatSetting]
+    compatSetting_lst: list[CT_CompatSetting]
 
     compatSetting = ZeroOrMore("w:compatSetting", successors=())
 
@@ -293,6 +293,8 @@ class CT_Settings(BaseOxmlElement):
                 for setting in list(compat.compatSetting_lst):
                     if setting.name == "compatibilityMode":
                         compat.remove(setting)
+                if len(compat.compatSetting_lst) == 0:
+                    self._remove_compat()
             return
         compat = self.get_or_add_compat()
         for setting in compat.compatSetting_lst:

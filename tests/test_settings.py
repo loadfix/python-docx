@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import pytest
 
 from docx.settings import Settings
@@ -28,7 +30,9 @@ class DescribeSettings:
     def it_knows_when_the_document_has_distinct_odd_and_even_headers(
         self, cxml: str, expected_value: bool
     ):
-        assert Settings(element(cxml)).odd_and_even_pages_header_footer is expected_value
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            assert Settings(element(cxml)).odd_and_even_pages_header_footer is expected_value
 
     @pytest.mark.parametrize(
         ("cxml", "new_value", "expected_cxml"),
@@ -44,9 +48,20 @@ class DescribeSettings:
     ):
         settings = Settings(element(cxml))
 
-        settings.odd_and_even_pages_header_footer = new_value
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            settings.odd_and_even_pages_header_footer = new_value
 
         assert settings._settings.xml == xml(expected_cxml)
+
+    def it_emits_deprecation_warning_for_odd_and_even_pages_header_footer(self):
+        settings = Settings(element("w:settings/w:evenAndOddHeaders"))
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            settings.odd_and_even_pages_header_footer
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "even_and_odd_headers" in str(w[0].message)
 
     @pytest.mark.parametrize(
         ("cxml", "expected_value"),
