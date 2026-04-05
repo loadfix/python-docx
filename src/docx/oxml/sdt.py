@@ -167,12 +167,11 @@ class CT_SdtContent(BaseOxmlElement):
     tbl = ZeroOrMore("w:tbl", successors=())
 
     @property
-    def inner_content_elements(self) -> list[CT_P | CT_Tbl]:
-        return self.xpath("./w:p | ./w:tbl")
-
-    @property
     def text(self) -> str:
-        """The concatenated text of all runs (for inline SDTs) or paragraphs (for block)."""
+        """The concatenated text of all runs (for inline SDTs) or paragraphs (for block).
+
+        Inline SDTs have direct `w:r` children; block SDTs have `w:p` children.
+        """
         # -- inline case: has runs directly --
         runs = self.r_lst
         if runs:

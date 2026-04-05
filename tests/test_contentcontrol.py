@@ -14,7 +14,7 @@ from docx.oxml.ns import nsdecls, qn
 from docx.oxml.parser import parse_xml
 from docx.oxml.sdt import CT_Sdt
 
-from .unitutil.mock import FixtureRequest, Mock, instance_mock
+from .unitutil.mock import Mock
 
 
 class DescribeBlockContentControl:
