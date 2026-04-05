@@ -91,8 +91,6 @@ class Svg(BaseImageHeader):
         elif unit == "mm":
             return int(round(value * 96 / 25.4))
 
-        return int(round(value))
-
 
 def is_svg_stream(stream: IO[bytes]) -> bool:
     """Return True if `stream` contains an SVG image."""

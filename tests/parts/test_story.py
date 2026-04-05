@@ -1,10 +1,14 @@
 """Unit test suite for the docx.parts.story module."""
 
+import io
+
 import pytest
 
 from docx.enum.style import WD_STYLE_TYPE
+from docx.image.constants import MIME_TYPE
 from docx.image.image import Image
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.oxml.shape import CT_Inline
 from docx.package import Package
 from docx.parts.document import DocumentPart
 from docx.parts.image import ImagePart
@@ -13,7 +17,7 @@ from docx.styles.style import BaseStyle
 
 from ..unitutil.cxml import element
 from ..unitutil.file import snippet_text
-from ..unitutil.mock import instance_mock, method_mock, property_mock
+from ..unitutil.mock import class_mock, instance_mock, method_mock, property_mock
 
 
 class DescribeStoryPart:
@@ -69,6 +73,28 @@ class DescribeStoryPart:
         image_.scaled_dimensions.assert_called_once_with(100, 200)
         assert inline.xml == expected_xml
 
+    def it_can_create_a_new_svg_pic_inline(
+        self, get_or_add_image_, image_, next_id_prop_, _generate_svg_fallback_
+    ):
+        # First call returns the SVG image rId, second returns the fallback PNG rId
+        get_or_add_image_.side_effect = [("rId7", image_), ("rId8", image_)]
+        image_.scaled_dimensions.return_value = 400, 300
+        image_.filename = "drawing.svg"
+        image_.content_type = MIME_TYPE.SVG
+        next_id_prop_.return_value = 5
+        _generate_svg_fallback_.return_value = b"fake-png-bytes"
+        story_part = StoryPart(None, None, None, None)
+
+        inline = story_part.new_pic_inline("drawing.svg", width=400, height=300)
+
+        assert get_or_add_image_.call_count == 2
+        # Second call should be for the fallback PNG stream
+        fallback_call_args = get_or_add_image_.call_args_list[1]
+        fallback_stream = fallback_call_args[0][1]
+        assert isinstance(fallback_stream, io.BytesIO)
+        assert fallback_stream.getvalue() == b"fake-png-bytes"
+        assert isinstance(inline, CT_Inline)
+
     def it_knows_the_next_available_xml_id(self, next_id_fixture):
         story_element, expected_value = next_id_fixture
         story_part = StoryPart(None, None, story_element, None)
@@ -114,6 +140,10 @@ class DescribeStoryPart:
     @pytest.fixture
     def _document_part_prop_(self, request):
         return property_mock(request, StoryPart, "_document_part")
+
+    @pytest.fixture
+    def _generate_svg_fallback_(self, request):
+        return method_mock(request, StoryPart, "_generate_svg_fallback")
 
     @pytest.fixture
     def get_or_add_image_(self, request):

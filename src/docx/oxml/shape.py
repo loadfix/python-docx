@@ -193,6 +193,7 @@ class CT_Picture(BaseOxmlElement):
         svg_blip = pic.find(
             ".//" + qn("asvg:svgBlip"),
         )
+        assert svg_blip is not None, "asvg:svgBlip not found in SVG pic XML"
         svg_blip.set(qn("r:embed"), svg_rId)
         pic.spPr.cx = cx
         pic.spPr.cy = cy

@@ -90,8 +90,6 @@ class StoryPart(XmlPart):
         cy: Length,
     ) -> CT_Inline:
         """Return a `wp:inline` element for an SVG image with a PNG fallback."""
-        from docx.image.svg import generate_fallback_png
-
         fallback_png = self._generate_svg_fallback()
         fallback_stream = io.BytesIO(fallback_png)
         fallback_rId, _ = self.get_or_add_image(fallback_stream)
@@ -103,7 +101,7 @@ class StoryPart(XmlPart):
     def _generate_svg_fallback() -> bytes:
         """Return PNG bytes to use as SVG fallback.
 
-        Tries cairosvg if available, otherwise generates a minimal transparent PNG.
+        Generates a minimal 1x1 transparent PNG placeholder.
         """
         from docx.image.svg import generate_fallback_png
 
