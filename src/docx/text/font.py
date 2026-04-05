@@ -36,6 +36,24 @@ class Font(ElementProxy):
         self._set_bool_prop("caps", value)
 
     @property
+    def character_spacing(self) -> Length | None:
+        """Read/write.
+
+        |Length| value specifying the spacing between characters. Positive values expand
+        the spacing, negative values condense it. |None| indicates the value is inherited
+        from the style hierarchy.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        return rPr.spacing_val
+
+    @character_spacing.setter
+    def character_spacing(self, value: int | Length | None) -> None:
+        rPr = self._element.get_or_add_rPr()
+        rPr.spacing_val = None if value is None else Emu(value)
+
+    @property
     def bold(self) -> bool | None:
         """Read/write.
 
@@ -155,6 +173,24 @@ class Font(ElementProxy):
     @italic.setter
     def italic(self, value: bool | None) -> None:
         self._set_bool_prop("i", value)
+
+    @property
+    def kerning(self) -> Length | None:
+        """Read/write.
+
+        |Length| value specifying the minimum font size for which kerning is automatically
+        adjusted. |None| indicates kerning is not specified (inherited from style
+        hierarchy).
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        return rPr.kern_val
+
+    @kerning.setter
+    def kerning(self, value: int | Length | None) -> None:
+        rPr = self._element.get_or_add_rPr()
+        rPr.kern_val = None if value is None else Emu(value)
 
     @property
     def imprint(self) -> bool | None:

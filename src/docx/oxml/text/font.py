@@ -65,15 +65,19 @@ class CT_RPr(BaseOxmlElement):
 
     get_or_add_color: Callable[[], CT_Color]
     get_or_add_highlight: Callable[[], CT_Highlight]
+    get_or_add_kern: Callable[[], CT_HpsMeasure]
     get_or_add_rFonts: Callable[[], CT_Fonts]
+    get_or_add_spacing: Callable[[], BaseOxmlElement]
     get_or_add_sz: Callable[[], CT_HpsMeasure]
     get_or_add_vertAlign: Callable[[], CT_VerticalAlignRun]
     _add_rStyle: Callable[..., CT_String]
     _add_u: Callable[[], CT_Underline]
     _remove_color: Callable[[], None]
     _remove_highlight: Callable[[], None]
+    _remove_kern: Callable[[], None]
     _remove_rFonts: Callable[[], None]
     _remove_rStyle: Callable[[], None]
+    _remove_spacing: Callable[[], None]
     _remove_sz: Callable[[], None]
     _remove_u: Callable[[], None]
     _remove_vertAlign: Callable[[], None]
@@ -138,6 +142,8 @@ class CT_RPr(BaseOxmlElement):
     vanish = ZeroOrOne("w:vanish", successors=_tag_seq[17:])
     webHidden = ZeroOrOne("w:webHidden", successors=_tag_seq[18:])
     color: CT_Color | None = ZeroOrOne("w:color", successors=_tag_seq[19:])
+    spacing = ZeroOrOne("w:spacing", successors=_tag_seq[20:])
+    kern: CT_HpsMeasure | None = ZeroOrOne("w:kern", successors=_tag_seq[22:])
     sz: CT_HpsMeasure | None = ZeroOrOne("w:sz", successors=_tag_seq[24:])
     highlight: CT_Highlight | None = ZeroOrOne("w:highlight", successors=_tag_seq[26:])
     u: CT_Underline | None = ZeroOrOne("w:u", successors=_tag_seq[27:])
@@ -301,6 +307,38 @@ class CT_RPr(BaseOxmlElement):
         # -- assert bool(value) is False --
         elif self.vertAlign is not None and self.vertAlign.val == ST_VerticalAlignRun.SUPERSCRIPT:
             self._remove_vertAlign()
+
+    @property
+    def kern_val(self) -> Length | None:
+        """Value of `w:kern/@w:val` or |None| if not present."""
+        kern = self.kern
+        if kern is None:
+            return None
+        return kern.val
+
+    @kern_val.setter
+    def kern_val(self, value: Length | None) -> None:
+        if value is None:
+            self._remove_kern()
+            return
+        kern = self.get_or_add_kern()
+        kern.val = value
+
+    @property
+    def spacing_val(self) -> Length | None:
+        """Value of `w:spacing/@w:val` or |None| if not present."""
+        spacing = self.spacing
+        if spacing is None:
+            return None
+        return spacing.val
+
+    @spacing_val.setter
+    def spacing_val(self, value: Length | None) -> None:
+        if value is None:
+            self._remove_spacing()
+            return
+        spacing = self.get_or_add_spacing()
+        spacing.val = value
 
     @property
     def sz_val(self) -> Length | None:
