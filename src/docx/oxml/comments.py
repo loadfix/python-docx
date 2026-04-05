@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import datetime as dt
+import random
 from typing import TYPE_CHECKING, Callable, cast
 
-from docx.oxml.ns import nsdecls
+from docx.oxml.ns import nsdecls, qn
 from docx.oxml.parser import parse_xml
 from docx.oxml.simpletypes import ST_DateTime, ST_DecimalNumber, ST_String
 from docx.oxml.xmlchemy import BaseOxmlElement, OptionalAttribute, RequiredAttribute, ZeroOrMore
@@ -39,10 +40,13 @@ class CT_Comments(BaseOxmlElement):
         adding additional paragraphs as needed.
         """
         next_id = self._next_available_comment_id()
+        para_id = self._next_unique_para_id()
         comment = cast(
             CT_Comment,
             parse_xml(
-                f'<w:comment {nsdecls("w")} w:id="{next_id}" w:author="">'
+                f'<w:comment {nsdecls("w", "w16cid")}'
+                f' w:id="{next_id}" w:author=""'
+                f' w16cid:paraId="{para_id}">'
                 f"  <w:p>"
                 f"    <w:pPr>"
                 f'      <w:pStyle w:val="CommentText"/>'
@@ -60,10 +64,59 @@ class CT_Comments(BaseOxmlElement):
         self.append(comment)
         return comment
 
+    def add_reply(self, parent_paraId: str) -> CT_Comment:
+        """Return newly added reply `w:comment` child linked to the parent via `paraIdParent`.
+
+        The reply comment has `w16cid:paraIdParent` set to `parent_paraId`, linking it to the
+        parent comment.
+        """
+        next_id = self._next_available_comment_id()
+        para_id = self._next_unique_para_id()
+        comment = cast(
+            CT_Comment,
+            parse_xml(
+                f'<w:comment {nsdecls("w", "w16cid")}'
+                f' w:id="{next_id}" w:author=""'
+                f' w16cid:paraId="{para_id}"'
+                f' w16cid:paraIdParent="{parent_paraId}">'
+                f"  <w:p>"
+                f"    <w:pPr>"
+                f'      <w:pStyle w:val="CommentText"/>'
+                f"    </w:pPr>"
+                f"    <w:r>"
+                f"      <w:rPr>"
+                f'        <w:rStyle w:val="CommentReference"/>'
+                f"      </w:rPr>"
+                f"      <w:annotationRef/>"
+                f"    </w:r>"
+                f"  </w:p>"
+                f"</w:comment>"
+            ),
+        )
+        self.append(comment)
+        return comment
+
+    def get_replies_for(self, para_id: str) -> list[CT_Comment]:
+        """Return list of `w:comment` elements whose `w16cid:paraIdParent` matches `para_id`."""
+        return self.xpath(
+            f"./w:comment[@w16cid:paraIdParent='{para_id}']",
+        )
+
     def get_comment_by_id(self, comment_id: int) -> CT_Comment | None:
         """Return the `w:comment` element identified by `comment_id`, or |None| if not found."""
         comment_elms = self.xpath(f"(./w:comment[@w:id='{comment_id}'])[1]")
         return comment_elms[0] if comment_elms else None
+
+    def _next_unique_para_id(self) -> str:
+        """Generate a unique 8-character uppercase hex `paraId` value.
+
+        The value is unique among all `w16cid:paraId` attributes in this `w:comments` element.
+        """
+        used_ids = set(self.xpath("./w:comment/@w16cid:paraId"))
+        while True:
+            para_id = "%08X" % random.randint(0, 0xFFFFFFFF)
+            if para_id not in used_ids:
+                return para_id
 
     def _next_available_comment_id(self) -> int:
         """The next available comment id.
@@ -105,6 +158,30 @@ class CT_Comment(BaseOxmlElement):
     date: dt.datetime | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:date", ST_DateTime
     )
+
+    @property
+    def paraId(self) -> str | None:
+        """The `w16cid:paraId` attribute value, or |None| if not present."""
+        return self.get(qn("w16cid:paraId"))
+
+    @paraId.setter
+    def paraId(self, value: str | None) -> None:
+        if value is None:
+            self.attrib.pop(qn("w16cid:paraId"), None)  # pyright: ignore[reportArgumentType]
+        else:
+            self.set(qn("w16cid:paraId"), value)
+
+    @property
+    def paraIdParent(self) -> str | None:
+        """The `w16cid:paraIdParent` attribute value, or |None| if not present."""
+        return self.get(qn("w16cid:paraIdParent"))
+
+    @paraIdParent.setter
+    def paraIdParent(self, value: str | None) -> None:
+        if value is None:
+            self.attrib.pop(qn("w16cid:paraIdParent"), None)  # pyright: ignore[reportArgumentType]
+        else:
+            self.set(qn("w16cid:paraIdParent"), value)
 
     # -- children --
 

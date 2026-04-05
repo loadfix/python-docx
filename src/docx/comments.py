@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING, Iterator, cast
 
 from docx.blkcntnr import BlockItemContainer
 
@@ -97,6 +97,7 @@ class Comment(BlockItemContainer):
     def __init__(self, comment_elm: CT_Comment, comments_part: CommentsPart):
         super().__init__(comment_elm, comments_part)
         self._comment_elm = comment_elm
+        self._comments_part = comments_part
 
     def add_paragraph(self, text: str = "", style: str | ParagraphStyle | None = None) -> Paragraph:
         """Return paragraph newly added to the end of the content in this container.
@@ -143,6 +144,50 @@ class Comment(BlockItemContainer):
     @initials.setter
     def initials(self, value: str | None):
         self._comment_elm.initials = value
+
+    def add_reply(
+        self, text: str = "", author: str = "", initials: str | None = ""
+    ) -> Comment:
+        """Add a reply to this comment and return it.
+
+        The reply is a new comment linked to this comment via the `w16cid:paraIdParent` attribute.
+        Parameters behave identically to `Comments.add_comment()`.
+        """
+        parent_para_id = self._comment_elm.paraId
+        if parent_para_id is None:
+            raise ValueError("Cannot add reply: parent comment has no paraId attribute.")
+
+        comments_elm = cast("CT_Comments", self._comment_elm.getparent())
+        reply_elm = comments_elm.add_reply(parent_para_id)
+        reply_elm.author = author
+        reply_elm.initials = initials
+        reply_elm.date = dt.datetime.now(dt.timezone.utc)
+        reply = Comment(reply_elm, self._comments_part)
+
+        if text == "":
+            return reply
+
+        para_text_iter = iter(text.split("\n"))
+
+        first_para_text = next(para_text_iter)
+        first_para = reply.paragraphs[0]
+        first_para.add_run(first_para_text)
+
+        for s in para_text_iter:
+            reply.add_paragraph(text=s)
+
+        return reply
+
+    @property
+    def replies(self) -> list[Comment]:
+        """List of `Comment` objects that are replies to this comment."""
+        para_id = self._comment_elm.paraId
+        if para_id is None:
+            return []
+
+        comments_elm = cast("CT_Comments", self._comment_elm.getparent())
+        reply_elms = comments_elm.get_replies_for(para_id)
+        return [Comment(reply_elm, self._comments_part) for reply_elm in reply_elms]
 
     @property
     def text(self) -> str:
