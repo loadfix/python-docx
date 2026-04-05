@@ -748,7 +748,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "defusedxml", specifier = ">=0.7.0" },
-    { name = "lxml", specifier = ">=3.1.0" },
+    { name = "lxml", specifier = ">=4.9.1" },
     { name = "typing-extensions", specifier = ">=4.9.0" },
 ]
 
