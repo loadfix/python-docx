@@ -50,10 +50,6 @@ class CT_Footnotes(BaseOxmlElement):
         self.append(footnote)
         return footnote
 
-    def remove_footnote(self, footnote: CT_Footnote) -> None:
-        """Remove `footnote` child element from this container."""
-        self.remove(footnote)
-
     def _next_available_footnote_id(self) -> int:
         """The next available footnote id.
 

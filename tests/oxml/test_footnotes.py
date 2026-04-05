@@ -73,23 +73,6 @@ class DescribeCT_Footnotes:
         assert footnote.id == 3
 
 
-    def it_can_remove_a_footnote(self):
-        footnotes = cast(
-            CT_Footnotes,
-            element(
-                "w:footnotes/(w:footnote{w:id=0,w:type=separator}"
-                ",w:footnote{w:id=1,w:type=continuationSeparator}"
-                ",w:footnote{w:id=2},w:footnote{w:id=3})"
-            ),
-        )
-
-        footnote_2 = footnotes.footnote_lst[2]
-        footnotes.remove_footnote(footnote_2)
-
-        assert len(footnotes.footnote_lst) == 3
-        ids = [fn.id for fn in footnotes.footnote_lst]
-        assert ids == [0, 1, 3]
-
 
 class DescribeCT_Footnote:
     """Unit test suite for `docx.oxml.footnotes.CT_Footnote` objects."""
