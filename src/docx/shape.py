@@ -145,7 +145,7 @@ class FloatingImage:
             "through": WD_WRAP_TYPE.THROUGH,
             "topAndBottom": WD_WRAP_TYPE.TOP_AND_BOTTOM,
         }
-        return wrap_map.get(wrap_str, WD_WRAP_TYPE.NONE)
+        return wrap_map.get(wrap_str, WD_WRAP_TYPE.IN_FRONT)
 
     @property
     def horz_pos_relative(self) -> WD_RELATIVE_HORZ_POS:
@@ -153,18 +153,34 @@ class FloatingImage:
         value = self._anchor.horz_relative_from
         return WD_RELATIVE_HORZ_POS(value)
 
+    @horz_pos_relative.setter
+    def horz_pos_relative(self, value: WD_RELATIVE_HORZ_POS) -> None:
+        self._anchor.horz_relative_from = value.value
+
     @property
     def vert_pos_relative(self) -> WD_RELATIVE_VERT_POS:
         """The vertical reference frame for positioning."""
         value = self._anchor.vert_relative_from
         return WD_RELATIVE_VERT_POS(value)
 
+    @vert_pos_relative.setter
+    def vert_pos_relative(self, value: WD_RELATIVE_VERT_POS) -> None:
+        self._anchor.vert_relative_from = value.value
+
     @property
     def horz_offset(self) -> Length:
         """Horizontal offset from the reference frame, in EMUs."""
         return Emu(self._anchor.horz_offset)
 
+    @horz_offset.setter
+    def horz_offset(self, value: int | Length) -> None:
+        self._anchor.horz_offset = int(value)
+
     @property
     def vert_offset(self) -> Length:
         """Vertical offset from the reference frame, in EMUs."""
         return Emu(self._anchor.vert_offset)
+
+    @vert_offset.setter
+    def vert_offset(self, value: int | Length) -> None:
+        self._anchor.vert_offset = int(value)

@@ -82,7 +82,7 @@ class Paragraph(StoryChild):
         vert_offset: int = 0,
         horz_pos_relative: WD_RELATIVE_HORZ_POS = WD_RELATIVE_HORZ_POS.COLUMN,
         vert_pos_relative: WD_RELATIVE_VERT_POS = WD_RELATIVE_VERT_POS.PARAGRAPH,
-        wrap_type: WD_WRAP_TYPE = WD_WRAP_TYPE.NONE,
+        wrap_type: WD_WRAP_TYPE = WD_WRAP_TYPE.IN_FRONT,
     ) -> FloatingImage:
         """Return |FloatingImage| containing image identified by `image_path_or_stream`.
 
@@ -96,7 +96,6 @@ class Paragraph(StoryChild):
         """
         # -- map enum wrap_type to the string used in the XML layer --
         wrap_map = {
-            WD_WRAP_TYPE.NONE: ("none", False),
             WD_WRAP_TYPE.SQUARE: ("square", False),
             WD_WRAP_TYPE.TIGHT: ("tight", False),
             WD_WRAP_TYPE.THROUGH: ("through", False),

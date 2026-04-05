@@ -37,7 +37,6 @@ class WD_WRAP_TYPE(enum.Enum):
     `wp:wrapThrough`, and `wp:wrapTopAndBottom` child elements of `wp:anchor`.
     """
 
-    NONE = 0
     SQUARE = 1
     TIGHT = 2
     THROUGH = 3

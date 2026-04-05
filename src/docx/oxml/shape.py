@@ -105,6 +105,14 @@ class CT_Anchor(BaseOxmlElement):
                 return int(offset.text)
         return 0
 
+    @horz_offset.setter
+    def horz_offset(self, value: int) -> None:
+        positionH = self.find(qn("wp:positionH"))
+        if positionH is not None:
+            offset_elm = positionH.find(qn("wp:posOffset"))
+            if offset_elm is not None:
+                offset_elm.text = str(value)
+
     @property
     def vert_offset(self) -> int:
         """Vertical offset in EMUs."""
@@ -115,6 +123,14 @@ class CT_Anchor(BaseOxmlElement):
                 return int(offset.text)
         return 0
 
+    @vert_offset.setter
+    def vert_offset(self, value: int) -> None:
+        positionV = self.find(qn("wp:positionV"))
+        if positionV is not None:
+            offset_elm = positionV.find(qn("wp:posOffset"))
+            if offset_elm is not None:
+                offset_elm.text = str(value)
+
     @property
     def horz_relative_from(self) -> str:
         """Horizontal relative-from value (e.g. 'column', 'page')."""
@@ -123,6 +139,12 @@ class CT_Anchor(BaseOxmlElement):
             return positionH.get("relativeFrom", "column")
         return "column"
 
+    @horz_relative_from.setter
+    def horz_relative_from(self, value: str) -> None:
+        positionH = self.find(qn("wp:positionH"))
+        if positionH is not None:
+            positionH.set("relativeFrom", value)
+
     @property
     def vert_relative_from(self) -> str:
         """Vertical relative-from value (e.g. 'paragraph', 'page')."""
@@ -130,6 +152,12 @@ class CT_Anchor(BaseOxmlElement):
         if positionV is not None:
             return positionV.get("relativeFrom", "paragraph")
         return "paragraph"
+
+    @vert_relative_from.setter
+    def vert_relative_from(self, value: str) -> None:
+        positionV = self.find(qn("wp:positionV"))
+        if positionV is not None:
+            positionV.set("relativeFrom", value)
 
     @property
     def wrap_type_str(self) -> str:

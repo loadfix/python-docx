@@ -196,6 +196,42 @@ class DescribeFloatingImage:
         assert floating_image.horz_pos_relative == WD_RELATIVE_HORZ_POS.PAGE
         assert floating_image.vert_pos_relative == WD_RELATIVE_VERT_POS.MARGIN
 
+    def it_can_change_its_position_offsets(self):
+        anchor = CT_Anchor.new_pic_anchor(
+            shape_id=1,
+            rId="rId1",
+            filename="test.png",
+            cx=Emu(914400),
+            cy=Emu(457200),
+            horz_offset=100000,
+            vert_offset=200000,
+        )
+        floating_image = FloatingImage(anchor)
+
+        floating_image.horz_offset = 300000
+        floating_image.vert_offset = 400000
+
+        assert floating_image.horz_offset == 300000
+        assert floating_image.vert_offset == 400000
+
+    def it_can_change_its_position_references(self):
+        anchor = CT_Anchor.new_pic_anchor(
+            shape_id=1,
+            rId="rId1",
+            filename="test.png",
+            cx=Emu(914400),
+            cy=Emu(457200),
+            horz_relative_from="column",
+            vert_relative_from="paragraph",
+        )
+        floating_image = FloatingImage(anchor)
+
+        floating_image.horz_pos_relative = WD_RELATIVE_HORZ_POS.PAGE
+        floating_image.vert_pos_relative = WD_RELATIVE_VERT_POS.MARGIN
+
+        assert floating_image.horz_pos_relative == WD_RELATIVE_HORZ_POS.PAGE
+        assert floating_image.vert_pos_relative == WD_RELATIVE_VERT_POS.MARGIN
+
     @pytest.mark.parametrize(
         ("wrap_type_str", "behind_doc", "expected"),
         [
