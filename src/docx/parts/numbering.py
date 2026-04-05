@@ -1,7 +1,16 @@
 """|NumberingPart| and closely related objects."""
 
-from ..opc.part import XmlPart
-from ..shared import lazyproperty
+from __future__ import annotations
+
+import os
+from typing import cast
+
+from docx.opc.constants import CONTENT_TYPE as CT
+from docx.opc.packuri import PackURI
+from docx.opc.part import XmlPart
+from docx.oxml.numbering import CT_Numbering
+from docx.oxml.parser import parse_xml
+from docx.shared import lazyproperty
 
 
 class NumberingPart(XmlPart):
@@ -9,15 +18,33 @@ class NumberingPart(XmlPart):
     or glossary."""
 
     @classmethod
-    def new(cls) -> "NumberingPart":
+    def new(cls) -> NumberingPart:
         """Newly created numbering part, containing only the root ``<w:numbering>`` element."""
-        raise NotImplementedError
+        partname = PackURI("/word/numbering.xml")
+        content_type = CT.WML_NUMBERING
+        element = cast("CT_Numbering", parse_xml(cls._default_numbering_xml()))
+        return cls(partname, content_type, element)
 
     @lazyproperty
     def numbering_definitions(self):
         """The |_NumberingDefinitions| instance containing the numbering definitions
         (<w:num> element proxies) for this numbering part."""
         return _NumberingDefinitions(self._element)
+
+    @property
+    def numbering_element(self) -> CT_Numbering:
+        """The ``<w:numbering>`` root element of this part."""
+        return cast(CT_Numbering, self._element)
+
+    @classmethod
+    def _default_numbering_xml(cls) -> bytes:
+        """A byte-string containing XML for a default numbering part."""
+        path = os.path.join(
+            os.path.split(__file__)[0], "..", "templates", "default-numbering.xml"
+        )
+        with open(path, "rb") as f:
+            xml_bytes = f.read()
+        return xml_bytes
 
 
 class _NumberingDefinitions:

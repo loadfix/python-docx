@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from docx.bookmarks import Bookmarks
     from docx.comments import Comment, Comments
     from docx.footnotes import Footnotes
+    from docx.numbering import Numbering
     from docx.oxml.document import CT_Body, CT_Document
     from docx.parts.document import DocumentPart
     from docx.settings import Settings
@@ -179,6 +180,12 @@ class Document(ElementProxy):
             return True
         except KeyError:
             return False
+
+    @property
+    def numbering(self) -> Numbering:
+        """A |Numbering| object providing access to the numbering definitions for this
+        document."""
+        return self._part.numbering
 
     @property
     def footnotes(self) -> Footnotes:
