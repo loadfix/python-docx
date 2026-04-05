@@ -12,7 +12,6 @@ _R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 _W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
 _WATERMARK_SHAPE_ID = "PowerPlusWaterMarkObject"
-_WATERMARK_SHAPE_NAME = "PowerPlusWaterMarkObject"
 
 # -- VML style strings for diagonal and horizontal text watermarks --
 _DIAGONAL_STYLE = (
@@ -36,20 +35,6 @@ _IMAGE_STYLE_TMPL = (
     "mso-position-horizontal-relative:margin;mso-position-vertical:center;"
     "mso-position-vertical-relative:margin"
 )
-
-
-def _build_nsmap():
-    """Return namespace map for watermark VML elements."""
-    return {
-        "v": _VML_NS,
-        "o": _OFFICE_NS,
-        "w10": _WORD_NS,
-        "r": _R_NS,
-        "w": _W_NS,
-    }
-
-
-NSMAP = _build_nsmap()
 
 
 def text_watermark_xml(

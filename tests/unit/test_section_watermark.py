@@ -156,6 +156,46 @@ class DescribeSectionWatermark:
             mock_header.return_value = header_mock
             assert section.has_watermark is True
 
+    def it_can_add_an_image_watermark(self, request: pytest.FixtureRequest):
+        from lxml import etree
+
+        from docx.oxml.section import CT_SectPr
+
+        hdr_xml = (
+            '<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+            ' xmlns:v="urn:schemas-microsoft-com:vml">'
+            "<w:p/>"
+            "</w:hdr>"
+        )
+        hdr_element = etree.fromstring(hdr_xml.encode("utf-8"))
+
+        header_mock = MagicMock()
+        type(header_mock)._element = PropertyMock(return_value=hdr_element)
+
+        # -- mock header_part.get_or_add_image to return a fake (rId, image) --
+        image_mock = MagicMock()
+        image_mock.scaled_dimensions.return_value = (6400800, 4800600)  # EMU values
+        header_part_mock = MagicMock()
+        header_part_mock.get_or_add_image.return_value = ("rId1", image_mock)
+        type(header_mock).part = PropertyMock(return_value=header_part_mock)
+
+        sectPr = MagicMock(spec=CT_SectPr)
+        document_part = MagicMock()
+        section = Section(sectPr, document_part)
+
+        with patch.object(type(section), "header", new_callable=PropertyMock) as mock_header:
+            mock_header.return_value = header_mock
+            section.add_image_watermark("watermark.png")
+
+        assert has_watermark(hdr_element) is True
+        shapes = hdr_element.xpath(".//v:shape", namespaces={"v": _VML_NS})
+        assert len(shapes) == 1
+        # -- verify image data references the correct relationship id --
+        r_ns = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+        imagedata = hdr_element.xpath(".//v:imagedata", namespaces={"v": _VML_NS})
+        assert len(imagedata) == 1
+        assert imagedata[0].get(f"{{{r_ns}}}id") == "rId1"
+
     def it_replaces_existing_watermark_when_adding(self, request: pytest.FixtureRequest):
         from lxml import etree
 

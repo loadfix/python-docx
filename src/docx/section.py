@@ -283,7 +283,7 @@ class Section:
         remove_watermark_from_header(hdr_element)
 
         # -- build watermark paragraph XML and append to header --
-        size_pt = size / 12700.0 if isinstance(size, int) else size.pt
+        size_pt = size / 12700.0  # size is always an int (plain EMU or Length subclass)
         color_hex = str(color)
         wm_xml = text_watermark_xml(text, font, size_pt, color_hex, layout)
         wm_p = parse_xml(wm_xml)
