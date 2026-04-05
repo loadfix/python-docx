@@ -12,10 +12,6 @@ if TYPE_CHECKING:
     from docx.oxml.text.run import CT_R
 
 
-class CT_RPrChange(BaseOxmlElement):
-    """`<w:rPrChange>` element — not used directly but present in schema."""
-
-
 class CT_RunTrackChange(BaseOxmlElement):
     """Base for `<w:ins>` and `<w:del>` elements wrapping runs in a paragraph.
 

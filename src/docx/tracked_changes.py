@@ -19,7 +19,6 @@ class TrackedChange(ElementProxy):
 
     def __init__(self, element: CT_RunTrackChange):
         super().__init__(element)
-        self._element = element
 
     @property
     def author(self) -> str:

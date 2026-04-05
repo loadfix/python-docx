@@ -70,6 +70,10 @@ class DescribeCT_Del:
         )
         assert del_elm.date == dt.datetime(2023, 11, 15, 9, 30, 0, tzinfo=dt.timezone.utc)
 
+    def it_returns_None_when_date_is_absent(self):
+        del_elm = cast(CT_Del, element("w:del{w:id=2,w:author=Bob}"))
+        assert del_elm.date is None
+
     @pytest.mark.parametrize(
         ("cxml", "expected_text"),
         [
