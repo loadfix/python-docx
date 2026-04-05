@@ -124,8 +124,8 @@ jobs:
 
           if echo "$REPORT" | grep -q "REVIEW_APPROVED"; then
             gh pr edit "$PR_NUM" --add-label "review-approved"
-            gh workflow run agent-merge.yml -f pr_number="$PR_NUM"
+            GH_TOKEN=${{ github.token }} gh workflow run agent-merge.yml -f pr_number="$PR_NUM"
           else
             gh pr edit "$PR_NUM" --add-label "review-changes-needed"
-            gh workflow run agent-revise.yml -f pr_number="$PR_NUM"
+            GH_TOKEN=${{ github.token }} gh workflow run agent-revise.yml -f pr_number="$PR_NUM"
           fi
