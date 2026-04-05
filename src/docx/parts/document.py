@@ -7,6 +7,7 @@ from typing import IO, TYPE_CHECKING, cast
 from docx.document import Document
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.parts.comments import CommentsPart
+from docx.parts.endnotes import EndnotesPart
 from docx.parts.footnotes import FootnotesPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
 from docx.parts.numbering import NumberingPart
@@ -18,6 +19,7 @@ from docx.shared import lazyproperty
 
 if TYPE_CHECKING:
     from docx.comments import Comments
+    from docx.endnotes import Endnotes
     from docx.enum.style import WD_STYLE_TYPE
     from docx.footnotes import Footnotes
     from docx.opc.coreprops import CoreProperties
@@ -50,6 +52,25 @@ class DocumentPart(StoryPart):
     def comments(self) -> Comments:
         """|Comments| object providing access to the comments added to this document."""
         return self._comments_part.comments
+
+    @property
+    def endnotes(self) -> Endnotes:
+        """|Endnotes| object providing access to the endnotes in this document."""
+        return self._endnotes_part.endnotes
+
+    @property
+    def _endnotes_part(self) -> EndnotesPart:
+        """A |EndnotesPart| providing access to the endnotes for this document.
+
+        Creates a default endnotes part if one is not present.
+        """
+        try:
+            return cast(EndnotesPart, self.part_related_by(RT.ENDNOTES))
+        except KeyError:
+            assert self.package is not None
+            endnotes_part = EndnotesPart.default(self.package)
+            self.relate_to(endnotes_part, RT.ENDNOTES)
+            return endnotes_part
 
     @property
     def footnotes(self) -> Footnotes:
