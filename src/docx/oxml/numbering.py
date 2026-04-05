@@ -57,23 +57,6 @@ class CT_NumPr(BaseOxmlElement):
     ilvl = ZeroOrOne("w:ilvl", successors=("w:numId", "w:numberingChange", "w:ins"))
     numId = ZeroOrOne("w:numId", successors=("w:numberingChange", "w:ins"))
 
-    # @ilvl.setter
-    # def _set_ilvl(self, val):
-    #     """
-    #     Get or add a <w:ilvl> child and set its ``w:val`` attribute to `val`.
-    #     """
-    #     ilvl = self.get_or_add_ilvl()
-    #     ilvl.val = val
-
-    # @numId.setter
-    # def numId(self, val):
-    #     """
-    #     Get or add a <w:numId> child and set its ``w:val`` attribute to
-    #     `val`.
-    #     """
-    #     numId = self.get_or_add_numId()
-    #     numId.val = val
-
 
 class CT_Numbering(BaseOxmlElement):
     """``<w:numbering>`` element, the root element of a numbering part, i.e.
@@ -91,9 +74,8 @@ class CT_Numbering(BaseOxmlElement):
     def num_having_numId(self, numId):
         """Return the ``<w:num>`` child element having ``numId`` attribute matching
         `numId`."""
-        xpath = './w:num[@w:numId="%d"]' % numId
         try:
-            return self.xpath(xpath)[0]
+            return self.xpath("./w:num[@w:numId=$numId]", numId=str(numId))[0]
         except IndexError:
             raise KeyError("no <w:num> element with numId %d" % numId)
 
