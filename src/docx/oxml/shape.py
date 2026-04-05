@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
-from docx.oxml.ns import nsdecls
+from docx.oxml.ns import nsdecls, qn
 from docx.oxml.parser import parse_xml
 from docx.oxml.simpletypes import (
     ST_Coordinate,
@@ -103,6 +103,26 @@ class CT_Inline(BaseOxmlElement):
         return inline
 
     @classmethod
+    def new_svg_pic_inline(
+        cls,
+        shape_id: int,
+        fallback_rId: str,
+        svg_rId: str,
+        filename: str,
+        cx: Length,
+        cy: Length,
+    ) -> CT_Inline:
+        """Create `wp:inline` element for an SVG image with PNG fallback.
+
+        The `a:blip` references the fallback PNG via `r:embed`, and the SVG is
+        referenced via an `asvg:svgBlip` extension element.
+        """
+        pic_id = 0
+        pic = CT_Picture.new_svg(pic_id, filename, fallback_rId, svg_rId, cx, cy)
+        inline = cls.new(cx, cy, shape_id, pic)
+        return inline
+
+    @classmethod
     def _inline_xml(cls):
         return (
             "<wp:inline %s>\n"
@@ -153,6 +173,60 @@ class CT_Picture(BaseOxmlElement):
         pic.spPr.cx = cx
         pic.spPr.cy = cy
         return pic
+
+    @classmethod
+    def new_svg(
+        cls,
+        pic_id: int,
+        filename: str,
+        fallback_rId: str,
+        svg_rId: str,
+        cx: Length,
+        cy: Length,
+    ) -> CT_Picture:
+        """A new `<pic:pic>` element for an SVG image with PNG fallback."""
+        pic = parse_xml(cls._svg_pic_xml())
+        pic.nvPicPr.cNvPr.id = pic_id
+        pic.nvPicPr.cNvPr.name = filename
+        pic.blipFill.blip.embed = fallback_rId
+        # Set SVG blip rId on the asvg:svgBlip element
+        svg_blip = pic.find(
+            ".//" + qn("asvg:svgBlip"),
+        )
+        svg_blip.set(qn("r:embed"), svg_rId)
+        pic.spPr.cx = cx
+        pic.spPr.cy = cy
+        return pic
+
+    @classmethod
+    def _svg_pic_xml(cls) -> str:
+        return (
+            "<pic:pic %s>\n"
+            "  <pic:nvPicPr>\n"
+            '    <pic:cNvPr id="666" name="unnamed"/>\n'
+            "    <pic:cNvPicPr/>\n"
+            "  </pic:nvPicPr>\n"
+            "  <pic:blipFill>\n"
+            "    <a:blip>\n"
+            "      <a:extLst>\n"
+            '        <a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">\n'
+            '          <asvg:svgBlip r:embed="placeholder"/>\n'
+            "        </a:ext>\n"
+            "      </a:extLst>\n"
+            "    </a:blip>\n"
+            "    <a:stretch>\n"
+            "      <a:fillRect/>\n"
+            "    </a:stretch>\n"
+            "  </pic:blipFill>\n"
+            "  <pic:spPr>\n"
+            "    <a:xfrm>\n"
+            '      <a:off x="0" y="0"/>\n'
+            '      <a:ext cx="914400" cy="914400"/>\n'
+            "    </a:xfrm>\n"
+            '    <a:prstGeom prst="rect"/>\n'
+            "  </pic:spPr>\n"
+            "</pic:pic>" % nsdecls("pic", "a", "r", "asvg")
+        )
 
     @classmethod
     def _pic_xml(cls):

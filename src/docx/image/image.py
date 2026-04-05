@@ -179,6 +179,13 @@ def _ImageHeaderFactory(stream: IO[bytes]):
         found_bytes = header[offset:end]
         if found_bytes == signature_bytes:
             return cls.from_stream(stream)
+
+    # SVG is text-based XML, so check for it after binary signature matching fails
+    from docx.image.svg import Svg, is_svg_stream
+
+    if is_svg_stream(stream):
+        return Svg.from_stream(stream)
+
     raise UnrecognizedImageError
 
 
