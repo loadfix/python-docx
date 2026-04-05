@@ -13,6 +13,7 @@ Establishes test patterns for all five testing layers:
 from __future__ import annotations
 
 import os
+import pathlib
 
 import pytest
 
@@ -42,7 +43,7 @@ def _w(attr: str) -> str:
 
 
 @pytest.fixture
-def comments_docx_path(tmp_path: str) -> str:
+def comments_docx_path(tmp_path: pathlib.Path) -> str:
     """Create a .docx with comments and return its file path."""
     doc = Document()
     p = doc.add_paragraph("Hello World")
@@ -227,7 +228,7 @@ class DescribeLayer3_RoundTrip:
         def verify(doc: DocumentObject) -> None:
             comment = next(iter(doc.comments))
             paragraphs = comment.paragraphs
-            # -- first para has annotation ref run + text run --
+            # -- "First para\n\nSecond para" splits into 3 paragraphs --
             assert len(paragraphs) == 3
             assert paragraphs[0].text == "First para"
             assert paragraphs[1].text == ""

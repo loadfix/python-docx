@@ -71,16 +71,16 @@ def download_schemas() -> None:
         )
         return
 
-    zf = zipfile.ZipFile(io.BytesIO(data))
-    extracted = 0
-    for entry in zf.namelist():
-        basename = os.path.basename(entry)
-        if basename in WANTED_FILES or basename.endswith(".xsd"):
-            target = os.path.join(SCHEMA_DIR, basename)
-            if not os.path.exists(target):
-                with open(target, "wb") as f:
-                    f.write(zf.read(entry))
-                extracted += 1
+    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        extracted = 0
+        for entry in zf.namelist():
+            basename = os.path.basename(entry)
+            if basename in WANTED_FILES:
+                target = os.path.join(SCHEMA_DIR, basename)
+                if not os.path.exists(target):
+                    with open(target, "wb") as f:
+                        f.write(zf.read(entry))
+                    extracted += 1
 
     # -- write marker file --
     with open(marker, "w") as f:
