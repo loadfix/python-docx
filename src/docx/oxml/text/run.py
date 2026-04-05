@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Iterator, List, cast
+import copy
+from typing import TYPE_CHECKING, Callable, Iterator, List, Tuple, cast
 
 from docx.oxml.drawing import CT_Drawing
 from docx.oxml.ns import qn
@@ -141,6 +142,38 @@ class CT_R(BaseOxmlElement):
     def text(self, text: str):  # pyright: ignore[reportIncompatibleMethodOverride]
         self.clear_content()
         _RunContentAppender.append_to_run_from_text(self, text)
+
+    def split(self, offset: int) -> Tuple[CT_R, CT_R]:
+        """Split this run at character `offset`, returning `(left, right)`.
+
+        The text of this run is divided at `offset`. This run retains the first
+        `offset` characters and a new run containing the remaining characters is
+        inserted as the next sibling. Both runs share the same formatting (``w:rPr``).
+
+        Raises `ValueError` when `offset` is not in the range ``0 < offset < len(text)``.
+        """
+        text = self.text
+        if offset <= 0 or offset >= len(text):
+            raise ValueError(
+                f"offset {offset} not in range 0 < offset < {len(text)}"
+            )
+
+        right_r = cast(CT_R, OxmlElement("w:r"))
+        # -- clone formatting to the new run --
+        rPr = self.rPr
+        if rPr is not None:
+            right_r._insert_rPr(copy.deepcopy(rPr))
+
+        # -- set text on both runs (setter clears content, preserves rPr) --
+        left_text = text[:offset]
+        right_text = text[offset:]
+        self.text = left_text
+        right_r.text = right_text
+
+        # -- insert right run after this one in the parent element --
+        self.addnext(right_r)
+
+        return self, right_r
 
     def _insert_rPr(self, rPr: CT_RPr) -> CT_RPr:
         self.insert(0, rPr)

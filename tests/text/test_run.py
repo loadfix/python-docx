@@ -401,6 +401,51 @@ class DescribeRun:
 
         assert run._r.xml == xml(expected_cxml)
 
+    @pytest.mark.parametrize(
+        ("p_cxml", "offset", "expected_left_text", "expected_right_text"),
+        [
+            ('w:p/w:r/w:t"abcdef"', 3, "abc", "def"),
+            ('w:p/w:r/w:t"abcdef"', 1, "a", "bcdef"),
+            ('w:p/w:r/w:t"abcdef"', 5, "abcde", "f"),
+        ],
+    )
+    def it_can_split_at_a_character_position(
+        self,
+        p_cxml: str,
+        offset: int,
+        expected_left_text: str,
+        expected_right_text: str,
+        paragraph_: Mock,
+    ):
+        p = cast(CT_P, element(p_cxml))
+        r = p.r_lst[0]
+        run = Run(r, paragraph_)
+
+        left_run, right_run = run.split(offset)
+
+        assert left_run.text == expected_left_text
+        assert right_run.text == expected_right_text
+        assert isinstance(left_run, Run)
+        assert isinstance(right_run, Run)
+
+    def it_preserves_formatting_when_split(self, paragraph_: Mock):
+        p = cast(CT_P, element('w:p/w:r/(w:rPr/(w:b,w:i),w:t"abcdef")'))
+        run = Run(p.r_lst[0], paragraph_)
+
+        left_run, right_run = run.split(3)
+
+        assert left_run._r.xml == xml('w:r/(w:rPr/(w:b,w:i),w:t"abc")')
+        assert right_run._r.xml == xml('w:r/(w:rPr/(w:b,w:i),w:t"def")')
+
+    def it_raises_on_invalid_split_offset(self, paragraph_: Mock):
+        p = cast(CT_P, element('w:p/w:r/w:t"abcdef"'))
+        run = Run(p.r_lst[0], paragraph_)
+
+        with pytest.raises(ValueError, match="offset .* not in range"):
+            run.split(0)
+        with pytest.raises(ValueError, match="offset .* not in range"):
+            run.split(6)
+
     # -- fixtures --------------------------------------------------------------------------------
 
     @pytest.fixture

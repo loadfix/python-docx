@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import IO, TYPE_CHECKING, Iterator, cast
+from typing import IO, TYPE_CHECKING, Iterator, Tuple, cast
 
 from docx.drawing import Drawing
 from docx.enum.style import WD_STYLE_TYPE
@@ -196,6 +196,19 @@ class Run(StoryChild):
         # -- insert `w:commentRangeEnd` and `w:commentReference` run with `comment_id` after
         # -- `last_run`
         last_run._r.insert_comment_range_end_and_reference_below(comment_id)
+
+    def split(self, offset: int) -> Tuple[Run, Run]:
+        """Return `(left_run, right_run)` pair after splitting this run at `offset`.
+
+        `offset` is the character index at which to split. The original run retains
+        the first `offset` characters; a new run containing the remaining text is
+        inserted immediately after it in the paragraph. Both runs have the same
+        character formatting.
+
+        Raises `ValueError` when `offset` is not in the range ``0 < offset < len(text)``.
+        """
+        left_r, right_r = self._r.split(offset)
+        return Run(left_r, self._parent), Run(right_r, self._parent)
 
     @property
     def style(self) -> CharacterStyle:
