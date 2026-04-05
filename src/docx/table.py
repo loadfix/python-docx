@@ -8,7 +8,7 @@ from typing_extensions import TypeAlias
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.style import WD_STYLE_TYPE
-from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_AUTOFIT
 from docx.oxml.simpletypes import ST_Merge
 from docx.oxml.table import CT_TblGridCol
 from docx.shared import Inches, Parented, StoryChild, lazyproperty
@@ -81,6 +81,19 @@ class Table(StoryChild):
         self._tblPr.alignment = value
 
     @property
+    def allow_autofit(self) -> bool:
+        """|True| if column widths can be automatically adjusted to improve the fit of
+        cell contents.
+
+        |False| if table layout is fixed. Read/write boolean.
+        """
+        return self._tblPr.allow_autofit
+
+    @allow_autofit.setter
+    def allow_autofit(self, value: bool):
+        self._tblPr.allow_autofit = value
+
+    @property
     def autofit(self) -> bool:
         """|True| if column widths can be automatically adjusted to improve the fit of
         cell contents.
@@ -93,6 +106,20 @@ class Table(StoryChild):
     @autofit.setter
     def autofit(self, value: bool):
         self._tblPr.autofit = value
+
+    @property
+    def autofit_behavior(self) -> WD_TABLE_AUTOFIT:
+        """A member of :ref:`WdAutoFitBehavior` indicating the autofit setting for this
+        table.
+
+        Can be set to ``WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS``,
+        ``WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW``, or ``WD_TABLE_AUTOFIT.FIXED_WIDTH``.
+        """
+        return self._tblPr.autofit_behavior
+
+    @autofit_behavior.setter
+    def autofit_behavior(self, value: WD_TABLE_AUTOFIT):
+        self._tblPr.autofit_behavior = value
 
     def cell(self, row_idx: int, col_idx: int) -> _Cell:
         """|_Cell| at `row_idx`, `col_idx` intersection.
@@ -122,6 +149,19 @@ class Table(StoryChild):
         start = row_idx * column_count
         end = start + column_count
         return self._cells[start:end]
+
+    @property
+    def preferred_width(self) -> Length | None:
+        """The preferred width for this table as a |Length| value, or |None| if no
+        preferred width is set.
+
+        Read/write. Corresponds to the `w:tblPr/w:tblW` element when its type is 'dxa'.
+        """
+        return self._tblPr.preferred_width
+
+    @preferred_width.setter
+    def preferred_width(self, value: Length | None):
+        self._tblPr.preferred_width = value
 
     @lazyproperty
     def rows(self) -> _Rows:
@@ -349,6 +389,29 @@ class _Column(Parented):
     @width.setter
     def width(self, value: Length | None):
         self._gridCol.w = value
+        if value is not None:
+            for tc in self._gridCol_tcs:
+                tc.width = value
+
+    @property
+    def _gridCol_tcs(self) -> list[CT_Tc]:
+        """All `w:tc` elements in this column (one per row)."""
+        tblGrid = self._gridCol.getparent()
+        if tblGrid is None:
+            return []
+        tbl = tblGrid.getparent()
+        if tbl is None:
+            return []
+        tbl = cast("CT_Tbl", tbl)
+        idx = self._index
+        tcs: list[CT_Tc] = []
+        for tr in tbl.tr_lst:
+            try:
+                tc = tr.tc_at_grid_offset(idx)
+                tcs.append(tc)
+            except ValueError:
+                pass
+        return tcs
 
     @property
     def _index(self):

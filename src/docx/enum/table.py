@@ -107,6 +107,45 @@ class WD_TABLE_ALIGNMENT(BaseXmlEnum):
     """Right-aligned."""
 
 
+class WD_TABLE_AUTOFIT(BaseXmlEnum):
+    """Specifies the autofit behavior for a table.
+
+    Example::
+
+        from docx.enum.table import WD_TABLE_AUTOFIT
+
+        table = document.add_table(3, 3)
+        table.autofit_behavior = WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW
+
+    MS API name: `WdAutoFitBehavior`
+
+    https://learn.microsoft.com/en-us/office/vba/api/word.wdautofitbehavior
+    """
+
+    AUTOFIT_TO_CONTENTS = (
+        1,
+        "autofit",
+        "Table is auto-sized based on cell contents. Column widths and table width"
+        " are adjusted to fit the contents.",
+    )
+    """Table is auto-sized based on cell contents."""
+
+    AUTOFIT_TO_WINDOW = (
+        2,
+        "pct",
+        "Table width is set to the full page width (between margins). Column widths"
+        " are adjusted proportionally.",
+    )
+    """Table width is set to the full page width (between margins)."""
+
+    FIXED_WIDTH = (
+        0,
+        "fixed",
+        "Column widths are fixed and do not automatically adjust to fit content.",
+    )
+    """Column widths are fixed and do not automatically adjust."""
+
+
 class WD_TABLE_DIRECTION(BaseEnum):
     """Specifies the direction in which an application orders cells in the specified
     table or row.

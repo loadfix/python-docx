@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable, cast
 
-from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_ROW_HEIGHT_RULE, WD_TABLE_DIRECTION
+from docx.enum.table import (
+    WD_CELL_VERTICAL_ALIGNMENT,
+    WD_ROW_HEIGHT_RULE,
+    WD_TABLE_AUTOFIT,
+    WD_TABLE_DIRECTION,
+)
 from docx.exceptions import InvalidSpanError
 from docx.oxml.ns import nsdecls, qn
 from docx.oxml.parser import parse_xml
@@ -301,10 +306,13 @@ class CT_TblPr(BaseOxmlElement):
     get_or_add_bidiVisual: Callable[[], CT_OnOff]
     get_or_add_jc: Callable[[], CT_Jc]
     get_or_add_tblLayout: Callable[[], CT_TblLayoutType]
+    get_or_add_tblW: Callable[[], CT_TblWidth]
     _add_tblStyle: Callable[[], CT_String]
     _remove_bidiVisual: Callable[[], None]
     _remove_jc: Callable[[], None]
+    _remove_tblLayout: Callable[[], None]
     _remove_tblStyle: Callable[[], None]
+    _remove_tblW: Callable[[], None]
 
     _tag_seq = (
         "w:tblStyle",
@@ -332,6 +340,9 @@ class CT_TblPr(BaseOxmlElement):
     bidiVisual: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:bidiVisual", successors=_tag_seq[4:]
     )
+    tblW: CT_TblWidth | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:tblW", successors=_tag_seq[7:]
+    )
     jc: CT_Jc | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:jc", successors=_tag_seq[8:]
     )
@@ -357,18 +368,81 @@ class CT_TblPr(BaseOxmlElement):
         jc.val = cast("WD_ALIGN_PARAGRAPH", value)
 
     @property
+    def allow_autofit(self) -> bool:
+        """|False| when there is a `w:tblLayout` child with `@w:type="fixed"`.
+
+        Otherwise |True|. This is the underlying XML-level property that controls
+        whether the table layout is fixed or auto.
+        """
+        tblLayout = self.tblLayout
+        return True if tblLayout is None else tblLayout.type != "fixed"
+
+    @allow_autofit.setter
+    def allow_autofit(self, value: bool):
+        if value:
+            self._remove_tblLayout()
+        else:
+            tblLayout = self.get_or_add_tblLayout()
+            tblLayout.type = "fixed"
+
+    @property
     def autofit(self) -> bool:
         """|False| when there is a `w:tblLayout` child with `@w:type="fixed"`.
 
         Otherwise |True|.
         """
-        tblLayout = self.tblLayout
-        return True if tblLayout is None else tblLayout.type != "fixed"
+        return self.allow_autofit
 
     @autofit.setter
     def autofit(self, value: bool):
         tblLayout = self.get_or_add_tblLayout()
         tblLayout.type = "autofit" if value else "fixed"
+
+    @property
+    def autofit_behavior(self) -> WD_TABLE_AUTOFIT:
+        """The autofit behavior for this table as a member of :ref:`WdAutoFitBehavior`.
+
+        Determined by the combination of `w:tblLayout/@w:type` and `w:tblW/@w:type`.
+        """
+        if not self.allow_autofit:
+            return WD_TABLE_AUTOFIT.FIXED_WIDTH
+        tblW = self.tblW
+        if tblW is not None and tblW.type == "pct":
+            return WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW
+        return WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS
+
+    @autofit_behavior.setter
+    def autofit_behavior(self, value: WD_TABLE_AUTOFIT):
+        if value == WD_TABLE_AUTOFIT.FIXED_WIDTH:
+            self.allow_autofit = False
+            tblW = self.get_or_add_tblW()
+            tblW.type = "dxa"
+        elif value == WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW:
+            self.allow_autofit = True
+            tblW = self.get_or_add_tblW()
+            tblW.type = "pct"
+            tblW.w = 5000  # 100% in fiftieths of a percent
+        elif value == WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS:
+            self.allow_autofit = True
+            tblW = self.get_or_add_tblW()
+            tblW.type = "auto"
+            tblW.w = 0
+
+    @property
+    def preferred_width(self) -> Length | None:
+        """EMU length indicated by `w:tblW`, or |None| if not present or type is not 'dxa'."""
+        tblW = self.tblW
+        if tblW is None:
+            return None
+        return tblW.width
+
+    @preferred_width.setter
+    def preferred_width(self, value: Length | None):
+        if value is None:
+            self._remove_tblW()
+            return
+        tblW = self.get_or_add_tblW()
+        tblW.width = value
 
     @property
     def style(self):

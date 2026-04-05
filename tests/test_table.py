@@ -14,6 +14,7 @@ from docx.enum.table import (
     WD_ALIGN_VERTICAL,
     WD_ROW_HEIGHT,
     WD_TABLE_ALIGNMENT,
+    WD_TABLE_AUTOFIT,
     WD_TABLE_DIRECTION,
 )
 from docx.oxml.parser import parse_xml
@@ -196,6 +197,128 @@ class DescribeTable:
     ):
         table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
         table.autofit = new_value
+        assert table._tbl.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("tbl_cxml", "expected_value"),
+        [
+            ("w:tbl/w:tblPr", True),
+            ("w:tbl/w:tblPr/w:tblLayout", True),
+            ("w:tbl/w:tblPr/w:tblLayout{w:type=autofit}", True),
+            ("w:tbl/w:tblPr/w:tblLayout{w:type=fixed}", False),
+        ],
+    )
+    def it_knows_its_allow_autofit_setting(
+        self, tbl_cxml: str, expected_value: bool, document_: Mock
+    ):
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+        assert table.allow_autofit is expected_value
+
+    @pytest.mark.parametrize(
+        ("tbl_cxml", "new_value", "expected_cxml"),
+        [
+            ("w:tbl/w:tblPr", True, "w:tbl/w:tblPr"),
+            ("w:tbl/w:tblPr", False, "w:tbl/w:tblPr/w:tblLayout{w:type=fixed}"),
+            (
+                "w:tbl/w:tblPr/w:tblLayout{w:type=fixed}",
+                True,
+                "w:tbl/w:tblPr",
+            ),
+            (
+                "w:tbl/w:tblPr/w:tblLayout{w:type=autofit}",
+                False,
+                "w:tbl/w:tblPr/w:tblLayout{w:type=fixed}",
+            ),
+        ],
+    )
+    def it_can_change_its_allow_autofit_setting(
+        self, tbl_cxml: str, new_value: bool, expected_cxml: str, document_: Mock
+    ):
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+        table.allow_autofit = new_value
+        assert table._tbl.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("tbl_cxml", "expected_value"),
+        [
+            ("w:tbl/w:tblPr", WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS),
+            ("w:tbl/w:tblPr/w:tblLayout{w:type=fixed}", WD_TABLE_AUTOFIT.FIXED_WIDTH),
+            (
+                "w:tbl/w:tblPr/w:tblW{w:w=5000,w:type=pct}",
+                WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW,
+            ),
+            (
+                "w:tbl/w:tblPr/w:tblW{w:w=0,w:type=auto}",
+                WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS,
+            ),
+        ],
+    )
+    def it_knows_its_autofit_behavior(
+        self, tbl_cxml: str, expected_value: WD_TABLE_AUTOFIT, document_: Mock
+    ):
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+        assert table.autofit_behavior == expected_value
+
+    def it_can_change_its_autofit_behavior_to_fixed(self, document_: Mock):
+        table = Table(cast(CT_Tbl, element("w:tbl/w:tblPr")), document_)
+        table.autofit_behavior = WD_TABLE_AUTOFIT.FIXED_WIDTH
+        assert table.autofit_behavior == WD_TABLE_AUTOFIT.FIXED_WIDTH
+        assert table.allow_autofit is False
+
+    def it_can_change_its_autofit_behavior_to_window(self, document_: Mock):
+        table = Table(cast(CT_Tbl, element("w:tbl/w:tblPr")), document_)
+        table.autofit_behavior = WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW
+        assert table.autofit_behavior == WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW
+        assert table.allow_autofit is True
+
+    def it_can_change_its_autofit_behavior_to_contents(self, document_: Mock):
+        table = Table(
+            cast(CT_Tbl, element("w:tbl/w:tblPr/w:tblLayout{w:type=fixed}")), document_
+        )
+        table.autofit_behavior = WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS
+        assert table.autofit_behavior == WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS
+        assert table.allow_autofit is True
+
+    @pytest.mark.parametrize(
+        ("tbl_cxml", "expected_value"),
+        [
+            ("w:tbl/w:tblPr", None),
+            ("w:tbl/w:tblPr/w:tblW{w:w=0,w:type=auto}", None),
+            ("w:tbl/w:tblPr/w:tblW{w:w=5000,w:type=pct}", None),
+            ("w:tbl/w:tblPr/w:tblW{w:w=1440,w:type=dxa}", 914400),
+        ],
+    )
+    def it_knows_its_preferred_width(
+        self, tbl_cxml: str, expected_value: int | None, document_: Mock
+    ):
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+        assert table.preferred_width == expected_value
+
+    @pytest.mark.parametrize(
+        ("tbl_cxml", "new_value", "expected_cxml"),
+        [
+            (
+                "w:tbl/w:tblPr",
+                Inches(6),
+                "w:tbl/w:tblPr/w:tblW{w:w=8640,w:type=dxa}",
+            ),
+            (
+                "w:tbl/w:tblPr/w:tblW{w:w=1440,w:type=dxa}",
+                Inches(4),
+                "w:tbl/w:tblPr/w:tblW{w:w=5760,w:type=dxa}",
+            ),
+            (
+                "w:tbl/w:tblPr/w:tblW{w:w=1440,w:type=dxa}",
+                None,
+                "w:tbl/w:tblPr",
+            ),
+        ],
+    )
+    def it_can_change_its_preferred_width(
+        self, tbl_cxml: str, new_value: Length | None, expected_cxml: str, document_: Mock
+    ):
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+        table.preferred_width = new_value
         assert table._tbl.xml == xml(expected_cxml)
 
     def it_knows_it_is_the_table_its_children_belong_to(self, table: Table):
@@ -620,6 +743,29 @@ class Describe_Column:
 
         assert column.width == new_value
         assert column._gridCol.xml == xml(expected_cxml)
+
+    def it_sets_cell_widths_when_column_width_is_set(self, table_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblGrid/(w:gridCol{w:w=1440},w:gridCol{w:w=1440}),"
+                "w:tr/(w:tc/(w:tcPr/w:tcW{w:w=1440,w:type=dxa},w:p),"
+                "w:tc/(w:tcPr/w:tcW{w:w=1440,w:type=dxa},w:p)),"
+                "w:tr/(w:tc/(w:tcPr/w:tcW{w:w=1440,w:type=dxa},w:p),"
+                "w:tc/(w:tcPr/w:tcW{w:w=1440,w:type=dxa},w:p)))"
+            ),
+        )
+        gridCol = tbl.tblGrid.gridCol_lst[0]
+        column = _Column(gridCol, table_)
+
+        column.width = Inches(2)
+
+        # gridCol width is set
+        assert column._gridCol.w == Inches(2)
+        # all cells in this column have their width set too
+        for tr in tbl.tr_lst:
+            tc = tr.tc_lst[0]
+            assert tc.width == Inches(2)
 
     def it_knows_its_index_in_table_to_help(self, table_: Mock):
         tbl = cast(CT_Tbl, element("w:tbl/w:tblGrid/(w:gridCol,w:gridCol,w:gridCol)"))
