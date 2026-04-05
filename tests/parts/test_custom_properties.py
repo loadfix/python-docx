@@ -1,6 +1,6 @@
 # pyright: reportPrivateUsage=false
 
-"""Unit test suite for the `docx.parts.custom_properties` module."""
+"""Unit test suite for the `docx.opc.parts.custom_properties` module."""
 
 from __future__ import annotations
 
@@ -10,13 +10,13 @@ from docx.custom_properties import CustomProperties
 from docx.opc.constants import CONTENT_TYPE as CT
 from docx.opc.packuri import PackURI
 from docx.package import Package
-from docx.parts.custom_properties import CustomPropertiesPart
+from docx.opc.parts.custom_properties import CustomPropertiesPart
 
 from ..unitutil.mock import FixtureRequest, instance_mock
 
 
 class DescribeCustomPropertiesPart:
-    """Unit-test suite for `docx.parts.custom_properties.CustomPropertiesPart`."""
+    """Unit-test suite for `docx.opc.parts.custom_properties.CustomPropertiesPart`."""
 
     def it_can_create_a_default_part(self, request: FixtureRequest):
         package_ = instance_mock(request, Package)

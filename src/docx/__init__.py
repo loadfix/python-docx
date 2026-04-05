@@ -26,7 +26,7 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.opc.part import PartFactory
 from docx.opc.parts.coreprops import CorePropertiesPart
 from docx.parts.comments import CommentsPart
-from docx.parts.custom_properties import CustomPropertiesPart
+from docx.opc.parts.custom_properties import CustomPropertiesPart
 from docx.parts.document import DocumentPart
 from docx.parts.footnotes import FootnotesPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
