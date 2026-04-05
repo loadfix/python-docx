@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from docx.dml.color import ColorFormat
 from docx.enum.text import WD_UNDERLINE
-from docx.shared import ElementProxy, Emu
+from docx.shared import ElementProxy, Emu, RGBColor
 
 if TYPE_CHECKING:
     from docx.enum.text import WD_COLOR_INDEX
@@ -250,6 +250,23 @@ class Font(ElementProxy):
     @shadow.setter
     def shadow(self, value: bool | None) -> None:
         self._set_bool_prop("shadow", value)
+
+    @property
+    def shading_color(self) -> RGBColor | None:
+        """An RGBColor specifying the background shading color for this font, or |None|.
+
+        Distinct from `highlight_color` which uses the limited WD_COLOR_INDEX palette.
+        This property allows any RGB color as the text background.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        return rPr.shading_fill
+
+    @shading_color.setter
+    def shading_color(self, value: RGBColor | None) -> None:
+        rPr = self._element.get_or_add_rPr()
+        rPr.shading_fill = value
 
     @property
     def size(self) -> Length | None:

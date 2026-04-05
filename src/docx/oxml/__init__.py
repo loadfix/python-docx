@@ -196,6 +196,7 @@ from .text.font import (
     CT_Highlight,
     CT_HpsMeasure,
     CT_RPr,
+    CT_Shd,
     CT_Underline,
     CT_VerticalAlignRun,
 )
@@ -218,6 +219,7 @@ register_element_cls("w:rFonts", CT_Fonts)
 register_element_cls("w:rPr", CT_RPr)
 register_element_cls("w:rStyle", CT_String)
 register_element_cls("w:rtl", CT_OnOff)
+register_element_cls("w:shd", CT_Shd)
 register_element_cls("w:shadow", CT_OnOff)
 register_element_cls("w:smallCaps", CT_OnOff)
 register_element_cls("w:snapToGrid", CT_OnOff)
