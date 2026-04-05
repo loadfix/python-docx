@@ -240,6 +240,110 @@ class WD_SHADING_PATTERN(BaseXmlEnum):
     """No shading."""
 
 
+class WD_BORDER_STYLE(BaseXmlEnum):
+    """Specifies the style of a table or cell border.
+
+    Example::
+
+        from docx.enum.table import WD_BORDER_STYLE
+
+        table = document.add_table(3, 3)
+        table.borders.top.style = WD_BORDER_STYLE.SINGLE
+
+    Based on the ST_Border simple type in the Open XML spec.
+    """
+
+    NONE = (0, "none", "No border.")
+    """No border."""
+
+    SINGLE = (1, "single", "A single line.")
+    """A single line."""
+
+    DOUBLE = (2, "double", "A double line.")
+    """A double line."""
+
+    DOTTED = (3, "dotted", "A dotted line.")
+    """A dotted line."""
+
+    DASHED = (4, "dashed", "A dashed line.")
+    """A dashed line."""
+
+    DOT_DASH = (5, "dotDash", "A line with alternating dots and dashes.")
+    """A line with alternating dots and dashes."""
+
+    DOT_DOT_DASH = (6, "dotDotDash", "A line with a repeating dot-dot-dash pattern.")
+    """A line with a repeating dot-dot-dash pattern."""
+
+    TRIPLE = (7, "triple", "A triple line.")
+    """A triple line."""
+
+    THIN_THICK_SMALL_GAP = (8, "thinThickSmallGap", "A thin-thick line with a small gap.")
+    """A thin-thick line with a small gap."""
+
+    THICK_THIN_SMALL_GAP = (9, "thickThinSmallGap", "A thick-thin line with a small gap.")
+    """A thick-thin line with a small gap."""
+
+    THIN_THICK_THIN_SMALL_GAP = (
+        10,
+        "thinThickThinSmallGap",
+        "A thin-thick-thin line with a small gap.",
+    )
+    """A thin-thick-thin line with a small gap."""
+
+    THIN_THICK_MEDIUM_GAP = (11, "thinThickMediumGap", "A thin-thick line with a medium gap.")
+    """A thin-thick line with a medium gap."""
+
+    THICK_THIN_MEDIUM_GAP = (12, "thickThinMediumGap", "A thick-thin line with a medium gap.")
+    """A thick-thin line with a medium gap."""
+
+    THIN_THICK_THIN_MEDIUM_GAP = (
+        13,
+        "thinThickThinMediumGap",
+        "A thin-thick-thin line with a medium gap.",
+    )
+    """A thin-thick-thin line with a medium gap."""
+
+    THIN_THICK_LARGE_GAP = (14, "thinThickLargeGap", "A thin-thick line with a large gap.")
+    """A thin-thick line with a large gap."""
+
+    THICK_THIN_LARGE_GAP = (15, "thickThinLargeGap", "A thick-thin line with a large gap.")
+    """A thick-thin line with a large gap."""
+
+    THIN_THICK_THIN_LARGE_GAP = (
+        16,
+        "thinThickThinLargeGap",
+        "A thin-thick-thin line with a large gap.",
+    )
+    """A thin-thick-thin line with a large gap."""
+
+    WAVE = (17, "wave", "A wavy line.")
+    """A wavy line."""
+
+    DOUBLE_WAVE = (18, "doubleWave", "A double wavy line.")
+    """A double wavy line."""
+
+    DASH_SMALL_GAP = (19, "dashSmallGap", "A dashed line with small gaps.")
+    """A dashed line with small gaps."""
+
+    DASH_DOT_STROKED = (20, "dashDotStroked", "A dash-dot stroked line.")
+    """A dash-dot stroked line."""
+
+    THREE_D_EMBOSS = (21, "threeDEmboss", "A 3D embossed line.")
+    """A 3D embossed line."""
+
+    THREE_D_ENGRAVE = (22, "threeDEngrave", "A 3D engraved line.")
+    """A 3D engraved line."""
+
+    OUTSET = (23, "outset", "An outset line.")
+    """An outset line."""
+
+    INSET = (24, "inset", "An inset line.")
+    """An inset line."""
+
+    NIL = (25, "nil", "No border (used to override inherited border).")
+    """No border (used to override inherited border)."""
+
+
 class WD_TABLE_DIRECTION(BaseEnum):
     """Specifies the direction in which an application orders cells in the specified
     table or row.
