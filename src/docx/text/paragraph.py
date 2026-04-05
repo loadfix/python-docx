@@ -18,7 +18,9 @@ from docx.text.run import Run
 
 if TYPE_CHECKING:
     import docx.types as t
+    from docx.bookmarks import Bookmark
     from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+    from docx.oxml.document import CT_Body
     from docx.oxml.text.paragraph import CT_P
     from docx.section import Section
     from docx.styles.style import CharacterStyle
@@ -30,6 +32,58 @@ class Paragraph(StoryChild):
     def __init__(self, p: CT_P, parent: t.ProvidesStoryPart):
         super(Paragraph, self).__init__(parent)
         self._p = self._element = p
+
+    def add_bookmark(
+        self,
+        name: str,
+        start_run: Run | None = None,
+        end_run: Run | None = None,
+    ) -> Bookmark:
+        """Add a bookmark to this paragraph and return it.
+
+        `name` is the bookmark name, which must be unique within the document.
+
+        When `start_run` and `end_run` are both |None|, the bookmark wraps the entire
+        paragraph content. When `start_run` is provided, the bookmark starts before that
+        run. When `end_run` is provided, the bookmark ends after that run. When only
+        `start_run` is provided, `end_run` defaults to `start_run`.
+        """
+        from docx.bookmarks import Bookmark
+
+        body = self._get_body()
+        bookmark_id = self._next_bookmark_id(body)
+
+        if start_run is None and end_run is None:
+            self._p.add_bookmark(bookmark_id, name)
+        else:
+            if start_run is None:
+                start_run = end_run
+            if end_run is None:
+                end_run = start_run
+            assert start_run is not None
+            assert end_run is not None
+            start_run._r.insert_bookmark_start_before(bookmark_id, name)
+            end_run._r.insert_bookmark_end_after(bookmark_id)
+
+        bookmarkStart = self._p.xpath(f".//w:bookmarkStart[@w:id='{bookmark_id}']")
+        return Bookmark(bookmarkStart[0], body)
+
+    def _get_body(self) -> CT_Body:
+        """Return the w:body ancestor element."""
+        from docx.oxml.document import CT_Body
+
+        ancestor = self._p.getparent()
+        while ancestor is not None and not isinstance(ancestor, CT_Body):
+            ancestor = ancestor.getparent()
+        if ancestor is None:
+            raise ValueError("paragraph is not contained in a document body")
+        return ancestor
+
+    @staticmethod
+    def _next_bookmark_id(body) -> int:
+        """Return the next available bookmark ID in the document body."""
+        used_ids = [int(x) for x in body.xpath(".//w:bookmarkStart/@w:id")]
+        return max(used_ids, default=-1) + 1
 
     def add_run(self, text: str | None = None, style: str | CharacterStyle | None = None) -> Run:
         """Append run containing `text` and having character-style `style`.

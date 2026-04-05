@@ -88,6 +88,19 @@ class CT_R(BaseOxmlElement):
 
         return list(iter_items())
 
+    def insert_bookmark_end_after(self, bookmark_id: int) -> None:
+        """Insert a `w:bookmarkEnd` element with `bookmark_id` after this run."""
+        self.addnext(OxmlElement("w:bookmarkEnd", attrs={qn("w:id"): str(bookmark_id)}))
+
+    def insert_bookmark_start_before(self, bookmark_id: int, name: str) -> None:
+        """Insert a `w:bookmarkStart` element with `bookmark_id` and `name` before this run."""
+        self.addprevious(
+            OxmlElement(
+                "w:bookmarkStart",
+                attrs={qn("w:id"): str(bookmark_id), qn("w:name"): name},
+            )
+        )
+
     def insert_comment_range_end_and_reference_below(self, comment_id: int) -> None:
         """Insert a `w:commentRangeEnd` and `w:commentReference` element after this run.
 
