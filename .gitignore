@@ -8,3 +8,6 @@
 _scratch/
 Session.vim
 /.tox/
+# -- downloaded OOXML schema files (fetched on demand, not committed) --
+tests/schema/*.xsd
+tests/schema/.downloaded
