@@ -356,6 +356,11 @@ class ParagraphBorders:
         """The |Border| object for the border between identical paragraphs."""
         return Border(self._element, "between")
 
+    @property
+    def bar(self) -> Border:
+        """The |Border| object for the bar border of the paragraph."""
+        return Border(self._element, "bar")
+
 
 class Border:
     """Provides access to a single border edge of a paragraph.
@@ -418,6 +423,11 @@ class Border:
 
     @width.setter
     def width(self, value: Length | None) -> None:
+        if value is None:
+            border = self._border_elm
+            if border is not None:
+                border.sz = None
+            return
         self._get_or_add_border_elm().sz = value
 
     @property
@@ -444,4 +454,9 @@ class Border:
 
     @space.setter
     def space(self, value: Length | None) -> None:
+        if value is None:
+            border = self._border_elm
+            if border is not None:
+                border.space = None
+            return
         self._get_or_add_border_elm().space = value

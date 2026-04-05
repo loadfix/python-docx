@@ -31,11 +31,12 @@ from docx.shared import Length
 if TYPE_CHECKING:
     from docx.oxml.section import CT_SectPr
     from docx.oxml.shared import CT_String
-    from docx.shared import Length, RGBColor
+    from docx.shared import RGBColor
 
 
 class CT_Border(BaseOxmlElement):
-    """``<w:top>``, ``<w:bottom>``, ``<w:left>``, ``<w:right>``, ``<w:between>`` element.
+    """``<w:top>``, ``<w:bottom>``, ``<w:left>``, ``<w:right>``, ``<w:between>``,
+    ``<w:bar>`` element.
 
     Defines a single paragraph border edge.
     """
@@ -72,6 +73,9 @@ class CT_PBdr(BaseOxmlElement):
     )
     between: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:between", successors=_tag_seq[5:]
+    )
+    bar: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:bar", successors=()
     )
     del _tag_seq
 

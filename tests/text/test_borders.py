@@ -45,7 +45,7 @@ class DescribeParagraphBorders:
     def it_provides_access_to_each_border_side(self):
         p = element("w:p")
         borders = ParagraphBorders(p)
-        for side in ("top", "bottom", "left", "right", "between"):
+        for side in ("top", "bottom", "left", "right", "between", "bar"):
             border = getattr(borders, side)
             assert isinstance(border, Border)
 
@@ -131,8 +131,34 @@ class DescribeBorder:
         border.space = Pt(8)
         assert border.space == Pt(8)
 
+    def it_does_not_create_an_element_when_setting_width_to_None_on_a_nonexistent_border(self):
+        p = element("w:p")
+        border = Border(p, "bottom")
+        border.width = None
+        assert p.xml == xml("w:p")
+
+    def it_does_not_create_an_element_when_setting_space_to_None_on_a_nonexistent_border(self):
+        p = element("w:p")
+        border = Border(p, "bottom")
+        border.space = None
+        assert p.xml == xml("w:p")
+
+    def it_clears_width_on_an_existing_border_when_set_to_None(self):
+        p = element("w:p/w:pPr/w:pBdr/w:bottom{w:val=single,w:sz=8}")
+        border = Border(p, "bottom")
+        border.width = None
+        assert border.width is None
+        assert border.style == WD_BORDER_STYLE.SINGLE
+
+    def it_clears_space_on_an_existing_border_when_set_to_None(self):
+        p = element("w:p/w:pPr/w:pBdr/w:bottom{w:val=single,w:space=4}")
+        border = Border(p, "bottom")
+        border.space = None
+        assert border.space is None
+        assert border.style == WD_BORDER_STYLE.SINGLE
+
     def it_works_for_all_sides(self):
-        for side in ("top", "bottom", "left", "right", "between"):
+        for side in ("top", "bottom", "left", "right", "between", "bar"):
             p = element("w:p")
             border = Border(p, side)
             border.style = WD_BORDER_STYLE.SINGLE
