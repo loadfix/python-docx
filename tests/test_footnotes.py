@@ -191,6 +191,87 @@ class DescribeFootnote:
     ):
         assert Footnote(cast(CT_Footnote, element(cxml)), footnotes_part_).text == expected_value
 
+    def it_can_clear_its_content(self, footnotes_part_: Mock):
+        footnote_elm = cast(
+            CT_Footnote,
+            element('w:footnote{w:id=2}/(w:p/w:r/w:t"First",w:p/w:r/w:t"Second")'),
+        )
+        footnote = Footnote(footnote_elm, footnotes_part_)
+        assert len(footnote.paragraphs) == 2
+
+        result = footnote.clear()
+
+        assert result is footnote
+        assert len(footnote.paragraphs) == 1
+        p = footnote.paragraphs[0]
+        assert p.text == ""
+        assert p._p.style == "FootnoteText"
+        # -- the paragraph retains the footnoteRef run for the auto-number mark --
+        assert len(p._p.r_lst) == 1
+        assert p._p.r_lst[0].style == "FootnoteReference"
+        assert p._p.r_lst[0][-1].tag == qn("w:footnoteRef")
+
+    def it_can_delete_itself(self):
+        # -- build a footnotes element with a user footnote (id=2) --
+        footnotes_elm = cast(
+            CT_Footnotes,
+            element(
+                "w:footnotes/(w:footnote{w:id=0,w:type=separator}"
+                ",w:footnote{w:id=1,w:type=continuationSeparator}"
+                ',w:footnote{w:id=2}/w:p/w:r/w:t"Footnote text")'
+            ),
+        )
+
+        # -- build a document element containing the footnoteReference --
+        doc_elm = element("w:document/w:body/w:p/w:r/w:footnoteReference{w:id=2}")
+        document_part_ = Mock()
+        document_part_.element = doc_elm
+        footnotes_part_ = Mock()
+        footnotes_part_.part = footnotes_part_
+        footnotes_part_._document_part = document_part_
+
+        footnote_elm = footnotes_elm.footnote_lst[2]
+        footnote = Footnote(footnote_elm, footnotes_part_)
+
+        footnote.delete()
+
+        # -- the footnote element is removed from the footnotes part --
+        assert len(footnotes_elm.footnote_lst) == 2
+        assert all(fn.type is not None for fn in footnotes_elm.footnote_lst)
+        # -- the footnoteReference run is removed from the document body --
+        refs = doc_elm.xpath(".//w:footnoteReference")
+        assert len(refs) == 0
+
+    def it_removes_the_ref_run_when_deleting_if_run_becomes_empty(self):
+        footnotes_elm = cast(
+            CT_Footnotes,
+            element(
+                "w:footnotes/(w:footnote{w:id=0,w:type=separator}"
+                ",w:footnote{w:id=1,w:type=continuationSeparator}"
+                ",w:footnote{w:id=2}/w:p)"
+            ),
+        )
+
+        # -- the run has rPr + footnoteReference; after removing ref, only rPr remains --
+        doc_elm = element(
+            "w:document/w:body/w:p/w:r/(w:rPr/w:rStyle{w:val=FootnoteReference}"
+            ",w:footnoteReference{w:id=2})"
+        )
+        document_part_ = Mock()
+        document_part_.element = doc_elm
+        footnotes_part_ = Mock()
+        footnotes_part_.part = footnotes_part_
+        footnotes_part_._document_part = document_part_
+
+        footnote_elm = footnotes_elm.footnote_lst[2]
+        footnote = Footnote(footnote_elm, footnotes_part_)
+
+        footnote.delete()
+
+        # -- the entire run is removed since it only had rPr left --
+        runs = doc_elm.xpath(".//w:r")
+        assert len(runs) == 0
+
     def it_can_add_a_paragraph(self, footnotes_part_: Mock):
         footnote_elm = cast(CT_Footnote, element("w:footnote{w:id=2}/w:p"))
         footnote = Footnote(footnote_elm, footnotes_part_)

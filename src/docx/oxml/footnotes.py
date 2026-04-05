@@ -93,6 +93,30 @@ class CT_Footnote(BaseOxmlElement):
     tbl_lst: list[CT_Tbl]
     _insert_tbl: Callable[[CT_Tbl], CT_Tbl]
 
+    def clear_content(self) -> None:
+        """Remove all child elements and add a single empty paragraph.
+
+        The empty paragraph has the "FootnoteText" style applied and contains a
+        `w:footnoteRef` run so the auto-numbered reference mark is preserved.
+        """
+        for child in list(self):
+            self.remove(child)
+        self.append(
+            parse_xml(
+                f'<w:p {nsdecls("w")}>'
+                f"  <w:pPr>"
+                f'    <w:pStyle w:val="FootnoteText"/>'
+                f"  </w:pPr>"
+                f"  <w:r>"
+                f"    <w:rPr>"
+                f'      <w:rStyle w:val="FootnoteReference"/>'
+                f"    </w:rPr>"
+                f"    <w:footnoteRef/>"
+                f"  </w:r>"
+                f"</w:p>"
+            )
+        )
+
     @property
     def inner_content_elements(self) -> list[CT_P | CT_Tbl]:
         """Return all `w:p` and `w:tbl` elements in this footnote."""
