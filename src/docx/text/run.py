@@ -197,6 +197,17 @@ class Run(StoryChild):
         # -- `last_run`
         last_run._r.insert_comment_range_end_and_reference_below(comment_id)
 
+    def split(self, offset: int) -> tuple[Run, Run]:
+        """Return (left_run, right_run) after splitting this run at character `offset`.
+
+        Text before `offset` stays in this run and text from `offset` onward moves
+        to a new run inserted immediately after this one. Both runs share the same
+        character formatting (`w:rPr`).
+        """
+        new_r = self._r.split_run(offset)
+        right_run = Run(new_r, self._parent)
+        return self, right_run
+
     @property
     def style(self) -> CharacterStyle:
         """Read/write.
