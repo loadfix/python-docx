@@ -331,32 +331,31 @@ class ParagraphBorders(ElementProxy):
 
     def __init__(self, element: CT_PPr):
         super().__init__(element, None)
-        self._pPr = element
 
     @property
     def bottom(self) -> Border:
         """The |Border| object for the bottom border."""
-        return Border(self._pPr, "bottom")
+        return Border(self._element, "bottom")
 
     @property
     def top(self) -> Border:
         """The |Border| object for the top border."""
-        return Border(self._pPr, "top")
+        return Border(self._element, "top")
 
     @property
     def left(self) -> Border:
         """The |Border| object for the left border."""
-        return Border(self._pPr, "left")
+        return Border(self._element, "left")
 
     @property
     def right(self) -> Border:
         """The |Border| object for the right border."""
-        return Border(self._pPr, "right")
+        return Border(self._element, "right")
 
     @property
     def between(self) -> Border:
         """The |Border| object for the between border."""
-        return Border(self._pPr, "between")
+        return Border(self._element, "between")
 
 
 class Border:
@@ -434,15 +433,16 @@ class Border:
         self._get_or_add_border().sz = value
 
     @property
-    def color(self) -> RGBColor | None:
-        """The border color as an |RGBColor|, or |None| if not specified."""
+    def color(self) -> RGBColor | str | None:
+        """The border color as an |RGBColor|, the string ``"auto"``, or |None| if not
+        specified."""
         border = self._get_border()
         if border is None:
             return None
         return border.color
 
     @color.setter
-    def color(self, value: RGBColor | None):
+    def color(self, value: RGBColor | str | None):
         if value is None:
             border = self._get_border()
             if border is not None:

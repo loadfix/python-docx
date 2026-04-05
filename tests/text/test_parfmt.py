@@ -591,6 +591,12 @@ class DescribeBorder:
     @pytest.fixture(
         params=[
             (
+                "w:pPr",
+                "bottom",
+                WD_BORDER_STYLE.SINGLE,
+                "w:pPr/w:pBdr/w:bottom{w:val=single}",
+            ),
+            (
                 "w:pPr/w:pBdr",
                 "bottom",
                 WD_BORDER_STYLE.SINGLE,
@@ -631,6 +637,7 @@ class DescribeBorder:
 
     @pytest.fixture(
         params=[
+            ("w:pPr", "bottom", Pt(1), "w:pPr/w:pBdr/w:bottom{w:sz=8}"),
             ("w:pPr/w:pBdr", "bottom", Pt(1), "w:pPr/w:pBdr/w:bottom{w:sz=8}"),
             (
                 "w:pPr/w:pBdr/w:bottom{w:sz=8}",
@@ -661,6 +668,12 @@ class DescribeBorder:
 
     @pytest.fixture(
         params=[
+            (
+                "w:pPr",
+                "bottom",
+                RGBColor(0xFF, 0, 0),
+                "w:pPr/w:pBdr/w:bottom{w:color=FF0000}",
+            ),
             (
                 "w:pPr/w:pBdr",
                 "bottom",
@@ -696,6 +709,7 @@ class DescribeBorder:
 
     @pytest.fixture(
         params=[
+            ("w:pPr", "bottom", Pt(1), "w:pPr/w:pBdr/w:bottom{w:space=1}"),
             ("w:pPr/w:pBdr", "bottom", Pt(1), "w:pPr/w:pBdr/w:bottom{w:space=1}"),
             (
                 "w:pPr/w:pBdr/w:bottom{w:space=1}",

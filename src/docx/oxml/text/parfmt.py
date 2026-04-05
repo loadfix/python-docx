@@ -26,7 +26,7 @@ from docx.oxml.xmlchemy import (
     RequiredAttribute,
     ZeroOrOne,
 )
-from docx.shared import Length
+from docx.shared import Length, RGBColor
 
 if TYPE_CHECKING:
     from docx.oxml.section import CT_SectPr
@@ -42,7 +42,7 @@ class CT_Border(BaseOxmlElement):
     sz: Length | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:sz", ST_EighthPointMeasure
     )
-    color: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+    color: RGBColor | str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:color", ST_HexColor
     )
     space: Length | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]

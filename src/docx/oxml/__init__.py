@@ -244,6 +244,8 @@ from .text.parfmt import (
     CT_TabStops,
 )
 
+# NOTE: w:bar is registered for schema ordering but not yet exposed as a property
+# on CT_PBdr or ParagraphBorders — support is intentionally deferred.
 register_element_cls("w:bar", CT_Border)
 register_element_cls("w:between", CT_Border)
 register_element_cls("w:bottom", CT_Border)
