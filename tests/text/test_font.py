@@ -12,7 +12,7 @@ from _pytest.fixtures import FixtureRequest
 from docx.dml.color import ColorFormat
 from docx.enum.text import WD_COLOR, WD_UNDERLINE
 from docx.oxml.text.run import CT_R
-from docx.shared import Length, Pt
+from docx.shared import Length, Pt, RGBColor
 from docx.text.font import Font
 
 from ..unitutil.cxml import element, xml
@@ -411,6 +411,54 @@ class DescribeFont:
         expected_xml = xml(expected_r_cxml)
 
         font.highlight_color = value
+
+        assert font._element.xml == expected_xml
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r/w:rPr", None),
+            ("w:r/w:rPr/w:shd{w:val=clear,w:fill=FF0000}", RGBColor(0xFF, 0x00, 0x00)),
+            ("w:r/w:rPr/w:shd{w:val=clear,w:fill=3C2F80}", RGBColor(0x3C, 0x2F, 0x80)),
+        ],
+    )
+    def it_knows_its_shading_color(self, r_cxml: str, expected_value: RGBColor | None):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        assert font.shading_color == expected_value
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "value", "expected_r_cxml"),
+        [
+            (
+                "w:r",
+                RGBColor(0xFF, 0x00, 0x00),
+                "w:r/w:rPr/w:shd{w:val=clear,w:fill=FF0000}",
+            ),
+            (
+                "w:r/w:rPr",
+                RGBColor(0x3C, 0x2F, 0x80),
+                "w:r/w:rPr/w:shd{w:val=clear,w:fill=3C2F80}",
+            ),
+            (
+                "w:r/w:rPr/w:shd{w:val=clear,w:fill=FF0000}",
+                RGBColor(0x00, 0x00, 0xFF),
+                "w:r/w:rPr/w:shd{w:val=clear,w:fill=0000FF}",
+            ),
+            ("w:r/w:rPr/w:shd{w:val=clear,w:fill=FF0000}", None, "w:r/w:rPr"),
+            ("w:r/w:rPr", None, "w:r/w:rPr"),
+            ("w:r", None, "w:r/w:rPr"),
+        ],
+    )
+    def it_can_change_its_shading_color(
+        self, r_cxml: str, value: RGBColor | None, expected_r_cxml: str
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        expected_xml = xml(expected_r_cxml)
+
+        font.shading_color = value
 
         assert font._element.xml == expected_xml
 

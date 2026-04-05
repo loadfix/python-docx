@@ -26,6 +26,7 @@ from docx.shared import RGBColor
 
 if TYPE_CHECKING:
     from docx.oxml.shared import CT_OnOff, CT_String
+    from docx.oxml.table import CT_Shd
     from docx.shared import Length
 
 
@@ -64,6 +65,7 @@ class CT_RPr(BaseOxmlElement):
     get_or_add_color: Callable[[], CT_Color]
     get_or_add_highlight: Callable[[], CT_Highlight]
     get_or_add_rFonts: Callable[[], CT_Fonts]
+    get_or_add_shd: Callable[[], CT_Shd]
     get_or_add_sz: Callable[[], CT_HpsMeasure]
     get_or_add_vertAlign: Callable[[], CT_VerticalAlignRun]
     _add_rStyle: Callable[..., CT_String]
@@ -72,6 +74,7 @@ class CT_RPr(BaseOxmlElement):
     _remove_highlight: Callable[[], None]
     _remove_rFonts: Callable[[], None]
     _remove_rStyle: Callable[[], None]
+    _remove_shd: Callable[[], None]
     _remove_sz: Callable[[], None]
     _remove_u: Callable[[], None]
     _remove_vertAlign: Callable[[], None]
@@ -139,6 +142,7 @@ class CT_RPr(BaseOxmlElement):
     sz: CT_HpsMeasure | None = ZeroOrOne("w:sz", successors=_tag_seq[24:])
     highlight: CT_Highlight | None = ZeroOrOne("w:highlight", successors=_tag_seq[26:])
     u: CT_Underline | None = ZeroOrOne("w:u", successors=_tag_seq[27:])
+    shd: CT_Shd | None = ZeroOrOne("w:shd", successors=_tag_seq[30:])
     vertAlign: CT_VerticalAlignRun | None = ZeroOrOne("w:vertAlign", successors=_tag_seq[32:])
     rtl = ZeroOrOne("w:rtl", successors=_tag_seq[33:])
     cs = ZeroOrOne("w:cs", successors=_tag_seq[34:])
@@ -168,6 +172,28 @@ class CT_RPr(BaseOxmlElement):
             return
         highlight = self.get_or_add_highlight()
         highlight.val = value
+
+    @property
+    def shading_color(self) -> RGBColor | None:
+        """Value of `./w:shd/@w:fill` as an RGBColor, or None if not present."""
+        shd = self.shd
+        if shd is None:
+            return None
+        fill = shd.fill
+        if fill is None or not isinstance(fill, RGBColor):
+            return None
+        return fill
+
+    @shading_color.setter
+    def shading_color(self, value: RGBColor | None) -> None:
+        if value is None:
+            self._remove_shd()
+            return
+        shd = self.get_or_add_shd()
+        from docx.enum.table import WD_SHADING_PATTERN
+
+        shd.val = WD_SHADING_PATTERN.CLEAR
+        shd.fill = value
 
     @property
     def rFonts_ascii(self) -> str | None:
