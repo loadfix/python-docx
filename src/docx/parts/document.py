@@ -18,6 +18,7 @@ from docx.shared import lazyproperty
 
 if TYPE_CHECKING:
     from docx.comments import Comments
+    from docx.custom_properties import CustomProperties
     from docx.enum.style import WD_STYLE_TYPE
     from docx.footnotes import Footnotes
     from docx.opc.coreprops import CoreProperties
@@ -75,6 +76,12 @@ class DocumentPart(StoryPart):
         """A |CoreProperties| object providing read/write access to the core properties
         of this document."""
         return self.package.core_properties
+
+    @property
+    def custom_properties(self) -> CustomProperties:
+        """A |CustomProperties| object providing read/write access to the custom
+        document properties."""
+        return self.package.custom_properties
 
     @property
     def document(self):

@@ -11,11 +11,13 @@ from docx.opc.parts.coreprops import CorePropertiesPart
 from docx.opc.pkgreader import PackageReader
 from docx.opc.pkgwriter import PackageWriter
 from docx.opc.rel import Relationships
+from docx.parts.custom_properties import CustomPropertiesPart
 from docx.shared import lazyproperty
 
 if TYPE_CHECKING:
     from typing_extensions import Self
 
+    from docx.custom_properties import CustomProperties
     from docx.opc.coreprops import CoreProperties
     from docx.opc.part import Part
     from docx.opc.rel import _Relationship  # pyright: ignore[reportPrivateUsage]
@@ -42,6 +44,12 @@ class OpcPackage:
         """|CoreProperties| object providing read/write access to the Dublin Core
         properties for this document."""
         return self._core_properties_part.core_properties
+
+    @property
+    def custom_properties(self) -> CustomProperties:
+        """|CustomProperties| object providing read/write access to the custom
+        document properties."""
+        return self._custom_properties_part.custom_properties
 
     def iter_rels(self) -> Iterator[_Relationship]:
         """Generate exactly one reference to each relationship in the package by
@@ -164,6 +172,19 @@ class OpcPackage:
         for part in self.parts:
             part.before_marshal()
         PackageWriter.write(pkg_file, self.rels, self.parts)
+
+    @property
+    def _custom_properties_part(self) -> CustomPropertiesPart:
+        """|CustomPropertiesPart| object related to this package.
+
+        Creates a default custom properties part if one is not present.
+        """
+        try:
+            return cast(CustomPropertiesPart, self.part_related_by(RT.CUSTOM_PROPERTIES))
+        except KeyError:
+            custom_properties_part = CustomPropertiesPart.default(self)
+            self.relate_to(custom_properties_part, RT.CUSTOM_PROPERTIES)
+            return custom_properties_part
 
     @property
     def _core_properties_part(self) -> CorePropertiesPart:

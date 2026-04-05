@@ -26,6 +26,7 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.opc.part import PartFactory
 from docx.opc.parts.coreprops import CorePropertiesPart
 from docx.parts.comments import CommentsPart
+from docx.parts.custom_properties import CustomPropertiesPart
 from docx.parts.document import DocumentPart
 from docx.parts.footnotes import FootnotesPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
@@ -42,6 +43,7 @@ def part_class_selector(content_type: str, reltype: str) -> Type[Part] | None:
 
 
 PartFactory.part_class_selector = part_class_selector
+PartFactory.part_type_for[CT.OFC_CUSTOM_PROPERTIES] = CustomPropertiesPart
 PartFactory.part_type_for[CT.OPC_CORE_PROPERTIES] = CorePropertiesPart
 PartFactory.part_type_for[CT.WML_COMMENTS] = CommentsPart
 PartFactory.part_type_for[CT.WML_DOCUMENT_MAIN] = DocumentPart
@@ -57,6 +59,7 @@ del (
     CT,
     CorePropertiesPart,
     CommentsPart,
+    CustomPropertiesPart,
     DocumentPart,
     FooterPart,
     FootnotesPart,

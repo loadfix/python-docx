@@ -23,6 +23,8 @@ nsmap = {
     "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
     "wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
     "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
+    "cust-p": "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties",
+    "vt": "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes",
     "xml": "http://www.w3.org/XML/1998/namespace",
     "xsi": "http://www.w3.org/2001/XMLSchema-instance",
 }
