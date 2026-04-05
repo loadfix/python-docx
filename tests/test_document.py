@@ -12,6 +12,7 @@ import pytest
 from docx.comments import Comment, Comments
 from docx.document import Document, _Body
 from docx.enum.section import WD_SECTION
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.opc.coreprops import CoreProperties
 from docx.oxml.document import CT_Body, CT_Document
 from docx.parts.document import DocumentPart
@@ -182,6 +183,19 @@ class DescribeDocument:
         document.save("foobar.docx")
 
         document_part_.save.assert_called_once_with("foobar.docx")
+
+    def it_knows_when_the_document_has_macros(self, document_part_: Mock):
+        document = Document(cast(CT_Document, element("w:document")), document_part_)
+        document_part_.part_related_by.return_value = Mock()
+
+        assert document.has_macros is True
+        document_part_.part_related_by.assert_called_once_with(RT.VBA_PROJECT)
+
+    def it_knows_when_the_document_has_no_macros(self, document_part_: Mock):
+        document = Document(cast(CT_Document, element("w:document")), document_part_)
+        document_part_.part_related_by.side_effect = KeyError
+
+        assert document.has_macros is False
 
     def it_provides_access_to_the_comments(self, document_part_: Mock, comments_: Mock):
         document_part_.comments = comments_

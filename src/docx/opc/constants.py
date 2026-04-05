@@ -132,6 +132,7 @@ class CONTENT_TYPE:
     WML_DOCUMENT_GLOSSARY = (
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document.glossary+xml"
     )
+    WML_DOCUMENT_MACRO = "application/vnd.ms-word.document.macroEnabled.main+xml"
     WML_DOCUMENT_MAIN = (
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
     )
@@ -146,6 +147,7 @@ class CONTENT_TYPE:
     )
     WML_SETTINGS = "application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"
     WML_STYLES = "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"
+    WML_VBA_PROJECT = "application/vnd.ms-office.vbaProject"
     WML_WEB_SETTINGS = (
         "application/vnd.openxmlformats-officedocument.wordprocessingml.webSettings+xml"
     )
@@ -293,6 +295,7 @@ class RELATIONSHIP_TYPE:
     )
     THUMBNAIL = "http://schemas.openxmlformats.org/package/2006/relationships/metadata/thumbnail"
     USERNAMES = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/usernames"
+    VBA_PROJECT = "http://schemas.microsoft.com/office/2006/relationships/vbaProject"
     VIDEO = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/video"
     VIEW_PROPS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/viewProps"
     VML_DRAWING = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing"

@@ -9,6 +9,7 @@ from typing import IO, TYPE_CHECKING, Iterator, List, Sequence
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_SECTION
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.section import Section, Sections
 from docx.shared import ElementProxy, Emu, Inches, Length
 from docx.text.run import Run
@@ -169,6 +170,15 @@ class Document(ElementProxy):
     def comments(self) -> Comments:
         """A |Comments| object providing access to comments added to the document."""
         return self._part.comments
+
+    @property
+    def has_macros(self) -> bool:
+        """True if this document contains a VBA project (macros)."""
+        try:
+            self._part.part_related_by(RT.VBA_PROJECT)
+            return True
+        except KeyError:
+            return False
 
     @property
     def footnotes(self) -> Footnotes:
