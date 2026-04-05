@@ -187,7 +187,8 @@ class Paragraph(StoryChild):
         abstract_num_id = num.abstractNumId_val
 
         new_num = numbering_elm.add_num(abstract_num_id)
-        lvl_override = new_num.add_lvlOverride(ilvl=0)
+        current_level = list_fmt.level or 0
+        lvl_override = new_num.add_lvlOverride(ilvl=current_level)
         lvl_override.add_startOverride(val=1)
 
         list_fmt.num_id = new_num.numId

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING, List, cast
 
 from docx.opc.constants import CONTENT_TYPE as CT
@@ -25,23 +26,16 @@ class NumberingPart(XmlPart):
         element."""
         partname = PackURI("/word/numbering.xml")
         content_type = CT.WML_NUMBERING
-        element = cast(CT_Numbering, parse_xml(
-            b'<w:numbering xmlns:wpc="http://schemas.microsoft.com/office/word'
-            b'/2010/wordprocessingCanvas" xmlns:mo="http://schemas.microsoft.c'
-            b'om/office/mac/office/2008/main" xmlns:mc="http://schemas.openxml'
-            b'formats.org/markup-compatibility/2006" xmlns:mv="urn:schemas-mic'
-            b'rosoft-com:mac:vml" xmlns:o="urn:schemas-microsoft-com:office:of'
-            b'fice" xmlns:r="http://schemas.openxmlformats.org/officeDocument/'
-            b'2006/relationships" xmlns:m="http://schemas.openxmlformats.org/o'
-            b'fficeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml"'
-            b' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/word'
-            b'processingDrawing" xmlns:w10="urn:schemas-microsoft-com:office:w'
-            b'ord" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml'
-            b'/2006/main" xmlns:wne="http://schemas.microsoft.com/office/word/'
-            b'2006/wordml" xmlns:wps="http://schemas.microsoft.com/office/word'
-            b'/2010/wordprocessingShape" mc:Ignorable="w14 wp14"/>'
-        ))
+        element = cast(CT_Numbering, parse_xml(cls._default_numbering_xml()))
         return cls(partname, content_type, element, package)
+
+    @classmethod
+    def _default_numbering_xml(cls) -> bytes:
+        """A byte-string containing XML for a default numbering part."""
+        path = os.path.join(os.path.split(__file__)[0], "..", "templates", "default-numbering.xml")
+        with open(path, "rb") as f:
+            xml_bytes = f.read()
+        return xml_bytes
 
     @property
     def numbering_element(self) -> CT_Numbering:

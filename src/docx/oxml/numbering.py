@@ -42,9 +42,9 @@ class CT_Lvl(BaseOxmlElement):
     )
     numFmt = ZeroOrOne("w:numFmt", successors=_tag_seq[2:])
     lvlText = ZeroOrOne("w:lvlText", successors=_tag_seq[7:])
-    lvlJc = ZeroOrOne("w:lvlJc", successors=_tag_seq[9:])
-    pPr = ZeroOrOne("w:pPr", successors=_tag_seq[10:])
-    rPr = ZeroOrOne("w:rPr", successors=_tag_seq[11:])
+    lvlJc = ZeroOrOne("w:lvlJc", successors=_tag_seq[10:])
+    pPr = ZeroOrOne("w:pPr", successors=_tag_seq[11:])
+    rPr = ZeroOrOne("w:rPr", successors=())
 
     get_or_add_start: Callable[[], CT_DecimalNumber]
     get_or_add_numFmt: Callable[[], BaseOxmlElement]

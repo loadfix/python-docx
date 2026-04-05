@@ -7,6 +7,7 @@ from typing import List
 from docx.oxml.numbering import CT_AbstractNum, CT_Num, CT_Numbering
 from docx.shared import ElementProxy
 
+
 class Numbering(ElementProxy):
     """Proxy for the ``<w:numbering>`` element, providing access to numbering
     definitions in a document."""
@@ -88,15 +89,17 @@ class NumberingDefinition(ElementProxy):
         )
         return [LevelFormat(lvl) for lvl in abstract_num.lvl_lst]
 
-    def restart(self) -> NumberingDefinition:
+    def restart(self, level: int = 0) -> NumberingDefinition:
         """Create a new numbering definition that restarts numbering at 1.
+
+        `level` specifies which list level to restart (default 0, the most common case).
 
         Returns the new |NumberingDefinition| with a level override that sets
         ``<w:startOverride>`` to 1.
         """
         numbering = self._numbering
         new_num = numbering.add_num(self.abstract_num_id)
-        lvl_override = new_num.add_lvlOverride(ilvl=0)
+        lvl_override = new_num.add_lvlOverride(ilvl=level)
         lvl_override.add_startOverride(val=1)
         return NumberingDefinition(new_num, numbering)
 
