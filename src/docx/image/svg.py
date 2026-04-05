@@ -26,18 +26,21 @@ class Svg(BaseImageHeader):
     def from_stream(cls, stream: IO[bytes]) -> Svg:
         stream.seek(0)
         data = stream.read()
-        text = data.decode("utf-8", errors="ignore")
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            return cls(300, 150, 96, 96)
         px_width, px_height = cls._parse_dimensions(text)
         # SVG uses 96 DPI (CSS reference pixel)
         return cls(px_width, px_height, 96, 96)
 
     @classmethod
     def _parse_dimensions(cls, svg_text: str) -> Tuple[int, int]:
-        from xml.etree import ElementTree
+        import defusedxml.ElementTree as SafeET
 
         try:
-            root = ElementTree.fromstring(svg_text)
-        except ElementTree.ParseError:
+            root = SafeET.fromstring(svg_text)
+        except Exception:
             return 300, 150  # default SVG dimensions per spec
 
         # Check for width/height attributes
