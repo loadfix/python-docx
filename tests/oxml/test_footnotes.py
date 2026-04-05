@@ -73,7 +73,6 @@ class DescribeCT_Footnotes:
         assert footnote.id == 3
 
 
-
 class DescribeCT_Footnote:
     """Unit test suite for `docx.oxml.footnotes.CT_Footnote` objects."""
 
@@ -102,9 +101,13 @@ class DescribeCT_Footnote:
         footnote.clear_content()
 
         assert len(footnote.p_lst) == 1
-        assert footnote.p_lst[0].style == "FootnoteText"
-        # -- no runs in the empty paragraph --
-        assert len(footnote.p_lst[0].r_lst) == 0
+        p = footnote.p_lst[0]
+        assert p.style == "FootnoteText"
+        # -- the paragraph has a footnoteRef run to preserve the auto-number mark --
+        assert len(p.r_lst) == 1
+        r = p.r_lst[0]
+        assert r.style == "FootnoteReference"
+        assert r[-1].tag == qn("w:footnoteRef")
 
     def it_provides_access_to_its_inner_content_elements(self):
         footnote = cast(

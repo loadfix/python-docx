@@ -91,6 +91,8 @@ class Footnote(BlockItemContainer):
         )
         for ref in refs:
             r = ref.getparent()
+            if r is None:
+                continue
             r.remove(ref)
             # -- remove the run if it's now empty (only rPr or nothing left) --
             if len(r.xpath("./*[not(self::w:rPr)]")) == 0:

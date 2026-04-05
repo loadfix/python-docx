@@ -203,8 +203,13 @@ class DescribeFootnote:
 
         assert result is footnote
         assert len(footnote.paragraphs) == 1
-        assert footnote.paragraphs[0].text == ""
-        assert footnote.paragraphs[0]._p.style == "FootnoteText"
+        p = footnote.paragraphs[0]
+        assert p.text == ""
+        assert p._p.style == "FootnoteText"
+        # -- the paragraph retains the footnoteRef run for the auto-number mark --
+        assert len(p._p.r_lst) == 1
+        assert p._p.r_lst[0].style == "FootnoteReference"
+        assert p._p.r_lst[0][-1].tag == qn("w:footnoteRef")
 
     def it_can_delete_itself(self):
         # -- build a footnotes element with a user footnote (id=2) --

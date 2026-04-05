@@ -96,8 +96,8 @@ class CT_Footnote(BaseOxmlElement):
     def clear_content(self) -> None:
         """Remove all child elements and add a single empty paragraph.
 
-        The empty paragraph has the "FootnoteText" style applied, which is the default
-        style for footnote content.
+        The empty paragraph has the "FootnoteText" style applied and contains a
+        `w:footnoteRef` run so the auto-numbered reference mark is preserved.
         """
         for child in list(self):
             self.remove(child)
@@ -107,6 +107,12 @@ class CT_Footnote(BaseOxmlElement):
                 f"  <w:pPr>"
                 f'    <w:pStyle w:val="FootnoteText"/>'
                 f"  </w:pPr>"
+                f"  <w:r>"
+                f"    <w:rPr>"
+                f'      <w:rStyle w:val="FootnoteReference"/>'
+                f"    </w:rPr>"
+                f"    <w:footnoteRef/>"
+                f"  </w:r>"
                 f"</w:p>"
             )
         )
