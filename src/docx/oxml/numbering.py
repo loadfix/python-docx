@@ -110,7 +110,6 @@ class CT_AbstractNum(BaseOxmlElement):
 
     lvl = ZeroOrMore("w:lvl", successors=())
 
-    get_or_add_lvl: Callable[[], CT_Lvl]
     lvl_lst: List[CT_Lvl]
 
     abstractNumId: int = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
@@ -288,4 +287,3 @@ class CT_Numbering(BaseOxmlElement):
         for n in range(0, len(ids) + 1):
             if n not in ids:
                 return n
-        return len(ids)

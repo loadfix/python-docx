@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator, List
+from typing import List
 
-from docx.oxml.numbering import CT_AbstractNum, CT_Lvl, CT_Num, CT_Numbering
+from docx.oxml.numbering import CT_AbstractNum, CT_Num, CT_Numbering
 from docx.shared import ElementProxy
-
-if TYPE_CHECKING:
-    from docx.oxml.ns import qn
-
 
 class Numbering(ElementProxy):
     """Proxy for the ``<w:numbering>`` element, providing access to numbering
@@ -17,15 +13,14 @@ class Numbering(ElementProxy):
 
     def __init__(self, numbering_elm: CT_Numbering, part: object):
         super().__init__(numbering_elm)
-        self._numbering = numbering_elm
         self._part = part
 
     @property
     def definitions(self) -> List[NumberingDefinition]:
         """All numbering definitions (``<w:num>`` elements) in this numbering part."""
         return [
-            NumberingDefinition(num, self._numbering)
-            for num in self._numbering.num_lst
+            NumberingDefinition(num, self._element)
+            for num in self._element.num_lst
         ]
 
     def add_numbering_definition(
@@ -45,7 +40,7 @@ class Numbering(ElementProxy):
 
         Returns a |NumberingDefinition| that can be applied to paragraphs.
         """
-        numbering = self._numbering
+        numbering = self._element
         abstract_num_id = numbering._next_abstractNumId
         abstract_num = CT_AbstractNum.new(abstract_num_id)
 
@@ -73,18 +68,17 @@ class NumberingDefinition(ElementProxy):
 
     def __init__(self, num: CT_Num, numbering: CT_Numbering):
         super().__init__(num)
-        self._num = num
         self._numbering = numbering
 
     @property
     def num_id(self) -> int:
         """The ``numId`` of this numbering definition."""
-        return self._num.numId
+        return self._element.numId
 
     @property
     def abstract_num_id(self) -> int:
         """The ``abstractNumId`` referenced by this definition."""
-        return self._num.abstractNumId_val
+        return self._element.abstractNumId_val
 
     @property
     def levels(self) -> List[LevelFormat]:
@@ -110,26 +104,22 @@ class NumberingDefinition(ElementProxy):
 class LevelFormat(ElementProxy):
     """Proxy for a ``<w:lvl>`` element describing the format at one list level."""
 
-    def __init__(self, lvl: CT_Lvl):
-        super().__init__(lvl)
-        self._lvl = lvl
-
     @property
     def level(self) -> int:
         """The level index (0-8) of this format."""
-        return self._lvl.ilvl
+        return self._element.ilvl
 
     @property
     def number_format(self) -> str | None:
         """The number format string (e.g. "decimal", "bullet")."""
-        return self._lvl.numFmt_val
+        return self._element.numFmt_val
 
     @property
     def text_pattern(self) -> str | None:
         """The level text pattern (e.g. "%1.")."""
-        return self._lvl.lvlText_val
+        return self._element.lvlText_val
 
     @property
     def start(self) -> int:
         """The starting number for this level."""
-        return self._lvl.start_val
+        return self._element.start_val

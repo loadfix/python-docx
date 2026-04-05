@@ -20,7 +20,7 @@ class NumberingPart(XmlPart):
     or glossary."""
 
     @classmethod
-    def new(cls) -> NumberingPart:
+    def new(cls, package: Package) -> NumberingPart:
         """Newly created numbering part, containing only the root ``<w:numbering>``
         element."""
         partname = PackURI("/word/numbering.xml")
@@ -41,7 +41,7 @@ class NumberingPart(XmlPart):
             b'2006/wordml" xmlns:wps="http://schemas.microsoft.com/office/word'
             b'/2010/wordprocessingShape" mc:Ignorable="w14 wp14"/>'
         ))
-        return cls(partname, content_type, element, None)
+        return cls(partname, content_type, element, package)
 
     @property
     def numbering_element(self) -> CT_Numbering:

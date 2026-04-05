@@ -14,10 +14,15 @@ from docx.parts.document import DocumentPart
 from docx.section import Section
 from docx.text.paragraph import Paragraph
 from docx.text.parfmt import ParagraphFormat
+from docx.text.listformat import ListFormat
 from docx.text.run import Run
+
+from unittest.mock import Mock
 
 from ..unitutil.cxml import element, xml
 from ..unitutil.mock import call, class_mock, instance_mock, method_mock, property_mock
+
+from docx.oxml.numbering import CT_AbstractNum, CT_Numbering
 
 
 class DescribeParagraph:
@@ -381,6 +386,88 @@ class DescribeParagraph:
         # --- remove section break from paragraph2 ---
         paragraph2.remove_section_break()
         assert len(document_elm.sectPr_lst) == 1
+
+    def it_provides_access_to_its_list_format(self, part_prop_: DocumentPart):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, None)
+        list_format = paragraph.list_format
+        assert isinstance(list_format, ListFormat)
+
+    @pytest.mark.parametrize(
+        ("p_cxml", "expected_value"),
+        [
+            ("w:p", None),
+            ("w:p/w:pPr", None),
+            ("w:p/w:pPr/w:numPr/w:ilvl{w:val=0}", 0),
+            ("w:p/w:pPr/w:numPr/w:ilvl{w:val=2}", 2),
+        ],
+    )
+    def it_knows_its_list_level(
+        self, p_cxml: str, expected_value: int | None, part_prop_: DocumentPart
+    ):
+        p = cast(CT_P, element(p_cxml))
+        paragraph = Paragraph(p, None)
+        assert paragraph.list_level == expected_value
+
+    def it_can_set_its_list_level(self, part_prop_: DocumentPart):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, None)
+        paragraph.list_level = 3
+        assert paragraph.list_level == 3
+        paragraph.list_level = None
+        assert paragraph.list_level is None
+
+    def it_knows_its_numbering_format(self, part_prop_: DocumentPart):
+        numbering_elm = cast(CT_Numbering, element("w:numbering"))
+        abstract_num = CT_AbstractNum.new(0)
+        lvl = abstract_num.add_lvl(0)
+        lvl.numFmt_val = "decimal"
+        numbering_elm.add_abstractNum(abstract_num)
+        numbering_elm.add_num(0)
+
+        mock_numbering_part = Mock()
+        mock_numbering_part.numbering_element = numbering_elm
+        part_prop_.return_value.numbering_part = mock_numbering_part
+
+        p = cast(CT_P, element("w:p/w:pPr/w:numPr/(w:numId{w:val=1},w:ilvl{w:val=0})"))
+        paragraph = Paragraph(p, None)
+        assert paragraph.numbering_format == "decimal"
+
+    def it_returns_None_numbering_format_when_not_in_list(self, part_prop_: DocumentPart):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, None)
+        assert paragraph.numbering_format is None
+
+    def it_can_restart_numbering(self, part_prop_: DocumentPart):
+        numbering_elm = cast(CT_Numbering, element("w:numbering"))
+        abstract_num = CT_AbstractNum.new(0)
+        lvl = abstract_num.add_lvl(0)
+        lvl.numFmt_val = "decimal"
+        numbering_elm.add_abstractNum(abstract_num)
+        numbering_elm.add_num(0)
+
+        mock_numbering_part = Mock()
+        mock_numbering_part.numbering_element = numbering_elm
+        part_prop_.return_value.numbering_part = mock_numbering_part
+
+        p = cast(CT_P, element("w:p/w:pPr/w:numPr/(w:numId{w:val=1},w:ilvl{w:val=0})"))
+        paragraph = Paragraph(p, None)
+        paragraph.restart_numbering()
+
+        # numId should have changed to the new num
+        new_num_id = paragraph.list_format.num_id
+        assert new_num_id is not None
+        assert new_num_id != 1
+        # verify lvlOverride/startOverride was added on the new num
+        new_num = numbering_elm.num_having_numId(new_num_id)
+        assert len(new_num.lvlOverride_lst) == 1
+        assert new_num.lvlOverride_lst[0].startOverride.val == 1
+
+    def it_does_nothing_on_restart_when_not_in_list(self, part_prop_: DocumentPart):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, None)
+        paragraph.restart_numbering()
+        assert paragraph.list_format.num_id is None
 
     def it_can_remove_its_content_while_preserving_formatting(self, clear_fixture):
         paragraph, expected_xml = clear_fixture
