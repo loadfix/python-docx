@@ -24,25 +24,186 @@ class CT_CoreProperties(BaseOxmlElement):
 
     get_or_add_revision: Callable[[], etree_Element]
 
-    category = ZeroOrOne("cp:category", successors=())
-    contentStatus = ZeroOrOne("cp:contentStatus", successors=())
-    created = ZeroOrOne("dcterms:created", successors=())
-    creator = ZeroOrOne("dc:creator", successors=())
-    description = ZeroOrOne("dc:description", successors=())
-    identifier = ZeroOrOne("dc:identifier", successors=())
-    keywords = ZeroOrOne("cp:keywords", successors=())
-    language = ZeroOrOne("dc:language", successors=())
-    lastModifiedBy = ZeroOrOne("cp:lastModifiedBy", successors=())
-    lastPrinted = ZeroOrOne("cp:lastPrinted", successors=())
-    modified = ZeroOrOne("dcterms:modified", successors=())
-    revision: etree_Element | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
-        "cp:revision", successors=()
+    category = ZeroOrOne(
+        "cp:category",
+        successors=(
+            "cp:contentStatus",
+            "dcterms:created",
+            "dc:creator",
+            "dc:description",
+            "dc:identifier",
+            "cp:keywords",
+            "dc:language",
+            "cp:lastModifiedBy",
+            "cp:lastPrinted",
+            "dcterms:modified",
+            "cp:revision",
+            "dc:subject",
+            "dc:title",
+            "cp:version",
+        ),
     )
-    subject = ZeroOrOne("dc:subject", successors=())
-    title = ZeroOrOne("dc:title", successors=())
+    contentStatus = ZeroOrOne(
+        "cp:contentStatus",
+        successors=(
+            "dcterms:created",
+            "dc:creator",
+            "dc:description",
+            "dc:identifier",
+            "cp:keywords",
+            "dc:language",
+            "cp:lastModifiedBy",
+            "cp:lastPrinted",
+            "dcterms:modified",
+            "cp:revision",
+            "dc:subject",
+            "dc:title",
+            "cp:version",
+        ),
+    )
+    created = ZeroOrOne(
+        "dcterms:created",
+        successors=(
+            "dc:creator",
+            "dc:description",
+            "dc:identifier",
+            "cp:keywords",
+            "dc:language",
+            "cp:lastModifiedBy",
+            "cp:lastPrinted",
+            "dcterms:modified",
+            "cp:revision",
+            "dc:subject",
+            "dc:title",
+            "cp:version",
+        ),
+    )
+    creator = ZeroOrOne(
+        "dc:creator",
+        successors=(
+            "dc:description",
+            "dc:identifier",
+            "cp:keywords",
+            "dc:language",
+            "cp:lastModifiedBy",
+            "cp:lastPrinted",
+            "dcterms:modified",
+            "cp:revision",
+            "dc:subject",
+            "dc:title",
+            "cp:version",
+        ),
+    )
+    description = ZeroOrOne(
+        "dc:description",
+        successors=(
+            "dc:identifier",
+            "cp:keywords",
+            "dc:language",
+            "cp:lastModifiedBy",
+            "cp:lastPrinted",
+            "dcterms:modified",
+            "cp:revision",
+            "dc:subject",
+            "dc:title",
+            "cp:version",
+        ),
+    )
+    identifier = ZeroOrOne(
+        "dc:identifier",
+        successors=(
+            "cp:keywords",
+            "dc:language",
+            "cp:lastModifiedBy",
+            "cp:lastPrinted",
+            "dcterms:modified",
+            "cp:revision",
+            "dc:subject",
+            "dc:title",
+            "cp:version",
+        ),
+    )
+    keywords = ZeroOrOne(
+        "cp:keywords",
+        successors=(
+            "dc:language",
+            "cp:lastModifiedBy",
+            "cp:lastPrinted",
+            "dcterms:modified",
+            "cp:revision",
+            "dc:subject",
+            "dc:title",
+            "cp:version",
+        ),
+    )
+    language = ZeroOrOne(
+        "dc:language",
+        successors=(
+            "cp:lastModifiedBy",
+            "cp:lastPrinted",
+            "dcterms:modified",
+            "cp:revision",
+            "dc:subject",
+            "dc:title",
+            "cp:version",
+        ),
+    )
+    lastModifiedBy = ZeroOrOne(
+        "cp:lastModifiedBy",
+        successors=(
+            "cp:lastPrinted",
+            "dcterms:modified",
+            "cp:revision",
+            "dc:subject",
+            "dc:title",
+            "cp:version",
+        ),
+    )
+    lastPrinted = ZeroOrOne(
+        "cp:lastPrinted",
+        successors=(
+            "dcterms:modified",
+            "cp:revision",
+            "dc:subject",
+            "dc:title",
+            "cp:version",
+        ),
+    )
+    modified = ZeroOrOne(
+        "dcterms:modified",
+        successors=(
+            "cp:revision",
+            "dc:subject",
+            "dc:title",
+            "cp:version",
+        ),
+    )
+    revision: etree_Element | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "cp:revision",
+        successors=(
+            "dc:subject",
+            "dc:title",
+            "cp:version",
+        ),
+    )
+    subject = ZeroOrOne(
+        "dc:subject",
+        successors=(
+            "dc:title",
+            "cp:version",
+        ),
+    )
+    title = ZeroOrOne(
+        "dc:title",
+        successors=(
+            "cp:version",
+        ),
+    )
     version = ZeroOrOne("cp:version", successors=())
 
-    _coreProperties_tmpl = "<cp:coreProperties %s/>\n" % nsdecls("cp", "dc", "dcterms")
+    _coreProperties_tmpl = "<cp:coreProperties %s/>\n" % nsdecls(
+        "cp", "dc", "dcmitype", "dcterms", "xsi"
+    )
 
     @classmethod
     def new(cls) -> CT_CoreProperties:
