@@ -8,7 +8,6 @@ from docx.oxml.bookmarks import CT_BookmarkStart
 
 if TYPE_CHECKING:
     from docx.oxml.document import CT_Body
-    from docx.text.paragraph import Paragraph
 
 
 class Bookmarks:
@@ -53,25 +52,6 @@ class Bookmark:
     @property
     def bookmark_id(self) -> int:
         return self._bookmarkStart.id
-
-    @property
-    def paragraph(self) -> Paragraph:
-        """The paragraph containing the bookmarkStart element."""
-        from docx.text.paragraph import Paragraph
-
-        p = self._bookmarkStart.getparent()
-        # --- walk up if bookmarkStart is not directly inside a w:p ---
-        from docx.oxml.text.paragraph import CT_P
-
-        while p is not None and not isinstance(p, CT_P):
-            p = p.getparent()
-
-        if p is None:
-            raise ValueError("bookmarkStart is not contained in a paragraph")
-
-        # --- find the story part parent for the Paragraph ---
-        # --- walk up from the CT_P to find the body, then use the body's parent ---
-        return Paragraph(p, None)  # type: ignore[arg-type]
 
     def delete(self) -> None:
         """Remove this bookmark from the document."""

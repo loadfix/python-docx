@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.bookmarks import Bookmark
     from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+    from docx.oxml.document import CT_Body
     from docx.oxml.text.paragraph import CT_P
     from docx.section import Section
     from docx.styles.style import CharacterStyle
@@ -64,15 +65,9 @@ class Paragraph(StoryChild):
             end_run._r.insert_bookmark_end_after(bookmark_id)
 
         bookmarkStart = self._p.xpath(f".//w:bookmarkStart[@w:id='{bookmark_id}']")
-        if not bookmarkStart:
-            # -- cross-paragraph case: search from start_run's parent --
-            assert start_run is not None
-            p = start_run._r.getparent()
-            bookmarkStart = p.xpath(f"./w:bookmarkStart[@w:id='{bookmark_id}']")
-
         return Bookmark(bookmarkStart[0], body)
 
-    def _get_body(self):
+    def _get_body(self) -> CT_Body:
         """Return the w:body ancestor element."""
         from docx.oxml.document import CT_Body
 
