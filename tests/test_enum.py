@@ -9,7 +9,17 @@ import enum
 
 import pytest
 
-from docx.enum.base import BaseXmlEnum
+from docx.enum.base import BaseEnum, BaseXmlEnum, DocsPageFormatter
+
+
+class SomeEnum(BaseEnum):
+    """SomeEnum docstring."""
+
+    ALPHA = (1, "The first option.")
+    """The first option."""
+
+    BETA = (2, "The second option.")
+    """The second option."""
 
 
 class SomeXmlAttr(BaseXmlEnum):
@@ -90,3 +100,71 @@ class DescribeBaseXmlEnumMembers:
         assert SomeXmlAttr.FOO != 2
         assert SomeXmlAttr.BAR == 2
         assert SomeXmlAttr.BAR != 1
+
+
+class DescribeBaseEnum:
+    """Unit-test suite for `docx.enum.base.BaseEnum`."""
+
+    def it_is_an_instance_of_EnumMeta(self):
+        assert type(SomeEnum) is enum.EnumMeta
+
+    def it_has_the_expected_str_representation(self):
+        assert str(SomeEnum.ALPHA) == "ALPHA (1)"
+
+    def it_has_the_expected_value(self):
+        assert SomeEnum.ALPHA.value == 1
+        assert SomeEnum.BETA.value == 2
+
+    def it_has_a_docstring(self):
+        assert SomeEnum.ALPHA.__doc__ == "The first option."
+
+
+class DescribeBaseXmlEnum_to_xml:
+    """Unit-test suite for `BaseXmlEnum.to_xml` error path."""
+
+    def it_raises_when_member_has_no_xml_representation(self):
+        with pytest.raises(ValueError, match="has no XML representation"):
+            SomeXmlAttr.to_xml(SomeXmlAttr.BAZ)
+
+
+class DescribeDocsPageFormatter:
+    """Unit-test suite for `docx.enum.base.DocsPageFormatter`."""
+
+    def it_can_produce_a_documentation_page(self):
+        clsdict = {
+            "__doc__": "  Some enumeration docstring.  ",
+            "__ms_name__": "WdSomeEnum",
+            "__members__": [SomeXmlAttr.FOO, SomeXmlAttr.BAR],
+        }
+        formatter = DocsPageFormatter("WD_SOME_ENUM", clsdict)
+
+        page = formatter.page_str
+
+        assert "WdSomeEnum" in page
+        assert "``WD_SOME_ENUM``" in page
+        assert "Some enumeration docstring." in page
+        assert "FOO" in page
+        assert "BAR" in page
+
+    def it_handles_missing_docstring(self):
+        clsdict = {
+            "__ms_name__": "WdTest",
+            "__members__": [],
+        }
+        formatter = DocsPageFormatter("WD_TEST", clsdict)
+
+        page = formatter.page_str
+
+        assert "``WD_TEST``" in page
+
+    def it_handles_None_docstring(self):
+        clsdict = {
+            "__doc__": None,
+            "__ms_name__": "WdTest",
+            "__members__": [],
+        }
+        formatter = DocsPageFormatter("WD_TEST", clsdict)
+
+        page = formatter.page_str
+
+        assert "``WD_TEST``" in page

@@ -72,6 +72,23 @@ class DescribeCT_Footnotes:
 
         assert footnote.id == 3
 
+    def it_returns_2_when_only_reserved_ids_exist(self):
+        footnotes = cast(
+            CT_Footnotes,
+            element("w:footnotes/(w:footnote{w:id=0},w:footnote{w:id=1})"),
+        )
+
+        footnote = footnotes.add_footnote()
+
+        assert footnote.id == 2
+
+    def it_returns_2_when_max_id_is_below_2(self):
+        footnotes = cast(CT_Footnotes, element("w:footnotes"))
+
+        footnote = footnotes.add_footnote()
+
+        assert footnote.id == 2
+
 
 class DescribeCT_Footnote:
     """Unit test suite for `docx.oxml.footnotes.CT_Footnote` objects."""
