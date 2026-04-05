@@ -2,9 +2,11 @@
 
 import pytest
 
+from docx.enum.drawing import WD_RELATIVE_HORZ_POS, WD_RELATIVE_VERT_POS, WD_WRAP_TYPE
 from docx.enum.style import WD_STYLE_TYPE
 from docx.image.image import Image
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.oxml.shape import CT_Anchor
 from docx.package import Package
 from docx.parts.document import DocumentPart
 from docx.parts.image import ImagePart
@@ -54,6 +56,32 @@ class DescribeStoryPart:
 
         document_part_.get_style_id.assert_called_once_with(style_, style_type)
         assert style_id == "BodyText"
+
+    def it_can_create_a_new_pic_anchor(self, get_or_add_image_, image_, next_id_prop_):
+        get_or_add_image_.return_value = "rId42", image_
+        image_.scaled_dimensions.return_value = 444, 888
+        image_.filename = "bar.png"
+        next_id_prop_.return_value = 24
+        story_part = StoryPart(None, None, None, None)
+
+        anchor = story_part.new_pic_anchor(
+            "foo/bar.png",
+            width=100,
+            height=200,
+            pos_h=914400,
+            pos_v=457200,
+            relative_from_h=WD_RELATIVE_HORZ_POS.COLUMN,
+            relative_from_v=WD_RELATIVE_VERT_POS.PARAGRAPH,
+            wrap_type=WD_WRAP_TYPE.NONE,
+        )
+
+        get_or_add_image_.assert_called_once_with(story_part, "foo/bar.png")
+        image_.scaled_dimensions.assert_called_once_with(100, 200)
+        assert isinstance(anchor, CT_Anchor)
+        assert anchor.extent.cx == 444
+        assert anchor.extent.cy == 888
+        assert anchor.docPr.id == 24
+        assert anchor.docPr.name == "Picture 24"
 
     def it_can_create_a_new_pic_inline(self, get_or_add_image_, image_, next_id_prop_):
         get_or_add_image_.return_value = "rId42", image_

@@ -9,12 +9,13 @@ from typing import Any, List, cast
 import pytest
 
 from docx import types as t
+from docx.enum.drawing import WD_RELATIVE_HORZ_POS, WD_RELATIVE_VERT_POS, WD_WRAP_TYPE
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK, WD_UNDERLINE
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.text.run import CT_R
 from docx.parts.document import DocumentPart
-from docx.shape import InlineShape
+from docx.shape import FloatingImage, InlineShape
 from docx.text.font import Font
 from docx.text.paragraph import Paragraph
 from docx.text.run import Run
@@ -346,6 +347,40 @@ class DescribeRun:
         InlineShape_.assert_called_once_with(inline)
         assert picture is picture_
 
+    def it_can_add_a_floating_image(
+        self,
+        part_prop_: Mock,
+        document_part_: Mock,
+        FloatingImage_: Mock,
+        paragraph_: Mock,
+    ):
+        part_prop_.return_value = document_part_
+        run = Run(cast(CT_R, element("w:r")), paragraph_)
+        anchor = element("wp:anchor{id=42}")
+        document_part_.new_pic_anchor.return_value = anchor
+        floating_ = FloatingImage_.return_value
+
+        floating = run.add_floating_image(
+            "img.png",
+            width=100,
+            height=200,
+            pos_h=0,
+            pos_v=0,
+            relative_from_h=WD_RELATIVE_HORZ_POS.COLUMN,
+            relative_from_v=WD_RELATIVE_VERT_POS.PARAGRAPH,
+            wrap_type=WD_WRAP_TYPE.NONE,
+        )
+
+        document_part_.new_pic_anchor.assert_called_once_with(
+            "img.png", 100, 200, 0, 0,
+            WD_RELATIVE_HORZ_POS.COLUMN, WD_RELATIVE_VERT_POS.PARAGRAPH,
+            WD_WRAP_TYPE.NONE, False,
+        )
+        drawings = run._r.xpath(".//w:drawing")
+        assert len(drawings) == 1
+        FloatingImage_.assert_called_once_with(anchor)
+        assert floating is floating_
+
     @pytest.mark.parametrize(
         ("initial_r_cxml", "expected_cxml"),
         [
@@ -406,6 +441,10 @@ class DescribeRun:
     @pytest.fixture
     def document_part_(self, request: FixtureRequest):
         return instance_mock(request, DocumentPart)
+
+    @pytest.fixture
+    def FloatingImage_(self, request: FixtureRequest):
+        return class_mock(request, "docx.text.run.FloatingImage")
 
     @pytest.fixture
     def Font_(self, request: FixtureRequest):

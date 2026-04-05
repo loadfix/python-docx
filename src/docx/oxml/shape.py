@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+from docx.oxml.exceptions import InvalidXmlError
 from docx.oxml.ns import nsdecls
 from docx.oxml.parser import parse_xml
 from docx.oxml.simpletypes import (
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
 class CT_Anchor(BaseOxmlElement):
     """`<wp:anchor>` element, container for a "floating" shape.
 
-    Child elements (in schema order):::
+    Child elements (in schema order)::
 
         wp:simplePos
         wp:positionH
@@ -302,6 +303,10 @@ class CT_PosH(BaseOxmlElement):
         children = self.xpath("wp:posOffset")
         if children:
             children[0].text = str(value)
+        else:
+            raise InvalidXmlError(
+                "<wp:posOffset> child element not present; element may use wp:align instead"
+            )
 
 
 class CT_PosV(BaseOxmlElement):
@@ -324,6 +329,10 @@ class CT_PosV(BaseOxmlElement):
         children = self.xpath("wp:posOffset")
         if children:
             children[0].text = str(value)
+        else:
+            raise InvalidXmlError(
+                "<wp:posOffset> child element not present; element may use wp:align instead"
+            )
 
 
 class CT_WrapNone(BaseOxmlElement):

@@ -5,6 +5,7 @@ from typing import List, cast
 import pytest
 
 from docx import types as t
+from docx.enum.drawing import WD_RELATIVE_HORZ_POS, WD_RELATIVE_VERT_POS, WD_WRAP_TYPE
 from docx.enum.section import WD_SECTION_START
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -12,16 +13,68 @@ from docx.oxml.text.paragraph import CT_P
 from docx.oxml.text.run import CT_R
 from docx.parts.document import DocumentPart
 from docx.section import Section
+from docx.shape import FloatingImage
 from docx.text.paragraph import Paragraph
 from docx.text.parfmt import ParagraphFormat
 from docx.text.run import Run
 
 from ..unitutil.cxml import element, xml
-from ..unitutil.mock import call, class_mock, instance_mock, method_mock, property_mock
+from ..unitutil.mock import (
+    Mock,
+    call,
+    class_mock,
+    instance_mock,
+    method_mock,
+    property_mock,
+)
 
 
 class DescribeParagraph:
     """Unit-test suite for `docx.text.run.Paragraph`."""
+
+    def it_can_add_a_floating_image(self, part_prop_: Mock, document_part_: Mock):
+        anchor = element("wp:anchor{id=42}")
+        document_part_.new_pic_anchor.return_value = anchor
+        part_prop_.return_value = document_part_
+        paragraph = Paragraph(cast(CT_P, element("w:p")), None)
+
+        floating = paragraph.add_floating_image(
+            "img.png",
+            width=100,
+            height=200,
+            pos_h=0,
+            pos_v=0,
+            relative_from_h=WD_RELATIVE_HORZ_POS.COLUMN,
+            relative_from_v=WD_RELATIVE_VERT_POS.PARAGRAPH,
+            wrap_type=WD_WRAP_TYPE.NONE,
+        )
+
+        assert isinstance(floating, FloatingImage)
+        document_part_.new_pic_anchor.assert_called_once_with(
+            "img.png", 100, 200, 0, 0,
+            WD_RELATIVE_HORZ_POS.COLUMN, WD_RELATIVE_VERT_POS.PARAGRAPH,
+            WD_WRAP_TYPE.NONE, False,
+        )
+
+    @pytest.mark.parametrize(
+        ("p_cxml", "expected_count"),
+        [
+            ("w:p", 0),
+            ("w:p/w:r", 0),
+            ("w:p/w:r/w:drawing/wp:anchor", 1),
+            ("w:p/(w:r/w:drawing/wp:anchor,w:r/w:drawing/wp:anchor)", 2),
+        ],
+    )
+    def it_provides_access_to_the_floating_images_it_contains(
+        self, p_cxml: str, expected_count: int, fake_parent: t.ProvidesStoryPart
+    ):
+        p = cast(CT_P, element(p_cxml))
+        paragraph = Paragraph(p, fake_parent)
+
+        floating_images = paragraph.floating_images
+
+        assert len(floating_images) == expected_count
+        assert all(isinstance(fi, FloatingImage) for fi in floating_images)
 
     def it_can_add_a_page_break(self, fake_parent: t.ProvidesStoryPart):
         p = cast(CT_P, element("w:p"))

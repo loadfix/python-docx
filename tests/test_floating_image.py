@@ -13,6 +13,7 @@ from docx.enum.drawing import (
     WD_RELATIVE_VERT_POS,
     WD_WRAP_TYPE,
 )
+from docx.oxml.exceptions import InvalidXmlError
 from docx.oxml.shape import CT_Anchor, CT_Picture, CT_PosH, CT_PosV
 from docx.shape import FloatingImage
 from docx.shared import Emu, Inches
@@ -147,6 +148,12 @@ class DescribeCT_PosH:
         posH.posOffset = 914400
         assert posH.posOffset == 914400
 
+    def it_raises_on_set_posOffset_when_element_absent(self):
+        posH = cast(CT_PosH, element("wp:positionH{relativeFrom=column}"))
+        assert posH.posOffset is None
+        with pytest.raises(InvalidXmlError, match="wp:posOffset"):
+            posH.posOffset = 914400
+
 
 class DescribeCT_PosV:
     """Unit-test suite for `docx.oxml.shape.CT_PosV`."""
@@ -157,6 +164,12 @@ class DescribeCT_PosV:
             element('wp:positionV{relativeFrom=paragraph}/wp:posOffset"0"'),
         )
         assert posV.relativeFrom == "paragraph"
+
+    def it_raises_on_set_posOffset_when_element_absent(self):
+        posV = cast(CT_PosV, element("wp:positionV{relativeFrom=paragraph}"))
+        assert posV.posOffset is None
+        with pytest.raises(InvalidXmlError, match="wp:posOffset"):
+            posV.posOffset = 457200
 
 
 class DescribeFloatingImage:
