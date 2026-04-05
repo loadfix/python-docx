@@ -184,6 +184,10 @@ class Section:
         size_pt = Length(int(size)).pt
         rotation = "315" if layout == "diagonal" else "0"
         color_hex = str(color)
+        from xml.sax.saxutils import escape as xml_escape
+
+        safe_text = xml_escape(text)
+        safe_font = xml_escape(font)
         pict_xml = (
             '<w:pict xmlns:v="urn:schemas-microsoft-com:vml"'
             ' xmlns:o="urn:schemas-microsoft-com:office:office"'
@@ -229,8 +233,8 @@ class Section:
             f' fillcolor="#{color_hex}"'
             f' stroked="f">'
             f'<v:fill opacity=".5"/>'
-            f'<v:textpath style="font-family:&quot;{font}&quot;;'
-            f'font-size:{size_pt:.0f}pt" string="{text}"/>'
+            f'<v:textpath style="font-family:&quot;{safe_font}&quot;;'
+            f'font-size:{size_pt:.0f}pt" string="{safe_text}"/>'
             '<w10:wrap anchorx="margin" anchory="margin"/>'
             '</v:shape>'
             '</w:pict>'
