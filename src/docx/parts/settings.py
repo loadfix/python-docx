@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from docx.opc.constants import CONTENT_TYPE as CT
@@ -44,7 +44,7 @@ class SettingsPart(XmlPart):
     @classmethod
     def _default_settings_xml(cls):
         """Return a bytestream containing XML for a default settings part."""
-        path = os.path.join(os.path.split(__file__)[0], "..", "templates", "default-settings.xml")
+        path = Path(__file__).parent.parent / "templates" / "default-settings.xml"
         with open(path, "rb") as f:
             xml_bytes = f.read()
         return xml_bytes

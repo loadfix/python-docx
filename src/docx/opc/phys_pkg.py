@@ -1,6 +1,8 @@
 """Provides a general interface to a `physical` OPC package, such as a zip file."""
 
-import os
+from __future__ import annotations
+
+from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile, is_zipfile
 
 from docx.opc.exceptions import PackageNotFoundError
@@ -13,23 +15,23 @@ class PhysPkgReader:
     def __new__(cls, pkg_file):
         # if `pkg_file` is a string, treat it as a path
         if isinstance(pkg_file, str):
-            if os.path.isdir(pkg_file):
+            if Path(pkg_file).is_dir():
                 reader_cls = _DirPkgReader
             elif is_zipfile(pkg_file):
                 reader_cls = _ZipPkgReader
             else:
-                raise PackageNotFoundError("Package not found at '%s'" % pkg_file)
+                raise PackageNotFoundError(f"Package not found at '{pkg_file}'")
         else:  # assume it's a stream and pass it to Zip reader to sort out
             reader_cls = _ZipPkgReader
 
-        return super(PhysPkgReader, cls).__new__(reader_cls)
+        return super().__new__(reader_cls)
 
 
 class PhysPkgWriter:
     """Factory for physical package writer objects."""
 
     def __new__(cls, pkg_file):
-        return super(PhysPkgWriter, cls).__new__(_ZipPkgWriter)
+        return super().__new__(_ZipPkgWriter)
 
 
 class _DirPkgReader(PhysPkgReader):
@@ -38,12 +40,12 @@ class _DirPkgReader(PhysPkgReader):
 
     def __init__(self, path):
         """`path` is the path to a directory containing an expanded package."""
-        super(_DirPkgReader, self).__init__()
-        self._path = os.path.abspath(path)
+        super().__init__()
+        self._path = Path(path).resolve()
 
     def blob_for(self, pack_uri):
         """Return contents of file corresponding to `pack_uri` in package directory."""
-        path = os.path.join(self._path, pack_uri.membername)
+        path = self._path / pack_uri.membername
         with open(path, "rb") as f:
             blob = f.read()
         return blob
@@ -72,7 +74,7 @@ class _ZipPkgReader(PhysPkgReader):
     """Implements |PhysPkgReader| interface for a zip file OPC package."""
 
     def __init__(self, pkg_file):
-        super(_ZipPkgReader, self).__init__()
+        super().__init__()
         self._zipf = ZipFile(pkg_file, "r")
 
     def blob_for(self, pack_uri):
@@ -105,7 +107,7 @@ class _ZipPkgWriter(PhysPkgWriter):
     """Implements |PhysPkgWriter| interface for a zip file OPC package."""
 
     def __init__(self, pkg_file):
-        super(_ZipPkgWriter, self).__init__()
+        super().__init__()
         self._zipf = ZipFile(pkg_file, "w", compression=ZIP_DEFLATED)
 
     def close(self):

@@ -4,6 +4,8 @@ In particular it includes content types and relationship types.
 """
 
 
+from __future__ import annotations
+
 class CONTENT_TYPE:
     """Content type URIs (like MIME-types) that specify a part's format."""
 

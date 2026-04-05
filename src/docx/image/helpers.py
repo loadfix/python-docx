@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from struct import Struct
 
 from .exceptions import UnexpectedEndOfFileError
@@ -14,7 +16,7 @@ class StreamReader:
     """
 
     def __init__(self, stream, byte_order, base_offset=0):
-        super(StreamReader, self).__init__()
+        super().__init__()
         self._stream = stream
         self._byte_order = LITTLE_ENDIAN if byte_order == LITTLE_ENDIAN else BIG_ENDIAN
         self._base_offset = base_offset
@@ -54,7 +56,7 @@ class StreamReader:
         determined by self._base_offset + `base` + `offset`."""
 
         def str_struct(char_count):
-            format_ = "%ds" % char_count
+            format_ = f"{char_count}s"
             return Struct(format_)
 
         struct = str_struct(char_count)

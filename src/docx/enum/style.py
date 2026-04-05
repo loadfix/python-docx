@@ -1,5 +1,7 @@
 """Enumerations related to styles."""
 
+from __future__ import annotations
+
 from .base import BaseEnum, BaseXmlEnum
 
 

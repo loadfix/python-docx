@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import enum
 import textwrap
-from typing import TYPE_CHECKING, Any, Dict, Type, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -66,7 +66,7 @@ class BaseXmlEnum(int, enum.Enum):
         return member
 
     @classmethod
-    def to_xml(cls: Type[_T], value: int | _T | None) -> str | None:
+    def to_xml(cls: type[_T], value: int | _T | None) -> str | None:
         """XML value of this enum member, generally an XML attribute value."""
         # -- presence of multi-arg `__new__()` method fools type-checker, but getting a
         # -- member by its value using EnumCls(val) works as usual.
@@ -84,7 +84,7 @@ class DocsPageFormatter:
     passed to the constructor. An immutable one-shot service object.
     """
 
-    def __init__(self, clsname: str, clsdict: Dict[str, Any]):
+    def __init__(self, clsname: str, clsdict: dict[str, Any]):
         self._clsname = clsname
         self._clsdict = clsdict
 
@@ -127,7 +127,7 @@ class DocsPageFormatter:
             initial_indent=" " * 4,
             subsequent_indent=" " * 4,
         )
-        return "%s\n%s\n" % (member.name, member_docstring)
+        return f"{member.name}\n{member_docstring}\n"
 
     @property
     def _member_defs(self):
@@ -147,4 +147,4 @@ class DocsPageFormatter:
         """The title for the documentation page, formatted as code (surrounded in
         double-backtics) and underlined with '=' characters."""
         title_underscore = "=" * (len(self._clsname) + 4)
-        return "``%s``\n%s" % (self._clsname, title_underscore)
+        return f"``{self._clsname}``\n{title_underscore}"

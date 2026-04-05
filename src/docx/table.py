@@ -31,7 +31,7 @@ class Table(StoryChild):
     """Proxy class for a WordprocessingML ``<w:tbl>`` element."""
 
     def __init__(self, tbl: CT_Tbl, parent: t.ProvidesStoryPart):
-        super(Table, self).__init__(parent)
+        super().__init__(parent)
         self._element = tbl
         self._tbl = tbl
 
@@ -211,7 +211,7 @@ class _Cell(BlockItemContainer):
     """Table cell."""
 
     def __init__(self, tc: CT_Tc, parent: TableParent):
-        super(_Cell, self).__init__(tc, cast("t.ProvidesStoryPart", parent))
+        super().__init__(tc, cast("t.ProvidesStoryPart", parent))
         self._parent = parent
         self._tc = self._element = tc
 
@@ -226,7 +226,7 @@ class _Cell(BlockItemContainer):
         `text` can also include newline (``\\n``) or carriage return (``\\r``)
         characters, each of which is converted to a line break.
         """
-        return super(_Cell, self).add_paragraph(text, style)
+        return super().add_paragraph(text, style)
 
     def add_table(  # pyright: ignore[reportIncompatibleMethodOverride]
         self, rows: int, cols: int
@@ -239,7 +239,7 @@ class _Cell(BlockItemContainer):
         element as the last element in every cell.
         """
         width = self.width if self.width is not None else Inches(1)
-        table = super(_Cell, self).add_table(rows, cols, width)
+        table = super().add_table(rows, cols, width)
         self.add_paragraph()
         return table
 
@@ -269,7 +269,7 @@ class _Cell(BlockItemContainer):
         A table cell is required to contain at least one block-level element and end
         with a paragraph. By default, a new cell contains a single paragraph. Read-only
         """
-        return super(_Cell, self).paragraphs
+        return super().paragraphs
 
     @property
     def tables(self):
@@ -277,7 +277,7 @@ class _Cell(BlockItemContainer):
 
         Read-only.
         """
-        return super(_Cell, self).tables
+        return super().tables
 
     @property
     def text(self) -> str:
@@ -408,7 +408,7 @@ class _Column(Parented):
     """Table column."""
 
     def __init__(self, gridCol: CT_TblGridCol, parent: TableParent):
-        super(_Column, self).__init__(parent)
+        super().__init__(parent)
         self._parent = parent
         self._gridCol = gridCol
 
@@ -444,7 +444,7 @@ class _Columns(Parented):
     """
 
     def __init__(self, tbl: CT_Tbl, parent: TableParent):
-        super(_Columns, self).__init__(parent)
+        super().__init__(parent)
         self._parent = parent
         self._tbl = tbl
 
@@ -453,7 +453,7 @@ class _Columns(Parented):
         try:
             gridCol = self._gridCol_lst[idx]
         except IndexError:
-            msg = "column index [%d] is out of range" % idx
+            msg = f"column index [{idx}] is out of range"
             raise IndexError(msg)
         return _Column(gridCol, self)
 
@@ -481,7 +481,7 @@ class _Row(Parented):
     """Table row."""
 
     def __init__(self, tr: CT_Row, parent: TableParent):
-        super(_Row, self).__init__(parent)
+        super().__init__(parent)
         self._parent = parent
         self._tr = self._element = tr
 
@@ -617,7 +617,7 @@ class _Rows(Parented):
     """
 
     def __init__(self, tbl: CT_Tbl, parent: TableParent):
-        super(_Rows, self).__init__(parent)
+        super().__init__(parent)
         self._parent = parent
         self._tbl = tbl
 

@@ -47,7 +47,7 @@ def qn(tag: str) -> str:
     """
     prefix, tagroot = tag.split(":")
     uri = nsmap[prefix]
-    return "{%s}%s" % (uri, tagroot)
+    return f"{{{uri}}}{tagroot}"
 
 
 def serialize_part_xml(part_elm: etree._Element) -> bytes:
@@ -105,7 +105,7 @@ class CT_Default(BaseOxmlElement):
     @staticmethod
     def new(ext: str, content_type: str):
         """Return a new ``<Default>`` element with attributes set to parameter values."""
-        xml = '<Default xmlns="%s"/>' % nsmap["ct"]
+        xml = f'<Default xmlns="{nsmap["ct"]}"/>'
         default = parse_xml(xml)
         default.set("Extension", ext)
         default.set("ContentType", content_type)
@@ -125,7 +125,7 @@ class CT_Override(BaseOxmlElement):
     @staticmethod
     def new(partname, content_type):
         """Return a new ``<Override>`` element with attributes set to parameter values."""
-        xml = '<Override xmlns="%s"/>' % nsmap["ct"]
+        xml = f'<Override xmlns="{nsmap["ct"]}"/>'
         override = parse_xml(xml)
         override.set("PartName", partname)
         override.set("ContentType", content_type)
@@ -143,7 +143,7 @@ class CT_Relationship(BaseOxmlElement):
     @staticmethod
     def new(rId: str, reltype: str, target: str, target_mode: str = RTM.INTERNAL):
         """Return a new ``<Relationship>`` element."""
-        xml = '<Relationship xmlns="%s"/>' % nsmap["pr"]
+        xml = f'<Relationship xmlns="{nsmap["pr"]}"/>'
         relationship = parse_xml(xml)
         relationship.set("Id", rId)
         relationship.set("Type", reltype)
@@ -191,7 +191,7 @@ class CT_Relationships(BaseOxmlElement):
     @staticmethod
     def new() -> CT_Relationships:
         """Return a new ``<Relationships>`` element."""
-        xml = '<Relationships xmlns="%s"/>' % nsmap["pr"]
+        xml = f'<Relationships xmlns="{nsmap["pr"]}"/>'
         return cast(CT_Relationships, parse_xml(xml))
 
     @property
@@ -228,7 +228,7 @@ class CT_Types(BaseOxmlElement):
     @staticmethod
     def new():
         """Return a new ``<Types>`` element."""
-        xml = '<Types xmlns="%s"/>' % nsmap["ct"]
+        xml = f'<Types xmlns="{nsmap["ct"]}"/>'
         types = parse_xml(xml)
         return types
 

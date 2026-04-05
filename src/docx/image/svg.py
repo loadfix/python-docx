@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import struct
 import zlib
-from typing import IO, Tuple
+from typing import IO
 
 from docx.image.constants import MIME_TYPE
 from docx.image.image import BaseImageHeader
@@ -35,7 +35,7 @@ class Svg(BaseImageHeader):
         return cls(px_width, px_height, 96, 96)
 
     @classmethod
-    def _parse_dimensions(cls, svg_text: str) -> Tuple[int, int]:
+    def _parse_dimensions(cls, svg_text: str) -> tuple[int, int]:
         import defusedxml.ElementTree as SafeET
 
         try:

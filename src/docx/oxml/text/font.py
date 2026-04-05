@@ -148,7 +148,7 @@ class CT_RPr(BaseOxmlElement):
 
     def _new_color(self):
         """Override metaclass method to set `w:color/@val` to RGB black on create."""
-        return parse_xml('<w:color %s w:val="000000"/>' % nsdecls("w"))
+        return parse_xml(f'<w:color {nsdecls("w")} w:val="000000"/>')
 
     @property
     def highlight_val(self) -> WD_COLOR_INDEX | None:
@@ -313,9 +313,9 @@ class CT_RPr(BaseOxmlElement):
 
     def _set_bool_val(self, name: str, value: bool | None):
         if value is None:
-            getattr(self, "_remove_%s" % name)()
+            getattr(self, f"_remove_{name}")()
             return
-        element = getattr(self, "get_or_add_%s" % name)()
+        element = getattr(self, f"get_or_add_{name}")()
         element.val = value
 
 

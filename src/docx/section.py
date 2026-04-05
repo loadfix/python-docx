@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator, List, Sequence, Union, overload
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Iterator, overload
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_HEADER_FOOTER
@@ -27,7 +28,7 @@ class Section:
     """
 
     def __init__(self, sectPr: CT_SectPr, document_part: DocumentPart):
-        super(Section, self).__init__()
+        super().__init__()
         self._sectPr = sectPr
         self._document_part = document_part
 
@@ -264,7 +265,7 @@ class Sections(Sequence[Section]):
     """
 
     def __init__(self, document_elm: CT_Document, document_part: DocumentPart):
-        super(Sections, self).__init__()
+        super().__init__()
         self._document_elm = document_elm
         self._document_part = document_part
 
@@ -272,9 +273,9 @@ class Sections(Sequence[Section]):
     def __getitem__(self, key: int) -> Section: ...
 
     @overload
-    def __getitem__(self, key: slice) -> List[Section]: ...
+    def __getitem__(self, key: slice) -> list[Section]: ...
 
-    def __getitem__(self, key: int | slice) -> Section | List[Section]:
+    def __getitem__(self, key: int | slice) -> Section | list[Section]:
         if isinstance(key, slice):
             return [
                 Section(sectPr, self._document_part)
@@ -334,9 +335,9 @@ class SectionColumns(Sequence[Column]):
     def __getitem__(self, key: int) -> Column: ...
 
     @overload
-    def __getitem__(self, key: slice) -> List[Column]: ...
+    def __getitem__(self, key: slice) -> list[Column]: ...
 
-    def __getitem__(self, key: Union[int, slice]) -> Union[Column, List[Column]]:
+    def __getitem__(self, key: int | slice) -> Column | list[Column]:
         cols = self._sectPr.cols
         col_lst = cols.col_lst if cols is not None else []
         if isinstance(key, slice):

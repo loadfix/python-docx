@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, List
+from typing import TYPE_CHECKING, Callable
 
 from docx.oxml.section import CT_SectPr
 from docx.oxml.xmlchemy import BaseOxmlElement, ZeroOrMore, ZeroOrOne
@@ -18,7 +18,7 @@ class CT_Document(BaseOxmlElement):
     body: CT_Body = ZeroOrOne("w:body")  # pyright: ignore[reportAssignmentType]
 
     @property
-    def sectPr_lst(self) -> List[CT_SectPr]:
+    def sectPr_lst(self) -> list[CT_SectPr]:
         """All `w:sectPr` elements directly accessible from document element.
 
         Note this does not include a `sectPr` child in a paragraphs wrapped in
@@ -37,8 +37,8 @@ class CT_Body(BaseOxmlElement):
 
     add_p: Callable[[], CT_P]
     get_or_add_sectPr: Callable[[], CT_SectPr]
-    p_lst: List[CT_P]
-    tbl_lst: List[CT_Tbl]
+    p_lst: list[CT_P]
+    tbl_lst: list[CT_Tbl]
 
     _insert_tbl: Callable[[CT_Tbl], CT_Tbl]
 
@@ -79,7 +79,7 @@ class CT_Body(BaseOxmlElement):
             self.remove(content_elm)
 
     @property
-    def inner_content_elements(self) -> List[CT_P | CT_Tbl]:
+    def inner_content_elements(self) -> list[CT_P | CT_Tbl]:
         """Generate all `w:p` and `w:tbl` elements in this document-body.
 
         Elements appear in document order. Elements shaded by nesting in a `w:ins` or

@@ -23,7 +23,7 @@ class ImagePart(Part):
     def __init__(
         self, partname: PackURI, content_type: str, blob: bytes, image: Image | None = None
     ):
-        super(ImagePart, self).__init__(partname, content_type, blob)
+        super().__init__(partname, content_type, blob)
         self._image = image
 
     @property
@@ -54,7 +54,7 @@ class ImagePart(Part):
         """
         if self._image is not None:
             return self._image.filename
-        return "image.%s" % self.partname.ext
+        return f"image.{self.partname.ext}"
 
     @classmethod
     def from_image(cls, image: Image, partname: PackURI):

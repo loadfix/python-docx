@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Type, cast
+from typing import TYPE_CHECKING, Callable, cast
 
 from docx.opc.oxml import serialize_part_xml
 from docx.opc.packuri import PackURI
@@ -32,7 +32,7 @@ class Part:
         blob: bytes | None = None,
         package: Package | None = None,
     ):
-        super(Part, self).__init__()
+        super().__init__()
         self._partname = partname
         self._content_type = content_type
         self._blob = blob
@@ -110,8 +110,7 @@ class Part:
     @partname.setter
     def partname(self, partname: str):
         if not isinstance(partname, PackURI):
-            tmpl = "partname must be instance of PackURI, got '%s'"
-            raise TypeError(tmpl % type(partname).__name__)
+            raise TypeError(f"partname must be instance of PackURI, got '{type(partname).__name__}'")
         self._partname = partname
 
     def part_related_by(self, reltype: str) -> Part:
@@ -175,8 +174,8 @@ class PartFactory:
     the part, which is by default ``opc.package.Part``.
     """
 
-    part_class_selector: Callable[[str, str], Type[Part] | None] | None
-    part_type_for: dict[str, Type[Part]] = {}
+    part_class_selector: Callable[[str, str], type[Part] | None] | None
+    part_type_for: dict[str, type[Part]] = {}
     default_part_type = Part
 
     def __new__(
@@ -187,7 +186,7 @@ class PartFactory:
         blob: bytes,
         package: Package,
     ):
-        PartClass: Type[Part] | None = None
+        PartClass: type[Part] | None = None
         if cls.part_class_selector is not None:
             part_class_selector = cls_method_fn(cls, "part_class_selector")
             PartClass = part_class_selector(content_type, reltype)
@@ -214,7 +213,7 @@ class XmlPart(Part):
     def __init__(
         self, partname: PackURI, content_type: str, element: BaseOxmlElement, package: Package
     ):
-        super(XmlPart, self).__init__(partname, content_type, package=package)
+        super().__init__(partname, content_type, package=package)
         self._element = element
 
     @property

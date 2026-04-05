@@ -121,7 +121,7 @@ class Twips(Length):
         return Length.__new__(cls, emu)
 
 
-class RGBColor(Tuple[int, int, int]):
+class RGBColor(tuple[int, int, int]):
     """Immutable value object defining a particular RGB color."""
 
     def __new__(cls, r: int, g: int, b: int):
@@ -131,14 +131,14 @@ class RGBColor(Tuple[int, int, int]):
                 raise TypeError(msg)
             if val < 0 or val > 255:
                 raise ValueError(msg)
-        return super(RGBColor, cls).__new__(cls, (r, g, b))
+        return super().__new__(cls, (r, g, b))
 
     def __repr__(self):
-        return "RGBColor(0x%02x, 0x%02x, 0x%02x)" % self
+        return f"RGBColor(0x{self[0]:02x}, 0x{self[1]:02x}, 0x{self[2]:02x})"
 
     def __str__(self):
         """Return a hex string rgb value, like '3C2F80'."""
-        return "%02X%02X%02X" % self
+        return f"{self[0]:02X}{self[1]:02X}{self[2]:02X}"
 
     @classmethod
     def from_string(cls, rgb_hex_str: str) -> RGBColor:
@@ -363,7 +363,7 @@ class TextAccumulator:
 
     def __init__(self, separator: str = ""):
         self._separator = separator
-        self._texts: List[str] = []
+        self._texts: list[str] = []
 
     def push(self, text: str) -> None:
         """Add a text fragment to the accumulator."""

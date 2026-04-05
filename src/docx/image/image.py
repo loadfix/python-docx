@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import hashlib
 import io
-import os
-from typing import IO, Tuple
+from pathlib import Path
+from typing import IO
 
 from docx.image.exceptions import UnrecognizedImageError
 from docx.shared import Emu, Inches, Length, lazyproperty
@@ -20,7 +20,7 @@ class Image:
     required by ImagePart."""
 
     def __init__(self, blob: bytes, filename: str, image_header: BaseImageHeader):
-        super(Image, self).__init__()
+        super().__init__()
         self._blob = blob
         self._filename = filename
         self._image_header = image_header
@@ -41,7 +41,7 @@ class Image:
             with open(path, "rb") as f:
                 blob = f.read()
                 stream = io.BytesIO(blob)
-            filename = os.path.basename(path)
+            filename = Path(path).name
         else:
             stream = image_descriptor
             stream.seek(0)
@@ -67,7 +67,7 @@ class Image:
         canonical extension is assigned based on the content type. Does not contain the
         leading period, e.g. 'jpg', not '.jpg'.
         """
-        return os.path.splitext(self._filename)[1][1:]
+        return Path(self._filename).suffix[1:]
 
     @property
     def filename(self):
@@ -115,7 +115,7 @@ class Image:
 
     def scaled_dimensions(
         self, width: int | Length | None = None, height: int | Length | None = None
-    ) -> Tuple[Length, Length]:
+    ) -> tuple[Length, Length]:
         """(cx, cy) pair representing scaled dimensions of this image.
 
         The native dimensions of the image are scaled by applying the following rules to
@@ -161,7 +161,7 @@ class Image:
         image in `stream`."""
         image_header = _ImageHeaderFactory(stream)
         if filename is None:
-            filename = "image.%s" % image_header.default_ext
+            filename = f"image.{image_header.default_ext}"
         return cls(blob, filename, image_header)
 
 

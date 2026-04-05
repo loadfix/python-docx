@@ -100,7 +100,7 @@ class PackURI(str):
         Only produces sensible output if the pack URI is a partname or the package
         pseudo-partname '/'.
         """
-        rels_filename = "%s.rels" % self.filename
+        rels_filename = f"{self.filename}.rels"
         rels_uri_str = posixpath.join(self.baseURI, "_rels", rels_filename)
         return PackURI(rels_uri_str)
 

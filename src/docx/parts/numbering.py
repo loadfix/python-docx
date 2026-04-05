@@ -1,5 +1,7 @@
 """|NumberingPart| and closely related objects."""
 
+from __future__ import annotations
+
 from ..opc.part import XmlPart
 from ..shared import lazyproperty
 
@@ -25,7 +27,7 @@ class _NumberingDefinitions:
     elements in a numbering part."""
 
     def __init__(self, numbering_elm):
-        super(_NumberingDefinitions, self).__init__()
+        super().__init__()
         self._numbering = numbering_elm
 
     def __len__(self):

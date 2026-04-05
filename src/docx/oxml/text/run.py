@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Iterator, List, cast
+from typing import TYPE_CHECKING, Callable, Iterator, cast
 
 from docx.oxml.drawing import CT_Drawing
 from docx.oxml.ns import qn
@@ -60,7 +60,7 @@ class CT_R(BaseOxmlElement):
             self.remove(e)
 
     @property
-    def inner_content_items(self) -> List[str | CT_Drawing | CT_LastRenderedPageBreak]:
+    def inner_content_items(self) -> list[str | CT_Drawing | CT_LastRenderedPageBreak]:
         """Text of run, possibly punctuated by `w:lastRenderedPageBreak` elements."""
         from docx.oxml.text.pagebreak import CT_LastRenderedPageBreak
 
@@ -115,7 +115,7 @@ class CT_R(BaseOxmlElement):
         self.addprevious(OxmlElement("w:commentRangeStart", attrs={qn("w:id"): str(comment_id)}))
 
     @property
-    def lastRenderedPageBreaks(self) -> List[CT_LastRenderedPageBreak]:
+    def lastRenderedPageBreaks(self) -> list[CT_LastRenderedPageBreak]:
         """All `w:lastRenderedPageBreaks` descendants of this run."""
         return self.xpath("./w:lastRenderedPageBreak")
 
@@ -300,7 +300,7 @@ class _RunContentAppender:
 
     def __init__(self, r: CT_R):
         self._r = r
-        self._bfr: List[str] = []
+        self._bfr: list[str] = []
 
     @classmethod
     def append_to_run_from_text(cls, r: CT_R, text: str):

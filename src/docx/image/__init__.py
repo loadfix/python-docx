@@ -4,6 +4,8 @@ That characterization is as to content type and size, as a required step in incl
 them in a document.
 """
 
+from __future__ import annotations
+
 from docx.image.bmp import Bmp
 from docx.image.gif import Gif
 from docx.image.jpeg import Exif, Jfif

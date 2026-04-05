@@ -265,5 +265,5 @@ class _Text:
     """Proxy object wrapping `<w:t>` element."""
 
     def __init__(self, t_elm: CT_Text):
-        super(_Text, self).__init__()
+        super().__init__()
         self._t = t_elm

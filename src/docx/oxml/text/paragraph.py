@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, List, cast
+from typing import TYPE_CHECKING, Callable, cast
 
 from docx.oxml.ns import qn
 from docx.oxml.parser import OxmlElement
@@ -25,8 +25,8 @@ class CT_P(BaseOxmlElement):
 
     add_r: Callable[[], CT_R]
     get_or_add_pPr: Callable[[], CT_PPr]
-    hyperlink_lst: List[CT_Hyperlink]
-    r_lst: List[CT_R]
+    hyperlink_lst: list[CT_Hyperlink]
+    r_lst: list[CT_R]
 
     pPr: CT_PPr | None = ZeroOrOne("w:pPr")  # pyright: ignore[reportAssignmentType]
     hyperlink = ZeroOrMore("w:hyperlink")
@@ -78,12 +78,12 @@ class CT_P(BaseOxmlElement):
             self.remove(child)
 
     @property
-    def inner_content_elements(self) -> List[CT_R | CT_Hyperlink]:
+    def inner_content_elements(self) -> list[CT_R | CT_Hyperlink]:
         """Run and hyperlink children of the `w:p` element, in document order."""
         return self.xpath("./w:r | ./w:hyperlink")
 
     @property
-    def lastRenderedPageBreaks(self) -> List[CT_LastRenderedPageBreak]:
+    def lastRenderedPageBreaks(self) -> list[CT_LastRenderedPageBreak]:
         """All `w:lastRenderedPageBreak` descendants of this paragraph.
 
         Rendered page-breaks commonly occur in a run but can also occur in a run inside
@@ -125,7 +125,7 @@ class CT_P(BaseOxmlElement):
         return "".join(e.text for e in self.xpath("w:r | w:hyperlink"))
 
     @property
-    def tracked_change_elements(self) -> List[CT_Ins | CT_Del]:
+    def tracked_change_elements(self) -> list[CT_Ins | CT_Del]:
         """`w:ins` and `w:del` children of this paragraph, in document order."""
         return self.xpath("./w:ins | ./w:del")
 

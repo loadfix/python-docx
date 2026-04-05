@@ -84,7 +84,7 @@ class CT_Inline(BaseOxmlElement):
         inline.extent.cx = cx
         inline.extent.cy = cy
         inline.docPr.id = shape_id
-        inline.docPr.name = "Picture %d" % shape_id
+        inline.docPr.name = f"Picture {shape_id}"
         inline.graphic.graphicData.uri = "http://schemas.openxmlformats.org/drawingml/2006/picture"
         inline.graphic.graphicData._insert_pic(pic)
         return inline
@@ -125,7 +125,7 @@ class CT_Inline(BaseOxmlElement):
     @classmethod
     def _inline_xml(cls):
         return (
-            '<wp:inline distT="0" distB="0" distL="0" distR="0" %s>\n'
+            f'<wp:inline distT="0" distB="0" distL="0" distR="0" {nsdecls("wp", "a", "pic", "r")}>\n'
             '  <wp:extent cx="914400" cy="914400"/>\n'
             '  <wp:effectExtent l="0" t="0" r="0" b="0"/>\n'
             '  <wp:docPr id="666" name="unnamed"/>\n'
@@ -135,7 +135,7 @@ class CT_Inline(BaseOxmlElement):
             "  <a:graphic>\n"
             '    <a:graphicData uri="URI not set"/>\n'
             "  </a:graphic>\n"
-            "</wp:inline>" % nsdecls("wp", "a", "pic", "r")
+            "</wp:inline>"
         )
 
 
@@ -203,7 +203,7 @@ class CT_Picture(BaseOxmlElement):
     @classmethod
     def _svg_pic_xml(cls) -> str:
         return (
-            "<pic:pic %s>\n"
+            f"<pic:pic {nsdecls('pic', 'a', 'r', 'asvg')}>\n"
             "  <pic:nvPicPr>\n"
             '    <pic:cNvPr id="666" name="unnamed"/>\n'
             "    <pic:cNvPicPr/>\n"
@@ -227,13 +227,13 @@ class CT_Picture(BaseOxmlElement):
             "    </a:xfrm>\n"
             '    <a:prstGeom prst="rect"/>\n'
             "  </pic:spPr>\n"
-            "</pic:pic>" % nsdecls("pic", "a", "r", "asvg")
+            "</pic:pic>"
         )
 
     @classmethod
     def _pic_xml(cls):
         return (
-            "<pic:pic %s>\n"
+            f"<pic:pic {nsdecls('pic', 'a', 'r')}>\n"
             "  <pic:nvPicPr>\n"
             '    <pic:cNvPr id="666" name="unnamed"/>\n'
             "    <pic:cNvPicPr/>\n"
@@ -251,7 +251,7 @@ class CT_Picture(BaseOxmlElement):
             "    </a:xfrm>\n"
             '    <a:prstGeom prst="rect"/>\n'
             "  </pic:spPr>\n"
-            "</pic:pic>" % nsdecls("pic", "a", "r")
+            "</pic:pic>"
         )
 
 

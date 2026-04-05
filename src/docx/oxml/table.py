@@ -273,7 +273,7 @@ class CT_Tbl(BaseOxmlElement):
     def _tblGrid_xml(cls, col_count: int, col_width: Length) -> str:
         xml = "  <w:tblGrid>\n"
         for _ in range(col_count):
-            xml += '    <w:gridCol w:w="%d"/>\n' % col_width.twips
+            xml += f'    <w:gridCol w:w="{col_width.twips}"/>\n'
         xml += "  </w:tblGrid>\n"
         return xml
 
@@ -556,7 +556,7 @@ class CT_Tc(BaseOxmlElement):
     @classmethod
     def new(cls) -> CT_Tc:
         """A new `w:tc` element, containing an empty paragraph as the required EG_BlockLevelElt."""
-        return cast(CT_Tc, parse_xml("<w:tc %s><w:p/></w:tc>" % nsdecls("w")))
+        return cast(CT_Tc, parse_xml(f"<w:tc {nsdecls('w')}><w:p/></w:tc>"))
 
     @property
     def right(self) -> int:

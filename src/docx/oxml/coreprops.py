@@ -201,9 +201,7 @@ class CT_CoreProperties(BaseOxmlElement):
     )
     version = ZeroOrOne("cp:version", successors=())
 
-    _coreProperties_tmpl = "<cp:coreProperties %s/>\n" % nsdecls(
-        "cp", "dc", "dcmitype", "dcterms", "xsi"
-    )
+    _coreProperties_tmpl = f"<cp:coreProperties {nsdecls('cp', 'dc', 'dcmitype', 'dcterms', 'xsi')}/>\n"
 
     @classmethod
     def new(cls) -> CT_CoreProperties:
@@ -322,8 +320,7 @@ class CT_CoreProperties(BaseOxmlElement):
     def revision_number(self, value: int):
         """Set revision property to string value of integer `value`."""
         if not isinstance(value, int) or value < 1:  # pyright: ignore[reportUnnecessaryIsInstance]
-            tmpl = "revision property requires positive int, got '%s'"
-            raise ValueError(tmpl % value)
+            raise ValueError(f"revision property requires positive int, got '{value}'")
         revision = self.get_or_add_revision()
         revision.text = str(value)
 
@@ -364,7 +361,7 @@ class CT_CoreProperties(BaseOxmlElement):
 
     def _get_or_add(self, prop_name: str) -> BaseOxmlElement:
         """Return element returned by "get_or_add_" method for `prop_name`."""
-        get_or_add_method_name = "get_or_add_%s" % prop_name
+        get_or_add_method_name = f"get_or_add_{prop_name}"
         get_or_add_method = getattr(self, get_or_add_method_name)
         element = get_or_add_method()
         return element
@@ -377,7 +374,7 @@ class CT_CoreProperties(BaseOxmlElement):
         """
         match = cls._offset_pattern.match(offset_str)
         if match is None:
-            raise ValueError("'%s' is not a valid offset string" % offset_str)
+            raise ValueError(f"'{offset_str}' is not a valid offset string")
         sign, hours_str, minutes_str = match.groups()
         sign_factor = -1 if sign == "+" else 1
         hours = int(hours_str) * sign_factor
@@ -412,8 +409,7 @@ class CT_CoreProperties(BaseOxmlElement):
             except ValueError:
                 continue
         if dt_ is None:
-            tmpl = "could not parse W3CDTF datetime string '%s'"
-            raise ValueError(tmpl % w3cdtf_str)
+            raise ValueError(f"could not parse W3CDTF datetime string '{w3cdtf_str}'")
         if len(offset_str) == 6:
             dt_ = cls._offset_dt(dt_, offset_str)
         return dt_.replace(tzinfo=dt.timezone.utc)
@@ -421,8 +417,7 @@ class CT_CoreProperties(BaseOxmlElement):
     def _set_element_datetime(self, prop_name: str, value: dt.datetime) -> None:
         """Set date/time value of child element having `prop_name` to `value`."""
         if not isinstance(value, dt.datetime):  # pyright: ignore[reportUnnecessaryIsInstance]
-            tmpl = "property requires <type 'datetime.datetime'> object, got %s"
-            raise ValueError(tmpl % type(value))
+            raise ValueError(f"property requires <type 'datetime.datetime'> object, got {type(value)}")
         element = self._get_or_add(prop_name)
         dt_str = value.strftime("%Y-%m-%dT%H:%M:%SZ")
         element.text = dt_str
@@ -441,8 +436,7 @@ class CT_CoreProperties(BaseOxmlElement):
             value = str(value)
 
         if len(value) > 255:
-            tmpl = "exceeded 255 char limit for property, got:\n\n'%s'"
-            raise ValueError(tmpl % value)
+            raise ValueError(f"exceeded 255 char limit for property, got:\n\n'{value}'")
         element = self._get_or_add(prop_name)
         element.text = value
 

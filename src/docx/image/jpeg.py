@@ -3,6 +3,8 @@
 Includes both JFIF and Exif sub-formats.
 """
 
+from __future__ import annotations
+
 import io
 
 from docx.image.constants import JPEG_MARKER_CODE, MIME_TYPE
@@ -66,24 +68,18 @@ class _JfifMarkers:
     performance reasons."""
 
     def __init__(self, markers):
-        super(_JfifMarkers, self).__init__()
+        super().__init__()
         self._markers = list(markers)
 
     def __str__(self):  # pragma: no cover
         """Returns a tabular listing of the markers in this instance, which can be handy
         for debugging and perhaps other uses."""
         header = " offset  seglen  mc  name\n=======  ======  ==  ====="
-        tmpl = "%7d  %6d  %02X  %s"
         rows = []
         for marker in self._markers:
             rows.append(
-                tmpl
-                % (
-                    marker.offset,
-                    marker.segment_length,
-                    ord(marker.marker_code),
-                    marker.name,
-                )
+                f"{marker.offset:7d}  {marker.segment_length:6d}"
+                f"  {ord(marker.marker_code):02X}  {marker.name}"
             )
         lines = [header] + rows
         return "\n".join(lines)
@@ -130,7 +126,7 @@ class _MarkerParser:
     markers."""
 
     def __init__(self, stream_reader):
-        super(_MarkerParser, self).__init__()
+        super().__init__()
         self._stream = stream_reader
 
     @classmethod
@@ -156,7 +152,7 @@ class _MarkerFinder:
     """Service class that knows how to find the next JFIF marker in a stream."""
 
     def __init__(self, stream):
-        super(_MarkerFinder, self).__init__()
+        super().__init__()
         self._stream = stream
 
     @classmethod
@@ -246,7 +242,7 @@ class _Marker:
     """
 
     def __init__(self, marker_code, offset, segment_length):
-        super(_Marker, self).__init__()
+        super().__init__()
         self._marker_code = marker_code
         self._offset = offset
         self._segment_length = segment_length
@@ -285,7 +281,7 @@ class _App0Marker(_Marker):
     """Represents a JFIF APP0 marker segment."""
 
     def __init__(self, marker_code, offset, length, density_units, x_density, y_density):
-        super(_App0Marker, self).__init__(marker_code, offset, length)
+        super().__init__(marker_code, offset, length)
         self._density_units = density_units
         self._x_density = x_density
         self._y_density = y_density
@@ -337,7 +333,7 @@ class _App1Marker(_Marker):
     """Represents a JFIF APP1 (Exif) marker segment."""
 
     def __init__(self, marker_code, offset, length, horz_dpi, vert_dpi):
-        super(_App1Marker, self).__init__(marker_code, offset, length)
+        super().__init__(marker_code, offset, length)
         self._horz_dpi = horz_dpi
         self._vert_dpi = vert_dpi
 
@@ -395,7 +391,7 @@ class _SofMarker(_Marker):
     """Represents a JFIF start of frame (SOFx) marker segment."""
 
     def __init__(self, marker_code, offset, segment_length, px_width, px_height):
-        super(_SofMarker, self).__init__(marker_code, offset, segment_length)
+        super().__init__(marker_code, offset, segment_length)
         self._px_width = px_width
         self._px_height = px_height
 

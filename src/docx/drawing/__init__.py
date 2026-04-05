@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from docx.enum.shape import WD_DRAWING_TYPE
 from docx.oxml.drawing import CT_Drawing
@@ -73,14 +73,14 @@ class Drawing(Parented):
         return "\n".join(txbx.text for txbx in txbxContent_elements)
 
     @property
-    def paragraphs(self) -> List[Paragraph]:
+    def paragraphs(self) -> list[Paragraph]:
         """All paragraphs inside this drawing's text frames.
 
         Returns an empty list when the drawing contains no text content.
         """
         from docx.text.paragraph import Paragraph as ParagraphCls
 
-        paragraphs: List[Paragraph] = []
+        paragraphs: list[Paragraph] = []
         for txbxContent in self._drawing.txbxContent_lst:
             for p in txbxContent.p_lst:
                 paragraphs.append(ParagraphCls(p, self._parent))

@@ -40,7 +40,7 @@ class BlockItemContainer(StoryChild):
     """
 
     def __init__(self, element: BlockItemElement, parent: t.ProvidesStoryPart):
-        super(BlockItemContainer, self).__init__(parent)
+        super().__init__(parent)
         self._element = element
 
     def add_paragraph(self, text: str = "", style: str | ParagraphStyle | None = None) -> Paragraph:

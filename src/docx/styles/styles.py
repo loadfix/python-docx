@@ -44,7 +44,7 @@ class Styles(ElementProxy):
             warn(msg, UserWarning, stacklevel=2)
             return StyleFactory(style_elm)
 
-        raise KeyError("no style with name '%s'" % key)
+        raise KeyError(f"no style with name '{key}'")
 
     def __iter__(self):
         return (StyleFactory(style) for style in self._element.style_lst)
@@ -59,7 +59,7 @@ class Styles(ElementProxy):
         argument.
         """
         if name in self:
-            raise ValueError("document already contains style '%s'" % name)
+            raise ValueError(f"document already contains style '{name}'")
         style_name = BabelFish.ui2internal(name)
         style = self._element.add_style_of_type(style_name, style_type, builtin)
         return StyleFactory(style)
@@ -130,7 +130,7 @@ class Styles(ElementProxy):
         Raises |ValueError| if style is not of `style_type`.
         """
         if style.type != style_type:
-            raise ValueError("assigned style is type %s, need type %s" % (style.type, style_type))
+            raise ValueError(f"assigned style is type {style.type}, need type {style_type}")
         if style == self.default(style_type):
             return None
         return style.style_id

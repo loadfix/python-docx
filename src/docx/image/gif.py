@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from struct import Struct
 
 from .constants import MIME_TYPE

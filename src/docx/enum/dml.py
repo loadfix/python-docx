@@ -1,5 +1,7 @@
 """Enumerations used by DrawingML objects."""
 
+from __future__ import annotations
+
 from .base import BaseEnum, BaseXmlEnum
 
 

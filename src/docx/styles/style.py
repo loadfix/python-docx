@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Type
-
 from docx.enum.style import WD_STYLE_TYPE
 from docx.oxml.styles import CT_Style
 from docx.shared import ElementProxy
@@ -11,10 +9,9 @@ from docx.styles import BabelFish
 from docx.text.font import Font
 from docx.text.parfmt import ParagraphFormat
 
-
 def StyleFactory(style_elm: CT_Style) -> BaseStyle:
     """Return `Style` object of appropriate |BaseStyle| subclass for `style_elm`."""
-    style_cls: Type[BaseStyle] = {
+    style_cls: type[BaseStyle] = {
         WD_STYLE_TYPE.PARAGRAPH: ParagraphStyle,
         WD_STYLE_TYPE.CHARACTER: CharacterStyle,
         WD_STYLE_TYPE.TABLE: _TableStyle,
@@ -22,7 +19,6 @@ def StyleFactory(style_elm: CT_Style) -> BaseStyle:
     }[style_elm.type]
 
     return style_cls(style_elm)
-
 
 class BaseStyle(ElementProxy):
     """Base class for the various types of style object, paragraph, character, table,
@@ -160,7 +156,6 @@ class BaseStyle(ElementProxy):
     def unhide_when_used(self, value):
         self._element.unhideWhenUsed_val = value
 
-
 class CharacterStyle(BaseStyle):
     """A character style.
 
@@ -188,7 +183,6 @@ class CharacterStyle(BaseStyle):
         this style, such as font name and size."""
         return Font(self._element)
 
-
 class ParagraphStyle(CharacterStyle):
     """A paragraph style.
 
@@ -197,7 +191,7 @@ class ParagraphStyle(CharacterStyle):
     """
 
     def __repr__(self):
-        return "_ParagraphStyle('%s') id: %s" % (self.name, id(self))
+        return f"_ParagraphStyle('{self.name}') id: {id(self)}"
 
     @property
     def next_paragraph_style(self):
@@ -227,7 +221,6 @@ class ParagraphStyle(CharacterStyle):
         properties for this style such as indentation."""
         return ParagraphFormat(self._element)
 
-
 class _TableStyle(ParagraphStyle):
     """A table style.
 
@@ -236,8 +229,7 @@ class _TableStyle(ParagraphStyle):
     """
 
     def __repr__(self):
-        return "_TableStyle('%s') id: %s" % (self.name, id(self))
-
+        return f"_TableStyle('{self.name}') id: {id(self)}"
 
 class _NumberingStyle(BaseStyle):
     """A numbering style.

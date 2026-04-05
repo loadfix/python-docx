@@ -4,6 +4,8 @@ The base exception class is OpcError.
 """
 
 
+from __future__ import annotations
+
 class OpcError(Exception):
     """Base error class for python-opc."""
 

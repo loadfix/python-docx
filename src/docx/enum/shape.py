@@ -1,5 +1,7 @@
 """Enumerations related to DrawingML shapes in WordprocessingML files."""
 
+from __future__ import annotations
+
 import enum
 
 

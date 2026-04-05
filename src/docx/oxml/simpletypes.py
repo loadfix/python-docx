@@ -10,7 +10,7 @@ schema.
 from __future__ import annotations
 
 import datetime as dt
-from typing import TYPE_CHECKING, Any, Tuple
+from typing import TYPE_CHECKING, Any
 
 from docx.exceptions import InvalidXmlError
 from docx.shared import Emu, Pt, RGBColor, Twips
@@ -45,21 +45,20 @@ class BaseSimpleType:
     @classmethod
     def validate_int(cls, value: object):
         if not isinstance(value, int):
-            raise TypeError("value must be <type 'int'>, got %s" % type(value))
+            raise TypeError(f"value must be <type 'int'>, got {type(value)}")
 
     @classmethod
     def validate_int_in_range(cls, value: int, min_inclusive: int, max_inclusive: int) -> None:
         cls.validate_int(value)
         if value < min_inclusive or value > max_inclusive:
             raise ValueError(
-                "value must be in range %d to %d inclusive, got %d"
-                % (min_inclusive, max_inclusive, value)
+                f"value must be in range {min_inclusive} to {max_inclusive} inclusive, got {value}"
             )
 
     @classmethod
     def validate_string(cls, value: Any) -> str:
         if not isinstance(value, str):
-            raise TypeError("value must be a string, got %s" % type(value))
+            raise TypeError(f"value must be a string, got {type(value)}")
         return value
 
 
@@ -92,13 +91,13 @@ class BaseStringType(BaseSimpleType):
 
 
 class BaseStringEnumerationType(BaseStringType):
-    _members: Tuple[str, ...]
+    _members: tuple[str, ...]
 
     @classmethod
     def validate(cls, value: Any) -> None:
         cls.validate_string(value)
         if value not in cls._members:
-            raise ValueError("must be one of %s, got '%s'" % (cls._members, value))
+            raise ValueError(f"must be one of {cls._members}, got '{value}'")
 
 
 class XsdAnyUri(BaseStringType):
@@ -114,7 +113,7 @@ class XsdBoolean(BaseSimpleType):
     def convert_from_xml(cls, str_value: str) -> bool:
         if str_value not in ("1", "0", "true", "false"):
             raise InvalidXmlError(
-                "value must be one of '1', '0', 'true' or 'false', got '%s'" % str_value
+                f"value must be one of '1', '0', 'true' or 'false', got '{str_value}'"
             )
         return str_value in ("1", "true")
 
@@ -126,7 +125,7 @@ class XsdBoolean(BaseSimpleType):
     def validate(cls, value: Any) -> None:
         if value not in (True, False):
             raise TypeError(
-                "only True or False (and possibly None) may be assigned, got '%s'" % value
+                f"only True or False (and possibly None) may be assigned, got '{value}'"
             )
 
 
@@ -184,7 +183,7 @@ class ST_BrClear(XsdString):
         cls.validate_string(value)
         valid_values = ("none", "left", "right", "all")
         if value not in valid_values:
-            raise ValueError("must be one of %s, got '%s'" % (valid_values, value))
+            raise ValueError(f"must be one of {valid_values}, got '{value}'")
 
 
 class ST_BrType(XsdString):
@@ -193,7 +192,7 @@ class ST_BrType(XsdString):
         cls.validate_string(value)
         valid_values = ("page", "column", "textWrapping")
         if value not in valid_values:
-            raise ValueError("must be one of %s, got '%s'" % (valid_values, value))
+            raise ValueError(f"must be one of {valid_values}, got '{value}'")
 
 
 class ST_Coordinate(BaseIntType):
@@ -263,7 +262,7 @@ class ST_DateTime(BaseSimpleType):
     @classmethod
     def validate(cls, value: Any) -> None:
         if not isinstance(value, dt.datetime):
-            raise TypeError("only a datetime.datetime object may be assigned, got '%s'" % value)
+            raise TypeError(f"only a datetime.datetime object may be assigned, got '{value}'")
 
 
 class ST_DecimalNumber(XsdInt):
@@ -289,14 +288,14 @@ class ST_HexColor(BaseStringType):
     ) -> str:
         """Keep alpha hex numerals all uppercase just for consistency."""
         # expecting 3-tuple of ints in range 0-255
-        return "%02X%02X%02X" % value
+        return f"{value[0]:02X}{value[1]:02X}{value[2]:02X}"
 
     @classmethod
     def validate(cls, value: Any) -> None:
         # must be an RGBColor object ---
         if not isinstance(value, RGBColor):
             raise ValueError(
-                "rgb color value must be RGBColor object, got %s %s" % (type(value), value)
+                f"rgb color value must be RGBColor object, got {type(value)} {value}"
             )
 
 
@@ -338,8 +337,7 @@ class ST_OnOff(XsdBoolean):
     def convert_from_xml(cls, str_value: str) -> bool:
         if str_value not in ("1", "0", "true", "false", "on", "off"):
             raise InvalidXmlError(
-                "value must be one of '1', '0', 'true', 'false', 'on', or 'o"
-                "ff', got '%s'" % str_value
+                f"value must be one of '1', '0', 'true', 'false', 'on', or 'off', got '{str_value}'"
             )
         return str_value in ("1", "true", "on")
 
@@ -382,7 +380,7 @@ class ST_TblLayoutType(XsdString):
         cls.validate_string(value)
         valid_values = ("fixed", "autofit")
         if value not in valid_values:
-            raise ValueError("must be one of %s, got '%s'" % (valid_values, value))
+            raise ValueError(f"must be one of {valid_values}, got '{value}'")
 
 
 class ST_TblWidth(XsdString):
@@ -391,7 +389,7 @@ class ST_TblWidth(XsdString):
         cls.validate_string(value)
         valid_values = ("auto", "dxa", "nil", "pct")
         if value not in valid_values:
-            raise ValueError("must be one of %s, got '%s'" % (valid_values, value))
+            raise ValueError(f"must be one of {valid_values}, got '{value}'")
 
 
 class ST_TwipsMeasure(XsdUnsignedLong):
