@@ -54,6 +54,16 @@ class DescribeCT_CustomProperties:
 
         assert prop.value == when
 
+    def it_converts_non_UTC_datetime_to_UTC_before_serialization(self):
+        props = CT_CustomProperties.new()
+        tz_plus5 = dt.timezone(dt.timedelta(hours=5))
+        when = dt.datetime(2024, 1, 15, 10, 0, 0, tzinfo=tz_plus5)
+
+        prop = props.add_property("DueDate", when)
+
+        expected = dt.datetime(2024, 1, 15, 5, 0, 0, tzinfo=dt.timezone.utc)
+        assert prop.value == expected
+
     def it_assigns_incrementing_pids(self):
         props = CT_CustomProperties.new()
         p1 = props.add_property("A", "a")

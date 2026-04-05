@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.bookmarks import Bookmarks
     from docx.comments import Comment, Comments
+    from docx.custom_properties import CustomProperties
     from docx.footnotes import Footnotes
     from docx.oxml.document import CT_Body, CT_Document
     from docx.parts.document import DocumentPart
@@ -191,7 +192,7 @@ class Document(ElementProxy):
         return self._part.core_properties
 
     @property
-    def custom_properties(self):
+    def custom_properties(self) -> CustomProperties:
         """A |CustomProperties| object providing access to custom document properties."""
         return self._part.custom_properties
 

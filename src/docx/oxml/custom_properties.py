@@ -8,18 +8,21 @@ Each property has a typed value drawn from the ``vt:`` (docPropsVTypes) namespac
 from __future__ import annotations
 
 import datetime as dt
-from typing import List, cast
+from typing import cast
 from xml.sax.saxutils import escape, quoteattr
 
 from lxml import etree
 
-from docx.oxml.ns import nsdecls, qn
+from docx.oxml.ns import nsdecls
 from docx.oxml.parser import parse_xml
-from docx.oxml.xmlchemy import BaseOxmlElement
+from docx.oxml.xmlchemy import BaseOxmlElement, ZeroOrMore
 
 
 class CT_CustomProperties(BaseOxmlElement):
     """`<Properties>` element, root of the custom properties part."""
+
+    # -- type-declarations to fill in the gaps for metaclass-added methods --
+    property_lst: list[CT_CustomProperty]
 
     _customProperties_tmpl = (
         '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/'
@@ -30,10 +33,6 @@ class CT_CustomProperties(BaseOxmlElement):
     def new(cls) -> CT_CustomProperties:
         xml = cls._customProperties_tmpl
         return cast(CT_CustomProperties, parse_xml(xml))
-
-    @property
-    def property_lst(self) -> List[CT_CustomProperty]:
-        return self.findall(qn("cust-p:property"))  # pyright: ignore[reportReturnType]
 
     @property
     def _next_pid(self) -> int:
@@ -50,6 +49,9 @@ class CT_CustomProperties(BaseOxmlElement):
             if prop.property_name == name:
                 return prop
         return None
+
+    # -- declared after @property uses to avoid shadowing the builtin --
+    property = ZeroOrMore("cust-p:property")
 
 
 class CT_CustomProperty(BaseOxmlElement):
@@ -106,6 +108,8 @@ class CT_CustomProperty(BaseOxmlElement):
         elif isinstance(value, float):
             return "vt:r8", str(value)
         elif isinstance(value, dt.datetime):
+            if value.tzinfo is not None:
+                value = value.astimezone(dt.timezone.utc)
             return "vt:filetime", value.strftime("%Y-%m-%dT%H:%M:%SZ")
         else:
             return "vt:lpwstr", escape(str(value))
