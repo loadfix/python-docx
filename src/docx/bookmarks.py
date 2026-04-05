@@ -57,7 +57,9 @@ class Bookmark:
         """Remove this bookmark from the document."""
         bookmark_id = str(self._bookmarkStart.id)
         # -- find and remove the matching bookmarkEnd --
-        ends = self._body.xpath(f".//w:bookmarkEnd[@w:id='{bookmark_id}']")
+        ends = self._body.xpath(
+            ".//w:bookmarkEnd[@w:id=$bid]", bid=bookmark_id
+        )
         for end in ends:
             end.getparent().remove(end)
         # -- remove the bookmarkStart --

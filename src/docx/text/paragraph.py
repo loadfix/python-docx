@@ -67,7 +67,9 @@ class Paragraph(StoryChild):
             start_run._r.insert_bookmark_start_before(bookmark_id, name)
             end_run._r.insert_bookmark_end_after(bookmark_id)
 
-        bookmarkStart = self._p.xpath(f".//w:bookmarkStart[@w:id='{bookmark_id}']")
+        bookmarkStart = self._p.xpath(
+            ".//w:bookmarkStart[@w:id=$bid]", bid=bookmark_id
+        )
         return Bookmark(bookmarkStart[0], body)
 
     def _get_body(self) -> CT_Body:
