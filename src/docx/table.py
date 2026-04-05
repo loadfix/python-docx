@@ -11,7 +11,7 @@ from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.table import WD_BORDER_STYLE, WD_CELL_VERTICAL_ALIGNMENT
 from docx.oxml.simpletypes import ST_Merge
 from docx.oxml.table import CT_Border, CT_TblGridCol
-from docx.shared import ElementProxy, Inches, Parented, Pt, RGBColor, StoryChild, lazyproperty
+from docx.shared import Inches, Parented, Pt, RGBColor, StoryChild, lazyproperty
 
 if TYPE_CHECKING:
     import docx.types as t
@@ -298,7 +298,7 @@ class BorderElement:
         return self._element.color
 
     @color.setter
-    def color(self, value: RGBColor | None) -> None:
+    def color(self, value: RGBColor | str | None) -> None:
         self._ensure_element().color = value
 
 

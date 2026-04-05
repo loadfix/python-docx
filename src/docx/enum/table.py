@@ -206,6 +206,15 @@ class WD_BORDER_STYLE(BaseXmlEnum):
     INSET = (24, "inset", "An inset line.")
     """An inset line."""
 
+    NIL = (-1, "nil", "Explicitly no border (suppresses style inheritance).")
+    """Explicitly no border; overrides any inherited border from a table style."""
+
+    THICK = (25, "thick", "A thick line.")
+    """A thick line."""
+
+    CLEAR = (26, "clear", "A clear (invisible) border that still occupies space.")
+    """A clear (invisible) border that still occupies space."""
+
 
 class WD_TABLE_DIRECTION(BaseEnum):
     """Specifies the direction in which an application orders cells in the specified
