@@ -684,12 +684,12 @@ class BaseOxmlElement(etree.ElementBase, metaclass=MetaOxmlElement):
         """
         return serialize_for_reading(self)
 
-    def xpath(self, xpath_str: str) -> Any:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def xpath(self, xpath_str: str, **kwargs: Any) -> Any:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Override of `lxml` _Element.xpath() method.
 
         Provides standard Open XML namespace mapping (`nsmap`) in centralized location.
         """
-        return super().xpath(xpath_str, namespaces=nsmap)
+        return super().xpath(xpath_str, namespaces=nsmap, **kwargs)
 
     @property
     def _nsptag(self) -> str:
