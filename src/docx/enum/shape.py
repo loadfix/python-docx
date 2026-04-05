@@ -17,3 +17,14 @@ class WD_INLINE_SHAPE_TYPE(enum.Enum):
 
 
 WD_INLINE_SHAPE = WD_INLINE_SHAPE_TYPE
+
+
+class WD_DRAWING_TYPE(enum.Enum):
+    """Type of content contained in a `<w:drawing>` element."""
+
+    SHAPE = 1
+    TEXT_BOX = 2
+    GROUP = 3
+    CHART = 4
+    DIAGRAM = 5
+    PICTURE = 6
