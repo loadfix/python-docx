@@ -3,6 +3,8 @@ name: Product Agent
 on:
   issues:
     types: [labeled]
+  issue_comment:
+    types: [created]
 
 concurrency:
   group: agent-product-${{ github.event.issue.number }}
@@ -15,7 +17,11 @@ permissions:
 
 jobs:
   review:
-    if: github.event.label.name == 'agent'
+    if: |
+      github.event.label.name == 'agent' ||
+      (github.event_name == 'issue_comment' &&
+       !contains(github.event.comment.user.login, '[bot]') &&
+       contains(github.event.issue.labels.*.name, 'agent'))
     runs-on:
       - codebuild-github-runner-python-docx-${{ github.run_id }}-${{ github.run_attempt }}
     timeout-minutes: 15
