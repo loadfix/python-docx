@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.comments import Comment, Comments
     from docx.footnotes import Footnotes
+    from docx.numbering import Numbering
     from docx.oxml.document import CT_Body, CT_Document
     from docx.parts.document import DocumentPart
     from docx.settings import Settings
@@ -166,6 +167,11 @@ class Document(ElementProxy):
     def footnotes(self) -> Footnotes:
         """A |Footnotes| object providing access to footnotes in the document."""
         return self._part.footnotes
+
+    @property
+    def numbering(self) -> Numbering:
+        """A |Numbering| object providing access to the numbering definitions."""
+        return self._part.numbering
 
     @property
     def core_properties(self):

@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from docx.comments import Comments
     from docx.enum.style import WD_STYLE_TYPE
     from docx.footnotes import Footnotes
+    from docx.numbering import Numbering
     from docx.opc.coreprops import CoreProperties
     from docx.settings import Settings
     from docx.styles.style import BaseStyle
@@ -115,6 +116,13 @@ class DocumentPart(StoryPart):
     def inline_shapes(self):
         """The |InlineShapes| instance containing the inline shapes in the document."""
         return InlineShapes(self._element.body, self)
+
+    @property
+    def numbering(self) -> Numbering:
+        """A |Numbering| object providing access to the numbering definitions."""
+        from docx.numbering import Numbering as NumberingCls
+
+        return NumberingCls(self.numbering_part.numbering_element, self)
 
     @lazyproperty
     def numbering_part(self) -> NumberingPart:

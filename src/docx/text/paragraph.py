@@ -11,6 +11,7 @@ from docx.oxml.text.run import CT_R
 from docx.shared import StoryChild
 from docx.styles.style import ParagraphStyle
 from docx.text.hyperlink import Hyperlink
+from docx.text.listformat import ListFormat
 from docx.text.pagebreak import RenderedPageBreak
 from docx.text.parfmt import ParagraphFormat
 from docx.text.run import Run
@@ -124,6 +125,72 @@ class Paragraph(StoryChild):
     def hyperlinks(self) -> List[Hyperlink]:
         """A |Hyperlink| instance for each hyperlink in this paragraph."""
         return [Hyperlink(hyperlink, self) for hyperlink in self._p.hyperlink_lst]
+
+    @property
+    def list_format(self) -> ListFormat:
+        """A |ListFormat| object providing access to the list formatting properties
+        for this paragraph, such as the numbering definition and indent level."""
+        return ListFormat(self._p, self.part)
+
+    @property
+    def list_level(self) -> int | None:
+        """The list indentation level (0-8) for this paragraph.
+
+        Returns None if this paragraph is not part of a list. Assigning an int
+        sets the level; assigning None removes it.
+        """
+        return self.list_format.level
+
+    @list_level.setter
+    def list_level(self, value: int | None) -> None:
+        self.list_format.level = value
+
+    @property
+    def numbering_format(self) -> str | None:
+        """The current numbering format string (e.g. "decimal", "bullet") for this
+        paragraph, or None if the paragraph is not part of a list.
+
+        This is read-only. To change numbering, use ``list_format``.
+        """
+        list_fmt = self.list_format
+        num_id = list_fmt.num_id
+        if num_id is None or num_id == 0:
+            return None
+        level = list_fmt.level or 0
+        try:
+            numbering_part = self.part.numbering_part
+            numbering_elm = numbering_part.numbering_element
+            num = numbering_elm.num_having_numId(num_id)
+            abstract_num_id = num.abstractNumId_val
+            abstract_num = numbering_elm.abstractNum_having_abstractNumId(abstract_num_id)
+            lvl = abstract_num.lvl_for_ilvl(level)
+            if lvl is not None:
+                return lvl.numFmt_val
+        except (KeyError, AttributeError):
+            pass
+        return None
+
+    def restart_numbering(self) -> None:
+        """Restart the numbered list counter at 1 for this paragraph.
+
+        Creates a new ``<w:num>`` element referencing the same abstract numbering
+        definition but with a ``<w:lvlOverride>/<w:startOverride>`` set to 1.
+        """
+        list_fmt = self.list_format
+        num_id = list_fmt.num_id
+        if num_id is None or num_id == 0:
+            return
+
+        numbering_part = self.part.numbering_part
+        numbering_elm = numbering_part.numbering_element
+        num = numbering_elm.num_having_numId(num_id)
+        abstract_num_id = num.abstractNumId_val
+
+        new_num = numbering_elm.add_num(abstract_num_id)
+        lvl_override = new_num.add_lvlOverride(ilvl=0)
+        lvl_override.add_startOverride(val=1)
+
+        list_fmt.num_id = new_num.numId
 
     def insert_section_break(
         self, start_type: WD_SECTION_START = WD_SECTION_START.NEW_PAGE
