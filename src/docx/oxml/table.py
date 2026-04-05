@@ -70,7 +70,7 @@ class CT_Row(BaseOxmlElement):
         trPr = self.trPr
         if trPr is None:
             return True
-        return trPr.allow_break_across_pages  # pyright: ignore[reportReturnType]
+        return trPr.allow_break_across_pages
 
     @allow_break_across_pages.setter
     def allow_break_across_pages(self, value: bool | None):
@@ -945,7 +945,7 @@ class CT_TrPr(BaseOxmlElement):
     del _tag_seq
 
     @property
-    def allow_break_across_pages(self) -> bool | None:
+    def allow_break_across_pages(self) -> bool:
         """Value of `w:cantSplit` element, with inverted logic.
 
         |True| when `w:cantSplit` is not present or its val is False, |False| when
