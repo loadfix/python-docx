@@ -52,6 +52,11 @@ class DescribeDirPkgReader:
         rels_xml = dir_reader.rels_xml_for(partname)
         assert rels_xml is None
 
+    def it_raises_on_path_traversal(self, dir_reader):
+        pack_uri = PackURI("/../../../etc/passwd")
+        with pytest.raises(ValueError, match="resolves outside package directory"):
+            dir_reader.blob_for(pack_uri)
+
     # fixtures ---------------------------------------------
 
     @pytest.fixture
