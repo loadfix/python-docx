@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
-import random
+import secrets
 from typing import TYPE_CHECKING, Callable, cast
 
 from docx.oxml.ns import nsdecls, qn
@@ -77,8 +77,7 @@ class CT_Comments(BaseOxmlElement):
             parse_xml(
                 f'<w:comment {nsdecls("w", "w16cid")}'
                 f' w:id="{next_id}" w:author=""'
-                f' w16cid:paraId="{para_id}"'
-                f' w16cid:paraIdParent="{parent_paraId}">'
+                f' w16cid:paraId="{para_id}">'
                 f"  <w:p>"
                 f"    <w:pPr>"
                 f'      <w:pStyle w:val="CommentText"/>'
@@ -93,18 +92,20 @@ class CT_Comments(BaseOxmlElement):
                 f"</w:comment>"
             ),
         )
+        comment.set(qn("w16cid:paraIdParent"), parent_paraId)
         self.append(comment)
         return comment
 
     def get_replies_for(self, para_id: str) -> list[CT_Comment]:
         """Return list of `w:comment` elements whose `w16cid:paraIdParent` matches `para_id`."""
         return self.xpath(
-            f"./w:comment[@w16cid:paraIdParent='{para_id}']",
+            "./w:comment[@w16cid:paraIdParent=$paraId]",
+            paraId=para_id,
         )
 
     def get_comment_by_id(self, comment_id: int) -> CT_Comment | None:
         """Return the `w:comment` element identified by `comment_id`, or |None| if not found."""
-        comment_elms = self.xpath(f"(./w:comment[@w:id='{comment_id}'])[1]")
+        comment_elms = self.xpath("(./w:comment[@w:id=$commentId])[1]", commentId=comment_id)
         return comment_elms[0] if comment_elms else None
 
     def _next_unique_para_id(self) -> str:
@@ -114,7 +115,7 @@ class CT_Comments(BaseOxmlElement):
         """
         used_ids = set(self.xpath("./w:comment/@w16cid:paraId"))
         while True:
-            para_id = "%08X" % random.randint(0, 0xFFFFFFFF)
+            para_id = secrets.token_hex(4).upper()
             if para_id not in used_ids:
                 return para_id
 
