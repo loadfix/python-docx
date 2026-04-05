@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from docx.package import Package
 from tests.unitutil.mock import instance_mock
 
 if TYPE_CHECKING:
     from docx import types as t
-    from docx.package import Package
     from docx.parts.story import StoryPart
     from tests.unitutil.mock import FixtureRequest, Mock
 

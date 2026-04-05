@@ -32,7 +32,7 @@ Feature: Access and modify footnotes
     Given a new document with a footnote containing text
      When I clear the footnote
      Then the footnote has a single paragraph with FootnoteText style
-      And the footnote text is ""
+      And the footnote text is empty
 
 
   Scenario: Delete a footnote

@@ -108,7 +108,7 @@ def then_the_footnote_text_is(context: Context, text: str):
     assert actual == text, f"expected footnote text '{text}', got '{actual}'"
 
 
-@then('the footnote text is ""')
+@then("the footnote text is empty")
 def then_the_footnote_text_is_empty(context: Context):
     actual = context.footnote.text
     assert actual == "", f"expected empty footnote text, got '{actual}'"
