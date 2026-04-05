@@ -204,39 +204,6 @@ class DescribeTable:
     @pytest.mark.parametrize(
         ("tbl_cxml", "expected_value"),
         [
-            ("w:tbl/w:tblPr", True),
-            ("w:tbl/w:tblPr/w:tblLayout{w:type=autofit}", True),
-            ("w:tbl/w:tblPr/w:tblLayout{w:type=fixed}", False),
-        ],
-    )
-    def it_knows_its_allow_autofit_setting(
-        self, tbl_cxml: str, expected_value: bool, document_: Mock
-    ):
-        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
-        assert table.allow_autofit is expected_value
-
-    @pytest.mark.parametrize(
-        ("tbl_cxml", "new_value", "expected_cxml"),
-        [
-            ("w:tbl/w:tblPr", True, "w:tbl/w:tblPr/w:tblLayout{w:type=autofit}"),
-            ("w:tbl/w:tblPr", False, "w:tbl/w:tblPr/w:tblLayout{w:type=fixed}"),
-            (
-                "w:tbl/w:tblPr/w:tblLayout{w:type=fixed}",
-                True,
-                "w:tbl/w:tblPr/w:tblLayout{w:type=autofit}",
-            ),
-        ],
-    )
-    def it_can_change_its_allow_autofit_setting(
-        self, tbl_cxml: str, new_value: bool, expected_cxml: str, document_: Mock
-    ):
-        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
-        table.allow_autofit = new_value
-        assert table._tbl.xml == xml(expected_cxml)
-
-    @pytest.mark.parametrize(
-        ("tbl_cxml", "expected_value"),
-        [
             ("w:tbl/w:tblPr", WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS),
             (
                 "w:tbl/w:tblPr/w:tblLayout{w:type=autofit}",
@@ -284,6 +251,11 @@ class DescribeTable:
                 "w:tbl/w:tblPr/w:tblLayout{w:type=fixed}",
                 WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW,
                 "w:tbl/w:tblPr/(w:tblW{w:w=5000,w:type=pct},w:tblLayout{w:type=autofit})",
+            ),
+            (
+                "w:tbl/w:tblPr/(w:tblW{w:w=5000,w:type=pct},w:tblLayout{w:type=autofit})",
+                WD_TABLE_AUTOFIT.FIXED_WIDTH,
+                "w:tbl/w:tblPr/w:tblLayout{w:type=fixed}",
             ),
         ],
     )

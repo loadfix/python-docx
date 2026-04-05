@@ -29,14 +29,14 @@ based on cell contents. A fixed-width table retains its column widths
 regardless of the contents. Either algorithm will adjust column widths
 proportionately when total table width exceeds page width.
 
-The read/write :attr:`Table.allow_autofit` property specifies which algorithm
+The read/write :attr:`Table.autofit` property specifies which algorithm
 is used::
 
     >>> table = document.add_table(rows=2, cols=2)
-    >>> table.allow_autofit
+    >>> table.autofit
     True
-    >>> table.allow_autofit = False
-    >>> table.allow_autofit
+    >>> table.autofit = False
+    >>> table.autofit
     False
 
 

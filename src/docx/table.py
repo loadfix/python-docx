@@ -96,19 +96,6 @@ class Table(StoryChild):
         self._tblPr.autofit = value
 
     @property
-    def allow_autofit(self) -> bool:
-        """|True| if column widths can be automatically adjusted to improve the fit of
-        cell contents.
-
-        |False| if table layout is fixed. Read/write boolean.
-        """
-        return self._tblPr.autofit
-
-    @allow_autofit.setter
-    def allow_autofit(self, value: bool):
-        self._tblPr.autofit = value
-
-    @property
     def autofit_behavior(self) -> WD_TABLE_AUTOFIT:
         """A member of :ref:`WdAutoFitBehavior` indicating the AutoFit behavior for this
         table.
@@ -129,6 +116,7 @@ class Table(StoryChild):
         tblPr = self._tblPr
         if value == WD_TABLE_AUTOFIT.FIXED_WIDTH:
             tblPr.autofit = False
+            tblPr._remove_tblW()
         elif value == WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW:
             tblPr.autofit = True
             tblW = tblPr.get_or_add_tblW()
