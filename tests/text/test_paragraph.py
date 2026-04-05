@@ -11,7 +11,9 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.text.run import CT_R
 from docx.parts.document import DocumentPart
+from docx.parts.story import StoryPart
 from docx.section import Section
+from docx.text.hyperlink import Hyperlink
 from docx.text.paragraph import Paragraph
 from docx.text.parfmt import ParagraphFormat
 from docx.text.run import Run
@@ -33,6 +35,84 @@ class DescribeParagraph:
         assert paragraph.has_page_break is True
         assert len(paragraph.runs) == 1
         assert paragraph._p.xml == xml("w:p/w:r/w:br{w:type=page}")
+
+    def it_can_add_an_external_hyperlink(self, request: pytest.FixtureRequest):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.relate_to.return_value = "rId7"
+        story_part_.get_style_id.return_value = "Hyperlink"
+
+        class Parent:
+            @property
+            def part(self) -> StoryPart:
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, Parent())
+
+        hyperlink = paragraph.add_hyperlink("https://example.com", "Example")
+
+        assert isinstance(hyperlink, Hyperlink)
+        assert hyperlink.text == "Example"
+        assert len(p.hyperlink_lst) == 1
+        assert p.hyperlink_lst[0].rId == "rId7"
+        story_part_.relate_to.assert_called_once()
+
+    def it_can_add_an_internal_hyperlink(self, request: pytest.FixtureRequest):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.get_style_id.return_value = "Hyperlink"
+
+        class Parent:
+            @property
+            def part(self) -> StoryPart:
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, Parent())
+
+        hyperlink = paragraph.add_hyperlink("", anchor="_Toc123")
+
+        assert isinstance(hyperlink, Hyperlink)
+        assert hyperlink.text == "_Toc123"
+        assert hyperlink.fragment == "_Toc123"
+        assert p.hyperlink_lst[0].rId is None
+        assert p.hyperlink_lst[0].anchor == "_Toc123"
+        story_part_.relate_to.assert_not_called()
+
+    def it_defaults_text_to_url_when_not_provided(self, request: pytest.FixtureRequest):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.relate_to.return_value = "rId7"
+        story_part_.get_style_id.return_value = "Hyperlink"
+
+        class Parent:
+            @property
+            def part(self) -> StoryPart:
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, Parent())
+
+        hyperlink = paragraph.add_hyperlink("https://example.com")
+
+        assert hyperlink.text == "https://example.com"
+
+    def it_can_add_a_hyperlink_with_no_style(self, request: pytest.FixtureRequest):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.relate_to.return_value = "rId7"
+
+        class Parent:
+            @property
+            def part(self) -> StoryPart:
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, Parent())
+
+        hyperlink = paragraph.add_hyperlink("https://example.com", "Example", style=None)
+
+        assert isinstance(hyperlink, Hyperlink)
+        assert hyperlink.text == "Example"
+        # --- no style applied to the run ---
+        assert hyperlink.runs[0]._r.style is None
 
     @pytest.mark.parametrize(
         ("p_cxml", "expected_value"),

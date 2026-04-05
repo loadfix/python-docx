@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Iterator, List, cast
 from docx.enum.section import WD_SECTION_START
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml.text.run import CT_R
 from docx.shared import StoryChild
 from docx.styles.style import ParagraphStyle
@@ -29,6 +30,44 @@ class Paragraph(StoryChild):
     def __init__(self, p: CT_P, parent: t.ProvidesStoryPart):
         super(Paragraph, self).__init__(parent)
         self._p = self._element = p
+
+    def add_hyperlink(
+        self,
+        url: str,
+        text: str | None = None,
+        style: str | CharacterStyle | None = "Hyperlink",
+        anchor: str | None = None,
+    ) -> Hyperlink:
+        """Append a hyperlink containing `text` and return the |Hyperlink| object.
+
+        `url` is the URL target of the hyperlink, e.g. ``"https://example.com"``. When
+        `url` is an empty string and `anchor` is provided, the hyperlink is an internal
+        bookmark reference.
+
+        `text` is the visible link text; defaults to `url` when not provided.
+
+        `style` is a character style name or |CharacterStyle| object applied to the
+        hyperlink run(s). Defaults to ``"Hyperlink"``.
+
+        `anchor` is an optional bookmark name for internal document links. When provided
+        with a non-empty `url`, the anchor is stored as a URI fragment. When `url` is
+        empty and `anchor` is provided, the hyperlink is an internal jump (no external
+        relationship is created).
+        """
+        display_text = text if text is not None else (url or anchor or "")
+
+        if url:
+            rId = self.part.relate_to(url, RT.HYPERLINK, is_external=True)
+            hyperlink_elm = self._p.add_hyperlink(rId=rId, anchor=anchor)
+        else:
+            hyperlink_elm = self._p.add_hyperlink(anchor=anchor)
+
+        style_id = (
+            self.part.get_style_id(style, WD_STYLE_TYPE.CHARACTER) if style else None
+        )
+        hyperlink_elm.add_r_with_text(display_text, style_id)
+
+        return Hyperlink(hyperlink_elm, self)
 
     def add_run(self, text: str | None = None, style: str | CharacterStyle | None = None) -> Run:
         """Append run containing `text` and having character-style `style`.

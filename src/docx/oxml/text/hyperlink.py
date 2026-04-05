@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, Callable, List
 
 from docx.oxml.simpletypes import ST_OnOff, ST_String, XsdString
 from docx.oxml.text.run import CT_R
@@ -20,6 +20,7 @@ class CT_Hyperlink(BaseOxmlElement):
     """`<w:hyperlink>` element, containing the text and address for a hyperlink."""
 
     r_lst: List[CT_R]
+    add_r: Callable[[], CT_R]
 
     rId: str | None = OptionalAttribute("r:id", XsdString)  # pyright: ignore[reportAssignmentType]
     anchor: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
@@ -30,6 +31,17 @@ class CT_Hyperlink(BaseOxmlElement):
     )
 
     r = ZeroOrMore("w:r")
+
+    def add_r_with_text(self, text: str, style_id: str | None = None) -> CT_R:
+        """Add a new `w:r` child with the given `text` and optional character style.
+
+        Returns the newly created `CT_R` element.
+        """
+        r = self.add_r()
+        r.add_t(text)
+        if style_id is not None:
+            r.style = style_id
+        return r
 
     @property
     def lastRenderedPageBreaks(self) -> List[CT_LastRenderedPageBreak]:
