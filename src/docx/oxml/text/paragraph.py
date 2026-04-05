@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from docx.oxml.text.pagebreak import CT_LastRenderedPageBreak
     from docx.oxml.text.parfmt import CT_PPr
     from docx.oxml.text.run import CT_R
+    from docx.oxml.tracked_changes import CT_Del, CT_Ins
 
 
 class CT_P(BaseOxmlElement):
@@ -100,6 +101,11 @@ class CT_P(BaseOxmlElement):
         their text equivalent.
         """
         return "".join(e.text for e in self.xpath("w:r | w:hyperlink"))
+
+    @property
+    def tracked_change_elements(self) -> List[CT_Ins | CT_Del]:
+        """`w:ins` and `w:del` children of this paragraph, in document order."""
+        return self.xpath("./w:ins | ./w:del")
 
     def _insert_pPr(self, pPr: CT_PPr) -> CT_PPr:
         self.insert(0, pPr)

@@ -13,6 +13,7 @@ from docx.styles.style import ParagraphStyle
 from docx.text.hyperlink import Hyperlink
 from docx.text.pagebreak import RenderedPageBreak
 from docx.text.parfmt import ParagraphFormat
+from docx.tracked_changes import TrackedChange
 from docx.text.run import Run
 
 if TYPE_CHECKING:
@@ -221,6 +222,12 @@ class Paragraph(StoryChild):
     def style(self, style_or_name: str | ParagraphStyle | None):
         style_id = self.part.get_style_id(style_or_name, WD_STYLE_TYPE.PARAGRAPH)
         self._p.style = style_id
+
+    @property
+    def tracked_changes(self) -> List[TrackedChange]:
+        """A list of |TrackedChange| objects for each insertion or deletion in this
+        paragraph."""
+        return [TrackedChange(tc) for tc in self._p.tracked_change_elements]
 
     @property
     def text(self) -> str:
