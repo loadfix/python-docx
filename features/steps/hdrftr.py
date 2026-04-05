@@ -132,6 +132,3 @@ def then_header_2_text_eq_header_text(context):
     assert actual == expected, "header_2.paragraphs[0].text == %s" % actual
 
 
-@then("I can't detect the image but no exception is raised")
-def then_I_cant_detect_the_image_but_no_exception_is_raised(context):
-    pass

@@ -43,7 +43,7 @@ Feature: Header and footer behaviors
   Scenario: _Header allows image insertion
     Given a _Run object from a header as run
      When I call run.add_picture()
-     Then I can't detect the image but no exception is raised
+     Then the picture appears at the end of the run
 
 
   Scenario Outline: _Footer.is_linked_to_previous getter
@@ -85,4 +85,4 @@ Feature: Header and footer behaviors
   Scenario: _Footer allows image insertion
     Given a _Run object from a footer as run
      When I call run.add_picture()
-     Then I can't detect the image but no exception is raised
+     Then the picture appears at the end of the run
