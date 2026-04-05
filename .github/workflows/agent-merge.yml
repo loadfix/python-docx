@@ -65,25 +65,61 @@ jobs:
               --repo ${{ github.repository }} \
               --comment "**Merge Agent**: PR #${PR_NUM} merged."
 
-            # Check for dependent issues that were waiting on this one
-            gh issue list --repo ${{ github.repository }} --state open --json number,body --jq '.[]' | while read -r ISSUE_JSON; do
-              DEP_NUM=$(echo "$ISSUE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['number'])")
-              DEP_BODY=$(echo "$ISSUE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('body',''))")
-              if echo "$DEP_BODY" | grep -qP "Depends on #${ISSUE_NUM}\b"; then
-                echo "Issue #${DEP_NUM} depends on #${ISSUE_NUM} — checking if all deps resolved"
-                # Check if all "Depends on #N" references are now closed
-                ALL_RESOLVED=true
-                for DEP in $(echo "$DEP_BODY" | grep -oP 'Depends on #\K\d+'); do
-                  STATE=$(gh issue view "$DEP" --repo ${{ github.repository }} --json state -q .state)
-                  if [ "$STATE" != "CLOSED" ]; then
-                    ALL_RESOLVED=false
-                    break
-                  fi
-                done
-                if [ "$ALL_RESOLVED" = "true" ]; then
-                  echo "All dependencies resolved for #${DEP_NUM} — triggering agent"
-                  gh issue edit "$DEP_NUM" --repo ${{ github.repository }} --add-label "agent"
-                fi
-              fi
-            done
+            # Check for dependent issues that reference this issue number
+            # Handles patterns: "Depends on #3", "Depends on #1-#3", "Depends on: #3", "#3 (closed)"
+            python3 << 'PYEOF'
+import json, subprocess, re, sys
+
+repo = "${{ github.repository }}"
+closed_num = int("${ISSUE_NUM}")
+
+# Get all open issues
+result = subprocess.run(
+    ["gh", "issue", "list", "--repo", repo, "--state", "open", "--limit", "100",
+     "--json", "number,body,title"],
+    capture_output=True, text=True
+)
+issues = json.loads(result.stdout) if result.returncode == 0 else []
+
+for issue in issues:
+    body = issue.get("body", "") or ""
+    num = issue["number"]
+
+    # Find all issue numbers referenced in dependency context
+    # Match: "Depends on #N", "Depends on: #N", "Depends on #N-#M", "#N (table/CDK/etc must exist)"
+    dep_refs = set()
+    for m in re.finditer(r'[Dd]epends?\s+on[:\s]*#(\d+)', body):
+        dep_refs.add(int(m.group(1)))
+    # Also match range patterns like "#1-#3" near "depends"
+    for m in re.finditer(r'[Dd]epends?\s+on[:\s]*#(\d+)\s*[-–]\s*#?(\d+)', body):
+        start, end = int(m.group(1)), int(m.group(2))
+        for i in range(start, end + 1):
+            dep_refs.add(i)
+    # Also match "#N (description)" patterns after "Depends on"
+    for m in re.finditer(r'[Dd]epends?\s+on[:\s]*(?:#\d+[^#]*)*#(\d+)', body):
+        dep_refs.add(int(m.group(1)))
+
+    if closed_num not in dep_refs:
+        continue
+
+    print(f"Issue #{num} references #{closed_num} as dependency")
+
+    # Check if ALL referenced deps are closed
+    all_resolved = True
+    for dep in dep_refs:
+        r = subprocess.run(
+            ["gh", "issue", "view", str(dep), "--repo", repo, "--json", "state", "-q", ".state"],
+            capture_output=True, text=True
+        )
+        if r.stdout.strip() != "CLOSED":
+            print(f"  #{dep} still open — not ready")
+            all_resolved = False
+            break
+
+    if all_resolved:
+        print(f"  All deps resolved — dispatching developer agent for #{num}")
+        subprocess.run(
+            ["gh", "workflow", "run", "agent-develop.yml", "--repo", repo, "-f", f"issue_number={num}"],
+        )
+PYEOF
           fi
