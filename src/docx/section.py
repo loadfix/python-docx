@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator, List, Sequence, overload
+from typing import IO, TYPE_CHECKING, Iterator, List, Sequence, overload
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_HEADER_FOOTER
 from docx.oxml.text.paragraph import CT_P
 from docx.parts.hdrftr import FooterPart, HeaderPart
-from docx.shared import lazyproperty
+from docx.shared import Pt, RGBColor, lazyproperty
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
@@ -251,6 +251,111 @@ class Section:
     @top_margin.setter
     def top_margin(self, value: Length | None):
         self._sectPr.top_margin = value
+
+    def add_text_watermark(
+        self,
+        text: str,
+        font: str = "Calibri",
+        size: int | Length = Pt(72),
+        color: RGBColor = RGBColor(0xC0, 0xC0, 0xC0),
+        layout: str = "diagonal",
+    ) -> None:
+        """Add a text watermark to this section.
+
+        The watermark appears as a VML shape in the default header. Any existing
+        watermark is removed first.
+
+        `text` is the watermark text string. `font` is the font family name.
+        `size` is the font size as a |Length| value (e.g. ``Pt(72)``). `color`
+        is an |RGBColor| instance. `layout` is either ``"diagonal"`` or
+        ``"horizontal"``.
+        """
+        from docx.oxml.parser import parse_xml
+        from docx.oxml.watermark import (
+            remove_watermark_from_header,
+            text_watermark_xml,
+        )
+
+        header = self.header
+        hdr_element = header._element
+
+        # -- remove any existing watermark first --
+        remove_watermark_from_header(hdr_element)
+
+        # -- build watermark paragraph XML and append to header --
+        size_pt = size / 12700.0 if isinstance(size, int) else size.pt
+        color_hex = str(color)
+        wm_xml = text_watermark_xml(text, font, size_pt, color_hex, layout)
+        wm_p = parse_xml(wm_xml)
+        hdr_element.append(wm_p)
+
+    def add_image_watermark(
+        self,
+        image_path: str | IO[bytes],
+        width: int | Length | None = None,
+        height: int | Length | None = None,
+    ) -> None:
+        """Add an image watermark to this section.
+
+        The watermark appears as a VML shape in the default header. Any existing
+        watermark is removed first.
+
+        `image_path` is a path to the image file or a file-like object.
+        `width` and `height` specify the display dimensions. If only one is
+        provided, the other is scaled proportionally.
+        """
+        from docx.oxml.parser import parse_xml
+        from docx.oxml.watermark import (
+            image_watermark_xml,
+            remove_watermark_from_header,
+        )
+
+        header = self.header
+        header_part = header.part
+
+        # -- add image relationship to the header part --
+        rId, image = header_part.get_or_add_image(image_path)
+
+        # -- compute display dimensions --
+        cx, cy = image.scaled_dimensions(width, height)
+        width_pt = cx / 12700.0
+        height_pt = cy / 12700.0
+
+        hdr_element = header._element
+
+        # -- remove any existing watermark first --
+        remove_watermark_from_header(hdr_element)
+
+        # -- build watermark paragraph XML and append to header --
+        wm_xml = image_watermark_xml(rId, width_pt, height_pt)
+        wm_p = parse_xml(wm_xml)
+        hdr_element.append(wm_p)
+
+    def remove_watermark(self) -> None:
+        """Remove any watermark from this section's default header.
+
+        Does nothing if no watermark is present.
+        """
+        from docx.oxml.watermark import (
+            has_watermark,
+            remove_watermark_from_header,
+        )
+
+        # -- only act if a header definition exists --
+        if not self.header._has_definition:
+            return
+        hdr_element = self.header._element
+        if has_watermark(hdr_element):
+            remove_watermark_from_header(hdr_element)
+
+    @property
+    def has_watermark(self) -> bool:
+        """True if this section's default header contains a watermark."""
+        from docx.oxml.watermark import has_watermark
+
+        if not self.header._has_definition:
+            return False
+        return has_watermark(self.header._element)
 
 
 class Sections(Sequence[Section]):
