@@ -171,6 +171,26 @@ class DescribeFootnote:
         assert len(paragraphs) == 2
         assert [para.text for para in paragraphs] == ["First para", "Second para"]
 
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:footnote{w:id=2}", ""),
+            ('w:footnote{w:id=2}/w:p/w:r/w:t"Footnote text."', "Footnote text."),
+            (
+                'w:footnote{w:id=2}/(w:p/w:r/w:t"First para",w:p/w:r/w:t"Second para")',
+                "First para\nSecond para",
+            ),
+            (
+                'w:footnote{w:id=2}/(w:p/w:r/w:t"First para",w:p,w:p/w:r/w:t"Second para")',
+                "First para\n\nSecond para",
+            ),
+        ],
+    )
+    def it_can_summarize_its_content_as_text(
+        self, cxml: str, expected_value: str, footnotes_part_: Mock
+    ):
+        assert Footnote(cast(CT_Footnote, element(cxml)), footnotes_part_).text == expected_value
+
     def it_can_add_a_paragraph(self, footnotes_part_: Mock):
         footnote_elm = cast(CT_Footnote, element("w:footnote{w:id=2}/w:p"))
         footnote = Footnote(footnote_elm, footnotes_part_)
