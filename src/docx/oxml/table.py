@@ -395,8 +395,7 @@ class CT_TblPr(BaseOxmlElement):
 
     @autofit.setter
     def autofit(self, value: bool):
-        tblLayout = self.get_or_add_tblLayout()
-        tblLayout.type = "autofit" if value else "fixed"
+        self.allow_autofit = value
 
     @property
     def autofit_behavior(self) -> WD_TABLE_AUTOFIT:
@@ -417,6 +416,8 @@ class CT_TblPr(BaseOxmlElement):
             self.allow_autofit = False
             tblW = self.get_or_add_tblW()
             tblW.type = "dxa"
+            if tblW.get(qn("w:w")) is None:
+                tblW.w = 0
         elif value == WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW:
             self.allow_autofit = True
             tblW = self.get_or_add_tblW()
@@ -634,7 +635,12 @@ class CT_Tc(BaseOxmlElement):
         return tcPr.width
 
     @width.setter
-    def width(self, value: Length):
+    def width(self, value: Length | None):
+        if value is None:
+            tcPr = self.tcPr
+            if tcPr is not None:
+                tcPr.width = value
+            return
         tcPr = self.get_or_add_tcPr()
         tcPr.width = value
 
@@ -958,7 +964,10 @@ class CT_TcPr(BaseOxmlElement):
         return tcW.width
 
     @width.setter
-    def width(self, value: Length):
+    def width(self, value: Length | None):
+        if value is None:
+            self._remove_tcW()
+            return
         tcW = self.get_or_add_tcW()
         tcW.width = value
 

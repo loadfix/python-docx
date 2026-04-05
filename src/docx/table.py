@@ -389,9 +389,8 @@ class _Column(Parented):
     @width.setter
     def width(self, value: Length | None):
         self._gridCol.w = value
-        if value is not None:
-            for tc in self._gridCol_tcs:
-                tc.width = value
+        for tc in self._gridCol_tcs:
+            tc.width = value
 
     @property
     def _gridCol_tcs(self) -> list[CT_Tc]:

@@ -178,12 +178,12 @@ class DescribeTable:
     @pytest.mark.parametrize(
         ("tbl_cxml", "new_value", "expected_cxml"),
         [
-            ("w:tbl/w:tblPr", True, "w:tbl/w:tblPr/w:tblLayout{w:type=autofit}"),
+            ("w:tbl/w:tblPr", True, "w:tbl/w:tblPr"),
             ("w:tbl/w:tblPr", False, "w:tbl/w:tblPr/w:tblLayout{w:type=fixed}"),
             (
                 "w:tbl/w:tblPr/w:tblLayout{w:type=fixed}",
                 True,
-                "w:tbl/w:tblPr/w:tblLayout{w:type=autofit}",
+                "w:tbl/w:tblPr",
             ),
             (
                 "w:tbl/w:tblPr/w:tblLayout{w:type=autofit}",
@@ -259,25 +259,33 @@ class DescribeTable:
         table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
         assert table.autofit_behavior == expected_value
 
-    def it_can_change_its_autofit_behavior_to_fixed(self, document_: Mock):
-        table = Table(cast(CT_Tbl, element("w:tbl/w:tblPr")), document_)
-        table.autofit_behavior = WD_TABLE_AUTOFIT.FIXED_WIDTH
-        assert table.autofit_behavior == WD_TABLE_AUTOFIT.FIXED_WIDTH
-        assert table.allow_autofit is False
-
-    def it_can_change_its_autofit_behavior_to_window(self, document_: Mock):
-        table = Table(cast(CT_Tbl, element("w:tbl/w:tblPr")), document_)
-        table.autofit_behavior = WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW
-        assert table.autofit_behavior == WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW
-        assert table.allow_autofit is True
-
-    def it_can_change_its_autofit_behavior_to_contents(self, document_: Mock):
-        table = Table(
-            cast(CT_Tbl, element("w:tbl/w:tblPr/w:tblLayout{w:type=fixed}")), document_
-        )
-        table.autofit_behavior = WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS
-        assert table.autofit_behavior == WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS
-        assert table.allow_autofit is True
+    @pytest.mark.parametrize(
+        ("tbl_cxml", "new_value", "expected_cxml"),
+        [
+            (
+                "w:tbl/w:tblPr",
+                WD_TABLE_AUTOFIT.FIXED_WIDTH,
+                "w:tbl/w:tblPr/(w:tblW{w:w=0,w:type=dxa},w:tblLayout{w:type=fixed})",
+            ),
+            (
+                "w:tbl/w:tblPr",
+                WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW,
+                "w:tbl/w:tblPr/w:tblW{w:w=5000,w:type=pct}",
+            ),
+            (
+                "w:tbl/w:tblPr/w:tblLayout{w:type=fixed}",
+                WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS,
+                "w:tbl/w:tblPr/w:tblW{w:w=0,w:type=auto}",
+            ),
+        ],
+    )
+    def it_can_change_its_autofit_behavior(
+        self, tbl_cxml: str, new_value: WD_TABLE_AUTOFIT, expected_cxml: str, document_: Mock
+    ):
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+        table.autofit_behavior = new_value
+        assert table.autofit_behavior == new_value
+        assert table._tbl.xml == xml(expected_cxml)
 
     @pytest.mark.parametrize(
         ("tbl_cxml", "expected_value"),
