@@ -29,14 +29,14 @@ class Bookmarks:
     def __contains__(self, name: object) -> bool:
         if not isinstance(name, str):
             return False
-        return bool(self._body.xpath(f".//w:bookmarkStart[@w:name='{name}']"))
+        return self.get(name) is not None
 
     def get(self, name: str) -> Bookmark | None:
         """Return the bookmark with `name`, or |None| if not found."""
-        results = self._body.xpath(f".//w:bookmarkStart[@w:name='{name}']")
-        if not results:
-            return None
-        return Bookmark(results[0], self._body)
+        for bs in self._body.xpath(".//w:bookmarkStart"):
+            if bs.name == name:
+                return Bookmark(bs, self._body)
+        return None
 
 
 class Bookmark:
