@@ -82,3 +82,13 @@ class Footnote(BlockItemContainer):
     def footnote_id(self) -> int:
         """The unique identifier of this footnote."""
         return self._footnote_elm.id
+
+    @property
+    def text(self) -> str:
+        """The text content of this footnote as a string.
+
+        Only content in paragraphs is included and all emphasis and styling is stripped.
+
+        Paragraph boundaries are indicated with a newline (`"\\n"`).
+        """
+        return "\n".join(p.text for p in self.paragraphs)
