@@ -8,6 +8,7 @@ from docx.oxml.section import CT_SectPr
 from docx.oxml.xmlchemy import BaseOxmlElement, ZeroOrMore, ZeroOrOne
 
 if TYPE_CHECKING:
+    from docx.oxml.sdt import CT_Sdt
     from docx.oxml.table import CT_Tbl
     from docx.oxml.text.paragraph import CT_P
 
@@ -39,11 +40,14 @@ class CT_Body(BaseOxmlElement):
     get_or_add_sectPr: Callable[[], CT_SectPr]
     p_lst: List[CT_P]
     tbl_lst: List[CT_Tbl]
+    sdt_lst: List[CT_Sdt]
 
     _insert_tbl: Callable[[CT_Tbl], CT_Tbl]
+    _insert_sdt: Callable[[CT_Sdt], CT_Sdt]
 
     p = ZeroOrMore("w:p", successors=("w:sectPr",))
     tbl = ZeroOrMore("w:tbl", successors=("w:sectPr",))
+    sdt = ZeroOrMore("w:sdt", successors=("w:sectPr",))
     sectPr: CT_SectPr | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:sectPr", successors=()
     )
@@ -86,3 +90,8 @@ class CT_Body(BaseOxmlElement):
         other "wrapper" element will not be included.
         """
         return self.xpath("./w:p | ./w:tbl")
+
+    @property
+    def sdt_elements(self) -> List[CT_Sdt]:
+        """All `w:sdt` elements that are direct children of this body."""
+        return self.xpath("./w:sdt")

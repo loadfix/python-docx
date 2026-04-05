@@ -25,6 +25,9 @@ from docx.table import Table
 from docx.text.paragraph import Paragraph
 from docx.text.run import Run
 
+from docx.enum.sdt import WD_CONTENT_CONTROL_TYPE
+from docx.sdt import ContentControl
+
 from .unitutil.cxml import element, xml
 from .unitutil.mock import (
     FixtureRequest,
@@ -196,6 +199,37 @@ class DescribeDocument:
         document_part_.part_related_by.side_effect = KeyError
 
         assert document.has_macros is False
+
+    def it_can_add_a_content_control(
+        self,
+        document: Document,
+        body_prop_: Mock,
+        body_: Mock,
+    ):
+        cc_ = Mock(spec=ContentControl)
+        body_prop_.return_value = body_
+        body_.add_content_control.return_value = cc_
+
+        cc = document.add_content_control(
+            WD_CONTENT_CONTROL_TYPE.PLAIN_TEXT, tag="t", title="T"
+        )
+
+        body_.add_content_control.assert_called_once_with(
+            WD_CONTENT_CONTROL_TYPE.PLAIN_TEXT, "t", "T"
+        )
+        assert cc is cc_
+
+    def it_provides_access_to_its_content_controls(
+        self,
+        document: Document,
+        body_prop_: Mock,
+        body_: Mock,
+    ):
+        cc_list = [Mock(), Mock()]
+        body_prop_.return_value = body_
+        body_.content_controls = cc_list
+
+        assert document.content_controls is cc_list
 
     def it_provides_access_to_the_comments(self, document_part_: Mock, comments_: Mock):
         document_part_.comments = comments_
@@ -408,6 +442,29 @@ class DescribeDocument:
 
 class Describe_Body:
     """Unit-test suite for `docx.document._Body`."""
+
+    def it_can_add_a_content_control(self, document_: Mock):
+        body = _Body(cast(CT_Body, element("w:body/w:p")), document_)
+
+        cc = body.add_content_control(
+            WD_CONTENT_CONTROL_TYPE.RICH_TEXT, tag="myTag", title="My Title"
+        )
+
+        assert isinstance(cc, ContentControl)
+        assert cc.tag == "myTag"
+        assert cc.title == "My Title"
+        assert cc.type == WD_CONTENT_CONTROL_TYPE.RICH_TEXT
+
+    def it_provides_access_to_its_content_controls(self, document_: Mock):
+        body = _Body(cast(CT_Body, element("w:body/w:p")), document_)
+        # -- initially no content controls --
+        assert body.content_controls == []
+        # -- add one --
+        body.add_content_control(WD_CONTENT_CONTROL_TYPE.PLAIN_TEXT, tag="t1")
+        ccs = body.content_controls
+        assert len(ccs) == 1
+        assert isinstance(ccs[0], ContentControl)
+        assert ccs[0].tag == "t1"
 
     @pytest.mark.parametrize(
         ("cxml", "expected_cxml"),

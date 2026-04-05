@@ -12,6 +12,7 @@ from docx.oxml.xmlchemy import BaseOxmlElement, ZeroOrMore, ZeroOrOne
 
 if TYPE_CHECKING:
     from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+    from docx.oxml.sdt import CT_Sdt
     from docx.oxml.section import CT_SectPr
     from docx.oxml.text.hyperlink import CT_Hyperlink
     from docx.oxml.text.pagebreak import CT_LastRenderedPageBreak
@@ -128,6 +129,11 @@ class CT_P(BaseOxmlElement):
     def tracked_change_elements(self) -> List[CT_Ins | CT_Del]:
         """`w:ins` and `w:del` children of this paragraph, in document order."""
         return self.xpath("./w:ins | ./w:del")
+
+    @property
+    def sdt_elements(self) -> list[CT_Sdt]:
+        """All `w:sdt` elements that are direct children of this paragraph."""
+        return self.xpath("./w:sdt")
 
     def _insert_pPr(self, pPr: CT_PPr) -> CT_PPr:
         self.insert(0, pPr)

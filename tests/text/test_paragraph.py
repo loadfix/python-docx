@@ -5,6 +5,7 @@ from typing import List, cast
 import pytest
 
 from docx import types as t
+from docx.enum.sdt import WD_CONTENT_CONTROL_TYPE
 from docx.enum.section import WD_SECTION_START
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -12,6 +13,7 @@ from docx.drawing import Drawing
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.text.run import CT_R
 from docx.parts.document import DocumentPart
+from docx.sdt import ContentControl
 from docx.section import Section
 from docx.text.paragraph import Paragraph
 from docx.text.parfmt import ParagraphFormat
@@ -34,6 +36,31 @@ class DescribeParagraph:
         assert paragraph.has_page_break is True
         assert len(paragraph.runs) == 1
         assert paragraph._p.xml == xml("w:p/w:r/w:br{w:type=page}")
+
+    def it_can_add_an_inline_content_control(self, fake_parent: t.ProvidesStoryPart):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+
+        cc = paragraph.add_content_control(
+            WD_CONTENT_CONTROL_TYPE.PLAIN_TEXT, tag="myTag", title="My Title"
+        )
+
+        assert isinstance(cc, ContentControl)
+        assert cc.tag == "myTag"
+        assert cc.title == "My Title"
+        assert cc.type == WD_CONTENT_CONTROL_TYPE.PLAIN_TEXT
+
+    def it_provides_access_to_its_content_controls(self, fake_parent: t.ProvidesStoryPart):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+        # -- initially no content controls --
+        assert paragraph.content_controls == []
+        # -- add one --
+        paragraph.add_content_control(WD_CONTENT_CONTROL_TYPE.RICH_TEXT, tag="t1")
+        ccs = paragraph.content_controls
+        assert len(ccs) == 1
+        assert isinstance(ccs[0], ContentControl)
+        assert ccs[0].tag == "t1"
 
     @pytest.mark.parametrize(
         ("p_cxml", "expected_value"),
