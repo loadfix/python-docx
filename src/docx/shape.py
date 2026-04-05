@@ -147,6 +147,22 @@ class FloatingImage:
         }
         return wrap_map.get(wrap_str, WD_WRAP_TYPE.IN_FRONT)
 
+    @wrap_type.setter
+    def wrap_type(self, value: WD_WRAP_TYPE) -> None:
+        from docx.oxml.shape import _set_wrap_type
+
+        wrap_map = {
+            WD_WRAP_TYPE.SQUARE: ("square", False),
+            WD_WRAP_TYPE.TIGHT: ("tight", False),
+            WD_WRAP_TYPE.THROUGH: ("through", False),
+            WD_WRAP_TYPE.TOP_AND_BOTTOM: ("topAndBottom", False),
+            WD_WRAP_TYPE.IN_FRONT: ("none", False),
+            WD_WRAP_TYPE.BEHIND: ("none", True),
+        }
+        wrap_str, behind_doc = wrap_map[value]
+        _set_wrap_type(self._anchor, wrap_str)
+        self._anchor.set("behindDoc", "1" if behind_doc else "0")
+
     @property
     def horz_pos_relative(self) -> WD_RELATIVE_HORZ_POS:
         """The horizontal reference frame for positioning."""

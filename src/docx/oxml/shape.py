@@ -108,10 +108,12 @@ class CT_Anchor(BaseOxmlElement):
     @horz_offset.setter
     def horz_offset(self, value: int) -> None:
         positionH = self.find(qn("wp:positionH"))
-        if positionH is not None:
-            offset_elm = positionH.find(qn("wp:posOffset"))
-            if offset_elm is not None:
-                offset_elm.text = str(value)
+        if positionH is None:
+            raise ValueError("wp:positionH element is absent")
+        offset_elm = positionH.find(qn("wp:posOffset"))
+        if offset_elm is None:
+            raise ValueError("wp:posOffset element is absent in wp:positionH")
+        offset_elm.text = str(value)
 
     @property
     def vert_offset(self) -> int:
@@ -126,10 +128,12 @@ class CT_Anchor(BaseOxmlElement):
     @vert_offset.setter
     def vert_offset(self, value: int) -> None:
         positionV = self.find(qn("wp:positionV"))
-        if positionV is not None:
-            offset_elm = positionV.find(qn("wp:posOffset"))
-            if offset_elm is not None:
-                offset_elm.text = str(value)
+        if positionV is None:
+            raise ValueError("wp:positionV element is absent")
+        offset_elm = positionV.find(qn("wp:posOffset"))
+        if offset_elm is None:
+            raise ValueError("wp:posOffset element is absent in wp:positionV")
+        offset_elm.text = str(value)
 
     @property
     def horz_relative_from(self) -> str:
@@ -142,8 +146,9 @@ class CT_Anchor(BaseOxmlElement):
     @horz_relative_from.setter
     def horz_relative_from(self, value: str) -> None:
         positionH = self.find(qn("wp:positionH"))
-        if positionH is not None:
-            positionH.set("relativeFrom", value)
+        if positionH is None:
+            raise ValueError("wp:positionH element is absent")
+        positionH.set("relativeFrom", value)
 
     @property
     def vert_relative_from(self) -> str:
@@ -156,8 +161,9 @@ class CT_Anchor(BaseOxmlElement):
     @vert_relative_from.setter
     def vert_relative_from(self, value: str) -> None:
         positionV = self.find(qn("wp:positionV"))
-        if positionV is not None:
-            positionV.set("relativeFrom", value)
+        if positionV is None:
+            raise ValueError("wp:positionV element is absent")
+        positionV.set("relativeFrom", value)
 
     @property
     def wrap_type_str(self) -> str:

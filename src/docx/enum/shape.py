@@ -35,6 +35,11 @@ class WD_WRAP_TYPE(enum.Enum):
 
     Maps to the `wp:wrapNone`, `wp:wrapSquare`, `wp:wrapTight`,
     `wp:wrapThrough`, and `wp:wrapTopAndBottom` child elements of `wp:anchor`.
+
+    Note: Both ``IN_FRONT`` and ``BEHIND`` map to the ``wp:wrapNone`` element.
+    They are distinguished by the ``behindDoc`` attribute on the ``wp:anchor``
+    element — ``IN_FRONT`` sets ``behindDoc="0"`` and ``BEHIND`` sets
+    ``behindDoc="1"``.
     """
 
     SQUARE = 1

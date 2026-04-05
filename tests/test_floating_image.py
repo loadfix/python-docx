@@ -5,13 +5,17 @@
 from __future__ import annotations
 
 from typing import cast
+from unittest.mock import MagicMock, PropertyMock
 
 import pytest
 
+from docx import types as t
 from docx.enum.shape import WD_RELATIVE_HORZ_POS, WD_RELATIVE_VERT_POS, WD_WRAP_TYPE
 from docx.oxml.shape import CT_Anchor, CT_Inline, CT_Picture
+from docx.oxml.text.paragraph import CT_P
 from docx.shape import FloatingImage
 from docx.shared import Emu, Length
+from docx.text.paragraph import Paragraph
 
 from .unitutil.cxml import element, xml
 
@@ -258,3 +262,87 @@ class DescribeFloatingImage:
         floating_image = FloatingImage(anchor)
 
         assert floating_image.wrap_type == expected
+
+    @pytest.mark.parametrize(
+        ("new_wrap_type", "expected_wrap_str", "expected_behind"),
+        [
+            (WD_WRAP_TYPE.SQUARE, "square", False),
+            (WD_WRAP_TYPE.TIGHT, "tight", False),
+            (WD_WRAP_TYPE.THROUGH, "through", False),
+            (WD_WRAP_TYPE.TOP_AND_BOTTOM, "topAndBottom", False),
+            (WD_WRAP_TYPE.IN_FRONT, "none", False),
+            (WD_WRAP_TYPE.BEHIND, "none", True),
+        ],
+    )
+    def it_can_change_its_wrap_type(
+        self,
+        new_wrap_type: WD_WRAP_TYPE,
+        expected_wrap_str: str,
+        expected_behind: bool,
+    ):
+        anchor = CT_Anchor.new_pic_anchor(
+            shape_id=1,
+            rId="rId1",
+            filename="test.png",
+            cx=Emu(914400),
+            cy=Emu(457200),
+        )
+        floating_image = FloatingImage(anchor)
+
+        floating_image.wrap_type = new_wrap_type
+
+        assert floating_image._anchor.wrap_type_str == expected_wrap_str
+        assert floating_image._anchor.behind_doc is expected_behind
+        assert floating_image.wrap_type == new_wrap_type
+
+
+class DescribeParagraphFloatingImage:
+    """Unit-test suite for floating image support on `docx.text.paragraph.Paragraph`."""
+
+    def it_can_add_a_floating_image(self):
+        anchor = CT_Anchor.new_pic_anchor(
+            shape_id=1, rId="rId1", filename="test.png",
+            cx=Emu(914400), cy=Emu(457200),
+        )
+        mock_parent = MagicMock()
+        mock_parent.part.new_pic_anchor.return_value = anchor
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, mock_parent)
+
+        result = paragraph.add_floating_image("test.png", width=Emu(914400), height=Emu(457200))
+
+        assert isinstance(result, FloatingImage)
+        # -- a run with a drawing containing the anchor was added --
+        runs = paragraph.runs
+        assert len(runs) == 1
+        anchors = p.xpath(".//w:drawing/wp:anchor")
+        assert len(anchors) == 1
+
+    def it_returns_floating_images_for_each_anchor(self):
+        anchor1 = CT_Anchor.new_pic_anchor(
+            shape_id=1, rId="rId1", filename="img1.png",
+            cx=Emu(914400), cy=Emu(457200),
+        )
+        anchor2 = CT_Anchor.new_pic_anchor(
+            shape_id=2, rId="rId2", filename="img2.png",
+            cx=Emu(914400), cy=Emu(457200),
+        )
+        mock_parent = MagicMock()
+        mock_parent.part.new_pic_anchor.side_effect = [anchor1, anchor2]
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, mock_parent)
+
+        paragraph.add_floating_image("img1.png", width=Emu(914400), height=Emu(457200))
+        paragraph.add_floating_image("img2.png", width=Emu(914400), height=Emu(457200))
+
+        images = paragraph.floating_images
+        assert len(images) == 2
+        assert all(isinstance(img, FloatingImage) for img in images)
+
+    def it_returns_empty_list_when_no_anchors(self, fake_parent: t.ProvidesStoryPart):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+
+        assert paragraph.floating_images == []
