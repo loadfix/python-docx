@@ -105,8 +105,9 @@ class CT_Inline(BaseOxmlElement):
     @classmethod
     def _inline_xml(cls):
         return (
-            "<wp:inline %s>\n"
+            '<wp:inline distT="0" distB="0" distL="0" distR="0" %s>\n'
             '  <wp:extent cx="914400" cy="914400"/>\n'
+            '  <wp:effectExtent l="0" t="0" r="0" b="0"/>\n'
             '  <wp:docPr id="666" name="unnamed"/>\n'
             "  <wp:cNvGraphicFramePr>\n"
             '    <a:graphicFrameLocks noChangeAspect="1"/>\n'
