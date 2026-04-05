@@ -14,8 +14,8 @@ from docx.oxml.document import CT_Document
 from docx.oxml.section import CT_SectPr
 from docx.parts.document import DocumentPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
-from docx.section import Section, Sections, _BaseHeaderFooter, _Footer, _Header
-from docx.shared import Inches, Length
+from docx.section import Column, Section, SectionColumns, Sections, _BaseHeaderFooter, _Footer, _Header
+from docx.shared import Inches, Length, Twips
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
@@ -541,6 +541,182 @@ class DescribeSection:
     @pytest.fixture
     def header_(self, request: FixtureRequest):
         return instance_mock(request, _Header)
+
+
+class DescribeSectionColumns:
+    """Unit-test suite for `docx.section.SectionColumns`."""
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "expected_count"),
+        [
+            ("w:sectPr", 1),
+            ("w:sectPr/w:cols", 1),
+            ("w:sectPr/w:cols{w:num=2}", 2),
+            ("w:sectPr/w:cols{w:num=3}", 3),
+        ],
+    )
+    def it_knows_its_column_count(self, sectPr_cxml: str, expected_count: int):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        columns = SectionColumns(sectPr)
+        assert columns.count == expected_count
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "value", "expected_cxml"),
+        [
+            ("w:sectPr", 2, "w:sectPr/w:cols{w:num=2}"),
+            ("w:sectPr/w:cols{w:num=1}", 3, "w:sectPr/w:cols{w:num=3}"),
+        ],
+    )
+    def it_can_change_its_column_count(
+        self, sectPr_cxml: str, value: int, expected_cxml: str
+    ):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        columns = SectionColumns(sectPr)
+        columns.count = value
+        assert sectPr.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "expected_value"),
+        [
+            ("w:sectPr", True),
+            ("w:sectPr/w:cols", True),
+            ("w:sectPr/w:cols{w:equalWidth=1}", True),
+            ("w:sectPr/w:cols{w:equalWidth=0}", False),
+        ],
+    )
+    def it_knows_whether_columns_have_equal_width(
+        self, sectPr_cxml: str, expected_value: bool
+    ):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        columns = SectionColumns(sectPr)
+        assert columns.equal_width is expected_value
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "value", "expected_cxml"),
+        [
+            ("w:sectPr", True, "w:sectPr/w:cols{w:equalWidth=1}"),
+            ("w:sectPr/w:cols{w:equalWidth=1}", False, "w:sectPr/w:cols{w:equalWidth=0}"),
+        ],
+    )
+    def it_can_change_equal_width(
+        self, sectPr_cxml: str, value: bool, expected_cxml: str
+    ):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        columns = SectionColumns(sectPr)
+        columns.equal_width = value
+        assert sectPr.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "expected_value"),
+        [
+            ("w:sectPr", None),
+            ("w:sectPr/w:cols", None),
+            ("w:sectPr/w:cols{w:space=720}", Twips(720)),
+        ],
+    )
+    def it_knows_its_default_space(self, sectPr_cxml: str, expected_value: Length | None):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        columns = SectionColumns(sectPr)
+        assert columns.space == expected_value
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "value", "expected_cxml"),
+        [
+            ("w:sectPr", Twips(720), "w:sectPr/w:cols{w:space=720}"),
+            ("w:sectPr/w:cols{w:space=720}", None, "w:sectPr/w:cols"),
+        ],
+    )
+    def it_can_change_its_default_space(
+        self, sectPr_cxml: str, value: Length | None, expected_cxml: str
+    ):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        columns = SectionColumns(sectPr)
+        columns.space = value
+        assert sectPr.xml == xml(expected_cxml)
+
+    def it_provides_access_to_individual_columns(self):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:cols/(w:col{w:w=4320,w:space=720},w:col{w:w=4320})"),
+        )
+        columns = SectionColumns(sectPr)
+        assert len(columns) == 2
+        assert columns[0].width == Twips(4320)
+        assert columns[0].space == Twips(720)
+        assert columns[1].width == Twips(4320)
+        assert columns[1].space is None
+
+    def it_can_iterate_over_individual_columns(self):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:cols/(w:col{w:w=4320,w:space=720},w:col{w:w=2880})"),
+        )
+        columns = SectionColumns(sectPr)
+        col_list = list(columns)
+        assert len(col_list) == 2
+        assert col_list[0].width == Twips(4320)
+        assert col_list[1].width == Twips(2880)
+
+    def it_returns_zero_length_when_no_cols_element(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        columns = SectionColumns(sectPr)
+        assert len(columns) == 0
+        assert list(columns) == []
+
+
+class DescribeColumn:
+    """Unit-test suite for `docx.section.Column`."""
+
+    @pytest.mark.parametrize(
+        ("col_cxml", "expected_width", "expected_space"),
+        [
+            ("w:col", None, None),
+            ("w:col{w:w=4320,w:space=720}", Twips(4320), Twips(720)),
+        ],
+    )
+    def it_knows_its_width_and_space(
+        self, col_cxml: str, expected_width: Length | None, expected_space: Length | None
+    ):
+        from docx.oxml.section import CT_Col
+
+        col_elm = cast(CT_Col, element(col_cxml))
+        col = Column(col_elm)
+        assert col.width == expected_width
+        assert col.space == expected_space
+
+    def it_can_change_its_width(self):
+        from docx.oxml.section import CT_Col
+
+        col_elm = cast(CT_Col, element("w:col"))
+        col = Column(col_elm)
+        col.width = Twips(4320)
+        assert col_elm.xml == xml("w:col{w:w=4320}")
+
+    def it_can_change_its_space(self):
+        from docx.oxml.section import CT_Col
+
+        col_elm = cast(CT_Col, element("w:col"))
+        col = Column(col_elm)
+        col.space = Twips(720)
+        assert col_elm.xml == xml("w:col{w:space=720}")
+
+
+class DescribeSection_columns:
+    """Unit-test suite for `docx.section.Section.columns`."""
+
+    def it_provides_access_to_section_columns(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr/w:cols{w:num=2,w:space=720}"))
+        section = Section(sectPr, document_part_)
+        columns = section.columns
+        assert isinstance(columns, SectionColumns)
+        assert columns.count == 2
+        assert columns.space == Twips(720)
+
+    # -- fixtures-----------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)
 
 
 class Describe_BaseHeaderFooter:

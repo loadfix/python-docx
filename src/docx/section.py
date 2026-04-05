@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator, List, Sequence, overload
+from typing import TYPE_CHECKING, Iterator, List, Sequence, Union, overload
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_HEADER_FOOTER
@@ -15,7 +15,7 @@ from docx.text.paragraph import Paragraph
 if TYPE_CHECKING:
     from docx.enum.section import WD_ORIENTATION, WD_SECTION_START
     from docx.oxml.document import CT_Document
-    from docx.oxml.section import CT_SectPr
+    from docx.oxml.section import CT_Col, CT_Cols, CT_SectPr
     from docx.parts.document import DocumentPart
     from docx.parts.story import StoryPart
     from docx.shared import Length
@@ -31,6 +31,11 @@ class Section:
         super(Section, self).__init__()
         self._sectPr = sectPr
         self._document_part = document_part
+
+    @property
+    def columns(self) -> SectionColumns:
+        """|SectionColumns| object providing access to column layout settings."""
+        return SectionColumns(self._sectPr)
 
     @property
     def bottom_margin(self) -> Length | None:
@@ -284,6 +289,128 @@ class Sections(Sequence[Section]):
 
     def __len__(self) -> int:
         return len(self._document_elm.sectPr_lst)
+
+
+class Column:
+    """Proxy for a ``<w:col>`` element, representing an individual column definition."""
+
+    def __init__(self, col: CT_Col):
+        self._col = col
+
+    @property
+    def space(self) -> Length | None:
+        """Read/write. Space after this column, in EMU.
+
+        |None| when no space value has been specified.
+        """
+        return self._col.space
+
+    @space.setter
+    def space(self, value: int | Length | None):
+        from docx.shared import Length as _Length
+
+        self._col.space = value if value is None or isinstance(value, _Length) else _Length(value)
+
+    @property
+    def width(self) -> Length | None:
+        """Read/write. Width of this column, in EMU.
+
+        |None| when no width has been specified.
+        """
+        return self._col.w
+
+    @width.setter
+    def width(self, value: int | Length | None):
+        from docx.shared import Length as _Length
+
+        self._col.w = value if value is None or isinstance(value, _Length) else _Length(value)
+
+
+class SectionColumns(Sequence[Column]):
+    """Proxy for a ``<w:cols>`` element, providing access to column layout settings.
+
+    Supports indexed access to individual |Column| objects when ``equal_width`` is False.
+    """
+
+    def __init__(self, sectPr: CT_SectPr):
+        self._sectPr = sectPr
+
+    @overload
+    def __getitem__(self, key: int) -> Column: ...
+
+    @overload
+    def __getitem__(self, key: slice) -> List[Column]: ...
+
+    def __getitem__(self, key: Union[int, slice]) -> Union[Column, List[Column]]:
+        cols = self._sectPr.cols
+        col_lst = cols.col_lst if cols is not None else []
+        if isinstance(key, slice):
+            return [Column(col) for col in col_lst[key]]
+        return Column(col_lst[key])
+
+    def __iter__(self) -> Iterator[Column]:
+        cols = self._sectPr.cols
+        if cols is not None:
+            for col in cols.col_lst:
+                yield Column(col)
+
+    def __len__(self) -> int:
+        cols = self._sectPr.cols
+        if cols is None:
+            return 0
+        return len(cols.col_lst)
+
+    @property
+    def count(self) -> int:
+        """Read/write. Number of columns in this section.
+
+        Defaults to 1 when no ``w:cols`` element is present or when ``w:num`` attribute
+        is not specified.
+        """
+        cols = self._sectPr.cols
+        if cols is None:
+            return 1
+        return cols.num if cols.num is not None else 1
+
+    @count.setter
+    def count(self, value: int):
+        cols = self._sectPr.get_or_add_cols()
+        cols.num = value
+
+    @property
+    def equal_width(self) -> bool:
+        """Read/write. True when all columns have equal width.
+
+        Defaults to True when no ``w:cols`` element is present or when ``w:equalWidth``
+        attribute is not specified.
+        """
+        cols = self._sectPr.cols
+        if cols is None:
+            return True
+        return cols.equalWidth if cols.equalWidth is not None else True
+
+    @equal_width.setter
+    def equal_width(self, value: bool):
+        cols = self._sectPr.get_or_add_cols()
+        cols.equalWidth = value
+
+    @property
+    def space(self) -> Length | None:
+        """Read/write. Default space between columns, in EMU.
+
+        |None| when no ``w:cols`` element is present or no ``w:space`` attribute is set.
+        """
+        cols = self._sectPr.cols
+        if cols is None:
+            return None
+        return cols.space
+
+    @space.setter
+    def space(self, value: int | Length | None):
+        from docx.shared import Length as _Length
+
+        cols = self._sectPr.get_or_add_cols()
+        cols.space = value if value is None or isinstance(value, _Length) else _Length(value)
 
 
 class _BaseHeaderFooter(BlockItemContainer):

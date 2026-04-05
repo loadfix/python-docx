@@ -11,7 +11,13 @@ from typing_extensions import TypeAlias
 from docx.enum.section import WD_HEADER_FOOTER, WD_ORIENTATION, WD_SECTION_START
 from docx.oxml.ns import nsmap
 from docx.oxml.shared import CT_OnOff
-from docx.oxml.simpletypes import ST_SignedTwipsMeasure, ST_TwipsMeasure, XsdString
+from docx.oxml.simpletypes import (
+    ST_DecimalNumber,
+    ST_OnOff,
+    ST_SignedTwipsMeasure,
+    ST_TwipsMeasure,
+    XsdString,
+)
 from docx.oxml.table import CT_Tbl
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.xmlchemy import (
@@ -24,6 +30,35 @@ from docx.oxml.xmlchemy import (
 from docx.shared import Length, lazyproperty
 
 BlockElement: TypeAlias = "CT_P | CT_Tbl"
+
+
+class CT_Col(BaseOxmlElement):
+    """``<w:col>`` element, defining width and spacing for an individual column."""
+
+    w: Length | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:w", ST_TwipsMeasure
+    )
+    space: Length | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:space", ST_TwipsMeasure
+    )
+
+
+class CT_Cols(BaseOxmlElement):
+    """``<w:cols>`` element, defining column layout for a section."""
+
+    col_lst: List[CT_Col]
+
+    col = ZeroOrMore("w:col", successors=())
+
+    num: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:num", ST_DecimalNumber
+    )
+    space: Length | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:space", ST_TwipsMeasure
+    )
+    equalWidth: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:equalWidth", ST_OnOff
+    )
 
 
 class CT_HdrFtr(BaseOxmlElement):
@@ -100,6 +135,7 @@ class CT_PageSz(BaseOxmlElement):
 class CT_SectPr(BaseOxmlElement):
     """`w:sectPr` element, the container element for section properties."""
 
+    get_or_add_cols: Callable[[], CT_Cols]
     get_or_add_pgMar: Callable[[], CT_PageMar]
     get_or_add_pgSz: Callable[[], CT_PageSz]
     get_or_add_titlePg: Callable[[], CT_OnOff]
@@ -141,6 +177,9 @@ class CT_SectPr(BaseOxmlElement):
     )
     pgMar: CT_PageMar | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:pgMar", successors=_tag_seq[5:]
+    )
+    cols: CT_Cols | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:cols", successors=_tag_seq[10:]
     )
     titlePg: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:titlePg", successors=_tag_seq[14:]
