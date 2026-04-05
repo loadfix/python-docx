@@ -7,7 +7,7 @@ This including registering custom element classes corresponding to Open XML elem
 
 from __future__ import annotations
 
-from docx.oxml.drawing import CT_Drawing
+from docx.oxml.drawing import CT_Drawing, CT_TextBox, CT_TxbxContent, CT_WordprocessingShape
 from docx.oxml.parser import OxmlElement, parse_xml, register_element_cls
 from docx.oxml.shape import (
     CT_Anchor,
@@ -56,10 +56,13 @@ register_element_cls("pic:nvPicPr", CT_PictureNonVisual)
 register_element_cls("pic:pic", CT_Picture)
 register_element_cls("pic:spPr", CT_ShapeProperties)
 register_element_cls("w:drawing", CT_Drawing)
+register_element_cls("w:txbxContent", CT_TxbxContent)
 register_element_cls("wp:anchor", CT_Anchor)
 register_element_cls("wp:docPr", CT_NonVisualDrawingProps)
 register_element_cls("wp:extent", CT_PositiveSize2D)
 register_element_cls("wp:inline", CT_Inline)
+register_element_cls("wps:txbx", CT_TextBox)
+register_element_cls("wps:wsp", CT_WordprocessingShape)
 
 # ---------------------------------------------------------------------------
 # hyperlink-related elements

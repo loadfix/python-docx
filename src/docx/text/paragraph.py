@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Iterator, List, cast
 
+from docx.drawing import Drawing
 from docx.enum.section import WD_SECTION_START
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
+from docx.oxml.drawing import CT_Drawing
 from docx.oxml.text.run import CT_R
 from docx.shared import StoryChild
 from docx.styles.style import ParagraphStyle
@@ -174,6 +176,14 @@ class Paragraph(StoryChild):
     def has_page_break(self) -> bool:
         """`True` if this paragraph contains at least one ``<w:br w:type="page"/>``."""
         return bool(self._p.xpath('.//w:br[@w:type="page"]'))
+
+    @property
+    def drawings(self) -> List[Drawing]:
+        """A |Drawing| instance for each `<w:drawing>` element in this paragraph."""
+        return [
+            Drawing(cast(CT_Drawing, d), self)
+            for d in self._p.xpath(".//w:drawing")
+        ]
 
     @property
     def hyperlinks(self) -> List[Hyperlink]:
