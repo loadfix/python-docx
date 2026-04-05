@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator, List, cast
+from typing import IO, TYPE_CHECKING, Iterator, List, cast
 
 from docx.drawing import Drawing
 from docx.enum.section import WD_SECTION_START
+from docx.enum.shape import WD_RELATIVE_HORZ_POS, WD_RELATIVE_VERT_POS, WD_WRAP_TYPE
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
 from docx.oxml.drawing import CT_Drawing
 from docx.oxml.text.run import CT_R
+from docx.shape import FloatingImage
 from docx.shared import StoryChild
 from docx.styles.style import ParagraphStyle
 from docx.text.hyperlink import Hyperlink
@@ -25,6 +27,7 @@ if TYPE_CHECKING:
     from docx.oxml.document import CT_Body
     from docx.oxml.text.paragraph import CT_P
     from docx.section import Section
+    from docx.shared import Length
     from docx.styles.style import CharacterStyle
 
 
@@ -69,6 +72,64 @@ class Paragraph(StoryChild):
 
         bookmarkStart = self._p.xpath(f".//w:bookmarkStart[@w:id='{bookmark_id}']")
         return Bookmark(bookmarkStart[0], body)
+
+    def add_floating_image(
+        self,
+        image_path_or_stream: str | IO[bytes],
+        width: int | Length | None = None,
+        height: int | Length | None = None,
+        horz_offset: int = 0,
+        vert_offset: int = 0,
+        horz_pos_relative: WD_RELATIVE_HORZ_POS = WD_RELATIVE_HORZ_POS.COLUMN,
+        vert_pos_relative: WD_RELATIVE_VERT_POS = WD_RELATIVE_VERT_POS.PARAGRAPH,
+        wrap_type: WD_WRAP_TYPE = WD_WRAP_TYPE.NONE,
+    ) -> FloatingImage:
+        """Return |FloatingImage| containing image identified by `image_path_or_stream`.
+
+        The floating image is added to this paragraph using a `wp:anchor` element
+        instead of `wp:inline`, allowing it to be positioned relative to the page,
+        margin, column, or paragraph.
+
+        `horz_offset` and `vert_offset` are in EMUs (English Metric Units).
+        `horz_pos_relative` and `vert_pos_relative` specify the reference frame.
+        `wrap_type` specifies how text wraps around the image.
+        """
+        # -- map enum wrap_type to the string used in the XML layer --
+        wrap_map = {
+            WD_WRAP_TYPE.NONE: ("none", False),
+            WD_WRAP_TYPE.SQUARE: ("square", False),
+            WD_WRAP_TYPE.TIGHT: ("tight", False),
+            WD_WRAP_TYPE.THROUGH: ("through", False),
+            WD_WRAP_TYPE.TOP_AND_BOTTOM: ("topAndBottom", False),
+            WD_WRAP_TYPE.IN_FRONT: ("none", False),
+            WD_WRAP_TYPE.BEHIND: ("none", True),
+        }
+        wrap_str, behind_doc = wrap_map[wrap_type]
+
+        anchor = self.part.new_pic_anchor(
+            image_path_or_stream,
+            width,
+            height,
+            horz_offset=horz_offset,
+            vert_offset=vert_offset,
+            horz_relative_from=horz_pos_relative.value,
+            vert_relative_from=vert_pos_relative.value,
+            wrap_type=wrap_str,
+            behind_doc=behind_doc,
+        )
+        run = self.add_run()
+        run._r.add_drawing(anchor)
+        return FloatingImage(anchor)
+
+    @property
+    def floating_images(self) -> List[FloatingImage]:
+        """A |FloatingImage| for each `<wp:anchor>` element in this paragraph."""
+        from docx.oxml.shape import CT_Anchor
+
+        return [
+            FloatingImage(cast(CT_Anchor, a))
+            for a in self._p.xpath(".//w:drawing/wp:anchor")
+        ]
 
     def _get_body(self) -> CT_Body:
         """Return the w:body ancestor element."""
