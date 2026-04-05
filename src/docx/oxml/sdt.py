@@ -209,15 +209,19 @@ class CT_Sdt(BaseOxmlElement):
     ) -> CT_Sdt:
         """Return a new block-level `w:sdt` element with a paragraph in its content."""
         type_xml = _type_element_xml(control_type)
-        tag_xml = f'<w:tag {nsdecls("w")} w:val="{tag}"/>' if tag else ""
-        alias_xml = f'<w:alias {nsdecls("w")} w:val="{title}"/>' if title else ""
         xml = (
             f"<w:sdt {nsdecls('w', 'w14')}>"
-            f"  <w:sdtPr>{alias_xml}{tag_xml}{type_xml}</w:sdtPr>"
+            f"  <w:sdtPr>{type_xml}</w:sdtPr>"
             f"  <w:sdtContent><w:p/></w:sdtContent>"
             f"</w:sdt>"
         )
-        return cast(CT_Sdt, parse_xml(xml))
+        sdt = cast(CT_Sdt, parse_xml(xml))
+        sdtPr = sdt.get_or_add_sdtPr()
+        if title is not None:
+            sdtPr.title = title
+        if tag is not None:
+            sdtPr.tag_val = tag
+        return sdt
 
     @classmethod
     def new_inline(
@@ -228,15 +232,19 @@ class CT_Sdt(BaseOxmlElement):
     ) -> CT_Sdt:
         """Return a new inline `w:sdt` element with a run in its content."""
         type_xml = _type_element_xml(control_type)
-        tag_xml = f'<w:tag {nsdecls("w")} w:val="{tag}"/>' if tag else ""
-        alias_xml = f'<w:alias {nsdecls("w")} w:val="{title}"/>' if title else ""
         xml = (
             f"<w:sdt {nsdecls('w', 'w14')}>"
-            f"  <w:sdtPr>{alias_xml}{tag_xml}{type_xml}</w:sdtPr>"
+            f"  <w:sdtPr>{type_xml}</w:sdtPr>"
             f"  <w:sdtContent><w:r><w:t/></w:r></w:sdtContent>"
             f"</w:sdt>"
         )
-        return cast(CT_Sdt, parse_xml(xml))
+        sdt = cast(CT_Sdt, parse_xml(xml))
+        sdtPr = sdt.get_or_add_sdtPr()
+        if title is not None:
+            sdtPr.title = title
+        if tag is not None:
+            sdtPr.tag_val = tag
+        return sdt
 
 
 def _type_element_xml(control_type: WD_CONTENT_CONTROL_TYPE) -> str:
