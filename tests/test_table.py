@@ -689,6 +689,38 @@ class Describe_Row:
     @pytest.mark.parametrize(
         ("tr_cxml", "expected_value"),
         [
+            ("w:tr", False),
+            ("w:tr/w:trPr", False),
+            ("w:tr/w:trPr/w:tblHeader", True),
+        ],
+    )
+    def it_knows_whether_it_is_a_header_row(
+        self, tr_cxml: str, expected_value: bool, parent_: Mock
+    ):
+        row = _Row(cast(CT_Row, element(tr_cxml)), parent_)
+        assert row.is_header is expected_value
+
+    @pytest.mark.parametrize(
+        ("tr_cxml", "new_value", "expected_cxml"),
+        [
+            ("w:tr", True, "w:tr/w:trPr/w:tblHeader"),
+            ("w:tr/w:trPr", True, "w:tr/w:trPr/w:tblHeader"),
+            ("w:tr/w:trPr/w:tblHeader", True, "w:tr/w:trPr/w:tblHeader"),
+            ("w:tr/w:trPr/w:tblHeader", False, "w:tr/w:trPr"),
+            ("w:tr", False, "w:tr/w:trPr"),
+            ("w:tr/w:trPr", False, "w:tr/w:trPr"),
+        ],
+    )
+    def it_can_change_whether_it_is_a_header_row(
+        self, tr_cxml: str, new_value: bool, expected_cxml: str, parent_: Mock
+    ):
+        row = _Row(cast(CT_Row, element(tr_cxml)), parent_)
+        row.is_header = new_value
+        assert row._tr.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("tr_cxml", "expected_value"),
+        [
             ("w:tr", None),
             ("w:tr/w:trPr", None),
             ("w:tr/w:trPr/w:trHeight", None),

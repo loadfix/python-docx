@@ -104,6 +104,19 @@ class CT_Row(BaseOxmlElement):
         return tbl.tr_lst.index(self)
 
     @property
+    def tblHeader_val(self) -> bool:
+        """Value of `./w:trPr/w:tblHeader`, |True| if present, |False| if not."""
+        trPr = self.trPr
+        if trPr is None:
+            return False
+        return trPr.tblHeader_val
+
+    @tblHeader_val.setter
+    def tblHeader_val(self, value: bool) -> None:
+        trPr = self.get_or_add_trPr()
+        trPr.tblHeader_val = value
+
+    @property
     def trHeight_hRule(self) -> WD_ROW_HEIGHT_RULE | None:
         """The value of `./w:trPr/w:trHeight/@w:hRule`, or |None| if not present."""
         trPr = self.trPr
@@ -892,7 +905,9 @@ class CT_TcPr(BaseOxmlElement):
 class CT_TrPr(BaseOxmlElement):
     """``<w:trPr>`` element, defining table row properties."""
 
+    get_or_add_tblHeader: Callable[[], CT_OnOff]
     get_or_add_trHeight: Callable[[], CT_Height]
+    _remove_tblHeader: Callable[[], None]
 
     _tag_seq = (
         "w:cnfStyle",
@@ -920,7 +935,24 @@ class CT_TrPr(BaseOxmlElement):
     trHeight: CT_Height | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:trHeight", successors=_tag_seq[8:]
     )
+    tblHeader: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:tblHeader", successors=_tag_seq[9:]
+    )
     del _tag_seq
+
+    @property
+    def tblHeader_val(self) -> bool:
+        """Value of `w:tblHeader` child element.
+
+        |True| if present, |False| if not.
+        """
+        return self.tblHeader is not None
+
+    @tblHeader_val.setter
+    def tblHeader_val(self, value: bool) -> None:
+        self._remove_tblHeader()
+        if value:
+            self.get_or_add_tblHeader()
 
     @property
     def grid_after(self) -> int:

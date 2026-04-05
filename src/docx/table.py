@@ -472,6 +472,20 @@ class _Row(Parented):
         return self._tr.grid_before
 
     @property
+    def is_header(self) -> bool:
+        """Whether this row is a header row that repeats on each page.
+
+        Read/write. |True| indicates this row will repeat as a header at the top of each
+        page when the table spans multiple pages. Only the first N consecutive rows
+        marked as header rows will repeat (Word limitation).
+        """
+        return self._tr.tblHeader_val
+
+    @is_header.setter
+    def is_header(self, value: bool) -> None:
+        self._tr.tblHeader_val = value
+
+    @property
     def height(self) -> Length | None:
         """Return a |Length| object representing the height of this cell, or |None| if
         no explicit height is set."""
