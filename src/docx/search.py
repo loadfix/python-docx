@@ -57,7 +57,7 @@ class SearchMatch:
         return self._end
 
 
-def _build_char_map(paragraph: Paragraph) -> Tuple[str, List[Tuple[int, int]]]:
+def _build_char_map(runs: List[Run]) -> Tuple[str, List[Tuple[int, int]]]:
     """Build full text from runs and a map from character position to (run_index, offset).
 
     Returns a tuple of (full_text, char_map) where char_map[i] is (run_index,
@@ -65,7 +65,7 @@ def _build_char_map(paragraph: Paragraph) -> Tuple[str, List[Tuple[int, int]]]:
     """
     full_text = ""
     char_map: List[Tuple[int, int]] = []
-    for run_idx, run in enumerate(paragraph.runs):
+    for run_idx, run in enumerate(runs):
         run_text = run.text
         for char_offset in range(len(run_text)):
             char_map.append((run_idx, char_offset))
@@ -99,11 +99,9 @@ def search_paragraphs(
     matches: List[SearchMatch] = []
 
     for para_idx, paragraph in enumerate(paragraphs):
-        full_text, char_map = _build_char_map(paragraph)
+        full_text, char_map = _build_char_map(paragraph.runs)
         for m in pattern.finditer(full_text):
             start, end = m.start(), m.end()
-            if not char_map:
-                continue
             run_indices = sorted({char_map[i][0] for i in range(start, end)})
             matches.append(
                 SearchMatch(
@@ -154,7 +152,7 @@ def _replace_in_paragraph(
     if not runs:
         return 0
 
-    full_text, char_map = _build_char_map(paragraph)
+    full_text, char_map = _build_char_map(runs)
     matches = list(pattern.finditer(full_text))
     if not matches:
         return 0

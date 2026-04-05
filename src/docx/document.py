@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import IO, TYPE_CHECKING, Iterator, List, Sequence, cast
+from typing import IO, TYPE_CHECKING, Iterator, List, Sequence
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_SECTION
@@ -226,7 +226,10 @@ class Document(ElementProxy):
         case_sensitive: bool = True,
         whole_word: bool = False,
     ) -> int:
-        """Replace all occurrences of `old_text` with `new_text` in this document.
+        """Replace occurrences of `old_text` with `new_text` in the document body paragraphs.
+
+        Note: Only top-level body paragraphs are searched. Text inside table cells,
+        headers, footers, footnotes, and endnotes is not affected.
 
         Preserves the run formatting of the first character's run for each replacement.
         Returns the number of replacements made.
@@ -254,7 +257,10 @@ class Document(ElementProxy):
         case_sensitive: bool = True,
         whole_word: bool = False,
     ) -> List[SearchMatch]:
-        """Find all occurrences of `text` in this document.
+        """Find all occurrences of `text` in the document body paragraphs.
+
+        Note: Only top-level body paragraphs are searched. Text inside table cells,
+        headers, footers, footnotes, and endnotes is not included.
 
         Returns a list of |SearchMatch| objects, one for each occurrence found. Each match
         provides access to the paragraph, run indices, and character offsets.
