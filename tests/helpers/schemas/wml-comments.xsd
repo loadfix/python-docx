@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Simplified OOXML schema for word/comments.xml validation.
+
+  Based on ECMA-376 Part 1, Section 17.13.4 (Comments).
+  Uses lax processing for child elements to allow content beyond
+  what this simplified schema defines.
+-->
+<xs:schema
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    targetNamespace="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    elementFormDefault="qualified"
+    attributeFormDefault="qualified">
+
+  <!-- Root element: w:comments -->
+  <xs:element name="comments" type="w:CT_Comments"/>
+
+  <xs:complexType name="CT_Comments">
+    <xs:sequence>
+      <xs:element name="comment" type="w:CT_Comment" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="CT_Comment">
+    <xs:sequence>
+      <xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute ref="w:id" use="required"/>
+    <xs:attribute ref="w:author" use="required"/>
+    <xs:attribute ref="w:date" use="optional"/>
+    <xs:attribute ref="w:initials" use="optional"/>
+    <xs:anyAttribute processContents="lax"/>
+  </xs:complexType>
+
+  <!-- Attribute declarations -->
+  <xs:attribute name="id" type="xs:integer"/>
+  <xs:attribute name="author" type="xs:string"/>
+  <xs:attribute name="date" type="xs:dateTime"/>
+  <xs:attribute name="initials" type="xs:string"/>
+
+</xs:schema>
