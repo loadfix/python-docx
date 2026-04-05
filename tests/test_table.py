@@ -118,7 +118,8 @@ class DescribeTable:
         _cells_.return_value = [0, 1, 2, 3, 4, 5, 6, 7, 8]
         _column_count_.return_value = 3
 
-        row_cells = table.row_cells(1)
+        with pytest.warns(DeprecationWarning, match="row_cells"):
+            row_cells = table.row_cells(1)
 
         assert row_cells == [3, 4, 5]
 
