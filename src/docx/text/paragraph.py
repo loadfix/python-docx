@@ -109,7 +109,7 @@ class Paragraph(StoryChild):
         if url is not None and anchor is not None:
             raise ValueError("Only one of url or anchor may be provided, not both")
 
-        display_text = text or url or anchor or ""
+        display_text = text if text is not None else (url or anchor or "")
 
         rId = None
         if url is not None:
@@ -117,15 +117,13 @@ class Paragraph(StoryChild):
 
         rPr = None
         if style is not None:
-            from docx.enum.style import WD_STYLE_TYPE
+            from docx.oxml.ns import qn
             from docx.oxml.parser import OxmlElement
 
             style_id = self.part.get_style_id(style, WD_STYLE_TYPE.CHARACTER)
             if style_id is not None:
                 rPr = OxmlElement("w:rPr")
                 rStyle = OxmlElement("w:rStyle")
-                from docx.oxml.ns import qn
-
                 rStyle.set(qn("w:val"), style_id)
                 rPr.append(rStyle)
 
