@@ -13,14 +13,15 @@ from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.table import (
     WD_ALIGN_VERTICAL,
     WD_ROW_HEIGHT,
+    WD_SHADING_PATTERN,
     WD_TABLE_ALIGNMENT,
     WD_TABLE_DIRECTION,
 )
 from docx.oxml.parser import parse_xml
 from docx.oxml.table import CT_Row, CT_Tbl, CT_TblGridCol, CT_Tc
 from docx.parts.document import DocumentPart
-from docx.shared import Emu, Inches, Length
-from docx.table import Table, _Cell, _Column, _Columns, _Row, _Rows
+from docx.shared import Emu, Inches, Length, RGBColor
+from docx.table import CellShading, Table, _Cell, _Column, _Columns, _Row, _Rows
 from docx.text.paragraph import Paragraph
 
 from .unitutil.cxml import element, xml
@@ -546,6 +547,11 @@ class Describe_Cell:
         assert merged_cell._tc is merged_tc_
         assert merged_cell._parent is cell._parent
 
+    def it_provides_access_to_its_shading(self, parent_: Mock):
+        cell = _Cell(cast(CT_Tc, element("w:tc")), parent_)
+        shading = cell.shading
+        assert isinstance(shading, CellShading)
+
     # fixtures -------------------------------------------------------
 
     @pytest.fixture
@@ -563,6 +569,103 @@ class Describe_Cell:
     @pytest.fixture
     def tc_2_(self, request: FixtureRequest):
         return instance_mock(request, CT_Tc)
+
+
+class DescribeCellShading:
+    """Unit-test suite for `docx.table.CellShading` objects."""
+
+    @pytest.mark.parametrize(
+        ("tc_cxml", "expected_color"),
+        [
+            ("w:tc", None),
+            ("w:tc/w:tcPr", None),
+            ("w:tc/w:tcPr/w:shd{w:fill=D9E2F3}", RGBColor(0xD9, 0xE2, 0xF3)),
+            ("w:tc/w:tcPr/w:shd{w:val=clear}", None),
+        ],
+    )
+    def it_can_get_the_fill_color(
+        self, tc_cxml: str, expected_color: RGBColor | None
+    ):
+        tc = cast(CT_Tc, element(tc_cxml))
+        shading = CellShading(tc)
+        assert shading.fill_color == expected_color
+
+    @pytest.mark.parametrize(
+        ("tc_cxml", "new_color", "expected_cxml"),
+        [
+            (
+                "w:tc",
+                RGBColor(0xD9, 0xE2, 0xF3),
+                "w:tc/w:tcPr/w:shd{w:fill=D9E2F3}",
+            ),
+            (
+                "w:tc/w:tcPr/w:shd{w:fill=FF0000}",
+                RGBColor(0x00, 0x00, 0xFF),
+                "w:tc/w:tcPr/w:shd{w:fill=0000FF}",
+            ),
+            (
+                "w:tc/w:tcPr/w:shd{w:val=clear,w:fill=D9E2F3}",
+                None,
+                "w:tc/w:tcPr/w:shd{w:val=clear}",
+            ),
+            ("w:tc", None, "w:tc"),
+        ],
+    )
+    def it_can_set_the_fill_color(
+        self, tc_cxml: str, new_color: RGBColor | None, expected_cxml: str
+    ):
+        tc = cast(CT_Tc, element(tc_cxml))
+        shading = CellShading(tc)
+        shading.fill_color = new_color
+        assert tc.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("tc_cxml", "expected_pattern"),
+        [
+            ("w:tc", None),
+            ("w:tc/w:tcPr", None),
+            ("w:tc/w:tcPr/w:shd{w:val=clear}", WD_SHADING_PATTERN.CLEAR),
+            ("w:tc/w:tcPr/w:shd{w:val=solid}", WD_SHADING_PATTERN.SOLID),
+        ],
+    )
+    def it_can_get_the_pattern(
+        self, tc_cxml: str, expected_pattern: WD_SHADING_PATTERN | None
+    ):
+        tc = cast(CT_Tc, element(tc_cxml))
+        shading = CellShading(tc)
+        assert shading.pattern == expected_pattern
+
+    @pytest.mark.parametrize(
+        ("tc_cxml", "new_pattern", "expected_cxml"),
+        [
+            (
+                "w:tc",
+                WD_SHADING_PATTERN.CLEAR,
+                "w:tc/w:tcPr/w:shd{w:val=clear}",
+            ),
+            (
+                "w:tc/w:tcPr/w:shd{w:val=clear}",
+                WD_SHADING_PATTERN.SOLID,
+                "w:tc/w:tcPr/w:shd{w:val=solid}",
+            ),
+            (
+                "w:tc/w:tcPr/w:shd{w:val=clear,w:fill=D9E2F3}",
+                None,
+                "w:tc/w:tcPr/w:shd{w:fill=D9E2F3}",
+            ),
+            ("w:tc", None, "w:tc"),
+        ],
+    )
+    def it_can_set_the_pattern(
+        self,
+        tc_cxml: str,
+        new_pattern: WD_SHADING_PATTERN | None,
+        expected_cxml: str,
+    ):
+        tc = cast(CT_Tc, element(tc_cxml))
+        shading = CellShading(tc)
+        shading.pattern = new_pattern
+        assert tc.xml == xml(expected_cxml)
 
 
 class Describe_Column:

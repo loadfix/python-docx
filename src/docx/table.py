@@ -8,15 +8,15 @@ from typing_extensions import TypeAlias
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.style import WD_STYLE_TYPE
-from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_SHADING_PATTERN
 from docx.oxml.simpletypes import ST_Merge
 from docx.oxml.table import CT_TblGridCol
-from docx.shared import Inches, Parented, StoryChild, lazyproperty
+from docx.shared import Inches, Parented, RGBColor, StoryChild, lazyproperty
 
 if TYPE_CHECKING:
     import docx.types as t
     from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_TABLE_ALIGNMENT, WD_TABLE_DIRECTION
-    from docx.oxml.table import CT_Row, CT_Tbl, CT_TblPr, CT_Tc
+    from docx.oxml.table import CT_Row, CT_Shd, CT_Tbl, CT_TblPr, CT_Tc
     from docx.shared import Length
     from docx.styles.style import (
         ParagraphStyle,
@@ -296,6 +296,15 @@ class _Cell(BlockItemContainer):
         r.text = text
 
     @property
+    def shading(self) -> CellShading:
+        """Read-only. |CellShading| object providing access to shading properties.
+
+        Always returns a |CellShading| object; setting shading properties on it will
+        create the required XML elements on demand.
+        """
+        return CellShading(self._tc)
+
+    @property
     def vertical_alignment(self):
         """Member of :ref:`WdCellVerticalAlignment` or None.
 
@@ -321,6 +330,66 @@ class _Cell(BlockItemContainer):
     @width.setter
     def width(self, value: Length):
         self._tc.width = value
+
+
+class CellShading:
+    """Provides access to shading properties for a table cell.
+
+    Accessed via ``_Cell.shading``.
+    """
+
+    def __init__(self, tc: CT_Tc):
+        self._tc = tc
+
+    @property
+    def fill_color(self) -> RGBColor | None:
+        """The background fill color as an |RGBColor| value, or |None| if not set."""
+        shd = self._shd
+        if shd is None:
+            return None
+        fill = shd.fill
+        if fill is None or not isinstance(fill, RGBColor):
+            return None
+        return fill
+
+    @fill_color.setter
+    def fill_color(self, value: RGBColor | None):
+        if value is None:
+            tcPr = self._tc.tcPr
+            if tcPr is not None and tcPr.shd is not None:
+                tcPr.shd.fill = None
+            return
+        shd = self._get_or_add_shd()
+        shd.fill = value
+
+    @property
+    def pattern(self) -> WD_SHADING_PATTERN | None:
+        """The shading pattern as a |WD_SHADING_PATTERN| value, or |None| if not set."""
+        shd = self._shd
+        if shd is None:
+            return None
+        return shd.val
+
+    @pattern.setter
+    def pattern(self, value: WD_SHADING_PATTERN | None):
+        if value is None:
+            tcPr = self._tc.tcPr
+            if tcPr is not None and tcPr.shd is not None:
+                tcPr.shd.val = None
+            return
+        shd = self._get_or_add_shd()
+        shd.val = value
+
+    @property
+    def _shd(self) -> CT_Shd | None:
+        tcPr = self._tc.tcPr
+        if tcPr is None:
+            return None
+        return tcPr.shd
+
+    def _get_or_add_shd(self) -> CT_Shd:
+        tcPr = self._tc.get_or_add_tcPr()
+        return tcPr.get_or_add_shd()
 
 
 class _Column(Parented):
