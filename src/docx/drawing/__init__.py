@@ -118,9 +118,7 @@ class Drawing(Parented):
 
         # -- check for group shape --
         if drawing.xpath(
-            "./wp:inline/a:graphic/a:graphicData//wps:wsp[count(../wps:wsp) > 1]"
-            " | ./wp:anchor/a:graphic/a:graphicData//wps:wsp[count(../wps:wsp) > 1]"
-            " | ./wp:inline/a:graphic/a:graphicData/wpg:*"
+            "./wp:inline/a:graphic/a:graphicData/wpg:*"
             " | ./wp:anchor/a:graphic/a:graphicData/wpg:*"
         ):
             return WD_DRAWING_TYPE.GROUP
@@ -128,13 +126,5 @@ class Drawing(Parented):
         # -- check for text box (shape with txbx content) --
         if drawing.xpath(".//wps:wsp/wps:txbx/w:txbxContent"):
             return WD_DRAWING_TYPE.TEXT_BOX
-
-        # -- default to shape for any other wps:wsp --
-        if drawing.xpath(
-            ".//wps:wsp"
-            " | ./wp:inline/a:graphic/a:graphicData"
-            " | ./wp:anchor/a:graphic/a:graphicData"
-        ):
-            return WD_DRAWING_TYPE.SHAPE
 
         return WD_DRAWING_TYPE.SHAPE

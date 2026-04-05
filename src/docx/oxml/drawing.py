@@ -18,27 +18,9 @@ class CT_Drawing(BaseOxmlElement):
     """`<w:drawing>` element, containing a DrawingML object like a picture or chart."""
 
     @property
-    def inline_lst(self) -> list[CT_Inline_WP]:
-        """All `<wp:inline>` children."""
-        return self.xpath("./wp:inline")
-
-    @property
-    def anchor_lst(self) -> list[CT_Anchor_WP]:
-        """All `<wp:anchor>` children."""
-        return self.xpath("./wp:anchor")
-
-    @property
     def txbxContent_lst(self) -> List[CT_TxbxContent]:
         """All `<w:txbxContent>` descendants (text frames in shapes)."""
         return self.xpath(".//wps:txbx/w:txbxContent")
-
-
-class CT_Inline_WP(BaseOxmlElement):
-    """Stub for type-checking `<wp:inline>` in drawing context."""
-
-
-class CT_Anchor_WP(BaseOxmlElement):
-    """Stub for type-checking `<wp:anchor>` in drawing context."""
 
 
 class CT_WordprocessingShape(BaseOxmlElement):

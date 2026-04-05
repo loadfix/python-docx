@@ -124,6 +124,14 @@ class DescribeDrawing:
                 "w:drawing/wp:inline/a:graphic/a:graphicData/wps:wsp",
                 WD_DRAWING_TYPE.SHAPE,
             ),
+            (
+                "w:drawing/wp:inline/a:graphic/a:graphicData/wpg:wgp",
+                WD_DRAWING_TYPE.GROUP,
+            ),
+            (
+                "w:drawing/wp:inline/a:graphic/a:graphicData/dgm:relIds",
+                WD_DRAWING_TYPE.DIAGRAM,
+            ),
         ],
     )
     def it_knows_its_type(
