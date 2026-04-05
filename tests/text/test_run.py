@@ -371,6 +371,44 @@ class DescribeRun:
         assert cleared_run is run
 
     @pytest.mark.parametrize(
+        ("p_cxml", "offset", "expected_left", "expected_right"),
+        [
+            ('w:p/w:r/w:t"foobar"', 3, "foo", "bar"),
+            ('w:p/w:r/(w:rPr/w:b,w:t"foobar")', 3, "foo", "bar"),
+            ('w:p/w:r/w:t"foobar"', 0, "", "foobar"),
+            ('w:p/w:r/w:t"foobar"', 6, "foobar", ""),
+        ],
+    )
+    def it_can_split_at_a_character_position(
+        self,
+        p_cxml: str,
+        offset: int,
+        expected_left: str,
+        expected_right: str,
+        fake_parent: t.ProvidesStoryPart,
+    ):
+        p = cast(CT_P, element(p_cxml))
+        run = Run(p.r_lst[0], fake_parent)
+
+        left, right = run.split(offset)
+
+        assert left is run
+        assert isinstance(right, Run)
+        assert left.text == expected_left
+        assert right.text == expected_right
+
+    def it_preserves_formatting_on_split(self, fake_parent: t.ProvidesStoryPart):
+        p = cast(CT_P, element('w:p/w:r/(w:rPr/(w:b,w:i),w:t"foobar")'))
+        run = Run(p.r_lst[0], fake_parent)
+
+        left, right = run.split(3)
+
+        assert left.bold is True
+        assert right.bold is True
+        assert left.italic is True
+        assert right.italic is True
+
+    @pytest.mark.parametrize(
         ("r_cxml", "expected_text"),
         [
             ("w:r", ""),

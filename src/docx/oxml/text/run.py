@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import TYPE_CHECKING, Callable, Iterator, List, cast
 
 from docx.oxml.drawing import CT_Drawing
@@ -154,6 +155,35 @@ class CT_R(BaseOxmlElement):
     def text(self, text: str):  # pyright: ignore[reportIncompatibleMethodOverride]
         self.clear_content()
         _RunContentAppender.append_to_run_from_text(self, text)
+
+    def split_run(self, offset: int) -> CT_R:
+        """Split this run at character `offset`, returning the new right-hand run.
+
+        Text content up to but not including `offset` remains in this run. A new
+        `w:r` element containing text from `offset` onward is created with a copy
+        of this run's `w:rPr` and inserted as the next sibling. The new run element
+        is returned.
+        """
+        text = self.text
+        if offset < 0 or offset > len(text):
+            raise ValueError(
+                f"offset {offset} out of range for run text of length {len(text)}"
+            )
+
+        # -- create new run with copy of rPr --
+        new_r = cast(CT_R, OxmlElement("w:r"))
+        rPr = self.rPr
+        if rPr is not None:
+            new_r._insert_rPr(deepcopy(rPr))
+
+        # -- set text on each run --
+        self.text = text[:offset]
+        new_r.text = text[offset:]
+
+        # -- insert new run after this one in the parent --
+        self.addnext(new_r)
+
+        return new_r
 
     def _insert_rPr(self, rPr: CT_RPr) -> CT_RPr:
         self.insert(0, rPr)
