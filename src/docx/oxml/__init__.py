@@ -95,6 +95,11 @@ from .coreprops import CT_CoreProperties
 
 register_element_cls("cp:coreProperties", CT_CoreProperties)
 
+from .endnotes import CT_Endnote, CT_Endnotes
+
+register_element_cls("w:endnote", CT_Endnote)
+register_element_cls("w:endnotes", CT_Endnotes)
+
 from .document import CT_Body, CT_Document
 
 register_element_cls("w:body", CT_Body)

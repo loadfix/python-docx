@@ -163,6 +163,23 @@ class CT_R(BaseOxmlElement):
         rPr.style = "FootnoteReference"
         self.append(OxmlElement("w:footnoteReference", attrs={qn("w:id"): str(footnote_id)}))
 
+    def insert_endnote_reference(self, endnote_id: int) -> None:
+        """Append a `w:endnoteReference` element to this run.
+
+        The run is styled with the "EndnoteReference" character style and a
+        `w:endnoteReference` element referencing `endnote_id` is appended.
+
+        Should produce XML like:
+
+            <w:r>
+              <w:rPr><w:rStyle w:val="EndnoteReference"/></w:rPr>
+              <w:endnoteReference w:id="2"/>
+            </w:r>
+        """
+        rPr = self.get_or_add_rPr()
+        rPr.style = "EndnoteReference"
+        self.append(OxmlElement("w:endnoteReference", attrs={qn("w:id"): str(endnote_id)}))
+
     def _new_comment_reference_run(self, comment_id: int) -> CT_R:
         """Return a new `w:r` element with `w:commentReference` referencing `comment_id`.
 
