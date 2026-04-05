@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from docx.enum.text import WD_BORDER_STYLE, WD_LINE_SPACING
+from docx.enum.text import WD_LINE_SPACING
 from docx.shared import ElementProxy, Emu, Length, Pt, RGBColor, Twips, lazyproperty
 from docx.text.tabstops import TabStops
 
 if TYPE_CHECKING:
+    from docx.enum.text import WD_BORDER_STYLE
     from docx.oxml.text.parfmt import CT_Border
 
 
@@ -21,29 +22,6 @@ class ParagraphFormat(ElementProxy):
         """|ParagraphBorders| object providing access to the border settings for this
         paragraph."""
         return ParagraphBorders(self._element)
-
-    def bottom_border(
-        self,
-        style: WD_BORDER_STYLE = WD_BORDER_STYLE.SINGLE,
-        width: Length | None = None,
-        color: RGBColor | str | None = None,
-        space: Length | None = None,
-    ) -> Border:
-        """Convenience method to set the bottom border of the paragraph.
-
-        Returns the |Border| object for the bottom edge.
-        """
-        border = self.borders.bottom
-        border.style = style
-        if width is not None:
-            border.width = width
-        if color is not None:
-            if isinstance(color, str):
-                color = RGBColor.from_string(color)
-            border.color = color
-        if space is not None:
-            border.space = space
-        return border
 
     @property
     def alignment(self):
@@ -431,16 +409,26 @@ class Border:
         self._get_or_add_border_elm().sz = value
 
     @property
-    def color(self) -> RGBColor | str | None:
-        """|RGBColor| value of the border color, the string ``'auto'``, or |None| if not
-        defined."""
+    def color(self) -> RGBColor | None:
+        """|RGBColor| value of the border color, or |None| if not defined.
+
+        An ``"auto"`` value in the XML is returned as |None|.
+        """
         border = self._border_elm
         if border is None:
             return None
-        return border.color
+        color = border.color
+        if isinstance(color, str):
+            return None
+        return color
 
     @color.setter
     def color(self, value: RGBColor | None) -> None:
+        if value is None:
+            border = self._border_elm
+            if border is not None:
+                border.color = None
+            return
         self._get_or_add_border_elm().color = value
 
     @property

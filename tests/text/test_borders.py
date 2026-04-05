@@ -16,30 +16,6 @@ class DescribeParagraphFormat:
         borders = paragraph_format.borders
         assert isinstance(borders, ParagraphBorders)
 
-    def it_can_set_a_bottom_border_via_convenience_method(self):
-        p = element("w:p")
-        paragraph_format = ParagraphFormat(p)
-        border = paragraph_format.bottom_border(
-            style=WD_BORDER_STYLE.SINGLE,
-            width=Pt(1),
-            color=RGBColor(0x00, 0x00, 0x00),
-            space=Pt(4),
-        )
-        assert isinstance(border, Border)
-        assert border.style == WD_BORDER_STYLE.SINGLE
-        assert border.width == Pt(1)
-        assert border.color == RGBColor(0x00, 0x00, 0x00)
-        assert border.space == Pt(4)
-
-    def it_can_set_a_bottom_border_with_string_color(self):
-        p = element("w:p")
-        paragraph_format = ParagraphFormat(p)
-        border = paragraph_format.bottom_border(
-            style=WD_BORDER_STYLE.SINGLE,
-            color="FF0000",
-        )
-        assert border.color == RGBColor(0xFF, 0x00, 0x00)
-
 
 class DescribeParagraphBorders:
     def it_provides_access_to_each_border_side(self):
@@ -143,11 +119,29 @@ class DescribeBorder:
         border.space = None
         assert p.xml == xml("w:p")
 
+    def it_does_not_create_an_element_when_setting_color_to_None_on_a_nonexistent_border(self):
+        p = element("w:p")
+        border = Border(p, "bottom")
+        border.color = None
+        assert p.xml == xml("w:p")
+
+    def it_returns_None_for_auto_color(self):
+        p = element("w:p/w:pPr/w:pBdr/w:bottom{w:val=single,w:color=auto}")
+        border = Border(p, "bottom")
+        assert border.color is None
+
     def it_clears_width_on_an_existing_border_when_set_to_None(self):
         p = element("w:p/w:pPr/w:pBdr/w:bottom{w:val=single,w:sz=8}")
         border = Border(p, "bottom")
         border.width = None
         assert border.width is None
+        assert border.style == WD_BORDER_STYLE.SINGLE
+
+    def it_clears_color_on_an_existing_border_when_set_to_None(self):
+        p = element("w:p/w:pPr/w:pBdr/w:bottom{w:val=single,w:color=FF0000}")
+        border = Border(p, "bottom")
+        border.color = None
+        assert border.color is None
         assert border.style == WD_BORDER_STYLE.SINGLE
 
     def it_clears_space_on_an_existing_border_when_set_to_None(self):

@@ -376,8 +376,6 @@ class WD_BORDER_STYLE(BaseXmlEnum):
     """An inset line."""
 
 
-WD_BORDER = WD_BORDER_STYLE
-
 
 class WD_UNDERLINE(BaseXmlEnum):
     """Specifies the style of underline applied to a run of characters.
