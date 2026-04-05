@@ -355,7 +355,7 @@ class DescribeLayer5_LibreOfficeValidation:
 
     @requires_libreoffice
     def it_validates_a_document_with_comments_with_libreoffice(
-        self, tmp_path: str
+        self, tmp_path: pathlib.Path
     ):
         doc = Document()
         p1 = doc.add_paragraph("First paragraph")

@@ -13,16 +13,16 @@ import tempfile
 
 import pytest
 
-# -- pytest marker for tests that require LibreOffice --
-requires_libreoffice = pytest.mark.skipif(
-    shutil.which("libreoffice") is None,
-    reason="LibreOffice not installed",
-)
-
-
 def libreoffice_available() -> bool:
     """Return True if LibreOffice is available on the system PATH."""
     return shutil.which("libreoffice") is not None
+
+
+# -- pytest marker for tests that require LibreOffice --
+requires_libreoffice = pytest.mark.skipif(
+    not libreoffice_available(),
+    reason="LibreOffice not installed",
+)
 
 
 def validate_with_libreoffice(docx_path: str) -> tuple[bool, str]:
