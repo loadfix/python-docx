@@ -61,7 +61,7 @@ class DescribeDocmSupport:
             with zipfile.ZipFile(tmp_path, "r") as zf:
                 content_types_xml = zf.read("[Content_Types].xml").decode("utf-8")
                 assert CT.WML_DOCUMENT_MACRO in content_types_xml
-                assert CT.MS_WORD_VBA_PROJECT in content_types_xml
+                assert CT.WML_VBA_PROJECT in content_types_xml
         finally:
             os.unlink(tmp_path)
 
