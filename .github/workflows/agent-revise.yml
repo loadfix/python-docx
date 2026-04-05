@@ -3,26 +3,35 @@ name: Revise Agent
 on:
   pull_request:
     types: [labeled]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to revise"
+        required: true
+        type: string
 
 concurrency:
-  group: agent-revise-${{ github.event.pull_request.number }}
+  group: agent-revise-${{ github.event.inputs.pr_number || github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 permissions:
   contents: write
   pull-requests: write
+  actions: write
   id-token: write
 
 jobs:
   revise:
     if: |
-      contains(github.event.pull_request.labels.*.name, 'agent-pr') &&
-      (github.event.label.name == 'security-failed' || github.event.label.name == 'review-changes-needed')
+      github.event_name == 'workflow_dispatch' ||
+      (contains(github.event.pull_request.labels.*.name, 'agent-pr') &&
+       (github.event.label.name == 'security-failed' || github.event.label.name == 'review-changes-needed'))
     runs-on:
       - codebuild-github-runner-python-docx-${{ github.run_id }}-${{ github.run_attempt }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       ANTHROPIC_MODEL: au.anthropic.claude-opus-4-6-v1
+      PR_NUM: ${{ github.event.inputs.pr_number || github.event.pull_request.number }}
 
     steps:
       - name: Generate GitHub App token
@@ -36,12 +45,12 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          REVISION_COUNT=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+          REVISION_COUNT=$(gh api repos/${{ github.repository }}/issues/${PR_NUM}/comments \
             --jq '[.[] | select(.body | startswith("**Review Agent**")) | select(.body | contains("REVIEW_CHANGES_NEEDED"))] | length')
           if [ "$REVISION_COUNT" -gt 2 ]; then
-            gh pr comment ${{ github.event.pull_request.number }} \
+            gh pr comment "$PR_NUM" \
               --body "**Revise Agent**: Maximum revision cycles (2) reached. Requesting human review."
-            gh pr edit ${{ github.event.pull_request.number }} --add-label "needs-human-review"
+            gh pr edit "$PR_NUM" --add-label "needs-human-review"
             exit 1
           fi
 
@@ -50,6 +59,15 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           token: ${{ steps.app-token.outputs.token }}
+
+      - name: Checkout PR branch (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          HEAD_REF=$(gh pr view "$PR_NUM" --json headRefName -q .headRefName)
+          git fetch origin "$HEAD_REF"
+          git checkout "$HEAD_REF"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -78,8 +96,8 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          FEEDBACK=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
-            --jq '[.[] | select(.body | startswith("**Review Agent**"))] | last | .body')
+          FEEDBACK=$(gh api repos/${{ github.repository }}/issues/${PR_NUM}/comments \
+            --jq '[.[] | select(.body | startswith("**Review Agent**") or startswith("**Security Agent"))] | last | .body')
           echo "FEEDBACK<<FEEDBACKEOF" >> $GITHUB_OUTPUT
           echo "$FEEDBACK" >> $GITHUB_OUTPUT
           echo "FEEDBACKEOF" >> $GITHUB_OUTPUT
@@ -101,9 +119,9 @@ jobs:
         run: |
           runuser -u agent -- claude -p \
             --model au.anthropic.claude-opus-4-6-v1 \
-            --max-turns 20 \
+            --max-turns 200 \
             --allow-dangerously-skip-permissions --dangerously-skip-permissions \
-            "You are a developer agent fixing issues raised during code review of PR #${{ github.event.pull_request.number }}.
+            "You are a developer agent fixing issues raised during code review of PR #${PR_NUM}.
 
           ## Review Feedback
           $FEEDBACK
@@ -122,12 +140,13 @@ jobs:
           git checkout -- .github/workflows/ 2>/dev/null || true
           git push origin HEAD
 
-      - name: Reset status labels for re-evaluation
+      - name: Reset labels and re-trigger security
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          gh pr edit ${{ github.event.pull_request.number }} \
+          gh pr edit "$PR_NUM" \
             --remove-label "security-failed" \
             --remove-label "review-changes-needed" \
             --remove-label "security-passed" \
             --remove-label "review-approved" 2>/dev/null || true
+          gh workflow run agent-security.yml -f pr_number="$PR_NUM"

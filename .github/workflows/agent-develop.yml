@@ -30,6 +30,7 @@ jobs:
     env:
       ANTHROPIC_MODEL: au.anthropic.claude-opus-4-6-v1
       CLAUDE_CODE_USE_BEDROCK: "1"
+      ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number }}
 
     steps:
       - name: Generate GitHub App token
@@ -66,9 +67,16 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Fetch issue details
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh issue view "$ISSUE_NUMBER" --json title,body --jq '.title' > /tmp/issue-title.txt
+          gh issue view "$ISSUE_NUMBER" --json title,body --jq '.body' > /tmp/issue-body.txt
+
       - name: Create feature branch
         run: |
-          BRANCH="agent/issue-${{ github.event.issue.number }}"
+          BRANCH="agent/issue-${ISSUE_NUMBER}"
           git checkout -b "$BRANCH"
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
 
@@ -83,11 +91,9 @@ jobs:
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Write prompt file
-        env:
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
+          ISSUE_TITLE=$(cat /tmp/issue-title.txt)
+          ISSUE_BODY=$(cat /tmp/issue-body.txt)
           cat > /tmp/prompt.txt <<INSTRUCTIONS
           You are a developer agent. Implement the feature described below.
 
@@ -124,10 +130,9 @@ jobs:
       - name: Create Pull Request
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
+          ISSUE_TITLE=$(cat /tmp/issue-title.txt)
+          ISSUE_BODY=$(cat /tmp/issue-body.txt)
           gh pr create \
             --title "feat: ${ISSUE_TITLE}" \
             --body "## Summary
@@ -147,7 +152,6 @@ jobs:
       - name: Comment on issue
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           PR_URL=$(gh pr view "$BRANCH" --json url -q .url)
           gh issue comment "$ISSUE_NUMBER" \
