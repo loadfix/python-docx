@@ -130,6 +130,7 @@ jobs:
       - name: Create Pull Request
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number }}
         run: |
           ISSUE_TITLE=$(cat /tmp/issue-title.txt)
           ISSUE_BODY=$(cat /tmp/issue-body.txt)
@@ -152,6 +153,7 @@ jobs:
       - name: Comment on issue
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number }}
         run: |
           PR_URL=$(gh pr view "$BRANCH" --json url -q .url)
           gh issue comment "$ISSUE_NUMBER" \
