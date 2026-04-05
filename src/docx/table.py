@@ -405,6 +405,19 @@ class _Row(Parented):
         self._tr = self._element = tr
 
     @property
+    def allow_break_across_pages(self) -> bool:
+        """True when row can be split across page boundaries.
+
+        When set to |False|, the entire row is moved to the next page rather than
+        allowing it to be split across a page break. Defaults to |True|.
+        """
+        return self._tr.allow_break_across_pages
+
+    @allow_break_across_pages.setter
+    def allow_break_across_pages(self, value: bool):
+        self._tr.allow_break_across_pages = value
+
+    @property
     def cells(self) -> tuple[_Cell, ...]:
         """Sequence of |_Cell| instances corresponding to cells in this row.
 

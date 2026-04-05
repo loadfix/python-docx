@@ -33,6 +33,39 @@ class DescribeCT_Row:
         tr._add_trPr()
         assert tr.xml == xml(expected_cxml)
 
+    @pytest.mark.parametrize(
+        ("tr_cxml", "expected_value"),
+        [
+            ("w:tr", True),
+            ("w:tr/w:trPr", True),
+            ("w:tr/w:trPr/w:cantSplit", False),
+            ("w:tr/w:trPr/w:cantSplit{w:val=true}", False),
+            ("w:tr/w:trPr/w:cantSplit{w:val=false}", True),
+        ],
+    )
+    def it_knows_whether_it_allows_break_across_pages(
+        self, tr_cxml: str, expected_value: bool
+    ):
+        tr = cast(CT_Row, element(tr_cxml))
+        assert tr.allow_break_across_pages is expected_value
+
+    @pytest.mark.parametrize(
+        ("tr_cxml", "new_value", "expected_cxml"),
+        [
+            ("w:tr", False, "w:tr/w:trPr/w:cantSplit"),
+            ("w:tr/w:trPr", False, "w:tr/w:trPr/w:cantSplit"),
+            ("w:tr/w:trPr/w:cantSplit", True, "w:tr/w:trPr"),
+            ("w:tr/w:trPr/w:cantSplit", None, "w:tr/w:trPr"),
+            ("w:tr", True, "w:tr/w:trPr"),
+        ],
+    )
+    def it_can_change_whether_it_allows_break_across_pages(
+        self, tr_cxml: str, new_value: bool | None, expected_cxml: str
+    ):
+        tr = cast(CT_Row, element(tr_cxml))
+        tr.allow_break_across_pages = new_value
+        assert tr.xml == xml(expected_cxml)
+
     @pytest.mark.parametrize(("snippet_idx", "row_idx", "col_idx"), [(0, 0, 3), (1, 0, 1)])
     def it_raises_on_tc_at_grid_col(self, snippet_idx: int, row_idx: int, col_idx: int):
         tr = cast(CT_Tbl, parse_xml(snippet_seq("tbl-cells")[snippet_idx])).tr_lst[row_idx]
