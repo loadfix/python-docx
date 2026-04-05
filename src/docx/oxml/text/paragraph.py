@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from docx.oxml.text.parfmt import CT_PPr
     from docx.oxml.text.run import CT_R
     from docx.oxml.tracked_changes import CT_Del, CT_Ins
+    from docx.oxml.text.font import CT_RPr
 
 
 class CT_P(BaseOxmlElement):
@@ -31,6 +32,31 @@ class CT_P(BaseOxmlElement):
     pPr: CT_PPr | None = ZeroOrOne("w:pPr")  # pyright: ignore[reportAssignmentType]
     hyperlink = ZeroOrMore("w:hyperlink")
     r = ZeroOrMore("w:r")
+
+    def add_hyperlink(
+        self, rId: str | None, anchor: str | None, text: str, rPr: CT_RPr | None
+    ) -> CT_Hyperlink:
+        """Return a newly appended `CT_Hyperlink` child element.
+
+        `rId` is the relationship id for an external URL (or None for internal links).
+        `anchor` is a bookmark name for internal links (or None for external links).
+        `text` is the visible text of the hyperlink.
+        `rPr` is an optional run-properties element to apply to the hyperlink run.
+        """
+        from docx.oxml.text.hyperlink import CT_Hyperlink
+
+        hyperlink = cast(CT_Hyperlink, OxmlElement("w:hyperlink"))
+        if rId is not None:
+            hyperlink.rId = rId
+        if anchor is not None:
+            hyperlink.anchor = anchor
+        hyperlink.history = True
+        r = hyperlink.add_r()
+        if rPr is not None:
+            r.insert(0, rPr)
+        r.add_t(text)
+        self.append(hyperlink)
+        return hyperlink
 
     def add_bookmark(self, bookmark_id: int, name: str) -> None:
         """Add bookmarkStart/bookmarkEnd pair to this paragraph.

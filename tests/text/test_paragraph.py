@@ -12,7 +12,9 @@ from docx.drawing import Drawing
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.text.run import CT_R
 from docx.parts.document import DocumentPart
+from docx.parts.story import StoryPart
 from docx.section import Section
+from docx.text.hyperlink import Hyperlink
 from docx.text.paragraph import Paragraph
 from docx.text.parfmt import ParagraphFormat
 from docx.text.run import Run
@@ -23,6 +25,106 @@ from ..unitutil.mock import call, class_mock, instance_mock, method_mock, proper
 
 class DescribeParagraph:
     """Unit-test suite for `docx.text.run.Paragraph`."""
+
+    def it_can_add_an_external_hyperlink(self, request: pytest.FixtureRequest):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.relate_to.return_value = "rId7"
+        story_part_.get_style_id.return_value = "Hyperlink"
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, FakeParent())
+
+        hyperlink = paragraph.add_hyperlink(url="https://example.com", text="Click here")
+
+        assert isinstance(hyperlink, Hyperlink)
+        assert hyperlink.text == "Click here"
+        assert len(hyperlink.runs) == 1
+        assert len(paragraph.hyperlinks) == 1
+        # -- the hyperlink element has the correct rId --
+        assert hyperlink._hyperlink.rId == "rId7"
+        story_part_.relate_to.assert_called_once()
+
+    def it_can_add_an_internal_hyperlink(self, request: pytest.FixtureRequest):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.get_style_id.return_value = "Hyperlink"
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, FakeParent())
+
+        hyperlink = paragraph.add_hyperlink(anchor="bookmark1", text="Go to section")
+
+        assert isinstance(hyperlink, Hyperlink)
+        assert hyperlink.text == "Go to section"
+        assert hyperlink.fragment == "bookmark1"
+        assert hyperlink._hyperlink.rId is None
+
+    def it_defaults_text_to_url_when_not_provided(self, request: pytest.FixtureRequest):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.relate_to.return_value = "rId7"
+        story_part_.get_style_id.return_value = "Hyperlink"
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, FakeParent())
+
+        hyperlink = paragraph.add_hyperlink(url="https://example.com")
+
+        assert hyperlink.text == "https://example.com"
+
+    def it_raises_when_neither_url_nor_anchor_is_provided(
+        self, fake_parent: t.ProvidesStoryPart
+    ):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+
+        with pytest.raises(ValueError, match="Either url or anchor must be provided"):
+            paragraph.add_hyperlink()
+
+    def it_raises_when_both_url_and_anchor_are_provided(
+        self, fake_parent: t.ProvidesStoryPart
+    ):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+
+        with pytest.raises(ValueError, match="Only one of url or anchor"):
+            paragraph.add_hyperlink(url="https://example.com", anchor="bookmark1")
+
+    def it_can_add_a_hyperlink_without_style(self, request: pytest.FixtureRequest):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.relate_to.return_value = "rId7"
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, FakeParent())
+
+        hyperlink = paragraph.add_hyperlink(
+            url="https://example.com", text="Click", style=None
+        )
+
+        assert isinstance(hyperlink, Hyperlink)
+        assert hyperlink.text == "Click"
+        # -- no rPr/rStyle should be present --
+        runs = hyperlink.runs
+        assert len(runs) == 1
+        assert runs[0]._r.rPr is None
 
     def it_can_add_a_page_break(self, fake_parent: t.ProvidesStoryPart):
         p = cast(CT_P, element("w:p"))
