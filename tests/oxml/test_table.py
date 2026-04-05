@@ -132,6 +132,37 @@ class DescribeCT_Row:
         tr.allow_break_across_pages = new_value
         assert tr.xml == xml(expected_cxml)
 
+    @pytest.mark.parametrize(
+        ("tr_cxml", "expected_value"),
+        [
+            ("w:tr", False),
+            ("w:tr/w:trPr", False),
+            ("w:tr/w:trPr/w:tblHeader", True),
+            ("w:tr/w:trPr/w:tblHeader{w:val=true}", True),
+            ("w:tr/w:trPr/w:tblHeader{w:val=false}", False),
+        ],
+    )
+    def it_knows_whether_it_is_a_header_row(self, tr_cxml: str, expected_value: bool):
+        tr = cast(CT_Row, element(tr_cxml))
+        assert tr.is_header is expected_value
+
+    @pytest.mark.parametrize(
+        ("tr_cxml", "new_value", "expected_cxml"),
+        [
+            ("w:tr", True, "w:tr/w:trPr/w:tblHeader"),
+            ("w:tr/w:trPr", True, "w:tr/w:trPr/w:tblHeader"),
+            ("w:tr/w:trPr/w:tblHeader", False, "w:tr/w:trPr"),
+            ("w:tr/w:trPr/w:tblHeader", None, "w:tr/w:trPr"),
+            ("w:tr", False, "w:tr/w:trPr"),
+        ],
+    )
+    def it_can_change_whether_it_is_a_header_row(
+        self, tr_cxml: str, new_value: bool | None, expected_cxml: str
+    ):
+        tr = cast(CT_Row, element(tr_cxml))
+        tr.is_header = new_value
+        assert tr.xml == xml(expected_cxml)
+
     @pytest.mark.parametrize(("snippet_idx", "row_idx", "col_idx"), [(0, 0, 3), (1, 0, 1)])
     def it_raises_on_tc_at_grid_col(self, snippet_idx: int, row_idx: int, col_idx: int):
         tr = cast(CT_Tbl, parse_xml(snippet_seq("tbl-cells")[snippet_idx])).tr_lst[row_idx]

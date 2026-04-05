@@ -113,6 +113,19 @@ class CT_Row(BaseOxmlElement):
             return 0
         return trPr.grid_before
 
+    @property
+    def is_header(self) -> bool:
+        """True when this row is a header row that repeats on each page."""
+        trPr = self.trPr
+        if trPr is None:
+            return False
+        return trPr.is_header
+
+    @is_header.setter
+    def is_header(self, value: bool | None) -> None:
+        trPr = self.get_or_add_trPr()
+        trPr.is_header = value
+
     def tc_at_grid_offset(self, grid_offset: int) -> CT_Tc:
         """The `tc` element in this tr at exact `grid offset`.
 
@@ -935,8 +948,10 @@ class CT_TrPr(BaseOxmlElement):
     """``<w:trPr>`` element, defining table row properties."""
 
     get_or_add_cantSplit: Callable[[], CT_OnOff]
+    get_or_add_tblHeader: Callable[[], CT_OnOff]
     get_or_add_trHeight: Callable[[], CT_Height]
     _remove_cantSplit: Callable[[], None]
+    _remove_tblHeader: Callable[[], None]
 
     _tag_seq = (
         "w:cnfStyle",
@@ -963,6 +978,9 @@ class CT_TrPr(BaseOxmlElement):
     )
     gridBefore: CT_DecimalNumber | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:gridBefore", successors=_tag_seq[3:]
+    )
+    tblHeader: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:tblHeader", successors=_tag_seq[9:]
     )
     trHeight: CT_Height | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:trHeight", successors=_tag_seq[8:]
@@ -1000,6 +1018,21 @@ class CT_TrPr(BaseOxmlElement):
         """The number of unpopulated layout-grid cells at the start of this row."""
         gridBefore = self.gridBefore
         return 0 if gridBefore is None else gridBefore.val
+
+    @property
+    def is_header(self) -> bool:
+        """True when `w:tblHeader` child is present, False otherwise."""
+        tblHeader = self.tblHeader
+        if tblHeader is None:
+            return False
+        return tblHeader.val
+
+    @is_header.setter
+    def is_header(self, value: bool | None) -> None:
+        if value is None or value is False:
+            self._remove_tblHeader()
+        else:
+            self.get_or_add_tblHeader().val = True
 
     @property
     def trHeight_hRule(self) -> WD_ROW_HEIGHT_RULE | None:
