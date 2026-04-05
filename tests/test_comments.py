@@ -268,8 +268,102 @@ class DescribeComment:
 
         assert comment.initials == initials
 
+    def it_can_add_a_reply_to_a_comment(self, package_: Mock):
+        comments_elm = cast(CT_Comments, element("w:comments"))
+        comments_part = CommentsPart(
+            PackURI("/word/comments.xml"),
+            CT.WML_COMMENTS,
+            comments_elm,
+            package_,
+        )
+        comments = Comments(comments_elm, comments_part)
+        parent = comments.add_comment(text="Parent comment", author="Author A", initials="AA")
+
+        reply = parent.add_reply(text="Reply text", author="Author B", initials="BB")
+
+        assert isinstance(reply, Comment)
+        assert reply.text == "Reply text"
+        assert reply.author == "Author B"
+        assert reply.initials == "BB"
+        assert reply.timestamp is not None
+        assert reply.comment_id != parent.comment_id
+        # -- verify the reply is linked to the parent via paraIdParent --
+        assert reply._comment_elm.paraIdParent == parent._comment_elm.paraId
+
+    def it_can_list_replies_to_a_comment(self, package_: Mock):
+        comments_elm = cast(CT_Comments, element("w:comments"))
+        comments_part = CommentsPart(
+            PackURI("/word/comments.xml"),
+            CT.WML_COMMENTS,
+            comments_elm,
+            package_,
+        )
+        comments = Comments(comments_elm, comments_part)
+        parent = comments.add_comment(text="Parent", author="A")
+        parent.add_reply(text="Reply 1", author="B")
+        parent.add_reply(text="Reply 2", author="C")
+        # -- add an unrelated comment --
+        comments.add_comment(text="Other comment", author="D")
+
+        replies = parent.replies
+
+        assert len(replies) == 2
+        assert replies[0].text == "Reply 1"
+        assert replies[0].author == "B"
+        assert replies[1].text == "Reply 2"
+        assert replies[1].author == "C"
+
+    def and_it_returns_empty_list_when_no_replies(self, package_: Mock):
+        comments_elm = cast(CT_Comments, element("w:comments"))
+        comments_part = CommentsPart(
+            PackURI("/word/comments.xml"),
+            CT.WML_COMMENTS,
+            comments_elm,
+            package_,
+        )
+        comments = Comments(comments_elm, comments_part)
+        parent = comments.add_comment(text="Parent", author="A")
+
+        assert parent.replies == []
+
+    def it_can_add_a_reply_with_no_text(self, package_: Mock):
+        comments_elm = cast(CT_Comments, element("w:comments"))
+        comments_part = CommentsPart(
+            PackURI("/word/comments.xml"),
+            CT.WML_COMMENTS,
+            comments_elm,
+            package_,
+        )
+        comments = Comments(comments_elm, comments_part)
+        parent = comments.add_comment(author="A")
+
+        reply = parent.add_reply(author="B")
+
+        assert isinstance(reply, Comment)
+        assert [p.text for p in reply.paragraphs] == [""]
+
+    def it_can_add_a_multiline_reply(self, package_: Mock):
+        comments_elm = cast(CT_Comments, element("w:comments"))
+        comments_part = CommentsPart(
+            PackURI("/word/comments.xml"),
+            CT.WML_COMMENTS,
+            comments_elm,
+            package_,
+        )
+        comments = Comments(comments_elm, comments_part)
+        parent = comments.add_comment(author="A")
+
+        reply = parent.add_reply(text="line 1\nline 2", author="B")
+
+        assert len(reply.paragraphs) == 2
+        assert [p.text for p in reply.paragraphs] == ["line 1", "line 2"]
+
     # -- fixtures --------------------------------------------------------------------------------
 
     @pytest.fixture
     def comments_part_(self, request: FixtureRequest):
         return instance_mock(request, CommentsPart)
+
+    @pytest.fixture
+    def package_(self, request: FixtureRequest):
+        return instance_mock(request, Package)
