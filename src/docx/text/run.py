@@ -5,11 +5,12 @@ from __future__ import annotations
 from typing import IO, TYPE_CHECKING, Iterator, cast
 
 from docx.drawing import Drawing
+from docx.enum.drawing import WD_RELATIVE_HORZ_POS, WD_RELATIVE_VERT_POS, WD_WRAP_TYPE
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
 from docx.oxml.drawing import CT_Drawing
 from docx.oxml.text.pagebreak import CT_LastRenderedPageBreak
-from docx.shape import InlineShape
+from docx.shape import FloatingImage, InlineShape
 from docx.shared import StoryChild
 from docx.styles.style import CharacterStyle
 from docx.text.font import Font
@@ -79,6 +80,39 @@ class Run(StoryChild):
         inline = self.part.new_pic_inline(image_path_or_stream, width, height)
         self._r.add_drawing(inline)
         return InlineShape(inline)
+
+    def add_floating_image(
+        self,
+        image_path_or_stream: str | IO[bytes],
+        width: int | Length | None = None,
+        height: int | Length | None = None,
+        pos_h: int = 0,
+        pos_v: int = 0,
+        relative_from_h: WD_RELATIVE_HORZ_POS = WD_RELATIVE_HORZ_POS.COLUMN,
+        relative_from_v: WD_RELATIVE_VERT_POS = WD_RELATIVE_VERT_POS.PARAGRAPH,
+        wrap_type: WD_WRAP_TYPE = WD_WRAP_TYPE.NONE,
+        behind_doc: bool = False,
+    ) -> FloatingImage:
+        """Return |FloatingImage| containing image identified by `image_path_or_stream`.
+
+        The floating image is added to the end of this run as a `wp:anchor` element.
+
+        `pos_h` and `pos_v` are horizontal and vertical offsets in EMU from the
+        reference frame specified by `relative_from_h` and `relative_from_v`.
+        """
+        anchor = self.part.new_pic_anchor(
+            image_path_or_stream,
+            width,
+            height,
+            pos_h,
+            pos_v,
+            relative_from_h,
+            relative_from_v,
+            wrap_type,
+            behind_doc,
+        )
+        self._r.add_drawing(anchor)
+        return FloatingImage(anchor)
 
     def add_tab(self) -> None:
         """Add a ``<w:tab/>`` element at the end of the run, which Word interprets as a

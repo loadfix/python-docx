@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Iterator, List, cast
 
+from docx.enum.drawing import WD_RELATIVE_HORZ_POS, WD_RELATIVE_VERT_POS, WD_WRAP_TYPE
 from docx.enum.section import WD_SECTION_START
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
 from docx.oxml.text.run import CT_R
+from docx.shape import FloatingImage
 from docx.shared import StoryChild
 from docx.styles.style import ParagraphStyle
 from docx.text.hyperlink import Hyperlink
@@ -16,10 +18,13 @@ from docx.text.parfmt import ParagraphFormat
 from docx.text.run import Run
 
 if TYPE_CHECKING:
+    from typing import IO
+
     import docx.types as t
     from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
     from docx.oxml.text.paragraph import CT_P
     from docx.section import Section
+    from docx.shared import Length
     from docx.styles.style import CharacterStyle
 
 
@@ -45,6 +50,41 @@ class Paragraph(StoryChild):
         if style:
             run.style = style
         return run
+
+    def add_floating_image(
+        self,
+        image_path_or_stream: str | IO[bytes],
+        width: int | Length | None = None,
+        height: int | Length | None = None,
+        pos_h: int = 0,
+        pos_v: int = 0,
+        relative_from_h: WD_RELATIVE_HORZ_POS = WD_RELATIVE_HORZ_POS.COLUMN,
+        relative_from_v: WD_RELATIVE_VERT_POS = WD_RELATIVE_VERT_POS.PARAGRAPH,
+        wrap_type: WD_WRAP_TYPE = WD_WRAP_TYPE.NONE,
+        behind_doc: bool = False,
+    ) -> FloatingImage:
+        """Return |FloatingImage| instance added in a new run at the end of this paragraph.
+
+        `image_path_or_stream` can be a path (a string) or a file-like object
+        containing a binary image.
+
+        `pos_h` and `pos_v` are horizontal and vertical offsets in EMU from the
+        reference frame specified by `relative_from_h` and `relative_from_v`.
+
+        `wrap_type` specifies how text wraps around the image.
+        """
+        run = self.add_run()
+        return run.add_floating_image(
+            image_path_or_stream,
+            width,
+            height,
+            pos_h,
+            pos_v,
+            relative_from_h,
+            relative_from_v,
+            wrap_type,
+            behind_doc,
+        )
 
     def add_page_break(self) -> Paragraph:
         """Append a page-break run to this paragraph and return self."""
@@ -114,6 +154,12 @@ class Paragraph(StoryChild):
     def contains_page_break(self) -> bool:
         """`True` when one or more rendered page-breaks occur in this paragraph."""
         return bool(self._p.lastRenderedPageBreaks)
+
+    @property
+    def floating_images(self) -> List[FloatingImage]:
+        """All |FloatingImage| instances in this paragraph."""
+        anchors = self._p.xpath(".//w:drawing/wp:anchor")
+        return [FloatingImage(anchor) for anchor in anchors]
 
     @property
     def has_page_break(self) -> bool:

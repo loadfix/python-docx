@@ -13,6 +13,7 @@ from docx.oxml.shape import (
     CT_Anchor,
     CT_Blip,
     CT_BlipFillProperties,
+    CT_EffectExtent,
     CT_GraphicalObject,
     CT_GraphicalObjectData,
     CT_Inline,
@@ -20,9 +21,16 @@ from docx.oxml.shape import (
     CT_Picture,
     CT_PictureNonVisual,
     CT_Point2D,
+    CT_PosH,
+    CT_PosV,
     CT_PositiveSize2D,
     CT_ShapeProperties,
     CT_Transform2D,
+    CT_WrapNone,
+    CT_WrapSquare,
+    CT_WrapTight,
+    CT_WrapThrough,
+    CT_WrapTopAndBottom,
 )
 from docx.oxml.shared import CT_DecimalNumber, CT_OnOff, CT_String
 from docx.oxml.text.hyperlink import CT_Hyperlink
@@ -58,8 +66,16 @@ register_element_cls("pic:spPr", CT_ShapeProperties)
 register_element_cls("w:drawing", CT_Drawing)
 register_element_cls("wp:anchor", CT_Anchor)
 register_element_cls("wp:docPr", CT_NonVisualDrawingProps)
+register_element_cls("wp:effectExtent", CT_EffectExtent)
 register_element_cls("wp:extent", CT_PositiveSize2D)
 register_element_cls("wp:inline", CT_Inline)
+register_element_cls("wp:positionH", CT_PosH)
+register_element_cls("wp:positionV", CT_PosV)
+register_element_cls("wp:wrapNone", CT_WrapNone)
+register_element_cls("wp:wrapSquare", CT_WrapSquare)
+register_element_cls("wp:wrapTight", CT_WrapTight)
+register_element_cls("wp:wrapThrough", CT_WrapThrough)
+register_element_cls("wp:wrapTopAndBottom", CT_WrapTopAndBottom)
 
 # ---------------------------------------------------------------------------
 # hyperlink-related elements
