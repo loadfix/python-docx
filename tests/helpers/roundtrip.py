@@ -51,10 +51,7 @@ def save_and_reopen(doc: DocumentCls) -> DocumentCls:
     """Save a document to a temp file and re-open it, returning the new Document.
 
     This is a simpler alternative to `assert_round_trip` when you need more control
-    over the test flow.
-
-    The caller is responsible for any cleanup — but since the temp file is only used
-    transiently this is acceptable in test code.
+    over the test flow. The temporary file is cleaned up automatically.
     """
     fd, path = tempfile.mkstemp(suffix=".docx")
     os.close(fd)

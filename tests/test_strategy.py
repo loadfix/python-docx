@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
+import zipfile
 from typing import cast
 
 import pytest
@@ -157,8 +158,6 @@ class DescribeLayer2_SchemaValidation:
 
         doc.save(tmp_docx_path)
 
-        import zipfile
-
         with zipfile.ZipFile(tmp_docx_path) as zf:
             comments_bytes = zf.read("word/comments.xml")
 
@@ -217,9 +216,9 @@ class DescribeLayer3_RoundTrip:
     def it_round_trips_comment_on_specific_text_range(self):
         def create(doc: DocumentCls) -> str:
             para = doc.add_paragraph()
-            run1 = para.add_run("Before ")
+            para.add_run("Before ")
             run2 = para.add_run("target text")
-            run3 = para.add_run(" after")
+            para.add_run(" after")
             doc.add_comment(run2, text="Comment on target", author="Tester")
             return "target text"
 
@@ -260,7 +259,7 @@ class DescribeLayer3_RoundTrip:
         assert len(comments_list) >= 1
         comment = comments_list[0]
         assert len(comment.paragraphs) == 3
-        assert "Line 1" in comment.paragraphs[0].text
+        assert comment.paragraphs[0].text == "Line 1"
         assert comment.paragraphs[1].text == "Line 2"
         assert comment.paragraphs[2].text == "Line 3"
 

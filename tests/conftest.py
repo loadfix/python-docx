@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 import tempfile
 from typing import TYPE_CHECKING
 
@@ -41,9 +40,3 @@ def tmp_docx_path():
 def blank_document() -> DocumentCls:
     """Return a new blank Document for use in tests."""
     return Document()
-
-
-@pytest.fixture
-def libreoffice_available() -> bool:
-    """Return True if LibreOffice is available on the system."""
-    return shutil.which("libreoffice") is not None
