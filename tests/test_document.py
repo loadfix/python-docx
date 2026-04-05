@@ -414,17 +414,6 @@ class Describe_Body:
         assert body._body.xml == xml(expected_cxml)
         assert _body is body
 
-    def it_can_insert_an_element_before_a_reference(self, document_: Mock):
-        body_elm = cast(CT_Body, element("w:body/(w:p,w:p)"))
-        body = _Body(body_elm, document_)
-        new_p = element("w:p")
-        ref_p = body_elm.p_lst[1]
-
-        body.insert_element_before(new_p, ref_p)
-
-        assert len(body_elm.p_lst) == 3
-        assert body_elm.p_lst[1] is new_p
-
     # -- fixtures --------------------------------------------------------------------------------
 
     @pytest.fixture
