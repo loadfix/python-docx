@@ -277,6 +277,11 @@ class DescribeTable:
                 WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS,
                 "w:tbl/w:tblPr/w:tblW{w:w=0,w:type=auto}",
             ),
+            (
+                "w:tbl/w:tblPr/w:tblW{w:w=5000,w:type=pct}",
+                WD_TABLE_AUTOFIT.FIXED_WIDTH,
+                "w:tbl/w:tblPr/(w:tblW{w:w=5000,w:type=dxa},w:tblLayout{w:type=fixed})",
+            ),
         ],
     )
     def it_can_change_its_autofit_behavior(
@@ -308,12 +313,12 @@ class DescribeTable:
             (
                 "w:tbl/w:tblPr",
                 Inches(6),
-                "w:tbl/w:tblPr/w:tblW{w:w=8640,w:type=dxa}",
+                "w:tbl/w:tblPr/(w:tblW{w:w=8640,w:type=dxa},w:tblLayout{w:type=fixed})",
             ),
             (
                 "w:tbl/w:tblPr/w:tblW{w:w=1440,w:type=dxa}",
                 Inches(4),
-                "w:tbl/w:tblPr/w:tblW{w:w=5760,w:type=dxa}",
+                "w:tbl/w:tblPr/(w:tblW{w:w=5760,w:type=dxa},w:tblLayout{w:type=fixed})",
             ),
             (
                 "w:tbl/w:tblPr/w:tblW{w:w=1440,w:type=dxa}",

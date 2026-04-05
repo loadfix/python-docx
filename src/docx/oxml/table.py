@@ -443,7 +443,9 @@ class CT_TblPr(BaseOxmlElement):
             self._remove_tblW()
             return
         tblW = self.get_or_add_tblW()
-        tblW.width = value
+        tblW.type = "dxa"
+        tblW.w = Emu(value).twips
+        self.allow_autofit = False
 
     @property
     def style(self):

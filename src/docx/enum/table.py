@@ -107,7 +107,7 @@ class WD_TABLE_ALIGNMENT(BaseXmlEnum):
     """Right-aligned."""
 
 
-class WD_TABLE_AUTOFIT(BaseXmlEnum):
+class WD_TABLE_AUTOFIT(BaseEnum):
     """Specifies the autofit behavior for a table.
 
     Example::
@@ -124,7 +124,6 @@ class WD_TABLE_AUTOFIT(BaseXmlEnum):
 
     AUTOFIT_TO_CONTENTS = (
         1,
-        "autofit",
         "Table is auto-sized based on cell contents. Column widths and table width"
         " are adjusted to fit the contents.",
     )
@@ -132,7 +131,6 @@ class WD_TABLE_AUTOFIT(BaseXmlEnum):
 
     AUTOFIT_TO_WINDOW = (
         2,
-        "pct",
         "Table width is set to the full page width (between margins). Column widths"
         " are adjusted proportionally.",
     )
@@ -140,7 +138,6 @@ class WD_TABLE_AUTOFIT(BaseXmlEnum):
 
     FIXED_WIDTH = (
         0,
-        "fixed",
         "Column widths are fixed and do not automatically adjust to fit content.",
     )
     """Column widths are fixed and do not automatically adjust."""
