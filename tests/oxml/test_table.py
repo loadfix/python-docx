@@ -8,14 +8,80 @@ from typing import cast
 
 import pytest
 
+from docx.enum.table import WD_SHADING_PATTERN
 from docx.exceptions import InvalidSpanError
 from docx.oxml.parser import parse_xml
-from docx.oxml.table import CT_Row, CT_Tbl, CT_Tc
+from docx.oxml.table import CT_Row, CT_Shd, CT_Tbl, CT_Tc, CT_TcPr
 from docx.oxml.text.paragraph import CT_P
+from docx.shared import RGBColor
 
 from ..unitutil.cxml import element, xml
 from ..unitutil.file import snippet_seq
 from ..unitutil.mock import FixtureRequest, Mock, call, instance_mock, method_mock, property_mock
+
+
+class DescribeCT_Shd:
+    """Unit-test suite for `docx.oxml.table.CT_Shd` objects."""
+
+    @pytest.mark.parametrize(
+        ("shd_cxml", "expected_fill"),
+        [
+            ("w:shd", None),
+            ("w:shd{w:fill=D9E2F3}", RGBColor(0xD9, 0xE2, 0xF3)),
+            ("w:shd{w:fill=auto}", "auto"),
+        ],
+    )
+    def it_can_get_the_fill_attribute(self, shd_cxml: str, expected_fill: RGBColor | str | None):
+        shd = cast(CT_Shd, element(shd_cxml))
+        assert shd.fill == expected_fill
+
+    @pytest.mark.parametrize(
+        ("shd_cxml", "expected_val"),
+        [
+            ("w:shd", None),
+            ("w:shd{w:val=clear}", WD_SHADING_PATTERN.CLEAR),
+            ("w:shd{w:val=solid}", WD_SHADING_PATTERN.SOLID),
+            ("w:shd{w:val=pct10}", WD_SHADING_PATTERN.PCT_10),
+        ],
+    )
+    def it_can_get_the_val_attribute(
+        self, shd_cxml: str, expected_val: WD_SHADING_PATTERN | None
+    ):
+        shd = cast(CT_Shd, element(shd_cxml))
+        assert shd.val == expected_val
+
+
+class DescribeCT_TcPr:
+    """Unit-test suite for `docx.oxml.table.CT_TcPr` objects."""
+
+    @pytest.mark.parametrize(
+        ("tcPr_cxml", "expected_shd_present"),
+        [
+            ("w:tcPr", False),
+            ("w:tcPr/w:shd{w:val=clear,w:fill=D9E2F3}", True),
+        ],
+    )
+    def it_can_get_the_shd_child(self, tcPr_cxml: str, expected_shd_present: bool):
+        tcPr = cast(CT_TcPr, element(tcPr_cxml))
+        if expected_shd_present:
+            assert tcPr.shd is not None
+            assert isinstance(tcPr.shd, CT_Shd)
+        else:
+            assert tcPr.shd is None
+
+    def it_can_add_a_shd_child(self):
+        tcPr = cast(CT_TcPr, element("w:tcPr"))
+        shd = tcPr.get_or_add_shd()
+        assert isinstance(shd, CT_Shd)
+        assert tcPr.shd is shd
+
+    def it_inserts_shd_in_the_right_position(self):
+        tcPr = cast(CT_TcPr, element("w:tcPr/(w:tcW,w:vAlign{w:val=center})"))
+        shd = tcPr.get_or_add_shd()
+        assert isinstance(shd, CT_Shd)
+        # shd should appear between tcW and vAlign
+        expected_xml = xml("w:tcPr/(w:tcW,w:shd,w:vAlign{w:val=center})")
+        assert tcPr.xml == expected_xml
 
 
 class DescribeCT_Row:
