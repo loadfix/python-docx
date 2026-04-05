@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import IO, TYPE_CHECKING, Iterator, List, Sequence
+from typing import IO, TYPE_CHECKING, Iterator, List, Sequence, cast
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_SECTION
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from docx.footnotes import Footnotes
     from docx.oxml.document import CT_Body, CT_Document
     from docx.parts.document import DocumentPart
+    from docx.search import SearchMatch
     from docx.settings import Settings
     from docx.styles.style import ParagraphStyle, _TableStyle
     from docx.table import Table
@@ -218,6 +219,27 @@ class Document(ElementProxy):
         """The |DocumentPart| object of this document."""
         return self._part
 
+    def replace(
+        self,
+        old_text: str,
+        new_text: str,
+        case_sensitive: bool = True,
+        whole_word: bool = False,
+    ) -> int:
+        """Replace all occurrences of `old_text` with `new_text` in this document.
+
+        Preserves the run formatting of the first character's run for each replacement.
+        Returns the number of replacements made.
+
+        When `case_sensitive` is False, matching is case-insensitive. When `whole_word` is
+        True, only whole-word matches are replaced.
+        """
+        from docx.search import replace_in_paragraphs
+
+        return replace_in_paragraphs(
+            self.paragraphs, old_text, new_text, case_sensitive, whole_word
+        )
+
     def save(self, path_or_stream: str | IO[bytes]):
         """Save this document to `path_or_stream`.
 
@@ -225,6 +247,24 @@ class Document(ElementProxy):
         file-like object.
         """
         self._part.save(path_or_stream)
+
+    def search(
+        self,
+        text: str,
+        case_sensitive: bool = True,
+        whole_word: bool = False,
+    ) -> List[SearchMatch]:
+        """Find all occurrences of `text` in this document.
+
+        Returns a list of |SearchMatch| objects, one for each occurrence found. Each match
+        provides access to the paragraph, run indices, and character offsets.
+
+        When `case_sensitive` is False, matching is case-insensitive. When `whole_word` is
+        True, only whole-word matches are returned.
+        """
+        from docx.search import search_paragraphs
+
+        return search_paragraphs(self.paragraphs, text, case_sensitive, whole_word)
 
     @property
     def sections(self) -> Sections:
