@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from typing import IO, TYPE_CHECKING, Iterator, List, Sequence, Union, overload
 
+from xml.sax.saxutils import escape as xml_escape
+
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_HEADER_FOOTER
+from docx.oxml.ns import qn
+from docx.oxml.parser import parse_xml
 from docx.oxml.text.paragraph import CT_P
 from docx.parts.hdrftr import FooterPart, HeaderPart
 from docx.shared import Length, Pt, RGBColor
@@ -184,8 +188,6 @@ class Section:
         size_pt = Length(int(size)).pt
         rotation = "315" if layout == "diagonal" else "0"
         color_hex = str(color)
-        from xml.sax.saxutils import escape as xml_escape
-
         safe_text = xml_escape(text, {'"': '&quot;'})
         safe_font = xml_escape(font, {'"': '&quot;'})
         pict_xml = (
@@ -239,21 +241,8 @@ class Section:
             '</v:shape>'
             '</w:pict>'
         )
-        from docx.oxml.parser import parse_xml
-
         pict_element = parse_xml(pict_xml)
-        # Insert a new paragraph with the watermark shape at the beginning of the header
-        from docx.oxml.ns import qn
-
-        p = hdr_element.makeelement(qn("w:p"), {})
-        r = hdr_element.makeelement(qn("w:r"), {})
-        r.append(pict_element)
-        pPr = hdr_element.makeelement(qn("w:pPr"), {})
-        pStyle = hdr_element.makeelement(qn("w:pStyle"), {qn("w:val"): "Header"})
-        pPr.append(pStyle)
-        p.append(pPr)
-        p.append(r)
-        hdr_element.insert(0, p)
+        self._insert_watermark_pict(hdr_element, pict_element)
 
     def add_image_watermark(
         self,
@@ -317,15 +306,16 @@ class Section:
             f'mso-position-vertical:center;'
             f'mso-position-vertical-relative:margin"'
             f' o:allowincell="f">'
-            f'<v:imagedata r:id="{rId}" o:title="watermark"/>'
+            f'<v:imagedata r:id="{xml_escape(rId, {chr(34): "&quot;"})}" o:title="watermark"/>'
             '<w10:wrap anchorx="margin" anchory="margin"/>'
             '</v:shape>'
             '</w:pict>'
         )
-        from docx.oxml.parser import parse_xml
-        from docx.oxml.ns import qn
-
         pict_element = parse_xml(pict_xml)
+        self._insert_watermark_pict(hdr_element, pict_element)
+
+    def _insert_watermark_pict(self, hdr_element, pict_element) -> None:
+        """Insert `pict_element` wrapped in a watermark paragraph at start of header."""
         p = hdr_element.makeelement(qn("w:p"), {})
         r = hdr_element.makeelement(qn("w:r"), {})
         r.append(pict_element)
@@ -341,14 +331,15 @@ class Section:
 
         Does nothing if this section has no header definition or no watermark.
         """
-        from docx.oxml.ns import qn
-
         if not self.header._has_definition:
             return
         hdr_element = self.header._definition.element
         # Find and remove paragraphs containing a watermark VML shape
-        for p in hdr_element.findall(qn("w:p")):
+        for p in list(hdr_element.findall(qn("w:p"))):
+            removed = False
             for r in p.findall(qn("w:r")):
+                if removed:
+                    break
                 for pict in r.findall(qn("w:pict")):
                     shapes = pict.xpath(
                         ".//v:shape[contains(@id, 'WaterMark')]",
@@ -356,6 +347,7 @@ class Section:
                     )
                     if shapes:
                         hdr_element.remove(p)
+                        removed = True
                         break
 
     def iter_inner_content(self) -> Iterator[Paragraph | Table]:
