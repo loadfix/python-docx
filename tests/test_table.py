@@ -70,6 +70,33 @@ class DescribeTable:
 
         assert body.xml == xml(expected_cxml)
 
+    def it_can_insert_a_paragraph_after_itself(self, document_: Mock):
+        body = element("w:body/(w:tbl/w:tblPr,w:p{id=2})")
+        tbl = body.tbl_lst[0]
+        table = Table(tbl, document_)
+
+        new_paragraph = table.insert_paragraph_after("hello")
+
+        assert isinstance(new_paragraph, Paragraph)
+        assert new_paragraph.text == "hello"
+        # --- new paragraph is between the table and p2 ---
+        children = list(body)
+        assert children[0].tag.endswith("}tbl")
+        assert children[1].tag.endswith("}p")
+        assert children[2].tag.endswith("}p")
+
+    def it_can_insert_an_empty_paragraph_after_itself(self, document_: Mock):
+        body = element("w:body/(w:tbl/w:tblPr,w:p{id=2})")
+        tbl = body.tbl_lst[0]
+        table = Table(tbl, document_)
+
+        new_paragraph = table.insert_paragraph_after()
+
+        assert isinstance(new_paragraph, Paragraph)
+        assert new_paragraph.text == ""
+        children = list(body)
+        assert len(children) == 3
+
     def it_can_add_a_column(self, document_: Mock):
         snippets = snippet_seq("add-row-col")
         tbl = cast(CT_Tbl, parse_xml(snippets[0]))

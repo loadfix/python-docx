@@ -13,6 +13,7 @@ from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_SHADING_PATTERN
 from docx.oxml.simpletypes import ST_Merge
 from docx.oxml.table import CT_TblGridCol
 from docx.shared import Inches, Parented, RGBColor, StoryChild, lazyproperty
+from docx.text.paragraph import Paragraph
 
 if TYPE_CHECKING:
     import docx.types as t
@@ -46,6 +47,27 @@ class Table(StoryChild):
         if parent is None:
             return
         parent.remove(tbl)
+
+    def insert_paragraph_after(
+        self,
+        text: str | None = None,
+        style: str | ParagraphStyle | None = None,
+    ) -> Paragraph:
+        """Return a newly created paragraph, inserted directly after this table.
+
+        If `text` is supplied, the new paragraph contains that text in a single run. If
+        `style` is provided, that style is assigned to the new paragraph.
+        """
+        from docx.oxml.parser import OxmlElement
+
+        new_p = OxmlElement("w:p")
+        self._tbl.addnext(new_p)
+        paragraph = Paragraph(new_p, self._parent)
+        if text:
+            paragraph.add_run(text)
+        if style is not None:
+            paragraph.style = style
+        return paragraph
 
     def add_column(self, width: Length):
         """Return a |_Column| object of `width`, newly added rightmost to the table."""
