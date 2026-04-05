@@ -117,3 +117,23 @@ class DescribeCT_Footnote:
 
         content = footnote.inner_content_elements
         assert len(content) == 3
+
+
+class DescribeCT_Footnotes_EdgeCases:
+    """Edge-case tests for `docx.oxml.footnotes.CT_Footnotes`."""
+
+    def it_returns_2_when_no_footnotes_exist(self):
+        footnotes = cast(CT_Footnotes, element("w:footnotes"))
+        footnote = footnotes.add_footnote()
+        assert footnote.id == 2
+
+    def it_returns_2_when_only_reserved_ids_exist(self):
+        footnotes = cast(
+            CT_Footnotes,
+            element(
+                "w:footnotes/(w:footnote{w:id=0,w:type=separator}"
+                ",w:footnote{w:id=1,w:type=continuationSeparator})"
+            ),
+        )
+        footnote = footnotes.add_footnote()
+        assert footnote.id == 2
