@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable
 
 from docx.enum.dml import MSO_THEME_COLOR
+from docx.enum.table import WD_SHADING_PATTERN
 from docx.enum.text import WD_COLOR_INDEX, WD_UNDERLINE
 from docx.oxml.ns import nsdecls
 from docx.oxml.parser import parse_xml
@@ -190,8 +191,6 @@ class CT_RPr(BaseOxmlElement):
             self._remove_shd()
             return
         shd = self.get_or_add_shd()
-        from docx.enum.table import WD_SHADING_PATTERN
-
         shd.val = WD_SHADING_PATTERN.CLEAR
         shd.fill = value
 
