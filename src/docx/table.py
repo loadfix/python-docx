@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Iterator, cast, overload
 
 from typing_extensions import TypeAlias
@@ -118,6 +119,11 @@ class Table(StoryChild):
 
         Sequence of cells in the row at `row_idx` in this table.
         """
+        warnings.warn(
+            "Table.row_cells() is deprecated, use table.rows[row_idx].cells instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         column_count = self._column_count
         start = row_idx * column_count
         end = start + column_count
