@@ -91,9 +91,8 @@ class CT_Numbering(BaseOxmlElement):
     def num_having_numId(self, numId):
         """Return the ``<w:num>`` child element having ``numId`` attribute matching
         `numId`."""
-        xpath = './w:num[@w:numId="%d"]' % numId
         try:
-            return self.xpath(xpath)[0]
+            return self.xpath("./w:num[@w:numId=$numId]", numId=numId)[0]
         except IndexError:
             raise KeyError("no <w:num> element with numId %d" % numId)
 

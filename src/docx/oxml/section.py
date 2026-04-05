@@ -252,8 +252,9 @@ class CT_SectPr(BaseOxmlElement):
 
     def get_footerReference(self, type_: WD_HEADER_FOOTER) -> CT_HdrFtrRef | None:
         """Return footerReference element of `type_` or None if not present."""
-        path = "./w:footerReference[@w:type='%s']" % WD_HEADER_FOOTER.to_xml(type_)
-        footerReferences = self.xpath(path)
+        footerReferences = self.xpath(
+            "./w:footerReference[@w:type=$type]", type=WD_HEADER_FOOTER.to_xml(type_)
+        )
         if not footerReferences:
             return None
         return footerReferences[0]
@@ -261,9 +262,9 @@ class CT_SectPr(BaseOxmlElement):
     def get_headerReference(self, type_: WD_HEADER_FOOTER) -> CT_HdrFtrRef | None:
         """Return headerReference element of `type_` or None if not present."""
         matching_headerReferences = self.xpath(
-            "./w:headerReference[@w:type='%s']" % WD_HEADER_FOOTER.to_xml(type_)
+            "./w:headerReference[@w:type=$type]", type=WD_HEADER_FOOTER.to_xml(type_)
         )
-        if len(matching_headerReferences) == 0:
+        if not matching_headerReferences:
             return None
         return matching_headerReferences[0]
 
