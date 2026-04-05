@@ -186,8 +186,8 @@ class Section:
         color_hex = str(color)
         from xml.sax.saxutils import escape as xml_escape
 
-        safe_text = xml_escape(text)
-        safe_font = xml_escape(font)
+        safe_text = xml_escape(text, {'"': '&quot;'})
+        safe_font = xml_escape(font, {'"': '&quot;'})
         pict_xml = (
             '<w:pict xmlns:v="urn:schemas-microsoft-com:vml"'
             ' xmlns:o="urn:schemas-microsoft-com:office:office"'
