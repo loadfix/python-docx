@@ -126,6 +126,7 @@ class CONTENT_TYPE:
         "application/vnd.openxmlformats-officedocument.spreadsheetml.volatileDependencies+xml"
     )
     SML_WORKSHEET = "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"
+    SVG = "image/svg+xml"
     TIFF = "image/tiff"
     WML_COMMENTS = "application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"
     WML_DOCUMENT = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"

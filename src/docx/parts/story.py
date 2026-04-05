@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import io
 from typing import IO, TYPE_CHECKING, Tuple, cast
 
+from docx.image.constants import MIME_TYPE
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.opc.part import XmlPart
 from docx.oxml.shape import CT_Inline
@@ -71,7 +73,39 @@ class StoryPart(XmlPart):
         rId, image = self.get_or_add_image(image_descriptor)
         cx, cy = image.scaled_dimensions(width, height)
         shape_id, filename = self.next_id, image.filename
+
+        if image.content_type == MIME_TYPE.SVG:
+            return self._new_svg_pic_inline(
+                shape_id, rId, filename, cx, cy
+            )
+
         return CT_Inline.new_pic_inline(shape_id, rId, filename, cx, cy)
+
+    def _new_svg_pic_inline(
+        self,
+        shape_id: int,
+        svg_rId: str,
+        filename: str,
+        cx: Length,
+        cy: Length,
+    ) -> CT_Inline:
+        """Return a `wp:inline` element for an SVG image with a PNG fallback."""
+        fallback_png = self._generate_svg_fallback()
+        fallback_stream = io.BytesIO(fallback_png)
+        fallback_rId, _ = self.get_or_add_image(fallback_stream)
+        return CT_Inline.new_svg_pic_inline(
+            shape_id, fallback_rId, svg_rId, filename, cx, cy
+        )
+
+    @staticmethod
+    def _generate_svg_fallback() -> bytes:
+        """Return PNG bytes to use as SVG fallback.
+
+        Generates a minimal 1x1 transparent PNG placeholder.
+        """
+        from docx.image.svg import generate_fallback_png
+
+        return generate_fallback_png()
 
     @property
     def next_id(self) -> int:
