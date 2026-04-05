@@ -30,6 +30,12 @@ class CT_P(BaseOxmlElement):
     hyperlink = ZeroOrMore("w:hyperlink")
     r = ZeroOrMore("w:r")
 
+    def add_p_after(self) -> CT_P:
+        """Return a new `<w:p>` element inserted directly after this one."""
+        new_p = cast(CT_P, OxmlElement("w:p"))
+        self.addnext(new_p)
+        return new_p
+
     def add_p_before(self) -> CT_P:
         """Return a new `<w:p>` element inserted directly prior to this one."""
         new_p = cast(CT_P, OxmlElement("w:p"))

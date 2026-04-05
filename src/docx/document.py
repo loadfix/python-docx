@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from docx.comments import Comment, Comments
     from docx.footnotes import Footnotes
     from docx.oxml.document import CT_Body, CT_Document
+    from docx.oxml.xmlchemy import BaseOxmlElement
     from docx.parts.document import DocumentPart
     from docx.settings import Settings
     from docx.styles.style import ParagraphStyle, _TableStyle
@@ -260,6 +261,14 @@ class _Body(BlockItemContainer):
     def __init__(self, body_elm: CT_Body, parent: t.ProvidesStoryPart):
         super(_Body, self).__init__(body_elm, parent)
         self._body = body_elm
+
+    def insert_element_before(
+        self,
+        new_element: BaseOxmlElement,
+        reference_element: BaseOxmlElement,
+    ) -> None:
+        """Insert `new_element` directly before `reference_element` in this body."""
+        self._body.insert_before(new_element, reference_element)
 
     def clear_content(self) -> _Body:
         """Return this |_Body| instance after clearing it of all content.

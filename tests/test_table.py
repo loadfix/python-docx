@@ -69,6 +69,39 @@ class DescribeTable:
 
         assert body.xml == xml(expected_cxml)
 
+    def it_can_insert_a_paragraph_after_itself(self, document_: Mock):
+        body = element("w:body/(w:tbl/w:tblPr,w:p)")
+        tbl = body.tbl_lst[0]
+        table = Table(tbl, document_)
+
+        new_paragraph = table.insert_paragraph_after()
+
+        assert isinstance(new_paragraph, Paragraph)
+        # --- body now has: tbl, p (new), p (original) ---
+        assert len(body) == 3
+        assert body[1] is new_paragraph._p
+
+    def it_can_insert_a_paragraph_after_with_text(self, document_: Mock):
+        body = element("w:body/(w:tbl/w:tblPr,w:p)")
+        tbl = body.tbl_lst[0]
+        table = Table(tbl, document_)
+
+        new_paragraph = table.insert_paragraph_after("hello")
+
+        assert new_paragraph.text == "hello"
+
+    def it_can_insert_a_table_after_itself(self, document_: Mock):
+        body = element("w:body/(w:tbl/w:tblPr,w:p)")
+        tbl = body.tbl_lst[0]
+        table = Table(tbl, document_)
+
+        new_table = table.insert_table_after(2, 2, Inches(4))
+
+        assert isinstance(new_table, Table)
+        # --- body now has: tbl (original), tbl (new), p ---
+        assert len(body.tbl_lst) == 2
+        assert body[1] is new_table._tbl
+
     def it_can_add_a_column(self, document_: Mock):
         snippets = snippet_seq("add-row-col")
         tbl = cast(CT_Tbl, parse_xml(snippets[0]))

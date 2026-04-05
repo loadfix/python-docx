@@ -7,8 +7,9 @@ from typing import TYPE_CHECKING, Iterator, List, cast
 from docx.enum.section import WD_SECTION_START
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
+from docx.oxml.table import CT_Tbl
 from docx.oxml.text.run import CT_R
-from docx.shared import StoryChild
+from docx.shared import Length, StoryChild
 from docx.styles.style import ParagraphStyle
 from docx.text.hyperlink import Hyperlink
 from docx.text.pagebreak import RenderedPageBreak
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
     from docx.oxml.text.paragraph import CT_P
     from docx.section import Section
     from docx.styles.style import CharacterStyle
+    from docx.table import Table
 
 
 class Paragraph(StoryChild):
@@ -152,6 +154,21 @@ class Paragraph(StoryChild):
         if pPr.sectPr is not None:
             pPr._remove_sectPr()
 
+    def insert_paragraph_after(
+        self, text: str | None = None, style: str | ParagraphStyle | None = None
+    ) -> Paragraph:
+        """Return a newly created paragraph, inserted directly after this paragraph.
+
+        If `text` is supplied, the new paragraph contains that text in a single run. If
+        `style` is provided, that style is assigned to the new paragraph.
+        """
+        paragraph = Paragraph(self._p.add_p_after(), self._parent)
+        if text:
+            paragraph.add_run(text)
+        if style is not None:
+            paragraph.style = style
+        return paragraph
+
     def insert_paragraph_before(
         self, text: str | None = None, style: str | ParagraphStyle | None = None
     ) -> Paragraph:
@@ -242,6 +259,17 @@ class Paragraph(StoryChild):
     def text(self, text: str | None):
         self.clear()
         self.add_run(text)
+
+    def insert_table_after(self, rows: int, cols: int, width: Length) -> Table:
+        """Return a table of `width` having `rows` rows and `cols` columns.
+
+        The new table is inserted directly after this paragraph.
+        """
+        from docx.table import Table
+
+        tbl = CT_Tbl.new_tbl(rows, cols, width)
+        self._p.addnext(tbl)
+        return Table(tbl, self._parent)
 
     def _insert_paragraph_before(self):
         """Return a newly created paragraph, inserted directly before this paragraph."""

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Callable, cast
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_ROW_HEIGHT_RULE, WD_TABLE_DIRECTION
 from docx.exceptions import InvalidSpanError
 from docx.oxml.ns import nsdecls, qn
-from docx.oxml.parser import parse_xml
+from docx.oxml.parser import OxmlElement, parse_xml
 from docx.oxml.shared import CT_DecimalNumber
 from docx.oxml.simpletypes import (
     ST_Merge,
@@ -152,6 +152,12 @@ class CT_Tbl(BaseOxmlElement):
     tblPr: CT_TblPr = OneAndOnlyOne("w:tblPr")  # pyright: ignore[reportAssignmentType]
     tblGrid: CT_TblGrid = OneAndOnlyOne("w:tblGrid")  # pyright: ignore[reportAssignmentType]
     tr = ZeroOrMore("w:tr")
+
+    def add_p_after(self) -> CT_P:
+        """Return a new `<w:p>` element inserted directly after this table."""
+        new_p = cast(CT_P, OxmlElement("w:p"))
+        self.addnext(new_p)
+        return new_p
 
     @property
     def bidiVisual_val(self) -> bool | None:

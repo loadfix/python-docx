@@ -388,6 +388,48 @@ class DescribeParagraph:
         assert paragraph._p.xml == expected_xml
         assert _paragraph is paragraph
 
+    def it_can_insert_a_paragraph_after_itself(self, fake_parent: t.ProvidesStoryPart):
+        body = element("w:body/(w:p,w:p)")
+        p = body[0]
+        paragraph = Paragraph(cast(CT_P, p), fake_parent)
+
+        new_paragraph = paragraph.insert_paragraph_after()
+
+        assert isinstance(new_paragraph, Paragraph)
+        assert len(body.p_lst) == 3
+        # --- new paragraph is between the original two ---
+        assert body[1] is new_paragraph._p
+
+    def it_can_insert_a_paragraph_after_with_text_and_style(
+        self, part_prop_: DocumentPart
+    ):
+        body = element("w:body/(w:p,w:p)")
+        p = body[0]
+        paragraph = Paragraph(cast(CT_P, p), None)
+        part_prop_.return_value.get_style_id.return_value = "Heading1"
+
+        new_paragraph = paragraph.insert_paragraph_after("foobar", "Heading 1")
+
+        assert isinstance(new_paragraph, Paragraph)
+        assert new_paragraph.text == "foobar"
+        assert body[1] is new_paragraph._p
+
+    def it_can_insert_a_table_after_itself(self, fake_parent: t.ProvidesStoryPart):
+        from docx.oxml.table import CT_Tbl
+        from docx.shared import Inches
+        from docx.table import Table
+
+        body = element("w:body/(w:p,w:p)")
+        p = body[0]
+        paragraph = Paragraph(cast(CT_P, p), fake_parent)
+
+        table = paragraph.insert_table_after(2, 3, Inches(6))
+
+        assert isinstance(table, Table)
+        # --- body now has: p, tbl, p ---
+        assert len(body) == 3
+        assert isinstance(body[1], CT_Tbl)
+
     def it_inserts_a_paragraph_before_to_help(self, _insert_before_fixture):
         paragraph, body, expected_xml = _insert_before_fixture
         new_paragraph = paragraph._insert_paragraph_before()

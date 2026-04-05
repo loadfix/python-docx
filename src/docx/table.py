@@ -11,17 +11,17 @@ from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
 from docx.oxml.simpletypes import ST_Merge
 from docx.oxml.table import CT_TblGridCol
-from docx.shared import Inches, Parented, StoryChild, lazyproperty
+from docx.shared import Inches, Length, Parented, StoryChild, lazyproperty
 
 if TYPE_CHECKING:
     import docx.types as t
     from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_TABLE_ALIGNMENT, WD_TABLE_DIRECTION
     from docx.oxml.table import CT_Row, CT_Tbl, CT_TblPr, CT_Tc
-    from docx.shared import Length
     from docx.styles.style import (
         ParagraphStyle,
         _TableStyle,  # pyright: ignore[reportPrivateUsage]
     )
+    from docx.text.paragraph import Paragraph
 
 TableParent: TypeAlias = "Table | _Columns | _Rows"
 
@@ -45,6 +45,37 @@ class Table(StoryChild):
         if parent is None:
             return
         parent.remove(tbl)
+
+    def insert_paragraph_after(
+        self,
+        text: str | None = None,
+        style: str | ParagraphStyle | None = None,
+    ) -> Paragraph:
+        """Return a newly created paragraph, inserted directly after this table.
+
+        If `text` is supplied, the new paragraph contains that text in a single run. If
+        `style` is provided, that style is assigned to the new paragraph.
+        """
+        from docx.text.paragraph import Paragraph
+
+        p = self._tbl.add_p_after()
+        paragraph = Paragraph(p, self._parent)
+        if text:
+            paragraph.add_run(text)
+        if style is not None:
+            paragraph.style = style
+        return paragraph
+
+    def insert_table_after(self, rows: int, cols: int, width: Length) -> Table:
+        """Return a table of `width` having `rows` rows and `cols` columns.
+
+        The new table is inserted directly after this table.
+        """
+        from docx.oxml.table import CT_Tbl as CT_Tbl_
+
+        tbl = CT_Tbl_.new_tbl(rows, cols, width)
+        self._tbl.addnext(tbl)
+        return Table(tbl, self._parent)
 
     def add_column(self, width: Length):
         """Return a |_Column| object of `width`, newly added rightmost to the table."""
