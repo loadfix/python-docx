@@ -15,6 +15,7 @@ from docx.text.run import Run
 
 if TYPE_CHECKING:
     import docx.types as t
+    from docx.bookmarks import Bookmarks
     from docx.comments import Comment, Comments
     from docx.footnotes import Footnotes
     from docx.oxml.document import CT_Body, CT_Document
@@ -156,6 +157,13 @@ class Document(ElementProxy):
         table = self._body.add_table(rows, cols, self._block_width)
         table.style = style
         return table
+
+    @property
+    def bookmarks(self) -> Bookmarks:
+        """A |Bookmarks| object providing access to the bookmarks in this document."""
+        from docx.bookmarks import Bookmarks
+
+        return Bookmarks(self._element.body)
 
     @property
     def comments(self) -> Comments:
