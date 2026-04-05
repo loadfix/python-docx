@@ -50,8 +50,9 @@ class Paragraph(StoryChild):
         hyperlink run(s). Defaults to ``"Hyperlink"``.
 
         `anchor` is an optional bookmark name for internal document links. When provided
-        with a non-empty `url`, the anchor is stored as a URI fragment. When `url` is
-        empty and `anchor` is provided, the hyperlink is an internal jump (no external
+        with a non-empty `url`, both are stored independently — `url` as an external
+        relationship and `anchor` as the `w:anchor` XML attribute. When `url` is empty
+        and `anchor` is provided, the hyperlink is an internal jump (no external
         relationship is created).
         """
         display_text = text if text is not None else (url or anchor or "")

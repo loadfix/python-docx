@@ -25,7 +25,7 @@ class CT_P(BaseOxmlElement):
     get_or_add_pPr: Callable[[], CT_PPr]
     hyperlink_lst: List[CT_Hyperlink]
     r_lst: List[CT_R]
-    _add_hyperlink: Callable[..., CT_Hyperlink]
+    _add_hyperlink: Callable[[], CT_Hyperlink]
 
     pPr: CT_PPr | None = ZeroOrOne("w:pPr")  # pyright: ignore[reportAssignmentType]
     hyperlink = ZeroOrMore("w:hyperlink")
@@ -38,8 +38,9 @@ class CT_P(BaseOxmlElement):
     ) -> CT_Hyperlink:
         """Add a new `<w:hyperlink>` child element and return it.
 
-        Exactly one of `rId` or `anchor` should be provided. `rId` is for external
-        hyperlinks (the relationship id), `anchor` is for internal bookmark references.
+        At least one of `rId` or `anchor` should be provided. Both may be provided
+        together when the hyperlink targets an external resource at a specific anchor
+        within it.
         """
         hyperlink = self._add_hyperlink()
         if rId is not None:
