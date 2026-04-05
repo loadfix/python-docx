@@ -314,7 +314,131 @@ class Paragraph(StoryChild):
         self.clear()
         self.add_run(text)
 
+    @property
+    def list_level(self) -> int | None:
+        """The list indent level (0-8) for this paragraph, or |None| if not in a list.
+
+        Setting this property assigns the paragraph to the specified indent level within
+        its current numbering definition. Setting to |None| removes the indent level.
+        """
+        pPr = self._p.pPr
+        if pPr is None:
+            return None
+        return pPr.numPr_ilvl_val
+
+    @list_level.setter
+    def list_level(self, value: int | None):
+        pPr = self._p.get_or_add_pPr()
+        pPr.numPr_ilvl_val = value
+
+    @property
+    def list_format(self) -> _ListFormat:
+        """A |_ListFormat| object providing access to the numbering properties of this
+        paragraph, including the numbering definition ID and indent level."""
+        return _ListFormat(self._p, self)
+
+    @property
+    def numbering_format(self) -> str | None:
+        """The number format string (e.g. "decimal", "bullet") for the list this
+        paragraph belongs to, or |None| if the paragraph is not in a list."""
+        pPr = self._p.pPr
+        if pPr is None:
+            return None
+        numPr = pPr.numPr
+        if numPr is None:
+            return None
+        numId_val = numPr.numId_val
+        if numId_val is None or numId_val == 0:
+            return None
+        ilvl_val = numPr.ilvl_val or 0
+        # -- look up the numbering format from the numbering part --
+        try:
+            numbering_part = self.part.numbering_part
+        except (AttributeError, KeyError):
+            return None
+        numbering_elm = numbering_part.numbering_element
+        try:
+            num = numbering_elm.num_having_numId(numId_val)
+        except KeyError:
+            return None
+        abstractNumId = num.abstractNumId.val
+        for abstractNum in numbering_elm.abstractNum_lst:
+            if abstractNum.abstractNumId == abstractNumId:
+                for lvl in abstractNum.lvl_lst:
+                    if lvl.ilvl == ilvl_val:
+                        return lvl.numFmt_val
+        return None
+
+    def restart_numbering(self) -> None:
+        """Restart the numbered list counter at 1 for this paragraph.
+
+        Creates a new ``<w:num>`` element with a ``<w:lvlOverride>`` containing a
+        ``<w:startOverride>`` set to 1, and assigns it to this paragraph. The new num
+        references the same abstract numbering definition as the current one.
+        """
+        pPr = self._p.pPr
+        if pPr is None or pPr.numPr is None:
+            raise ValueError("paragraph is not in a numbered list")
+
+        numPr = pPr.numPr
+        numId_val = numPr.numId_val
+        if numId_val is None or numId_val == 0:
+            raise ValueError("paragraph is not in a numbered list")
+
+        ilvl_val = numPr.ilvl_val or 0
+
+        numbering_part = self.part.numbering_part
+        numbering_elm = numbering_part.numbering_element
+
+        # -- get the abstract num id from the current num --
+        num = numbering_elm.num_having_numId(numId_val)
+        abstractNumId = num.abstractNumId.val
+
+        # -- create a new num referencing the same abstract definition --
+        new_num = numbering_elm.add_num(abstractNumId)
+
+        # -- add lvlOverride with startOverride val=1 --
+        lvlOverride = new_num.add_lvlOverride(ilvl_val)
+        lvlOverride.add_startOverride(1)
+
+        # -- point this paragraph to the new num --
+        numPr.numId_val = new_num.numId
+
     def _insert_paragraph_before(self):
         """Return a newly created paragraph, inserted directly before this paragraph."""
         p = self._p.add_p_before()
         return Paragraph(p, self._parent)
+
+
+class _ListFormat:
+    """Provides access to the numbering properties of a paragraph."""
+
+    def __init__(self, p: CT_P, paragraph: Paragraph):
+        self._p = p
+        self._paragraph = paragraph
+
+    @property
+    def level(self) -> int | None:
+        """The indent level (0-8) for this paragraph's numbering, or |None|."""
+        pPr = self._p.pPr
+        if pPr is None:
+            return None
+        return pPr.numPr_ilvl_val
+
+    @level.setter
+    def level(self, value: int | None):
+        pPr = self._p.get_or_add_pPr()
+        pPr.numPr_ilvl_val = value
+
+    @property
+    def num_id(self) -> int | None:
+        """The numbering definition ID for this paragraph, or |None|."""
+        pPr = self._p.pPr
+        if pPr is None:
+            return None
+        return pPr.numPr_numId_val
+
+    @num_id.setter
+    def num_id(self, value: int | None):
+        pPr = self._p.get_or_add_pPr()
+        pPr.numPr_numId_val = value

@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from docx.comments import Comments
     from docx.enum.style import WD_STYLE_TYPE
     from docx.footnotes import Footnotes
+    from docx.numbering import Numbering
     from docx.opc.coreprops import CoreProperties
     from docx.settings import Settings
     from docx.styles.style import BaseStyle
@@ -50,6 +51,14 @@ class DocumentPart(StoryPart):
     def comments(self) -> Comments:
         """|Comments| object providing access to the comments added to this document."""
         return self._comments_part.comments
+
+    @property
+    def numbering(self) -> Numbering:
+        """|Numbering| object providing access to numbering definitions in this document."""
+        from docx.numbering import Numbering as NumberingCls
+
+        numbering_part = self.numbering_part
+        return NumberingCls(numbering_part.numbering_element, numbering_part)
 
     @property
     def footnotes(self) -> Footnotes:
