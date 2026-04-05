@@ -182,6 +182,53 @@ class Font(ElementProxy):
         self._set_bool_prop("oMath", value)
 
     @property
+    def name_cs(self) -> str | None:
+        """The Complex Script typeface name for this |Font|.
+
+        Causes Complex Script text it controls to appear in the named font. |None|
+        indicates the typeface is inherited from the style hierarchy.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        return rPr.rFonts_cs
+
+    @name_cs.setter
+    def name_cs(self, value: str | None) -> None:
+        rPr = self._element.get_or_add_rPr()
+        rPr.rFonts_cs = value
+
+    @property
+    def name_east_asia(self) -> str | None:
+        """The East Asian typeface name for this |Font|.
+
+        Causes East Asian text it controls to appear in the named font. |None| indicates
+        the typeface is inherited from the style hierarchy. Alias for `name_far_east`.
+        """
+        return self.name_far_east
+
+    @name_east_asia.setter
+    def name_east_asia(self, value: str | None) -> None:
+        self.name_far_east = value
+
+    @property
+    def name_far_east(self) -> str | None:
+        """The East Asian typeface name for this |Font|.
+
+        Causes East Asian (CJK) text it controls to appear in the named font. |None|
+        indicates the typeface is inherited from the style hierarchy.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        return rPr.rFonts_eastAsia
+
+    @name_far_east.setter
+    def name_far_east(self, value: str | None) -> None:
+        rPr = self._element.get_or_add_rPr()
+        rPr.rFonts_eastAsia = value
+
+    @property
     def name(self) -> str | None:
         """The typeface name for this |Font|.
 
