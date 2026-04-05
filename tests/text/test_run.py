@@ -79,6 +79,34 @@ class DescribeRun:
         assert run._r.xml == xml(expected_cxml)
 
     @pytest.mark.parametrize(
+        ("p_cxml", "r_idx", "expected_cxml"),
+        [
+            # --- run is removed from paragraph ---
+            ("w:p/(w:r,w:r)", 0, "w:p/w:r"),
+            # --- only run removed ---
+            ("w:p/w:r", 0, "w:p"),
+            # --- run with text removed, sibling kept ---
+            ('w:p/(w:r/w:t"delete",w:r/w:t"keep")', 0, 'w:p/w:r/w:t"keep"'),
+            # --- middle run removed ---
+            ("w:p/(w:r,w:r,w:r)", 1, "w:p/(w:r,w:r)"),
+        ],
+    )
+    def it_can_delete_itself(
+        self,
+        p_cxml: str,
+        r_idx: int,
+        expected_cxml: str,
+        paragraph_: Mock,
+    ):
+        p = element(p_cxml)
+        r = p.r_lst[r_idx]
+        run = Run(cast(CT_R, r), paragraph_)
+
+        run.delete()
+
+        assert p.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
         ("r_cxml", "expected_value"),
         [
             ("w:r", False),
