@@ -50,6 +50,10 @@ class CT_Footnotes(BaseOxmlElement):
         self.append(footnote)
         return footnote
 
+    def remove_footnote(self, footnote: CT_Footnote) -> None:
+        """Remove `footnote` child element from this container."""
+        self.remove(footnote)
+
     def _next_available_footnote_id(self) -> int:
         """The next available footnote id.
 
@@ -92,6 +96,24 @@ class CT_Footnote(BaseOxmlElement):
     p_lst: list[CT_P]
     tbl_lst: list[CT_Tbl]
     _insert_tbl: Callable[[CT_Tbl], CT_Tbl]
+
+    def clear_content(self) -> None:
+        """Remove all child elements and add a single empty paragraph.
+
+        The empty paragraph has the "FootnoteText" style applied, which is the default
+        style for footnote content.
+        """
+        for child in list(self):
+            self.remove(child)
+        self.append(
+            parse_xml(
+                f'<w:p {nsdecls("w")}>'
+                f"  <w:pPr>"
+                f'    <w:pStyle w:val="FootnoteText"/>'
+                f"  </w:pPr>"
+                f"</w:p>"
+            )
+        )
 
     @property
     def inner_content_elements(self) -> list[CT_P | CT_Tbl]:

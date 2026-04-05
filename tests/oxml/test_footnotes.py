@@ -73,6 +73,24 @@ class DescribeCT_Footnotes:
         assert footnote.id == 3
 
 
+    def it_can_remove_a_footnote(self):
+        footnotes = cast(
+            CT_Footnotes,
+            element(
+                "w:footnotes/(w:footnote{w:id=0,w:type=separator}"
+                ",w:footnote{w:id=1,w:type=continuationSeparator}"
+                ",w:footnote{w:id=2},w:footnote{w:id=3})"
+            ),
+        )
+
+        footnote_2 = footnotes.footnote_lst[2]
+        footnotes.remove_footnote(footnote_2)
+
+        assert len(footnotes.footnote_lst) == 3
+        ids = [fn.id for fn in footnotes.footnote_lst]
+        assert ids == [0, 1, 3]
+
+
 class DescribeCT_Footnote:
     """Unit test suite for `docx.oxml.footnotes.CT_Footnote` objects."""
 
@@ -90,6 +108,20 @@ class DescribeCT_Footnote:
         footnote = cast(CT_Footnote, element("w:footnote{w:id=2}"))
 
         assert footnote.type is None
+
+    def it_can_clear_its_content(self):
+        footnote = cast(
+            CT_Footnote,
+            element('w:footnote{w:id=2}/(w:p/w:r/w:t"Para one",w:p/w:r/w:t"Para two")'),
+        )
+        assert len(footnote.p_lst) == 2
+
+        footnote.clear_content()
+
+        assert len(footnote.p_lst) == 1
+        assert footnote.p_lst[0].style == "FootnoteText"
+        # -- no runs in the empty paragraph --
+        assert len(footnote.p_lst[0].r_lst) == 0
 
     def it_provides_access_to_its_inner_content_elements(self):
         footnote = cast(
