@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 from typing import List, cast
+from xml.sax.saxutils import escape, quoteattr
 
 from lxml import etree
 
@@ -60,8 +61,8 @@ class CT_CustomProperty(BaseOxmlElement):
         xml = (
             '<property xmlns="http://schemas.openxmlformats.org/officeDocument/2006/'
             'custom-properties" %s fmtid="{D5CDD505-2E9C-101B-9397-08002B2CF9AE}"'
-            ' pid="%d" name="%s"><%s>%s</%s></property>'
-            % (nsdecls("vt"), pid, name, vt_tag, vt_text, vt_tag)
+            ' pid="%d" name=%s><%s>%s</%s></property>'
+            % (nsdecls("vt"), pid, quoteattr(name), vt_tag, vt_text, vt_tag)
         )
         return cast(CT_CustomProperty, parse_xml(xml))
 
@@ -107,4 +108,4 @@ class CT_CustomProperty(BaseOxmlElement):
         elif isinstance(value, dt.datetime):
             return "vt:filetime", value.strftime("%Y-%m-%dT%H:%M:%SZ")
         else:
-            return "vt:lpwstr", str(value)
+            return "vt:lpwstr", escape(str(value))
