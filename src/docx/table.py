@@ -583,6 +583,18 @@ class _Row(Parented):
         no explicit height is set."""
         return self._tr.trHeight_val
 
+    @property
+    def is_header(self) -> bool:
+        """True when this row is a header row that repeats at the top of each page.
+
+        Read/write. Only the first N consecutive rows can be header rows (Word limitation).
+        """
+        return self._tr.is_header
+
+    @is_header.setter
+    def is_header(self, value: bool) -> None:
+        self._tr.is_header = value
+
     @height.setter
     def height(self, value: Length | None):
         self._tr.trHeight_val = value
