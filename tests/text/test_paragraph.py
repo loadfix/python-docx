@@ -8,6 +8,7 @@ from docx import types as t
 from docx.enum.section import WD_SECTION_START
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.drawing import Drawing
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.text.run import CT_R
 from docx.parts.document import DocumentPart
@@ -200,6 +201,27 @@ class DescribeParagraph:
         paragraph = Paragraph(p, fake_parent)
 
         assert paragraph.contains_page_break == expected_value
+
+    @pytest.mark.parametrize(
+        ("p_cxml", "count"),
+        [
+            ("w:p", 0),
+            ("w:p/w:r", 0),
+            ("w:p/w:r/w:drawing", 1),
+            ("w:p/(w:r/w:drawing,w:r/w:drawing)", 2),
+            ("w:p/(w:r/w:drawing,w:r)", 1),
+        ],
+    )
+    def it_provides_access_to_drawings_it_contains(
+        self, p_cxml: str, count: int, fake_parent: t.ProvidesStoryPart
+    ):
+        p = cast(CT_P, element(p_cxml))
+        paragraph = Paragraph(p, fake_parent)
+
+        drawings = paragraph.drawings
+
+        assert len(drawings) == count
+        assert all(isinstance(d, Drawing) for d in drawings)
 
     @pytest.mark.parametrize(
         ("p_cxml", "count"),

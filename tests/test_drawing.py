@@ -9,10 +9,12 @@ from typing import cast
 import pytest
 
 from docx.drawing import Drawing
+from docx.enum.shape import WD_DRAWING_TYPE
 from docx.image.image import Image
 from docx.oxml.drawing import CT_Drawing
 from docx.parts.document import DocumentPart
 from docx.parts.image import ImagePart
+from docx.text.paragraph import Paragraph
 
 from .unitutil.cxml import element
 from .unitutil.mock import FixtureRequest, Mock, instance_mock
@@ -58,6 +60,78 @@ class DescribeDrawing:
 
         with pytest.raises(ValueError, match="drawing does not contain a picture"):
             drawing.image
+
+    def it_provides_access_to_text_in_a_text_box(self, document_part_: Mock):
+        cxml = (
+            "w:drawing/wp:anchor/a:graphic/a:graphicData"
+            '/wps:wsp/wps:txbx/w:txbxContent/(w:p/w:r/w:t"Hello",w:p/w:r/w:t"World")'
+        )
+        drawing = Drawing(cast(CT_Drawing, element(cxml)), document_part_)
+
+        assert drawing.text == "Hello\nWorld"
+
+    def it_returns_empty_text_when_no_text_frames(self, document_part_: Mock):
+        drawing = Drawing(
+            cast(CT_Drawing, element("w:drawing/wp:inline/a:graphic/a:graphicData/pic:pic")),
+            document_part_,
+        )
+
+        assert drawing.text == ""
+
+    def it_provides_access_to_paragraphs_in_a_text_box(self, document_part_: Mock):
+        cxml = (
+            "w:drawing/wp:anchor/a:graphic/a:graphicData"
+            '/wps:wsp/wps:txbx/w:txbxContent/(w:p/w:r/w:t"Hello",w:p/w:r/w:t"World")'
+        )
+        drawing = Drawing(cast(CT_Drawing, element(cxml)), document_part_)
+
+        paragraphs = drawing.paragraphs
+
+        assert len(paragraphs) == 2
+        assert all(isinstance(p, Paragraph) for p in paragraphs)
+        assert paragraphs[0].text == "Hello"
+        assert paragraphs[1].text == "World"
+
+    def it_returns_empty_paragraphs_when_no_text_frames(self, document_part_: Mock):
+        drawing = Drawing(
+            cast(CT_Drawing, element("w:drawing/wp:inline/a:graphic/a:graphicData/pic:pic")),
+            document_part_,
+        )
+
+        assert drawing.paragraphs == []
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_type"),
+        [
+            (
+                "w:drawing/wp:inline/a:graphic/a:graphicData/pic:pic",
+                WD_DRAWING_TYPE.PICTURE,
+            ),
+            (
+                "w:drawing/wp:anchor/a:graphic/a:graphicData/pic:pic",
+                WD_DRAWING_TYPE.PICTURE,
+            ),
+            (
+                "w:drawing/wp:inline/a:graphic/a:graphicData"
+                "/wps:wsp/wps:txbx/w:txbxContent/w:p",
+                WD_DRAWING_TYPE.TEXT_BOX,
+            ),
+            (
+                "w:drawing/wp:inline/a:graphic/a:graphicData/c:chart",
+                WD_DRAWING_TYPE.CHART,
+            ),
+            (
+                "w:drawing/wp:inline/a:graphic/a:graphicData/wps:wsp",
+                WD_DRAWING_TYPE.SHAPE,
+            ),
+        ],
+    )
+    def it_knows_its_type(
+        self, cxml: str, expected_type: WD_DRAWING_TYPE, document_part_: Mock
+    ):
+        drawing = Drawing(cast(CT_Drawing, element(cxml)), document_part_)
+
+        assert drawing.type == expected_type
 
     # -- fixtures --------------------------------------------------------------------------------
 
