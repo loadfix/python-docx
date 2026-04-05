@@ -91,6 +91,24 @@ class DescribeCT_Footnote:
 
         assert footnote.type is None
 
+    def it_can_clear_its_content(self):
+        footnote = cast(
+            CT_Footnote,
+            element('w:footnote{w:id=2}/(w:p/w:r/w:t"Para one",w:p/w:r/w:t"Para two")'),
+        )
+        assert len(footnote.p_lst) == 2
+
+        footnote.clear_content()
+
+        assert len(footnote.p_lst) == 1
+        p = footnote.p_lst[0]
+        assert p.style == "FootnoteText"
+        # -- the paragraph has a footnoteRef run to preserve the auto-number mark --
+        assert len(p.r_lst) == 1
+        r = p.r_lst[0]
+        assert r.style == "FootnoteReference"
+        assert r[-1].tag == qn("w:footnoteRef")
+
     def it_provides_access_to_its_inner_content_elements(self):
         footnote = cast(
             CT_Footnote,

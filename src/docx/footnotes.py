@@ -64,6 +64,46 @@ class Footnote(BlockItemContainer):
         super().__init__(footnote_elm, footnotes_part)
         self._footnote_elm = footnote_elm
 
+    def clear(self) -> Footnote:
+        """Remove all content from this footnote, leaving a single empty paragraph.
+
+        The empty paragraph has the "FootnoteText" style. Returns this same footnote
+        object for fluent use.
+        """
+        self._footnote_elm.clear_content()
+        return self
+
+    def delete(self) -> None:
+        """Remove this footnote from the document.
+
+        Removes the `w:footnoteReference` element from the document body that references
+        this footnote, along with the run containing it (if the run becomes empty). Also
+        removes the `w:footnote` element from the footnotes part.
+
+        After calling this method, this |Footnote| object is "defunct" and should not be
+        used further.
+        """
+        footnote_id = self.footnote_id
+        # -- remove footnoteReference(s) from the document body --
+        document_elm = self.part._document_part.element  # pyright: ignore[reportPrivateUsage]
+        refs = document_elm.xpath(
+            f'.//w:footnoteReference[@w:id="{footnote_id}"]',
+        )
+        for ref in refs:
+            r = ref.getparent()
+            if r is None:
+                continue
+            r.remove(ref)
+            # -- remove the run if it's now empty (only rPr or nothing left) --
+            if len(r.xpath("./*[not(self::w:rPr)]")) == 0:
+                r_parent = r.getparent()
+                if r_parent is not None:
+                    r_parent.remove(r)
+        # -- remove the footnote element from the footnotes part --
+        footnotes_elm = self._footnote_elm.getparent()
+        if footnotes_elm is not None:
+            footnotes_elm.remove(self._footnote_elm)
+
     def add_paragraph(self, text: str = "", style: str | ParagraphStyle | None = None) -> Paragraph:
         """Return paragraph newly added to the end of the content in this container.
 
