@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import IO, TYPE_CHECKING, Iterator, List, Sequence
 
 from docx.blkcntnr import BlockItemContainer
+from docx.enum.sdt import WD_CONTENT_CONTROL_TYPE
 from docx.enum.section import WD_SECTION
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.section import Section, Sections
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
     from docx.footnotes import Footnotes
     from docx.oxml.document import CT_Body, CT_Document
     from docx.parts.document import DocumentPart
+    from docx.sdt import ContentControl
     from docx.settings import Settings
     from docx.styles.style import ParagraphStyle, _TableStyle
     from docx.table import Table
@@ -172,6 +174,11 @@ class Document(ElementProxy):
         return self._part.comments
 
     @property
+    def content_controls(self) -> List[ContentControl]:
+        """All content controls (structured document tags) in the document body."""
+        return self._body.content_controls
+
+    @property
     def has_macros(self) -> bool:
         """True if this document contains a VBA project (macros)."""
         try:
@@ -279,6 +286,23 @@ class _Body(BlockItemContainer):
         super(_Body, self).__init__(body_elm, parent)
         self._body = body_elm
 
+    def add_content_control(
+        self,
+        type: WD_CONTENT_CONTROL_TYPE = WD_CONTENT_CONTROL_TYPE.RICH_TEXT,
+        tag: str | None = None,
+        title: str | None = None,
+    ) -> ContentControl:
+        """Add a block-level content control at the end of the document body.
+
+        Returns a |ContentControl| proxy for the new SDT element.
+        """
+        from docx.oxml.sdt import CT_Sdt
+        from docx.sdt import ContentControl
+
+        sdt = CT_Sdt.new_block(type.value, tag, title)
+        self._body._insert_sdt(sdt)
+        return ContentControl(sdt, self)
+
     def clear_content(self) -> _Body:
         """Return this |_Body| instance after clearing it of all content.
 
@@ -286,3 +310,12 @@ class _Body(BlockItemContainer):
         """
         self._body.clear_content()
         return self
+
+    @property
+    def content_controls(self) -> List[ContentControl]:
+        """All block-level content controls in this body."""
+        from docx.oxml.sdt import CT_Sdt
+        from docx.sdt import ContentControl
+
+        sdts: list[CT_Sdt] = self._body.sdt_elements
+        return [ContentControl(sdt, self) for sdt in sdts]

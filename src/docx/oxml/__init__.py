@@ -250,6 +250,26 @@ register_element_cls("w:vanish", CT_OnOff)
 register_element_cls("w:vertAlign", CT_VerticalAlignRun)
 register_element_cls("w:webHidden", CT_OnOff)
 
+from .sdt import (
+    CT_Sdt,
+    CT_SdtCheckbox,
+    CT_SdtComboBox,
+    CT_SdtContent,
+    CT_SdtDate,
+    CT_SdtDropDownList,
+    CT_SdtListItem,
+    CT_SdtPr,
+)
+
+register_element_cls("w:sdt", CT_Sdt)
+register_element_cls("w:sdtPr", CT_SdtPr)
+register_element_cls("w:sdtContent", CT_SdtContent)
+register_element_cls("w:comboBox", CT_SdtComboBox)
+register_element_cls("w:dropDownList", CT_SdtDropDownList)
+register_element_cls("w:listItem", CT_SdtListItem)
+register_element_cls("w:date", CT_SdtDate)
+register_element_cls("w14:checkbox", CT_SdtCheckbox)
+
 from .text.paragraph import CT_P
 
 register_element_cls("w:p", CT_P)

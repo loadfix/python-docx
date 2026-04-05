@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterator, List, cast
 
 from docx.drawing import Drawing
+from docx.enum.sdt import WD_CONTENT_CONTROL_TYPE
 from docx.enum.section import WD_SECTION_START
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
     from docx.oxml.document import CT_Body
     from docx.oxml.text.paragraph import CT_P
+    from docx.sdt import ContentControl
     from docx.section import Section
     from docx.styles.style import CharacterStyle
 
@@ -103,6 +105,23 @@ class Paragraph(StoryChild):
             run.style = style
         return run
 
+    def add_content_control(
+        self,
+        type: WD_CONTENT_CONTROL_TYPE = WD_CONTENT_CONTROL_TYPE.RICH_TEXT,
+        tag: str | None = None,
+        title: str | None = None,
+    ) -> ContentControl:
+        """Add an inline content control to this paragraph.
+
+        Returns a |ContentControl| proxy for the new SDT element.
+        """
+        from docx.oxml.sdt import CT_Sdt
+        from docx.sdt import ContentControl
+
+        sdt = CT_Sdt.new_inline(type.value, tag, title)
+        self._p.append(sdt)
+        return ContentControl(sdt, self)
+
     def add_page_break(self) -> Paragraph:
         """Append a page-break run to this paragraph and return self."""
         run = self.add_run()
@@ -166,6 +185,13 @@ class Paragraph(StoryChild):
         if pPr is None:
             return False
         return pPr.sectPr is not None
+
+    @property
+    def content_controls(self) -> list[ContentControl]:
+        """All inline content controls (SDTs) within this paragraph."""
+        from docx.sdt import ContentControl
+
+        return [ContentControl(sdt, self) for sdt in self._p.sdt_elements]
 
     @property
     def contains_page_break(self) -> bool:
