@@ -143,9 +143,15 @@ register_element_cls("w:pgSz", CT_PageSz)
 register_element_cls("w:sectPr", CT_SectPr)
 register_element_cls("w:type", CT_SectType)
 
-from .settings import CT_Settings
+from .settings import CT_Compat, CT_CompatSetting, CT_DefaultTabStop, CT_DocProtect, CT_Settings, CT_Zoom
 
+register_element_cls("w:compat", CT_Compat)
+register_element_cls("w:compatSetting", CT_CompatSetting)
+register_element_cls("w:defaultTabStop", CT_DefaultTabStop)
+register_element_cls("w:documentProtection", CT_DocProtect)
 register_element_cls("w:settings", CT_Settings)
+register_element_cls("w:trackRevisions", CT_OnOff)
+register_element_cls("w:zoom", CT_Zoom)
 
 from .styles import CT_LatentStyles, CT_LsdException, CT_Style, CT_Styles
 
