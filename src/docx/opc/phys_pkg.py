@@ -39,7 +39,7 @@ class _DirPkgReader(PhysPkgReader):
     def __init__(self, path):
         """`path` is the path to a directory containing an expanded package."""
         super(_DirPkgReader, self).__init__()
-        self._path = os.path.abspath(path)
+        self._path = os.path.realpath(path)
 
     def blob_for(self, pack_uri):
         """Return contents of file corresponding to `pack_uri` in package directory."""
