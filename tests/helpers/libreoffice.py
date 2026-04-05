@@ -28,16 +28,21 @@ def is_libreoffice_available() -> bool:
     return shutil.which("libreoffice") is not None
 
 
-def validate_with_libreoffice(docx_path: str, timeout: int = 60) -> str:
+def validate_with_libreoffice(
+    docx_path: str, timeout: int = 60, outdir: str | None = None
+) -> tuple[str, str]:
     """Validate a .docx file by converting it to PDF with LibreOffice headless.
 
-    Returns the path to the generated PDF on success.
+    Returns a (pdf_path, outdir) tuple on success. The caller is responsible for
+    cleaning up `outdir` (e.g. via `shutil.rmtree(outdir)`).
+
     Raises LibreOfficeConversionError if the conversion fails.
     Raises LibreOfficeNotAvailable if LibreOffice is not installed.
 
     Args:
         docx_path: Path to the .docx file to validate.
         timeout: Maximum seconds to wait for conversion (default 60).
+        outdir: Optional output directory. A temporary directory is created if None.
     """
     if not is_libreoffice_available():
         raise LibreOfficeNotAvailable(
@@ -45,7 +50,9 @@ def validate_with_libreoffice(docx_path: str, timeout: int = 60) -> str:
             "sudo apt-get install libreoffice-writer"
         )
 
-    outdir = tempfile.mkdtemp(prefix="docx_lo_validate_")
+    created_outdir = outdir is None
+    if outdir is None:
+        outdir = tempfile.mkdtemp(prefix="docx_lo_validate_")
 
     try:
         result = subprocess.run(
@@ -63,11 +70,15 @@ def validate_with_libreoffice(docx_path: str, timeout: int = 60) -> str:
             timeout=timeout,
         )
     except subprocess.TimeoutExpired:
+        if created_outdir:
+            shutil.rmtree(outdir, ignore_errors=True)
         raise LibreOfficeConversionError(
             f"LibreOffice conversion timed out after {timeout}s for {docx_path}"
         )
 
     if result.returncode != 0:
+        if created_outdir:
+            shutil.rmtree(outdir, ignore_errors=True)
         raise LibreOfficeConversionError(
             f"LibreOffice conversion failed (exit code {result.returncode}):\n"
             f"stdout: {result.stdout}\n"
@@ -79,10 +90,12 @@ def validate_with_libreoffice(docx_path: str, timeout: int = 60) -> str:
     pdf_path = os.path.join(outdir, f"{basename}.pdf")
 
     if not os.path.exists(pdf_path):
+        if created_outdir:
+            shutil.rmtree(outdir, ignore_errors=True)
         raise LibreOfficeConversionError(
             f"LibreOffice conversion produced no output PDF for {docx_path}.\n"
             f"stdout: {result.stdout}\n"
             f"stderr: {result.stderr}"
         )
 
-    return pdf_path
+    return pdf_path, outdir

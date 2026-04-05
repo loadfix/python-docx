@@ -86,7 +86,10 @@ def validate_ooxml_structure(docx_path: str) -> list[str]:
                 _check_relationship_targets(rels_elem, names, errors)
 
         # -- Validate all XML parts are well-formed ----------------------------------
+        already_parsed = {"[Content_Types].xml", "_rels/.rels", "word/document.xml", doc_rels_path}
         for name in names:
+            if name in already_parsed:
+                continue
             if name.endswith(".xml") or name.endswith(".rels"):
                 _parse_zip_xml(zf, name, errors)
 
