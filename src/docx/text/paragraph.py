@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Iterator, List, cast
 
+from docx.contentcontrol import InlineContentControl
+from docx.enum.contentcontrol import WD_CONTENT_CONTROL_TYPE
 from docx.enum.section import WD_SECTION_START
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
+from docx.oxml.sdt import CT_Sdt
 from docx.oxml.text.run import CT_R
 from docx.shared import StoryChild
 from docx.styles.style import ParagraphStyle
@@ -45,6 +48,17 @@ class Paragraph(StoryChild):
         if style:
             run.style = style
         return run
+
+    def add_content_control(
+        self,
+        type: WD_CONTENT_CONTROL_TYPE = WD_CONTENT_CONTROL_TYPE.RICH_TEXT,
+        tag: str | None = None,
+        title: str | None = None,
+    ) -> InlineContentControl:
+        """Add an inline content control to this paragraph and return it."""
+        sdt = CT_Sdt.new_inline(type, tag, title)
+        self._p.append(sdt)
+        return InlineContentControl(sdt, self)
 
     def add_page_break(self) -> Paragraph:
         """Append a page-break run to this paragraph and return self."""
@@ -86,6 +100,11 @@ class Paragraph(StoryChild):
         if parent is None:
             return
         parent.remove(p)
+
+    @property
+    def content_controls(self) -> List[InlineContentControl]:
+        """All inline content controls within this paragraph."""
+        return [InlineContentControl(sdt, self) for sdt in self._p.sdt_lst]
 
     def clear_page_breaks(self) -> None:
         """Remove all ``<w:br w:type="page"/>`` elements from this paragraph.
