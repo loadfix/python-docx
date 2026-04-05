@@ -147,8 +147,9 @@ class FloatingImage:
     @pos_h.setter
     def pos_h(self, value: int | Length) -> None:
         posH = self._anchor.positionH
-        if posH is not None:
-            posH.posOffset = int(value)
+        if posH is None:
+            raise ValueError("anchor has no <wp:positionH> element")
+        posH.posOffset = int(value)
 
     @property
     def pos_v(self) -> Length:
@@ -161,8 +162,9 @@ class FloatingImage:
     @pos_v.setter
     def pos_v(self, value: int | Length) -> None:
         posV = self._anchor.positionV
-        if posV is not None:
-            posV.posOffset = int(value)
+        if posV is None:
+            raise ValueError("anchor has no <wp:positionV> element")
+        posV.posOffset = int(value)
 
     @property
     def relative_from_h(self) -> WD_RELATIVE_HORZ_POS:
@@ -175,8 +177,9 @@ class FloatingImage:
     @relative_from_h.setter
     def relative_from_h(self, value: WD_RELATIVE_HORZ_POS) -> None:
         posH = self._anchor.positionH
-        if posH is not None:
-            posH.relativeFrom = value.value
+        if posH is None:
+            raise ValueError("anchor has no <wp:positionH> element")
+        posH.relativeFrom = value.value
 
     @property
     def relative_from_v(self) -> WD_RELATIVE_VERT_POS:
@@ -189,8 +192,9 @@ class FloatingImage:
     @relative_from_v.setter
     def relative_from_v(self, value: WD_RELATIVE_VERT_POS) -> None:
         posV = self._anchor.positionV
-        if posV is not None:
-            posV.relativeFrom = value.value
+        if posV is None:
+            raise ValueError("anchor has no <wp:positionV> element")
+        posV.relativeFrom = value.value
 
     @property
     def behind_doc(self) -> bool:

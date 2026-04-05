@@ -154,6 +154,13 @@ class DescribeCT_PosH:
         with pytest.raises(InvalidXmlError, match="wp:posOffset"):
             posH.posOffset = 914400
 
+    def it_returns_None_for_empty_posOffset_element(self):
+        posH = cast(
+            CT_PosH,
+            element("wp:positionH{relativeFrom=column}/wp:posOffset"),
+        )
+        assert posH.posOffset is None
+
 
 class DescribeCT_PosV:
     """Unit-test suite for `docx.oxml.shape.CT_PosV`."""
@@ -294,3 +301,51 @@ class DescribeFloatingImage:
 
         floating.behind_doc = False
         assert floating.behind_doc is False
+
+    def it_raises_on_pos_h_set_when_positionH_is_missing(self):
+        anchor = cast(
+            CT_Anchor,
+            element(
+                "wp:anchor{behindDoc=0,layoutInCell=1,allowOverlap=1}"
+                "/wp:extent{cx=914400,cy=914400}"
+            ),
+        )
+        floating = FloatingImage(anchor)
+        with pytest.raises(ValueError, match="wp:positionH"):
+            floating.pos_h = Emu(914400)
+
+    def it_raises_on_pos_v_set_when_positionV_is_missing(self):
+        anchor = cast(
+            CT_Anchor,
+            element(
+                "wp:anchor{behindDoc=0,layoutInCell=1,allowOverlap=1}"
+                "/wp:extent{cx=914400,cy=914400}"
+            ),
+        )
+        floating = FloatingImage(anchor)
+        with pytest.raises(ValueError, match="wp:positionV"):
+            floating.pos_v = Emu(457200)
+
+    def it_raises_on_relative_from_h_set_when_positionH_is_missing(self):
+        anchor = cast(
+            CT_Anchor,
+            element(
+                "wp:anchor{behindDoc=0,layoutInCell=1,allowOverlap=1}"
+                "/wp:extent{cx=914400,cy=914400}"
+            ),
+        )
+        floating = FloatingImage(anchor)
+        with pytest.raises(ValueError, match="wp:positionH"):
+            floating.relative_from_h = WD_RELATIVE_HORZ_POS.PAGE
+
+    def it_raises_on_relative_from_v_set_when_positionV_is_missing(self):
+        anchor = cast(
+            CT_Anchor,
+            element(
+                "wp:anchor{behindDoc=0,layoutInCell=1,allowOverlap=1}"
+                "/wp:extent{cx=914400,cy=914400}"
+            ),
+        )
+        floating = FloatingImage(anchor)
+        with pytest.raises(ValueError, match="wp:positionV"):
+            floating.relative_from_v = WD_RELATIVE_VERT_POS.PAGE

@@ -283,56 +283,41 @@ class CT_EffectExtent(BaseOxmlElement):
     """`<wp:effectExtent>` element, specifies additional extent for effects."""
 
 
-class CT_PosH(BaseOxmlElement):
+class _CT_PosBase(BaseOxmlElement):
+    """Common base for `CT_PosH` and `CT_PosV` — shared positioning logic."""
+
+    relativeFrom: str = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "relativeFrom", XsdString
+    )
+
+    @property
+    def posOffset(self) -> int | None:
+        """Value of the `<wp:posOffset>` child element, or None."""
+        children = self.xpath("wp:posOffset")
+        if not children:
+            return None
+        text = children[0].text
+        if text is None:
+            return None
+        return int(text)
+
+    @posOffset.setter
+    def posOffset(self, value: int) -> None:
+        children = self.xpath("wp:posOffset")
+        if children:
+            children[0].text = str(value)
+        else:
+            raise InvalidXmlError(
+                "<wp:posOffset> child element not present; element may use wp:align instead"
+            )
+
+
+class CT_PosH(_CT_PosBase):
     """`<wp:positionH>` element, specifies horizontal positioning."""
 
-    relativeFrom: str = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
-        "relativeFrom", XsdString
-    )
 
-    @property
-    def posOffset(self) -> int | None:
-        """Value of the `<wp:posOffset>` child element, or None."""
-        children = self.xpath("wp:posOffset")
-        if not children:
-            return None
-        return int(children[0].text)
-
-    @posOffset.setter
-    def posOffset(self, value: int) -> None:
-        children = self.xpath("wp:posOffset")
-        if children:
-            children[0].text = str(value)
-        else:
-            raise InvalidXmlError(
-                "<wp:posOffset> child element not present; element may use wp:align instead"
-            )
-
-
-class CT_PosV(BaseOxmlElement):
+class CT_PosV(_CT_PosBase):
     """`<wp:positionV>` element, specifies vertical positioning."""
-
-    relativeFrom: str = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
-        "relativeFrom", XsdString
-    )
-
-    @property
-    def posOffset(self) -> int | None:
-        """Value of the `<wp:posOffset>` child element, or None."""
-        children = self.xpath("wp:posOffset")
-        if not children:
-            return None
-        return int(children[0].text)
-
-    @posOffset.setter
-    def posOffset(self, value: int) -> None:
-        children = self.xpath("wp:posOffset")
-        if children:
-            children[0].text = str(value)
-        else:
-            raise InvalidXmlError(
-                "<wp:posOffset> child element not present; element may use wp:align instead"
-            )
 
 
 class CT_WrapNone(BaseOxmlElement):
