@@ -75,6 +75,18 @@ class Paragraph(StoryChild):
         self._p.clear_content()
         return self
 
+    def delete(self) -> None:
+        """Remove this paragraph from the document.
+
+        The paragraph element is removed from its parent. After calling this method,
+        this |Paragraph| object is "defunct" and should not be used further.
+        """
+        p = self._p
+        parent = p.getparent()
+        if parent is None:
+            return
+        parent.remove(p)
+
     def clear_page_breaks(self) -> None:
         """Remove all ``<w:br w:type="page"/>`` elements from this paragraph.
 

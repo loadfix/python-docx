@@ -34,6 +34,18 @@ class Table(StoryChild):
         self._element = tbl
         self._tbl = tbl
 
+    def delete(self) -> None:
+        """Remove this table from the document.
+
+        The table element is removed from its parent. After calling this method,
+        this |Table| object is "defunct" and should not be used further.
+        """
+        tbl = self._tbl
+        parent = tbl.getparent()
+        if parent is None:
+            return
+        parent.remove(tbl)
+
     def add_column(self, width: Length):
         """Return a |_Column| object of `width`, newly added rightmost to the table."""
         tblGrid = self._tbl.tblGrid

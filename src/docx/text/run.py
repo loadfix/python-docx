@@ -117,6 +117,18 @@ class Run(StoryChild):
         self._r.clear_content()
         return self
 
+    def delete(self) -> None:
+        """Remove this run from its parent paragraph.
+
+        The run element is removed from its parent. After calling this method,
+        this |Run| object is "defunct" and should not be used further.
+        """
+        r = self._r
+        parent = r.getparent()
+        if parent is None:
+            return
+        parent.remove(r)
+
     @property
     def contains_page_break(self) -> bool:
         """`True` when one or more rendered page-breaks occur in this run.

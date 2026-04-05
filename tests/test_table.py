@@ -43,6 +43,32 @@ class DescribeTable:
         assert row._tr is table._tbl.tr_lst[-1]
         assert row._parent is table
 
+    @pytest.mark.parametrize(
+        ("body_cxml", "tbl_idx", "expected_cxml"),
+        [
+            # --- table removed from body with paragraph sibling ---
+            ("w:body/(w:tbl/w:tblPr,w:p)", 0, "w:body/w:p"),
+            # --- table removed leaving another table ---
+            ("w:body/(w:tbl/w:tblPr,w:tbl/w:tblPr)", 0, "w:body/w:tbl/w:tblPr"),
+            # --- second table removed ---
+            ("w:body/(w:p,w:tbl/w:tblPr,w:p)", 0, "w:body/(w:p,w:p)"),
+        ],
+    )
+    def it_can_delete_itself(
+        self,
+        body_cxml: str,
+        tbl_idx: int,
+        expected_cxml: str,
+        document_: Mock,
+    ):
+        body = element(body_cxml)
+        tbl = body.tbl_lst[tbl_idx]
+        table = Table(tbl, document_)
+
+        table.delete()
+
+        assert body.xml == xml(expected_cxml)
+
     def it_can_add_a_column(self, document_: Mock):
         snippets = snippet_seq("add-row-col")
         tbl = cast(CT_Tbl, parse_xml(snippets[0]))
