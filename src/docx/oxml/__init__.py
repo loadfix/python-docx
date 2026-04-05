@@ -154,9 +154,11 @@ register_element_cls("w:uiPriority", CT_DecimalNumber)
 register_element_cls("w:unhideWhenUsed", CT_OnOff)
 
 from .table import (
+    CT_Border,
     CT_Height,
     CT_Row,
     CT_Tbl,
+    CT_TblBorders,
     CT_TblGrid,
     CT_TblGridCol,
     CT_TblLayoutType,
@@ -164,6 +166,7 @@ from .table import (
     CT_TblPrEx,
     CT_TblWidth,
     CT_Tc,
+    CT_TcBorders,
     CT_TcPr,
     CT_TrPr,
     CT_VMerge,
@@ -175,13 +178,23 @@ register_element_cls("w:gridAfter", CT_DecimalNumber)
 register_element_cls("w:gridBefore", CT_DecimalNumber)
 register_element_cls("w:gridCol", CT_TblGridCol)
 register_element_cls("w:gridSpan", CT_DecimalNumber)
+register_element_cls("w:bottom", CT_Border)
+register_element_cls("w:insideH", CT_Border)
+# -- note: these are border *elements* (children of w:tblBorders/w:tcBorders),
+# -- not to be confused with *attributes* of the same name on e.g. w:pgMar. --
+register_element_cls("w:insideV", CT_Border)
+register_element_cls("w:left", CT_Border)
+register_element_cls("w:right", CT_Border)
+register_element_cls("w:top", CT_Border)
 register_element_cls("w:tbl", CT_Tbl)
+register_element_cls("w:tblBorders", CT_TblBorders)
 register_element_cls("w:tblGrid", CT_TblGrid)
 register_element_cls("w:tblLayout", CT_TblLayoutType)
 register_element_cls("w:tblPr", CT_TblPr)
 register_element_cls("w:tblPrEx", CT_TblPrEx)
 register_element_cls("w:tblStyle", CT_String)
 register_element_cls("w:tc", CT_Tc)
+register_element_cls("w:tcBorders", CT_TcBorders)
 register_element_cls("w:tcPr", CT_TcPr)
 register_element_cls("w:tcW", CT_TblWidth)
 register_element_cls("w:tr", CT_Row)

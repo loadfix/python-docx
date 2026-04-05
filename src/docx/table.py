@@ -8,15 +8,23 @@ from typing_extensions import TypeAlias
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.style import WD_STYLE_TYPE
-from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
+from docx.enum.table import WD_BORDER_STYLE, WD_CELL_VERTICAL_ALIGNMENT
 from docx.oxml.simpletypes import ST_Merge
-from docx.oxml.table import CT_TblGridCol
-from docx.shared import Inches, Parented, StoryChild, lazyproperty
+from docx.oxml.table import CT_Border, CT_TblGridCol
+from docx.shared import ElementProxy, Inches, Parented, RGBColor, StoryChild, lazyproperty
 
 if TYPE_CHECKING:
     import docx.types as t
     from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_TABLE_ALIGNMENT, WD_TABLE_DIRECTION
-    from docx.oxml.table import CT_Row, CT_Tbl, CT_TblPr, CT_Tc
+    from docx.oxml.table import (
+        CT_Row,
+        CT_Tbl,
+        CT_TblBorders,
+        CT_TblPr,
+        CT_Tc,
+        CT_TcBorders,
+        CT_TcPr,
+    )
     from docx.shared import Length
     from docx.styles.style import (
         ParagraphStyle,
@@ -197,8 +205,165 @@ class Table(StoryChild):
         return self._tbl.col_count
 
     @property
+    def borders(self) -> TableBorders:
+        """A |TableBorders| object providing access to the border settings for this table."""
+        return TableBorders(self._tblPr)
+
+    def set_borders(
+        self,
+        *,
+        top: bool = False,
+        bottom: bool = False,
+        left: bool = False,
+        right: bool = False,
+        inside_h: bool = False,
+        inside_v: bool = False,
+    ) -> None:
+        """Set table borders to a single-line style for each side specified as |True|.
+
+        Sides specified as |False| (the default) are set to no border. This is a
+        convenience method for common border patterns like APA 7 tables::
+
+            table.set_borders(top=True, bottom=True, inside_h=True)
+        """
+        borders = self.borders
+        from docx.shared import Pt
+
+        for attr, enabled in [
+            ("top", top),
+            ("bottom", bottom),
+            ("left", left),
+            ("right", right),
+            ("inside_h", inside_h),
+            ("inside_v", inside_v),
+        ]:
+            border = getattr(borders, attr)
+            if enabled:
+                border.style = WD_BORDER_STYLE.SINGLE
+                border.width = Pt(0.5)
+                border.color = RGBColor(0, 0, 0)
+            else:
+                border.style = WD_BORDER_STYLE.NONE
+
+    @property
     def _tblPr(self) -> CT_TblPr:
         return self._tbl.tblPr
+
+
+class BorderElement:
+    """Proxy for a single border edge element (e.g. `w:top`, `w:bottom`).
+
+    Provides read/write access to border style, width, and color.
+    """
+
+    def __init__(self, border_elm: CT_Border):
+        self._element = border_elm
+
+    @property
+    def style(self) -> WD_BORDER_STYLE | None:
+        """The border style, a member of :ref:`WdBorderStyle`, or |None|."""
+        return self._element.style
+
+    @style.setter
+    def style(self, value: WD_BORDER_STYLE | None) -> None:
+        self._element.style = value
+
+    @property
+    def width(self) -> Length | None:
+        """Border width as an EMU |Length| value, or |None| if not set."""
+        return self._element.width
+
+    @width.setter
+    def width(self, value: Length | None) -> None:
+        self._element.width = value
+
+    @property
+    def color(self) -> RGBColor | str | None:
+        """Border color as an |RGBColor|, or |None| if not set."""
+        return self._element.color
+
+    @color.setter
+    def color(self, value: RGBColor | None) -> None:
+        self._element.color = value
+
+
+class TableBorders:
+    """Proxy for the `w:tblBorders` element of a table.
+
+    Provides access to the six border edges of a table: top, bottom, left, right,
+    inside_h, and inside_v.
+    """
+
+    def __init__(self, tblPr: CT_TblPr):
+        self._tblPr = tblPr
+
+    @property
+    def top(self) -> BorderElement:
+        """A |BorderElement| for the top border of the table."""
+        return BorderElement(self._tblBorders.get_or_add_top())
+
+    @property
+    def bottom(self) -> BorderElement:
+        """A |BorderElement| for the bottom border of the table."""
+        return BorderElement(self._tblBorders.get_or_add_bottom())
+
+    @property
+    def left(self) -> BorderElement:
+        """A |BorderElement| for the left border of the table."""
+        return BorderElement(self._tblBorders.get_or_add_left())
+
+    @property
+    def right(self) -> BorderElement:
+        """A |BorderElement| for the right border of the table."""
+        return BorderElement(self._tblBorders.get_or_add_right())
+
+    @property
+    def inside_h(self) -> BorderElement:
+        """A |BorderElement| for the inside horizontal border of the table."""
+        return BorderElement(self._tblBorders.get_or_add_insideH())
+
+    @property
+    def inside_v(self) -> BorderElement:
+        """A |BorderElement| for the inside vertical border of the table."""
+        return BorderElement(self._tblBorders.get_or_add_insideV())
+
+    @property
+    def _tblBorders(self) -> CT_TblBorders:
+        return self._tblPr.get_or_add_tblBorders()
+
+
+class CellBorders:
+    """Proxy for the `w:tcBorders` element of a cell.
+
+    Provides access to the four border edges of a cell: top, bottom, left, and right.
+    """
+
+    def __init__(self, tcPr: CT_TcPr):
+        self._tcPr = tcPr
+
+    @property
+    def top(self) -> BorderElement:
+        """A |BorderElement| for the top border of the cell."""
+        return BorderElement(self._tcBorders.get_or_add_top())
+
+    @property
+    def bottom(self) -> BorderElement:
+        """A |BorderElement| for the bottom border of the cell."""
+        return BorderElement(self._tcBorders.get_or_add_bottom())
+
+    @property
+    def left(self) -> BorderElement:
+        """A |BorderElement| for the left border of the cell."""
+        return BorderElement(self._tcBorders.get_or_add_left())
+
+    @property
+    def right(self) -> BorderElement:
+        """A |BorderElement| for the right border of the cell."""
+        return BorderElement(self._tcBorders.get_or_add_right())
+
+    @property
+    def _tcBorders(self) -> CT_TcBorders:
+        return self._tcPr.get_or_add_tcBorders()
 
 
 class _Cell(BlockItemContainer):
@@ -208,6 +373,11 @@ class _Cell(BlockItemContainer):
         super(_Cell, self).__init__(tc, cast("t.ProvidesStoryPart", parent))
         self._parent = parent
         self._tc = self._element = tc
+
+    @property
+    def borders(self) -> CellBorders:
+        """A |CellBorders| object providing access to the border settings for this cell."""
+        return CellBorders(self._tc.get_or_add_tcPr())
 
     def add_paragraph(self, text: str = "", style: str | ParagraphStyle | None = None):
         """Return a paragraph newly added to the end of the content in this cell.

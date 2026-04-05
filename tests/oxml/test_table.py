@@ -10,7 +10,7 @@ import pytest
 
 from docx.exceptions import InvalidSpanError
 from docx.oxml.parser import parse_xml
-from docx.oxml.table import CT_Row, CT_Tbl, CT_Tc
+from docx.oxml.table import CT_Border, CT_Row, CT_Tbl, CT_TblBorders, CT_TblPr, CT_Tc, CT_TcBorders, CT_TcPr
 from docx.oxml.text.paragraph import CT_P
 
 from ..unitutil.cxml import element, xml
@@ -386,3 +386,156 @@ class DescribeCT_Tc:
     @pytest.fixture
     def tr_(self, request: FixtureRequest):
         return instance_mock(request, CT_Row)
+
+
+class DescribeCT_Border:
+    """Unit-test suite for `docx.oxml.table.CT_Border` objects."""
+
+    def it_can_get_and_set_val(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        tblBorders = tblPr.get_or_add_tblBorders()
+        border = tblBorders.get_or_add_top()
+
+        assert border.val is None
+
+        border.val = "single"
+        assert border.val == "single"
+
+    def it_can_get_and_set_sz(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        tblBorders = tblPr.get_or_add_tblBorders()
+        border = tblBorders.get_or_add_top()
+
+        assert border.sz is None
+
+        from docx.shared import Pt
+        border.sz = Pt(1)
+        assert border.sz is not None
+
+    def it_can_get_and_set_color(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        tblBorders = tblPr.get_or_add_tblBorders()
+        border = tblBorders.get_or_add_top()
+
+        assert border.color is None
+
+        from docx.shared import RGBColor
+        border.color = RGBColor(0xFF, 0, 0)
+        assert border.color == RGBColor(0xFF, 0, 0)
+
+    def it_provides_style_property(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        tblBorders = tblPr.get_or_add_tblBorders()
+        border = tblBorders.get_or_add_top()
+
+        from docx.enum.table import WD_BORDER_STYLE
+        border.style = WD_BORDER_STYLE.DOUBLE
+        assert border.style == WD_BORDER_STYLE.DOUBLE
+        assert border.val == "double"
+
+    def it_provides_width_property(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        tblBorders = tblPr.get_or_add_tblBorders()
+        border = tblBorders.get_or_add_top()
+
+        from docx.shared import Pt
+        border.width = Pt(2)
+        assert border.width is not None
+
+
+class DescribeCT_TblBorders:
+    """Unit-test suite for `docx.oxml.table.CT_TblBorders` objects."""
+
+    def it_can_get_or_add_border_children(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        tblBorders = tblPr.get_or_add_tblBorders()
+
+        for method_name in ("get_or_add_top", "get_or_add_bottom", "get_or_add_left",
+                            "get_or_add_right", "get_or_add_insideH", "get_or_add_insideV"):
+            border = getattr(tblBorders, method_name)()
+            assert isinstance(border, CT_Border)
+
+    def it_preserves_border_element_ordering(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        tblBorders = tblPr.get_or_add_tblBorders()
+
+        # add in reverse order to test that successors ordering works
+        tblBorders.get_or_add_insideV()
+        tblBorders.get_or_add_insideH()
+        tblBorders.get_or_add_right()
+        tblBorders.get_or_add_bottom()
+        tblBorders.get_or_add_left()
+        tblBorders.get_or_add_top()
+
+        children = list(tblBorders)
+        tags = [child.tag.split("}")[-1] for child in children]
+        assert tags == ["top", "left", "bottom", "right", "insideH", "insideV"]
+
+
+class DescribeCT_TcBorders:
+    """Unit-test suite for `docx.oxml.table.CT_TcBorders` objects."""
+
+    def it_can_get_or_add_border_children(self):
+        tcPr = cast(CT_TcPr, element("w:tcPr"))
+        tcBorders = tcPr.get_or_add_tcBorders()
+
+        for method_name in ("get_or_add_top", "get_or_add_bottom",
+                            "get_or_add_left", "get_or_add_right"):
+            border = getattr(tcBorders, method_name)()
+            assert isinstance(border, CT_Border)
+
+    def it_preserves_border_element_ordering(self):
+        tcPr = cast(CT_TcPr, element("w:tcPr"))
+        tcBorders = tcPr.get_or_add_tcBorders()
+
+        # add in reverse order
+        tcBorders.get_or_add_right()
+        tcBorders.get_or_add_bottom()
+        tcBorders.get_or_add_left()
+        tcBorders.get_or_add_top()
+
+        children = list(tcBorders)
+        tags = [child.tag.split("}")[-1] for child in children]
+        assert tags == ["top", "left", "bottom", "right"]
+
+
+class DescribeCT_TblPr_tblBorders:
+    """Unit-test suite for tblBorders integration with CT_TblPr."""
+
+    def it_can_get_or_add_tblBorders(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+
+        assert tblPr.tblBorders is None
+
+        tblBorders = tblPr.get_or_add_tblBorders()
+        assert isinstance(tblBorders, CT_TblBorders)
+        assert tblPr.tblBorders is tblBorders
+
+    def it_can_remove_tblBorders(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        tblPr.get_or_add_tblBorders()
+
+        tblPr._remove_tblBorders()
+
+        assert tblPr.tblBorders is None
+
+
+class DescribeCT_TcPr_tcBorders:
+    """Unit-test suite for tcBorders integration with CT_TcPr."""
+
+    def it_can_get_or_add_tcBorders(self):
+        tcPr = cast(CT_TcPr, element("w:tcPr"))
+
+        assert tcPr.tcBorders is None
+
+        tcBorders = tcPr.get_or_add_tcBorders()
+        assert isinstance(tcBorders, CT_TcBorders)
+        assert tcPr.tcBorders is tcBorders
+
+    def it_can_remove_tcBorders(self):
+        tcPr = cast(CT_TcPr, element("w:tcPr"))
+        tcPr.get_or_add_tcBorders()
+
+        tcPr._remove_tcBorders()
+
+        assert tcPr.tcBorders is None

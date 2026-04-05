@@ -178,6 +178,33 @@ class XsdUnsignedLong(BaseIntType):
         cls.validate_int_in_range(value, 0, 18446744073709551615)
 
 
+class ST_BorderStyle(BaseStringType):
+    """Valid values for border style `w:val` attribute (ST_Border simple type)."""
+
+    @classmethod
+    def validate(cls, value: Any) -> None:
+        cls.validate_string(value)
+
+
+class ST_EighthPointMeasure(BaseSimpleType):
+    """Integer value in eighths of a point, used for border widths (w:sz attribute)."""
+
+    @classmethod
+    def convert_from_xml(cls, str_value: str) -> Length:
+        # sz is in eighths of a point; convert to EMU
+        return Pt(int(str_value) / 8.0)
+
+    @classmethod
+    def convert_to_xml(cls, value: int | Length) -> str:
+        emu = Emu(value)
+        eighth_points = int(round(emu.pt * 8))
+        return str(eighth_points)
+
+    @classmethod
+    def validate(cls, value: Any) -> None:
+        pass
+
+
 class ST_BrClear(XsdString):
     @classmethod
     def validate(cls, value: str) -> None:

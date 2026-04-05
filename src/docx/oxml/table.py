@@ -10,11 +10,15 @@ from docx.oxml.ns import nsdecls, qn
 from docx.oxml.parser import parse_xml
 from docx.oxml.shared import CT_DecimalNumber
 from docx.oxml.simpletypes import (
+    ST_BorderStyle,
+    ST_EighthPointMeasure,
+    ST_HexColor,
     ST_Merge,
     ST_TblLayoutType,
     ST_TblWidth,
     ST_TwipsMeasure,
     XsdInt,
+    XsdUnsignedInt,
 )
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.xmlchemy import (
@@ -26,10 +30,10 @@ from docx.oxml.xmlchemy import (
     ZeroOrMore,
     ZeroOrOne,
 )
-from docx.shared import Emu, Length, Twips
+from docx.shared import Emu, Length, RGBColor, Twips
 
 if TYPE_CHECKING:
-    from docx.enum.table import WD_TABLE_ALIGNMENT
+    from docx.enum.table import WD_BORDER_STYLE, WD_TABLE_ALIGNMENT
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.oxml.shared import CT_OnOff, CT_String
     from docx.oxml.text.parfmt import CT_Jc
@@ -44,6 +48,136 @@ class CT_Height(BaseOxmlElement):
     hRule: WD_ROW_HEIGHT_RULE | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:hRule", WD_ROW_HEIGHT_RULE
     )
+
+
+class CT_Border(BaseOxmlElement):
+    """A border element such as `w:top`, `w:bottom`, `w:left`, `w:right`, etc.
+
+    Used as child of `w:tblBorders` and `w:tcBorders`.
+    """
+
+    val: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:val", ST_BorderStyle
+    )
+    sz: Length | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:sz", ST_EighthPointMeasure
+    )
+    color: RGBColor | str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:color", ST_HexColor
+    )
+    space: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:space", XsdUnsignedInt
+    )
+
+    @property
+    def style(self) -> WD_BORDER_STYLE | None:
+        """The border style as a member of :ref:`WdBorderStyle`, or |None|."""
+        from docx.enum.table import WD_BORDER_STYLE
+
+        val = self.val
+        if val is None:
+            return None
+        return WD_BORDER_STYLE.from_xml(val)
+
+    @style.setter
+    def style(self, value: WD_BORDER_STYLE | None) -> None:
+        from docx.enum.table import WD_BORDER_STYLE
+
+        if value is None:
+            self.val = None
+            return
+        self.val = WD_BORDER_STYLE.to_xml(value)
+
+    @property
+    def width(self) -> Length | None:
+        """Border width as an EMU |Length| value, or |None| if not set."""
+        return self.sz
+
+    @width.setter
+    def width(self, value: Length | None) -> None:
+        self.sz = value
+
+
+class CT_TblBorders(BaseOxmlElement):
+    """`w:tblBorders` element, defining table-level borders."""
+
+    get_or_add_top: Callable[[], CT_Border]
+    get_or_add_left: Callable[[], CT_Border]
+    get_or_add_bottom: Callable[[], CT_Border]
+    get_or_add_right: Callable[[], CT_Border]
+    get_or_add_insideH: Callable[[], CT_Border]
+    get_or_add_insideV: Callable[[], CT_Border]
+    _remove_top: Callable[[], None]
+    _remove_left: Callable[[], None]
+    _remove_bottom: Callable[[], None]
+    _remove_right: Callable[[], None]
+    _remove_insideH: Callable[[], None]
+    _remove_insideV: Callable[[], None]
+
+    _tag_seq = (
+        "w:top",
+        "w:left",
+        "w:bottom",
+        "w:right",
+        "w:insideH",
+        "w:insideV",
+    )
+    top: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:top", successors=_tag_seq[1:]
+    )
+    left: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:left", successors=_tag_seq[2:]
+    )
+    bottom: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:bottom", successors=_tag_seq[3:]
+    )
+    right: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:right", successors=_tag_seq[4:]
+    )
+    insideH: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:insideH", successors=_tag_seq[5:]
+    )
+    insideV: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:insideV", successors=()
+    )
+    del _tag_seq
+
+
+class CT_TcBorders(BaseOxmlElement):
+    """`w:tcBorders` element, defining cell-level borders."""
+
+    get_or_add_top: Callable[[], CT_Border]
+    get_or_add_left: Callable[[], CT_Border]
+    get_or_add_bottom: Callable[[], CT_Border]
+    get_or_add_right: Callable[[], CT_Border]
+    _remove_top: Callable[[], None]
+    _remove_left: Callable[[], None]
+    _remove_bottom: Callable[[], None]
+    _remove_right: Callable[[], None]
+
+    _tag_seq = (
+        "w:top",
+        "w:left",
+        "w:bottom",
+        "w:right",
+        "w:insideH",
+        "w:insideV",
+        "w:tl2br",
+        "w:tr2bl",
+    )
+    top: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:top", successors=_tag_seq[1:]
+    )
+    left: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:left", successors=_tag_seq[2:]
+    )
+    bottom: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:bottom", successors=_tag_seq[3:]
+    )
+    right: CT_Border | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:right", successors=_tag_seq[4:]
+    )
+    del _tag_seq
 
 
 class CT_Row(BaseOxmlElement):
@@ -300,10 +434,12 @@ class CT_TblPr(BaseOxmlElement):
 
     get_or_add_bidiVisual: Callable[[], CT_OnOff]
     get_or_add_jc: Callable[[], CT_Jc]
+    get_or_add_tblBorders: Callable[[], CT_TblBorders]
     get_or_add_tblLayout: Callable[[], CT_TblLayoutType]
     _add_tblStyle: Callable[[], CT_String]
     _remove_bidiVisual: Callable[[], None]
     _remove_jc: Callable[[], None]
+    _remove_tblBorders: Callable[[], None]
     _remove_tblStyle: Callable[[], None]
 
     _tag_seq = (
@@ -334,6 +470,9 @@ class CT_TblPr(BaseOxmlElement):
     )
     jc: CT_Jc | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:jc", successors=_tag_seq[8:]
+    )
+    tblBorders: CT_TblBorders | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:tblBorders", successors=_tag_seq[11:]
     )
     tblLayout: CT_TblLayoutType | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:tblLayout", successors=_tag_seq[13:]
@@ -785,10 +924,12 @@ class CT_TcPr(BaseOxmlElement):
     """``<w:tcPr>`` element, defining table cell properties."""
 
     get_or_add_gridSpan: Callable[[], CT_DecimalNumber]
+    get_or_add_tcBorders: Callable[[], CT_TcBorders]
     get_or_add_tcW: Callable[[], CT_TblWidth]
     get_or_add_vAlign: Callable[[], CT_VerticalJc]
     _add_vMerge: Callable[[], CT_VMerge]
     _remove_gridSpan: Callable[[], None]
+    _remove_tcBorders: Callable[[], None]
     _remove_vAlign: Callable[[], None]
     _remove_vMerge: Callable[[], None]
 
@@ -820,6 +961,9 @@ class CT_TcPr(BaseOxmlElement):
     )
     vMerge: CT_VMerge | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:vMerge", successors=_tag_seq[5:]
+    )
+    tcBorders: CT_TcBorders | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:tcBorders", successors=_tag_seq[6:]
     )
     vAlign: CT_VerticalJc | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:vAlign", successors=_tag_seq[12:]
