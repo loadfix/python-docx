@@ -72,6 +72,49 @@ class DescribeSvg:
         assert svg.horz_dpi == 96
         assert svg.vert_dpi == 96
 
+    def it_handles_non_utf8_binary_data(self):
+        stream = io.BytesIO(b"\x80\x81\x82\x83\xff\xfe\xfd")
+        svg = Svg.from_stream(stream)
+        assert svg.px_width == 300
+        assert svg.px_height == 150
+
+    def it_handles_invalid_xml(self):
+        stream = io.BytesIO(b"<svg><not-valid-xml")
+        svg = Svg.from_stream(stream)
+        assert svg.px_width == 300
+        assert svg.px_height == 150
+
+    @pytest.mark.parametrize(
+        ("width_attr", "height_attr", "expected_w", "expected_h"),
+        [
+            ("10pt", "20pt", 13, 27),
+            ("2.54cm", "5.08cm", 96, 192),
+            ("25.4mm", "50.8mm", 96, 192),
+            ("100px", "200px", 100, 200),
+        ],
+    )
+    def it_parses_various_unit_types(
+        self, width_attr: str, height_attr: str, expected_w: int, expected_h: int
+    ):
+        svg_bytes = (
+            f'<svg xmlns="http://www.w3.org/2000/svg" '
+            f'width="{width_attr}" height="{height_attr}"></svg>'
+        ).encode("utf-8")
+        stream = io.BytesIO(svg_bytes)
+        svg = Svg.from_stream(stream)
+        assert svg.px_width == expected_w
+        assert svg.px_height == expected_h
+
+    def it_handles_viewBox_with_comma_separators(self):
+        svg_bytes = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0,0,500,250">'
+            b"</svg>"
+        )
+        stream = io.BytesIO(svg_bytes)
+        svg = Svg.from_stream(stream)
+        assert svg.px_width == 500
+        assert svg.px_height == 250
+
 
 class Describe_is_svg_stream:
     def it_returns_True_for_an_svg_stream(self):
