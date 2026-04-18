@@ -29,6 +29,227 @@ if TYPE_CHECKING:
 class CT_Anchor(BaseOxmlElement):
     """`<wp:anchor>` element, container for a "floating" shape."""
 
+    extent: CT_PositiveSize2D = OneAndOnlyOne("wp:extent")  # pyright: ignore[reportAssignmentType]
+    docPr: CT_NonVisualDrawingProps = OneAndOnlyOne(  # pyright: ignore[reportAssignmentType]
+        "wp:docPr"
+    )
+    graphic: CT_GraphicalObject = OneAndOnlyOne(  # pyright: ignore[reportAssignmentType]
+        "a:graphic"
+    )
+
+    @classmethod
+    def new(cls, cx: Length, cy: Length, shape_id: int, pic: CT_Picture) -> CT_Anchor:
+        """Return a new ``<wp:anchor>`` element populated with the values passed as
+        parameters."""
+        anchor = cast(CT_Anchor, parse_xml(cls._anchor_xml()))
+        anchor.extent.cx = cx
+        anchor.extent.cy = cy
+        anchor.docPr.id = shape_id
+        anchor.docPr.name = "Picture %d" % shape_id
+        anchor.graphic.graphicData.uri = (
+            "http://schemas.openxmlformats.org/drawingml/2006/picture"
+        )
+        anchor.graphic.graphicData._insert_pic(pic)
+        return anchor
+
+    @classmethod
+    def new_pic_anchor(
+        cls,
+        shape_id: int,
+        rId: str,
+        filename: str,
+        cx: Length,
+        cy: Length,
+        horz_offset: int = 0,
+        vert_offset: int = 0,
+        horz_relative_from: str = "column",
+        vert_relative_from: str = "paragraph",
+        wrap_type: str = "none",
+        behind_doc: bool = False,
+    ) -> CT_Anchor:
+        """Create `wp:anchor` element containing a `pic:pic` element."""
+        pic_id = 0
+        pic = CT_Picture.new(pic_id, filename, rId, cx, cy)
+        anchor = cls.new(cx, cy, shape_id, pic)
+
+        # -- set position offsets --
+        positionH = anchor.find(qn("wp:positionH"))
+        if positionH is not None:
+            positionH.set("relativeFrom", horz_relative_from)
+            offset_elm = positionH.find(qn("wp:posOffset"))
+            if offset_elm is not None:
+                offset_elm.text = str(horz_offset)
+
+        positionV = anchor.find(qn("wp:positionV"))
+        if positionV is not None:
+            positionV.set("relativeFrom", vert_relative_from)
+            offset_elm = positionV.find(qn("wp:posOffset"))
+            if offset_elm is not None:
+                offset_elm.text = str(vert_offset)
+
+        # -- set wrap type (replace default wrapNone if needed) --
+        _set_wrap_type(anchor, wrap_type)
+
+        # -- set behindDoc attribute --
+        anchor.set("behindDoc", "1" if behind_doc else "0")
+
+        return anchor
+
+    @property
+    def horz_offset(self) -> int:
+        """Horizontal offset in EMUs."""
+        positionH = self.find(qn("wp:positionH"))
+        if positionH is not None:
+            offset = positionH.find(qn("wp:posOffset"))
+            if offset is not None and offset.text:
+                return int(offset.text)
+        return 0
+
+    @horz_offset.setter
+    def horz_offset(self, value: int) -> None:
+        positionH = self.find(qn("wp:positionH"))
+        if positionH is None:
+            raise ValueError("wp:positionH element is absent")
+        offset_elm = positionH.find(qn("wp:posOffset"))
+        if offset_elm is None:
+            raise ValueError("wp:posOffset element is absent in wp:positionH")
+        offset_elm.text = str(value)
+
+    @property
+    def vert_offset(self) -> int:
+        """Vertical offset in EMUs."""
+        positionV = self.find(qn("wp:positionV"))
+        if positionV is not None:
+            offset = positionV.find(qn("wp:posOffset"))
+            if offset is not None and offset.text:
+                return int(offset.text)
+        return 0
+
+    @vert_offset.setter
+    def vert_offset(self, value: int) -> None:
+        positionV = self.find(qn("wp:positionV"))
+        if positionV is None:
+            raise ValueError("wp:positionV element is absent")
+        offset_elm = positionV.find(qn("wp:posOffset"))
+        if offset_elm is None:
+            raise ValueError("wp:posOffset element is absent in wp:positionV")
+        offset_elm.text = str(value)
+
+    @property
+    def horz_relative_from(self) -> str:
+        """Horizontal relative-from value (e.g. 'column', 'page')."""
+        positionH = self.find(qn("wp:positionH"))
+        if positionH is not None:
+            return positionH.get("relativeFrom", "column")
+        return "column"
+
+    @horz_relative_from.setter
+    def horz_relative_from(self, value: str) -> None:
+        positionH = self.find(qn("wp:positionH"))
+        if positionH is None:
+            raise ValueError("wp:positionH element is absent")
+        positionH.set("relativeFrom", value)
+
+    @property
+    def vert_relative_from(self) -> str:
+        """Vertical relative-from value (e.g. 'paragraph', 'page')."""
+        positionV = self.find(qn("wp:positionV"))
+        if positionV is not None:
+            return positionV.get("relativeFrom", "paragraph")
+        return "paragraph"
+
+    @vert_relative_from.setter
+    def vert_relative_from(self, value: str) -> None:
+        positionV = self.find(qn("wp:positionV"))
+        if positionV is None:
+            raise ValueError("wp:positionV element is absent")
+        positionV.set("relativeFrom", value)
+
+    @property
+    def wrap_type_str(self) -> str:
+        """The wrap type as a string identifier."""
+        wrap_tags = {
+            qn("wp:wrapNone"): "none",
+            qn("wp:wrapSquare"): "square",
+            qn("wp:wrapTight"): "tight",
+            qn("wp:wrapThrough"): "through",
+            qn("wp:wrapTopAndBottom"): "topAndBottom",
+        }
+        for tag, name in wrap_tags.items():
+            if self.find(tag) is not None:
+                return name
+        # -- wrapNone with behindDoc differentiates behind/in_front --
+        return "none"
+
+    @property
+    def behind_doc(self) -> bool:
+        """True when the image is positioned behind document text."""
+        return self.get("behindDoc") == "1"
+
+    @classmethod
+    def _anchor_xml(cls) -> str:
+        return (
+            "<wp:anchor"
+            '  distT="0" distB="0" distL="114300" distR="114300"'
+            '  simplePos="0" relativeHeight="251658240"'
+            '  behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"'
+            "  %s>\n"
+            '  <wp:simplePos x="0" y="0"/>\n'
+            '  <wp:positionH relativeFrom="column">\n'
+            "    <wp:posOffset>0</wp:posOffset>\n"
+            "  </wp:positionH>\n"
+            '  <wp:positionV relativeFrom="paragraph">\n'
+            "    <wp:posOffset>0</wp:posOffset>\n"
+            "  </wp:positionV>\n"
+            '  <wp:extent cx="914400" cy="914400"/>\n'
+            '  <wp:effectExtent l="0" t="0" r="0" b="0"/>\n'
+            "  <wp:wrapNone/>\n"
+            '  <wp:docPr id="666" name="unnamed"/>\n'
+            "  <wp:cNvGraphicFramePr>\n"
+            '    <a:graphicFrameLocks noChangeAspect="1"/>\n'
+            "  </wp:cNvGraphicFramePr>\n"
+            "  <a:graphic>\n"
+            '    <a:graphicData uri="URI not set"/>\n'
+            "  </a:graphic>\n"
+            "</wp:anchor>" % nsdecls("wp", "a", "pic", "r")
+        )
+
+
+def _set_wrap_type(anchor: CT_Anchor, wrap_type: str) -> None:
+    """Replace the wrap element on `anchor` with one for `wrap_type`."""
+    from docx.oxml.parser import OxmlElement
+
+    # -- remove existing wrap elements --
+    for tag in (
+        "wp:wrapNone",
+        "wp:wrapSquare",
+        "wp:wrapTight",
+        "wp:wrapThrough",
+        "wp:wrapTopAndBottom",
+    ):
+        for elm in anchor.findall(qn(tag)):
+            anchor.remove(elm)
+
+    # -- map wrap_type string to element tag --
+    tag_map = {
+        "none": "wp:wrapNone",
+        "square": "wp:wrapSquare",
+        "tight": "wp:wrapTight",
+        "through": "wp:wrapThrough",
+        "topAndBottom": "wp:wrapTopAndBottom",
+    }
+    tag = tag_map.get(wrap_type, "wp:wrapNone")
+    wrap_elm = OxmlElement(tag)
+    if wrap_type in ("square", "tight", "through"):
+        wrap_elm.set("wrapText", "bothSides")
+
+    # -- insert before docPr (after effectExtent) --
+    docPr = anchor.find(qn("wp:docPr"))
+    if docPr is not None:
+        docPr.addprevious(wrap_elm)
+    else:
+        anchor.append(wrap_elm)
+
 
 class CT_Blip(BaseOxmlElement):
     """``<a:blip>`` element, specifies image source and adjustments such as alpha and

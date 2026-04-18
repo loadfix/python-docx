@@ -8,7 +8,7 @@ from typing import IO, TYPE_CHECKING, Tuple, cast
 from docx.image.constants import MIME_TYPE
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.opc.part import XmlPart
-from docx.oxml.shape import CT_Inline
+from docx.oxml.shape import CT_Anchor, CT_Inline
 from docx.shared import Length, lazyproperty
 
 if TYPE_CHECKING:
@@ -58,6 +58,40 @@ class StoryPart(XmlPart):
         wrong type or names a style not present in the document.
         """
         return self._document_part.get_style_id(style_or_name, style_type)
+
+    def new_pic_anchor(
+        self,
+        image_descriptor: str | IO[bytes],
+        width: int | Length | None = None,
+        height: int | Length | None = None,
+        horz_offset: int = 0,
+        vert_offset: int = 0,
+        horz_relative_from: str = "column",
+        vert_relative_from: str = "paragraph",
+        wrap_type: str = "none",
+        behind_doc: bool = False,
+    ) -> CT_Anchor:
+        """Return a newly-created `wp:anchor` element.
+
+        The element contains the image specified by `image_descriptor` and is scaled
+        based on the values of `width` and `height`.
+        """
+        rId, image = self.get_or_add_image(image_descriptor)
+        cx, cy = image.scaled_dimensions(width, height)
+        shape_id, filename = self.next_id, image.filename
+        return CT_Anchor.new_pic_anchor(
+            shape_id,
+            rId,
+            filename,
+            cx,
+            cy,
+            horz_offset=horz_offset,
+            vert_offset=vert_offset,
+            horz_relative_from=horz_relative_from,
+            vert_relative_from=vert_relative_from,
+            wrap_type=wrap_type,
+            behind_doc=behind_doc,
+        )
 
     def new_pic_inline(
         self,
