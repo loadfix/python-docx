@@ -2,22 +2,29 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator, List, Sequence, Union, overload
+from typing import IO, TYPE_CHECKING, Iterator, List, Sequence, Union, overload
+
+from xml.sax.saxutils import escape as xml_escape
+
+_XML_QUOTE_ENTITIES = {'"': "&quot;"}
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_HEADER_FOOTER
+from docx.oxml.ns import qn
+from docx.oxml.parser import parse_xml
 from docx.oxml.text.paragraph import CT_P
 from docx.parts.hdrftr import FooterPart, HeaderPart
+from docx.shared import Length, Pt, RGBColor
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
 if TYPE_CHECKING:
     from docx.enum.section import WD_ORIENTATION, WD_SECTION_START
     from docx.oxml.document import CT_Document
-    from docx.oxml.section import CT_Col, CT_Cols, CT_SectPr
+    from docx.oxml.section import CT_Col, CT_Cols, CT_HdrFtr, CT_SectPr
+    from docx.oxml.xmlchemy import BaseOxmlElement
     from docx.parts.document import DocumentPart
     from docx.parts.story import StoryPart
-    from docx.shared import Length
 
 
 class Section:
@@ -157,6 +164,204 @@ class Section:
     @header_distance.setter
     def header_distance(self, value: int | Length | None):
         self._sectPr.header = value
+
+    def add_text_watermark(
+        self,
+        text: str,
+        font: str = "Calibri",
+        size: Length | int = Pt(72),
+        color: RGBColor = RGBColor(0xC0, 0xC0, 0xC0),
+        layout: str = "diagonal",
+    ) -> None:
+        """Add a text watermark to this section.
+
+        The watermark is rendered as a VML shape in the default header. Any existing
+        watermark is removed before the new one is added.
+
+        Args:
+            text: The watermark text to display.
+            font: Font family name (default ``"Calibri"``).
+            size: Font size as a |Length| value (default ``Pt(72)``).
+            color: Text color as an |RGBColor| value (default silver).
+            layout: Either ``"diagonal"`` or ``"horizontal"`` (default ``"diagonal"``).
+        """
+        if layout not in ("diagonal", "horizontal"):
+            raise ValueError(f"layout must be 'diagonal' or 'horizontal', got {layout!r}")
+        self.remove_watermark()
+        header = self.header
+        if header.is_linked_to_previous:
+            header.is_linked_to_previous = False
+        header_part = header.part
+        hdr_element = header_part.element
+        size_pt = Length(int(size)).pt
+        rotation = "315" if layout == "diagonal" else "0"
+        color_hex = str(color)
+        safe_text = xml_escape(text, _XML_QUOTE_ENTITIES)
+        safe_font = xml_escape(font, _XML_QUOTE_ENTITIES)
+        pict_xml = (
+            '<w:pict xmlns:v="urn:schemas-microsoft-com:vml"'
+            ' xmlns:o="urn:schemas-microsoft-com:office:office"'
+            ' xmlns:w10="urn:schemas-microsoft-com:office:word"'
+            ' xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            '<v:shapetype id="_x0000_t136" coordsize="21600,21600"'
+            ' o:spt="136" adj="10800"'
+            ' path="m@7,l@8,m@5,21600l@6,21600e">'
+            '<v:formulas>'
+            '<v:f eqn="sum #0 0 10800"/>'
+            '<v:f eqn="prod #0 2 1"/>'
+            '<v:f eqn="sum 21600 0 @1"/>'
+            '<v:f eqn="sum 0 0 @2"/>'
+            '<v:f eqn="sum 21600 0 @3"/>'
+            '<v:f eqn="if @0 @3 0"/>'
+            '<v:f eqn="if @0 21600 @1"/>'
+            '<v:f eqn="if @0 0 @2"/>'
+            '<v:f eqn="if @0 @4 21600"/>'
+            '<v:f eqn="mid @5 @6"/>'
+            '<v:f eqn="mid @8 @5"/>'
+            '<v:f eqn="mid @7 @8"/>'
+            '<v:f eqn="mid @6 @7"/>'
+            '<v:f eqn="sum @6 0 @5"/>'
+            '</v:formulas>'
+            '<v:path textpathok="t" o:connecttype="custom"'
+            ' o:connectlocs="@9,0;@10,10800;@11,21600;@12,10800"'
+            ' o:connectangles="270,180,90,0"/>'
+            '<v:textpath on="t" fitshape="t"/>'
+            '<v:handles><v:h position="#0,bottomRight" xrange="6629,14971"/>'
+            '</v:handles>'
+            '<o:lock v:ext="edit" text="t" shapetype="t"/>'
+            '</v:shapetype>'
+            '<v:shape id="PowerPlusWaterMarkObject"'
+            ' o:spid="_x0000_s2049" type="#_x0000_t136"'
+            f' style="position:absolute;margin-left:0;margin-top:0;'
+            f'width:468pt;height:{size_pt * 1.5:.0f}pt;'
+            f'rotation:{rotation};z-index:-251657216;'
+            f'mso-position-horizontal:center;'
+            f'mso-position-horizontal-relative:margin;'
+            f'mso-position-vertical:center;'
+            f'mso-position-vertical-relative:margin"'
+            f' o:allowincell="f"'
+            f' fillcolor="#{color_hex}"'
+            f' stroked="f">'
+            f'<v:fill opacity=".5"/>'
+            f'<v:textpath style="font-family:&quot;{safe_font}&quot;;'
+            f'font-size:{size_pt:.0f}pt" string="{safe_text}"/>'
+            '<w10:wrap anchorx="margin" anchory="margin"/>'
+            '</v:shape>'
+            '</w:pict>'
+        )
+        pict_element = parse_xml(pict_xml)
+        self._insert_watermark_pict(hdr_element, pict_element)
+
+    def add_image_watermark(
+        self,
+        image_path: str | IO[bytes],
+        width: Length | int,
+        height: Length | int,
+    ) -> None:
+        """Add an image watermark to this section.
+
+        The watermark is rendered as a VML shape with image data in the default header.
+        Any existing watermark is removed before the new one is added.
+
+        Args:
+            image_path: Path to the image file, or a file-like object.
+            width: Width of the watermark image.
+            height: Height of the watermark image.
+        """
+        self.remove_watermark()
+        header = self.header
+        if header.is_linked_to_previous:
+            header.is_linked_to_previous = False
+        header_part = header.part
+        hdr_element = header_part.element
+        rId, _image = header_part.get_or_add_image(image_path)
+
+        width_pt = Length(int(width)).pt
+        height_pt = Length(int(height)).pt
+
+        pict_xml = (
+            '<w:pict xmlns:v="urn:schemas-microsoft-com:vml"'
+            ' xmlns:o="urn:schemas-microsoft-com:office:office"'
+            ' xmlns:w10="urn:schemas-microsoft-com:office:word"'
+            ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+            ' xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            '<v:shapetype id="_x0000_t75" coordsize="21600,21600"'
+            ' o:spt="75" o:preferrelative="t"'
+            ' path="m@4@5l@4@11@9@11@9@5xe" filled="f" stroked="f">'
+            '<v:stroke joinstyle="miter"/>'
+            '<v:formulas>'
+            '<v:f eqn="if lineDrawn pixelLineWidth 0"/>'
+            '<v:f eqn="sum @0 1 0"/>'
+            '<v:f eqn="sum 0 0 @1"/>'
+            '<v:f eqn="prod @2 1 2"/>'
+            '<v:f eqn="prod @3 21600 pixelWidth"/>'
+            '<v:f eqn="prod @3 21600 pixelHeight"/>'
+            '<v:f eqn="sum @0 0 1"/>'
+            '<v:f eqn="prod @6 1 2"/>'
+            '<v:f eqn="prod @7 21600 pixelWidth"/>'
+            '<v:f eqn="sum @8 21600 0"/>'
+            '<v:f eqn="prod @7 21600 pixelHeight"/>'
+            '<v:f eqn="sum @10 21600 0"/>'
+            '</v:formulas>'
+            '<v:path o:extrusionok="f" gradientshapeok="t"'
+            ' o:connecttype="rect"/>'
+            '<o:lock v:ext="edit" aspectratio="t"/>'
+            '</v:shapetype>'
+            '<v:shape id="PowerPlusWaterMarkObject"'
+            ' o:spid="_x0000_s2049" type="#_x0000_t75"'
+            f' style="position:absolute;margin-left:0;margin-top:0;'
+            f'width:{width_pt:.0f}pt;height:{height_pt:.0f}pt;'
+            f'z-index:-251657216;'
+            f'mso-position-horizontal:center;'
+            f'mso-position-horizontal-relative:margin;'
+            f'mso-position-vertical:center;'
+            f'mso-position-vertical-relative:margin"'
+            f' o:allowincell="f">'
+            f'<v:imagedata r:id="{xml_escape(rId, _XML_QUOTE_ENTITIES)}" o:title="watermark"/>'
+            '<w10:wrap anchorx="margin" anchory="margin"/>'
+            '</v:shape>'
+            '</w:pict>'
+        )
+        pict_element = parse_xml(pict_xml)
+        self._insert_watermark_pict(hdr_element, pict_element)
+
+    def _insert_watermark_pict(
+        self, hdr_element: CT_HdrFtr | BaseOxmlElement, pict_element: BaseOxmlElement
+    ) -> None:
+        """Insert `pict_element` wrapped in a watermark paragraph at start of header."""
+        p = hdr_element.makeelement(qn("w:p"), {})
+        r = hdr_element.makeelement(qn("w:r"), {})
+        r.append(pict_element)
+        pPr = hdr_element.makeelement(qn("w:pPr"), {})
+        pStyle = hdr_element.makeelement(qn("w:pStyle"), {qn("w:val"): "Header"})
+        pPr.append(pStyle)
+        p.append(pPr)
+        p.append(r)
+        hdr_element.insert(0, p)
+
+    def remove_watermark(self) -> None:
+        """Remove any watermark from this section's default header.
+
+        Does nothing if this section has no header definition or no watermark.
+        """
+        if not self.header._has_definition:
+            return
+        hdr_element = self.header._definition.element
+        # Find and remove paragraphs containing a watermark VML shape
+        for p in list(hdr_element.findall(qn("w:p"))):
+            removed = False
+            for r in p.findall(qn("w:r")):
+                if removed:
+                    break
+                for pict in r.findall(qn("w:pict")):
+                    shapes = pict.xpath(
+                        ".//v:shape[contains(@id, 'WaterMark')]",
+                        namespaces={"v": "urn:schemas-microsoft-com:vml"},
+                    )
+                    if shapes:
+                        hdr_element.remove(p)
+                        removed = True
+                        break
 
     def iter_inner_content(self) -> Iterator[Paragraph | Table]:
         """Generate each Paragraph or Table object in this `section`.

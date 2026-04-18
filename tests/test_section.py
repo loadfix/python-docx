@@ -15,7 +15,7 @@ from docx.oxml.section import CT_SectPr
 from docx.parts.document import DocumentPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
 from docx.section import Column, Section, SectionColumns, Sections, _BaseHeaderFooter, _Footer, _Header
-from docx.shared import Inches, Length, Twips
+from docx.shared import Inches, Length, Pt, RGBColor, Twips
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
@@ -541,6 +541,194 @@ class DescribeSection:
     @pytest.fixture
     def header_(self, request: FixtureRequest):
         return instance_mock(request, _Header)
+
+
+class DescribeSection_watermark:
+    """Unit-test suite for `docx.section.Section` watermark methods."""
+
+    def it_can_add_a_text_watermark(self, request: FixtureRequest):
+        from docx.oxml.parser import parse_xml
+
+        hdr_element = parse_xml(
+            '<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            "<w:p><w:pPr><w:pStyle w:val=\"Header\"/></w:pPr></w:p>"
+            "</w:hdr>"
+        )
+        header_part_ = instance_mock(request, HeaderPart)
+        header_part_.element = hdr_element
+        header_ = instance_mock(request, _Header)
+        header_.part = header_part_
+        header_._has_definition = False
+        document_part_ = instance_mock(request, DocumentPart)
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        property_mock(request, Section, "header", return_value=header_)
+        method_mock(request, Section, "remove_watermark")
+
+        section.add_text_watermark("DRAFT")
+
+        section.remove_watermark.assert_called_once_with(section)
+        # Verify the watermark paragraph was inserted
+        from docx.oxml.ns import qn
+
+        ps = hdr_element.findall(qn("w:p"))
+        assert len(ps) == 2  # watermark paragraph + original paragraph
+        # The first paragraph should contain the VML watermark
+        watermark_p = ps[0]
+        r = watermark_p.find(qn("w:r"))
+        assert r is not None
+        pict = r.find(qn("w:pict"))
+        assert pict is not None
+        shapes = pict.xpath(
+            ".//v:shape",
+            namespaces={"v": "urn:schemas-microsoft-com:vml"},
+        )
+        assert len(shapes) == 1
+        shape = shapes[0]
+        assert "WaterMark" in shape.get("id", "")
+        # Verify textpath has the correct text
+        textpaths = pict.xpath(
+            ".//v:textpath[@string]",
+            namespaces={"v": "urn:schemas-microsoft-com:vml"},
+        )
+        assert len(textpaths) == 1
+        assert textpaths[0].get("string") == "DRAFT"
+
+    def it_can_add_a_text_watermark_with_custom_options(self, request: FixtureRequest):
+        from docx.oxml.parser import parse_xml
+
+        hdr_element = parse_xml(
+            '<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            "<w:p><w:pPr><w:pStyle w:val=\"Header\"/></w:pPr></w:p>"
+            "</w:hdr>"
+        )
+        header_part_ = instance_mock(request, HeaderPart)
+        header_part_.element = hdr_element
+        header_ = instance_mock(request, _Header)
+        header_.part = header_part_
+        header_._has_definition = False
+        document_part_ = instance_mock(request, DocumentPart)
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        property_mock(request, Section, "header", return_value=header_)
+        method_mock(request, Section, "remove_watermark")
+
+        section.add_text_watermark(
+            "CONFIDENTIAL",
+            font="Arial",
+            size=Pt(48),
+            color=RGBColor(0xFF, 0x00, 0x00),
+            layout="horizontal",
+        )
+
+        # Verify the shape style contains rotation:0 for horizontal layout
+        from docx.oxml.ns import qn
+
+        ps = hdr_element.findall(qn("w:p"))
+        watermark_p = ps[0]
+        r = watermark_p.find(qn("w:r"))
+        pict = r.find(qn("w:pict"))
+        shapes = pict.xpath(
+            ".//v:shape",
+            namespaces={"v": "urn:schemas-microsoft-com:vml"},
+        )
+        shape = shapes[0]
+        style = shape.get("style", "")
+        assert "rotation:0" in style
+        assert shape.get("fillcolor") == "#FF0000"
+        textpaths = pict.xpath(
+            ".//v:textpath[@string]",
+            namespaces={"v": "urn:schemas-microsoft-com:vml"},
+        )
+        assert textpaths[0].get("string") == "CONFIDENTIAL"
+        tp_style = textpaths[0].get("style", "")
+        assert "Arial" in tp_style
+        assert "48pt" in tp_style
+
+    def it_can_add_an_image_watermark(self, request: FixtureRequest):
+        from docx.oxml.parser import parse_xml
+
+        hdr_element = parse_xml(
+            '<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            "<w:p><w:pPr><w:pStyle w:val=\"Header\"/></w:pPr></w:p>"
+            "</w:hdr>"
+        )
+        header_part_ = instance_mock(request, HeaderPart)
+        header_part_.element = hdr_element
+        image_ = instance_mock(request, object)
+        header_part_.get_or_add_image.return_value = ("rId1", image_)
+        header_ = instance_mock(request, _Header)
+        header_.part = header_part_
+        header_._has_definition = False
+        document_part_ = instance_mock(request, DocumentPart)
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        property_mock(request, Section, "header", return_value=header_)
+        method_mock(request, Section, "remove_watermark")
+
+        section.add_image_watermark("watermark.png", Inches(4), Inches(2))
+
+        section.remove_watermark.assert_called_once_with(section)
+        header_part_.get_or_add_image.assert_called_once_with("watermark.png")
+        from docx.oxml.ns import qn
+
+        ps = hdr_element.findall(qn("w:p"))
+        assert len(ps) == 2
+        watermark_p = ps[0]
+        r = watermark_p.find(qn("w:r"))
+        pict = r.find(qn("w:pict"))
+        imagedata = pict.xpath(
+            ".//v:imagedata",
+            namespaces={"v": "urn:schemas-microsoft-com:vml"},
+        )
+        assert len(imagedata) == 1
+        ns_r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+        assert imagedata[0].get(f"{{{ns_r}}}id") == "rId1"
+
+    def it_can_remove_a_watermark(self, request: FixtureRequest):
+        from docx.oxml.parser import parse_xml
+
+        hdr_xml = (
+            '<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+            ' xmlns:v="urn:schemas-microsoft-com:vml"'
+            ' xmlns:o="urn:schemas-microsoft-com:office:office">'
+            "<w:p><w:pPr><w:pStyle w:val=\"Header\"/></w:pPr>"
+            "<w:r><w:pict>"
+            '<v:shape id="PowerPlusWaterMarkObject" o:spid="_x0000_s2049"'
+            ' style="position:absolute">test</v:shape>'
+            "</w:pict></w:r></w:p>"
+            "<w:p><w:pPr><w:pStyle w:val=\"Header\"/></w:pPr></w:p>"
+            "</w:hdr>"
+        )
+        hdr_element = parse_xml(hdr_xml)
+        header_part_ = instance_mock(request, HeaderPart)
+        header_part_.element = hdr_element
+        header_ = instance_mock(request, _Header)
+        header_._has_definition = True
+        header_._definition = header_part_
+        document_part_ = instance_mock(request, DocumentPart)
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        property_mock(request, Section, "header", return_value=header_)
+
+        section.remove_watermark()
+
+        from docx.oxml.ns import qn
+
+        ps = hdr_element.findall(qn("w:p"))
+        assert len(ps) == 1  # watermark paragraph removed, only original remains
+
+    def it_does_nothing_when_removing_watermark_from_section_without_header(
+        self, request: FixtureRequest
+    ):
+        header_ = instance_mock(request, _Header)
+        header_._has_definition = False
+        document_part_ = instance_mock(request, DocumentPart)
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        property_mock(request, Section, "header", return_value=header_)
+
+        section.remove_watermark()  # should not raise
 
 
 class DescribeSectionColumns:
