@@ -16,8 +16,9 @@ from docx.enum.table import (
     WD_TABLE_AUTOFIT,
 )
 from docx.oxml.simpletypes import ST_Merge
-from docx.oxml.table import CT_TblGridCol
+from docx.oxml.table import CT_Tbl, CT_TblGridCol
 from docx.shared import Emu, Inches, Parented, Pt, RGBColor, StoryChild, lazyproperty
+from docx.text.paragraph import Paragraph
 
 if TYPE_CHECKING:
     import docx.types as t
@@ -26,12 +27,12 @@ if TYPE_CHECKING:
         CT_Border,
         CT_Row,
         CT_Shd,
-        CT_Tbl,
         CT_TblBorders,
         CT_TblPr,
         CT_Tc,
         CT_TcBorders,
     )
+    from docx.oxml.text.paragraph import CT_P
     from docx.shared import Length
     from docx.styles.style import (
         ParagraphStyle,
@@ -80,6 +81,90 @@ class Table(StoryChild):
             if gridCol.w is not None:
                 tc.width = gridCol.w
         return _Row(tr, self)
+
+    def insert_paragraph_before(
+        self, text: str = "", style: str | ParagraphStyle | None = None
+    ) -> Paragraph:
+        """Return a newly created paragraph, inserted directly before this table.
+
+        If `text` is supplied, the new paragraph contains that text in a single run. If
+        `style` is provided, that paragraph style is assigned to the new paragraph.
+        The new paragraph is inserted as a sibling of this table in its parent element.
+        """
+        from docx.oxml.parser import OxmlElement
+
+        new_p = cast("CT_P", OxmlElement("w:p"))
+        self._tbl.addprevious(new_p)
+        paragraph = Paragraph(new_p, self._parent)
+        if text:
+            paragraph.add_run(text)
+        if style is not None:
+            paragraph.style = style
+        return paragraph
+
+    def insert_paragraph_after(
+        self, text: str = "", style: str | ParagraphStyle | None = None
+    ) -> Paragraph:
+        """Return a newly created paragraph, inserted directly after this table.
+
+        If `text` is supplied, the new paragraph contains that text in a single run. If
+        `style` is provided, that paragraph style is assigned to the new paragraph.
+        The new paragraph is inserted as a sibling of this table in its parent element.
+        """
+        from docx.oxml.parser import OxmlElement
+
+        new_p = cast("CT_P", OxmlElement("w:p"))
+        self._tbl.addnext(new_p)
+        paragraph = Paragraph(new_p, self._parent)
+        if text:
+            paragraph.add_run(text)
+        if style is not None:
+            paragraph.style = style
+        return paragraph
+
+    def insert_table_before(
+        self,
+        rows: int,
+        cols: int,
+        style: str | _TableStyle | None = None,
+        width: Length | None = None,
+    ) -> Table:
+        """Return a new table with `rows` rows and `cols` cols, inserted directly
+        before this table.
+
+        If `style` is supplied, that style is assigned to the new table. The new
+        table is inserted as a sibling of this table in its parent element. `width`
+        is an optional total table width; if not provided it defaults to 6 inches.
+        """
+        table_width = width if width is not None else Inches(6)
+        tbl = CT_Tbl.new_tbl(rows, cols, table_width)
+        self._tbl.addprevious(tbl)
+        table = Table(tbl, self._parent)
+        if style is not None:
+            table.style = style
+        return table
+
+    def insert_table_after(
+        self,
+        rows: int,
+        cols: int,
+        style: str | _TableStyle | None = None,
+        width: Length | None = None,
+    ) -> Table:
+        """Return a new table with `rows` rows and `cols` cols, inserted directly
+        after this table.
+
+        If `style` is supplied, that style is assigned to the new table. The new
+        table is inserted as a sibling of this table in its parent element. `width`
+        is an optional total table width; if not provided it defaults to 6 inches.
+        """
+        table_width = width if width is not None else Inches(6)
+        tbl = CT_Tbl.new_tbl(rows, cols, table_width)
+        self._tbl.addnext(tbl)
+        table = Table(tbl, self._parent)
+        if style is not None:
+            table.style = style
+        return table
 
     @property
     def alignment(self) -> WD_TABLE_ALIGNMENT | None:

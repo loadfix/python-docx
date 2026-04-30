@@ -500,6 +500,66 @@ class DescribeTable:
         assert table.preferred_width == Inches(2)
         assert table._tbl.xml == xml("w:tbl/w:tblPr/w:tblW{w:type=dxa,w:w=2880}")
 
+    def it_can_insert_a_paragraph_before_itself(self, document_: Mock):
+        body = element("w:body/(w:p{id=1},w:tbl/(w:tblPr,w:tblGrid),w:p{id=2})")
+        tbl = body.tbl_lst[0]
+        table = Table(cast(CT_Tbl, tbl), document_)
+
+        paragraph = table.insert_paragraph_before()
+
+        assert isinstance(paragraph, Paragraph)
+        # -- paragraph sits between p{id=1} and the table --
+        assert list(body) == [body[0], paragraph._p, tbl, body[3]]
+        assert paragraph._parent is document_
+
+    def it_can_insert_a_paragraph_after_itself(self, document_: Mock):
+        body = element("w:body/(w:p{id=1},w:tbl/(w:tblPr,w:tblGrid),w:p{id=2})")
+        tbl = body.tbl_lst[0]
+        table = Table(cast(CT_Tbl, tbl), document_)
+
+        paragraph = table.insert_paragraph_after(text="caption")
+
+        assert isinstance(paragraph, Paragraph)
+        # -- paragraph sits between the table and p{id=2} --
+        assert list(body) == [body[0], tbl, paragraph._p, body[3]]
+        assert paragraph.text == "caption"
+
+    def it_can_insert_a_paragraph_after_inside_a_cell(self, document_: Mock):
+        tc = element("w:tc/(w:tbl/(w:tblPr,w:tblGrid),w:p{id=end})")
+        tbl = tc.tbl_lst[0]
+        table = Table(cast(CT_Tbl, tbl), document_)
+
+        paragraph = table.insert_paragraph_after(text="after-table")
+
+        # -- the new paragraph sits between the inner table and the trailing w:p --
+        assert list(tc) == [tbl, paragraph._p, tc[2]]
+        assert paragraph.text == "after-table"
+
+    def it_can_insert_a_table_before_itself(self, document_: Mock):
+        body = element("w:body/(w:p{id=1},w:tbl/(w:tblPr,w:tblGrid))")
+        ref_tbl = body.tbl_lst[0]
+        table = Table(cast(CT_Tbl, ref_tbl), document_)
+
+        new_table = table.insert_table_before(rows=2, cols=3)
+
+        assert isinstance(new_table, Table)
+        # -- the new table sits between the paragraph and the original table --
+        assert list(body) == [body[0], new_table._tbl, ref_tbl]
+        assert len(new_table._tbl.tr_lst) == 2
+        assert new_table._tbl.col_count == 3
+        assert new_table._parent is document_
+
+    def it_can_insert_a_table_after_itself(self, document_: Mock):
+        body = element("w:body/(w:tbl/(w:tblPr,w:tblGrid),w:p{id=end})")
+        ref_tbl = body.tbl_lst[0]
+        table = Table(cast(CT_Tbl, ref_tbl), document_)
+
+        new_table = table.insert_table_after(rows=1, cols=1)
+
+        assert isinstance(new_table, Table)
+        # -- the new table sits between the original table and the trailing paragraph --
+        assert list(body) == [ref_tbl, new_table._tbl, body[2]]
+
     # fixtures -------------------------------------------------------
 
     @pytest.fixture
