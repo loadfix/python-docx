@@ -9,6 +9,7 @@ from docx.enum.section import WD_SECTION_START
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.drawing import Drawing
+from docx.fields import Field
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.text.run import CT_R
 from docx.parts.document import DocumentPart
@@ -435,6 +436,89 @@ class DescribeParagraph:
         """Including the text of embedded hyperlinks."""
         paragraph = Paragraph(element(p_cxml), None)
         assert paragraph.text == expected_value
+
+    def it_includes_fldSimple_text_in_paragraph_text(
+        self, fake_parent: t.ProvidesStoryPart
+    ):
+        p_cxml = (
+            'w:p/(w:r/w:t"Page ",w:fldSimple{w:instr=PAGE}/w:r/w:t"3",w:r/w:t" of 10")'
+        )
+        paragraph = Paragraph(cast(CT_P, element(p_cxml)), fake_parent)
+
+        assert paragraph.text == "Page 3 of 10"
+
+    def it_can_add_a_simple_field(self, fake_parent: t.ProvidesStoryPart):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+
+        field = paragraph.add_simple_field("PAGE", "3")
+
+        assert isinstance(field, Field)
+        assert field.is_complex is False
+        assert field.instruction == "PAGE"
+        assert field.type == "PAGE"
+        assert field.result_text == "3"
+        assert paragraph.text == "3"
+
+    def it_can_add_a_simple_field_without_result_text(
+        self, fake_parent: t.ProvidesStoryPart
+    ):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+
+        field = paragraph.add_simple_field("DATE")
+
+        assert field.instruction == "DATE"
+        assert field.result_text == ""
+
+    def it_can_add_a_complex_field(self, fake_parent: t.ProvidesStoryPart):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+
+        field = paragraph.add_complex_field("REF bookmark1 \\h", "See here")
+
+        assert isinstance(field, Field)
+        assert field.is_complex is True
+        assert field.instruction == "REF bookmark1 \\h"
+        assert field.type == "REF"
+        assert field.result_text == "See here"
+        assert paragraph.text == "See here"
+
+    def it_can_add_a_complex_field_without_result_text(
+        self, fake_parent: t.ProvidesStoryPart
+    ):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+
+        field = paragraph.add_complex_field("PAGE")
+
+        assert field.is_complex is True
+        assert field.instruction == "PAGE"
+        assert field.result_text == ""
+
+    def it_provides_access_to_its_fields(self, fake_parent: t.ProvidesStoryPart):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+        paragraph.add_run("Page ")
+        paragraph.add_simple_field("PAGE", "3")
+        paragraph.add_run(" of ")
+        paragraph.add_complex_field("NUMPAGES", "10")
+        paragraph.add_simple_field("DATE", "2026-01-01")
+
+        fields = paragraph.fields
+
+        assert len(fields) == 3
+        assert [f.type for f in fields] == ["PAGE", "NUMPAGES", "DATE"]
+        assert [f.is_complex for f in fields] == [False, True, False]
+        assert [f.result_text for f in fields] == ["3", "10", "2026-01-01"]
+
+    def it_returns_an_empty_field_list_when_none_present(
+        self, fake_parent: t.ProvidesStoryPart
+    ):
+        p = cast(CT_P, element('w:p/w:r/w:t"just text"'))
+        paragraph = Paragraph(p, fake_parent)
+
+        assert paragraph.fields == []
 
     @pytest.mark.parametrize(
         ("p_cxml", "count"),

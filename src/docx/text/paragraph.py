@@ -8,6 +8,7 @@ from docx.drawing import Drawing
 from docx.enum.section import WD_SECTION_START
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
+from docx.fields import Field
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml.drawing import CT_Drawing
 from docx.oxml.text.run import CT_R
@@ -151,6 +152,42 @@ class Paragraph(StoryChild):
         run = self.add_run()
         run.add_break(WD_BREAK.PAGE)
         return self
+
+    def add_simple_field(self, instr: str, text: str | None = None) -> Field:
+        """Append a ``<w:fldSimple>`` field to this paragraph and return a |Field|.
+
+        `instr` is the field instruction (e.g. ``"PAGE"`` or ``"REF bookmark1 \\h"``).
+        `text` is the optional current rendered result, added as a single run
+        inside the fldSimple element.
+        """
+        fldSimple = self._p.add_fldSimple(instr, text)
+        return Field.for_simple(fldSimple)
+
+    def add_complex_field(self, instr: str, result_text: str | None = None) -> Field:
+        """Append a complex field (begin/separate/end) to this paragraph.
+
+        Returns a |Field| wrapping the run that contains the ``begin``
+        ``<w:fldChar>`` marker. `instr` is the field instruction (e.g.
+        ``"PAGE"``) and `result_text`, if provided, is added as a plain
+        ``<w:r><w:t>`` run between the ``separate`` and ``end`` markers.
+        """
+        begin_run = self._p.add_complex_field(instr, result_text)
+        return Field.for_complex(begin_run)
+
+    @property
+    def fields(self) -> List[Field]:
+        """List of |Field| objects for each field in this paragraph.
+
+        Includes both simple (``w:fldSimple``) and complex (``w:fldChar``)
+        fields, in document order.
+        """
+        result: List[Field] = []
+        for kind, el in self._p.iter_field_elements():
+            if kind == "simple":
+                result.append(Field.for_simple(el))
+            else:
+                result.append(Field.for_complex(el))
+        return result
 
     @property
     def alignment(self) -> WD_PARAGRAPH_ALIGNMENT | None:
