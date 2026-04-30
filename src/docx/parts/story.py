@@ -8,7 +8,7 @@ from typing import IO, TYPE_CHECKING, Tuple, cast
 from docx.image.constants import MIME_TYPE
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.opc.part import XmlPart
-from docx.oxml.shape import CT_Inline
+from docx.oxml.shape import CT_Anchor, CT_Inline
 from docx.shared import Length, lazyproperty
 
 if TYPE_CHECKING:
@@ -80,6 +80,26 @@ class StoryPart(XmlPart):
             )
 
         return CT_Inline.new_pic_inline(shape_id, rId, filename, cx, cy)
+
+    def new_pic_anchor(
+        self,
+        image_descriptor: str | IO[bytes],
+        width: int | Length | None = None,
+        height: int | Length | None = None,
+    ) -> CT_Anchor:
+        """Return a newly-created `wp:anchor` element.
+
+        The element contains the image specified by `image_descriptor` and is scaled
+        based on the values of `width` and `height`.
+
+        SVG images with a fallback PNG are not supported for floating images in this
+        minimal implementation; SVG inputs are embedded via the PNG fallback path only
+        through the standard picture relationship as for a regular raster image.
+        """
+        rId, image = self.get_or_add_image(image_descriptor)
+        cx, cy = image.scaled_dimensions(width, height)
+        shape_id, filename = self.next_id, image.filename
+        return CT_Anchor.new_pic_anchor(shape_id, rId, filename, cx, cy)
 
     def _new_svg_pic_inline(
         self,

@@ -177,6 +177,96 @@ class DescribeParagraph:
 
         assert paragraph.text == "Hello world"
 
+    def it_can_add_a_floating_image(self, request: pytest.FixtureRequest):
+        from docx.oxml.shape import CT_Anchor as _CT_Anchor
+        from docx.parts.story import StoryPart
+        from docx.shape import FloatingImage
+
+        story_part_ = instance_mock(request, StoryPart)
+        anchor = _CT_Anchor.new_pic_anchor(1, "rId1", "foo.png", 1000, 2000)
+        story_part_.new_pic_anchor.return_value = anchor
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, FakeParent())
+
+        result = paragraph.add_floating_image("foo.png", 1000, 2000)
+
+        story_part_.new_pic_anchor.assert_called_once_with("foo.png", 1000, 2000)
+        assert isinstance(result, FloatingImage)
+        assert len(paragraph.floating_images) == 1
+        # -- the anchor element is nested inside a w:r/w:drawing --
+        assert paragraph._p.xpath(".//w:r/w:drawing/wp:anchor") == [anchor]
+
+    def it_can_add_a_floating_image_with_custom_position(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.enum.shape import WD_ANCHOR_H, WD_ANCHOR_V, WD_WRAP_TYPE
+        from docx.oxml.shape import CT_Anchor as _CT_Anchor
+        from docx.parts.story import StoryPart
+
+        story_part_ = instance_mock(request, StoryPart)
+        anchor = _CT_Anchor.new_pic_anchor(1, "rId1", "foo.png", 1000, 2000)
+        story_part_.new_pic_anchor.return_value = anchor
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, FakeParent())
+
+        img = paragraph.add_floating_image(
+            "foo.png",
+            1000,
+            2000,
+            position={
+                "horizontal": 914400,
+                "vertical": 457200,
+                "h_anchor": WD_ANCHOR_H.PAGE,
+                "v_anchor": WD_ANCHOR_V.MARGIN,
+                "wrap": WD_WRAP_TYPE.BEHIND,
+            },
+        )
+
+        assert img.horizontal_anchor == WD_ANCHOR_H.PAGE
+        assert img.vertical_anchor == WD_ANCHOR_V.MARGIN
+        assert img.horizontal_offset == 914400
+        assert img.vertical_offset == 457200
+        assert img.wrap_type == WD_WRAP_TYPE.BEHIND
+
+    @pytest.mark.parametrize(
+        ("p_cxml", "count"),
+        [
+            ("w:p", 0),
+            ("w:p/w:r", 0),
+            ("w:p/w:r/w:drawing", 0),
+            ("w:p/w:r/w:drawing/wp:inline", 0),
+            ("w:p/w:r/w:drawing/wp:anchor", 1),
+            (
+                "w:p/(w:r/w:drawing/wp:anchor,w:r/w:drawing/wp:anchor)",
+                2,
+            ),
+        ],
+    )
+    def it_provides_access_to_floating_images_it_contains(
+        self, p_cxml: str, count: int, fake_parent: t.ProvidesStoryPart
+    ):
+        from docx.shape import FloatingImage
+
+        p = cast(CT_P, element(p_cxml))
+        paragraph = Paragraph(p, fake_parent)
+
+        floating = paragraph.floating_images
+
+        assert len(floating) == count
+        assert all(isinstance(f, FloatingImage) for f in floating)
+
     @pytest.mark.parametrize(
         ("p_cxml", "expected_value"),
         [
