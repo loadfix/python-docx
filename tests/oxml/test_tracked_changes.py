@@ -100,3 +100,50 @@ class DescribeCT_DelText:
     def it_returns_empty_string_when_no_content(self):
         dt_elm = cast(CT_DelText, element("w:delText"))
         assert str(dt_elm) == ""
+
+
+class DescribeCT_Ins_acceptReject:
+    """Accept/reject behavior for `<w:ins>`."""
+
+    def it_unwraps_itself_on_accept_keeping_inserted_runs(self):
+        p = element(
+            'w:p/(w:r/w:t"before",w:ins{w:id=1,w:author=A}/w:r/w:t"inserted",w:r/w:t"after")'
+        )
+        ins = p.xpath("./w:ins")[0]
+        ins.accept()
+        assert p.xpath("./w:ins") == []
+        assert [r.text for r in p.xpath("./w:r/w:t")] == ["before", "inserted", "after"]
+
+    def it_removes_itself_on_reject_discarding_inserted_runs(self):
+        p = element(
+            'w:p/(w:r/w:t"before",w:ins{w:id=1,w:author=A}/w:r/w:t"inserted",w:r/w:t"after")'
+        )
+        ins = p.xpath("./w:ins")[0]
+        ins.reject()
+        assert p.xpath("./w:ins") == []
+        assert [r.text for r in p.xpath("./w:r/w:t")] == ["before", "after"]
+
+
+class DescribeCT_Del_acceptReject:
+    """Accept/reject behavior for `<w:del>`."""
+
+    def it_removes_itself_on_accept_discarding_deleted_content(self):
+        p = element(
+            'w:p/(w:r/w:t"keep",w:del{w:id=2,w:author=B}/w:r/w:delText"gone")'
+        )
+        del_ = p.xpath("./w:del")[0]
+        del_.accept()
+        assert p.xpath("./w:del") == []
+        assert [r.text for r in p.xpath("./w:r/w:t")] == ["keep"]
+
+    def it_restores_content_on_reject_converting_delText_to_t(self):
+        p = element(
+            'w:p/(w:r/w:t"keep ",w:del{w:id=2,w:author=B}/w:r/w:delText"restore")'
+        )
+        del_ = p.xpath("./w:del")[0]
+        del_.reject()
+        assert p.xpath("./w:del") == []
+        assert p.xpath("./w:r/w:delText") == []
+        # Both runs survive; their text values are "keep " and "restore"
+        texts = [t.text for t in p.xpath("./w:r/w:t")]
+        assert texts == ["keep ", "restore"]
