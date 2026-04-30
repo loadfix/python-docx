@@ -546,6 +546,42 @@ class DescribeSection:
 
         assert section._sectPr.xml == expected_xml
 
+    # -- watermark API ----------------------------------------------------------
+
+    def it_can_add_a_text_watermark_via_its_section(self):
+        document = Document()
+        section = document.sections[0]
+
+        watermark = section.add_text_watermark("HELLO")
+
+        assert watermark.type == "text"
+        assert watermark.text == "HELLO"
+
+    def it_can_add_an_image_watermark_via_its_section(self):
+        document = Document()
+        section = document.sections[0]
+
+        watermark = section.add_image_watermark(test_file("monty-truth.png"))
+
+        assert watermark.type == "image"
+
+    def it_can_read_back_a_watermark_via_its_section(self):
+        document = Document()
+        section = document.sections[0]
+        section.add_text_watermark("DRAFT")
+
+        assert section.watermark is not None
+        assert section.watermark.text == "DRAFT"
+
+    def it_can_remove_a_watermark_via_its_section(self):
+        document = Document()
+        section = document.sections[0]
+        section.add_text_watermark("DRAFT")
+
+        section.remove_watermark()
+
+        assert section.watermark is None
+
     # -- fixtures-----------------------------------------------------
 
     @pytest.fixture

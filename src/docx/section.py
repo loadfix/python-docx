@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator, List, Sequence, Union, overload
+from typing import IO, TYPE_CHECKING, Iterator, List, Sequence, Union, overload
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_HEADER_FOOTER
+from docx.oxml.ns import nsdecls, qn
+from docx.oxml.parser import parse_xml
 from docx.oxml.text.paragraph import CT_P
 from docx.parts.hdrftr import FooterPart, HeaderPart
+from docx.shared import Pt, RGBColor
 from docx.table import Table
 from docx.text.paragraph import Paragraph
+from docx.watermark import Watermark
 
 if TYPE_CHECKING:
     from docx.endnotes import EndnoteProperties
@@ -17,6 +21,7 @@ if TYPE_CHECKING:
     from docx.footnotes import FootnoteProperties
     from docx.oxml.document import CT_Document
     from docx.oxml.section import CT_Col, CT_Cols, CT_SectPr
+    from docx.oxml.watermark import CT_VmlShape
     from docx.parts.document import DocumentPart
     from docx.parts.story import StoryPart
     from docx.shared import Length
@@ -332,6 +337,189 @@ class Section:
     def remove_endnote_properties(self) -> None:
         """Remove the ``w:endnotePr`` child element if present."""
         self._sectPr._remove_endnotePr()  # pyright: ignore[reportPrivateUsage]
+
+    # -- watermark API ---------------------------------------------------------------
+
+    def add_text_watermark(
+        self,
+        text: str,
+        font: str = "Calibri",
+        size: Length | None = None,
+        color: RGBColor | None = None,
+        layout: str = "diagonal",
+    ) -> Watermark:
+        """Add a text watermark to this section's default page header.
+
+        Replaces any existing watermark. Returns the |Watermark| proxy for the
+        newly-added shape.
+
+        `size` defaults to 72pt, `color` to silver (``#C0C0C0``), `layout` to
+        ``"diagonal"``. `layout` accepts ``"diagonal"`` or ``"horizontal"``.
+        """
+        if size is None:
+            size = Pt(72)
+        if color is None:
+            color = RGBColor(0xC0, 0xC0, 0xC0)
+        if layout not in ("diagonal", "horizontal"):
+            raise ValueError(
+                "layout must be 'diagonal' or 'horizontal', got %r" % layout
+            )
+
+        # -- ensure the section has a non-linked header ---
+        if self.header.is_linked_to_previous:
+            self.header.is_linked_to_previous = False
+        hdr = self.header._element
+
+        # -- remove any existing watermark first --
+        self._remove_watermark_paragraphs(hdr)
+
+        # -- build the watermark paragraph --
+        font_pt = float(size) / 12700.0  # EMU -> pt (12700 EMU/pt)
+        rotation = "-45" if layout == "diagonal" else "0"
+        style = (
+            "position:absolute;margin-left:0;margin-top:0;"
+            "width:%.2fpt;height:%.2fpt;z-index:-251654144;"
+            "mso-position-horizontal:center;mso-position-horizontal-relative:margin;"
+            "mso-position-vertical:center;mso-position-vertical-relative:margin;"
+            "rotation:%s" % (font_pt * len(text) * 0.6 + 100, font_pt * 1.5, rotation)
+        )
+        text_escaped = _xml_escape_attr(text)
+        font_escaped = _xml_escape_attr(font)
+        p_xml = (
+            "<w:p %s>"
+            "<w:pPr><w:pStyle w:val=\"Header\"/></w:pPr>"
+            "<w:r>"
+            "<w:pict>"
+            "<v:shape id=\"PowerPlusWaterMarkObject\" type=\"#_x0000_t136\""
+            " style=\"%s\">"
+            "<v:fill color=\"#%s\"/>"
+            "<v:textpath style=\"font:%.2fpt &quot;%s&quot;\" string=\"%s\"/>"
+            "</v:shape>"
+            "</w:pict>"
+            "</w:r>"
+            "</w:p>"
+            % (
+                nsdecls("w", "v", "o", "w10"),
+                style,
+                str(color),
+                font_pt,
+                font_escaped,
+                text_escaped,
+            )
+        )
+        p = parse_xml(p_xml)
+        hdr.append(p)
+        shape = p.find(".//" + qn("v:shape"))
+        assert shape is not None
+        return Watermark(shape)
+
+    def add_image_watermark(
+        self,
+        image_path: str | IO[bytes],
+        width: Length | None = None,
+        height: Length | None = None,
+    ) -> Watermark:
+        """Add an image watermark to this section's default page header.
+
+        `image_path` can be a filesystem path or a file-like object. `width`
+        and `height` are |Length| values; when omitted the image's native
+        dimensions are used.
+
+        Replaces any existing watermark.
+        """
+        if self.header.is_linked_to_previous:
+            self.header.is_linked_to_previous = False
+        header_part = self.header.part
+        assert isinstance(header_part, HeaderPart)
+        hdr = self.header._element
+
+        # -- remove any existing watermark first --
+        self._remove_watermark_paragraphs(hdr)
+
+        rId, image = header_part.get_or_add_image(image_path)
+        cx, cy = image.scaled_dimensions(width, height)
+        # -- VML uses points, not EMU; 12700 EMU per pt --
+        w_pt = float(cx) / 12700.0
+        h_pt = float(cy) / 12700.0
+        style = (
+            "position:absolute;margin-left:0;margin-top:0;"
+            "width:%.2fpt;height:%.2fpt;z-index:-251654144;"
+            "mso-position-horizontal:center;mso-position-horizontal-relative:margin;"
+            "mso-position-vertical:center;mso-position-vertical-relative:margin"
+            % (w_pt, h_pt)
+        )
+        p_xml = (
+            "<w:p %s>"
+            "<w:pPr><w:pStyle w:val=\"Header\"/></w:pPr>"
+            "<w:r>"
+            "<w:pict>"
+            "<v:shape id=\"PowerPlusWaterMarkObject\" type=\"#_x0000_t75\""
+            " style=\"%s\">"
+            "<v:imagedata r:id=\"%s\" o:title=\"watermark\"/>"
+            "</v:shape>"
+            "</w:pict>"
+            "</w:r>"
+            "</w:p>"
+            % (
+                nsdecls("w", "v", "o", "w10", "r"),
+                style,
+                rId,
+            )
+        )
+        p = parse_xml(p_xml)
+        hdr.append(p)
+        shape = p.find(".//" + qn("v:shape"))
+        assert shape is not None
+        return Watermark(shape)
+
+    def remove_watermark(self) -> None:
+        """Remove the watermark from this section's default page header.
+
+        Does nothing when the section has no header definition or when the
+        header contains no watermark.
+        """
+        if self.header.is_linked_to_previous:
+            return
+        hdr = self.header._element
+        self._remove_watermark_paragraphs(hdr)
+
+    @property
+    def watermark(self) -> Watermark | None:
+        """|Watermark| object if this section's header contains one, else ``None``."""
+        if self.header.is_linked_to_previous:
+            return None
+        hdr = self.header._element
+        shape = self._find_watermark_shape(hdr)
+        if shape is None:
+            return None
+        return Watermark(shape)
+
+    @staticmethod
+    def _find_watermark_shape(hdr) -> "CT_VmlShape | None":
+        """Return the first ``v:shape`` element inside a ``w:pict`` in `hdr`."""
+        picts = hdr.findall(".//" + qn("w:pict"))
+        for pict in picts:
+            shape = pict.find(qn("v:shape"))
+            if shape is not None:
+                return shape
+        return None
+
+    @staticmethod
+    def _remove_watermark_paragraphs(hdr) -> None:
+        """Remove paragraphs from `hdr` that contain a watermark ``v:shape``."""
+        for p in list(hdr.findall(qn("w:p"))):
+            if p.find(".//" + qn("v:shape")) is not None:
+                hdr.remove(p)
+
+
+def _xml_escape_attr(value: str) -> str:
+    """Escape characters that would break an XML attribute value."""
+    return (
+        value.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
 
 
 class Sections(Sequence[Section]):

@@ -376,3 +376,14 @@ register_element_cls("w:commentRangeStart", _Base)
 register_element_cls("w:commentReference", _Base)
 register_element_cls("w:footnoteRef", _Base)
 register_element_cls("w:footnoteReference", _Base)
+
+# ---------------------------------------------------------------------------
+# VML watermark-related elements
+
+from .watermark import CT_Pict, CT_VmlFill, CT_VmlImageData, CT_VmlShape, CT_VmlTextpath
+
+register_element_cls("w:pict", CT_Pict)
+register_element_cls("v:fill", CT_VmlFill)
+register_element_cls("v:imagedata", CT_VmlImageData)
+register_element_cls("v:shape", CT_VmlShape)
+register_element_cls("v:textpath", CT_VmlTextpath)
