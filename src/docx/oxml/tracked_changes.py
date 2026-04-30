@@ -9,9 +9,18 @@ from lxml import etree  # noqa: F401  -- used for QName
 
 from docx.oxml.ns import qn
 from docx.oxml.simpletypes import ST_DateTime, ST_DecimalNumber, ST_String
-from docx.oxml.xmlchemy import BaseOxmlElement, OptionalAttribute, RequiredAttribute, ZeroOrMore
+from docx.oxml.xmlchemy import (
+    BaseOxmlElement,
+    OptionalAttribute,
+    RequiredAttribute,
+    ZeroOrMore,
+    ZeroOrOne,
+)
 
 if TYPE_CHECKING:
+    from docx.oxml.section import CT_SectPr
+    from docx.oxml.text.font import CT_RPr
+    from docx.oxml.text.parfmt import CT_PPr
     from docx.oxml.text.run import CT_R
 
 
@@ -118,6 +127,42 @@ class CT_DelText(BaseOxmlElement):
     def __str__(self) -> str:
         """Text contained in this element, the empty string if it has no content."""
         return self.text or ""
+
+
+class CT_TrackChange(BaseOxmlElement):
+    """Base for formatting-change elements (`<w:rPrChange>`, `<w:pPrChange>`,
+    `<w:sectPrChange>`).
+
+    Each records the authorship metadata for a formatting revision. The element
+    contains a nested properties element (`w:rPr`, `w:pPr`, or `w:sectPr`) holding
+    the pre-revision values.
+    """
+
+    id: int = RequiredAttribute("w:id", ST_DecimalNumber)  # pyright: ignore[reportAssignmentType]
+    author: str = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:author", ST_String
+    )
+    date: dt.datetime | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:date", ST_DateTime
+    )
+
+
+class CT_RPrChange(CT_TrackChange):
+    """`<w:rPrChange>` element, recording a run-formatting revision."""
+
+    rPr: "CT_RPr | None" = ZeroOrOne("w:rPr")  # pyright: ignore[reportAssignmentType]
+
+
+class CT_PPrChange(CT_TrackChange):
+    """`<w:pPrChange>` element, recording a paragraph-formatting revision."""
+
+    pPr: "CT_PPr | None" = ZeroOrOne("w:pPr")  # pyright: ignore[reportAssignmentType]
+
+
+class CT_SectPrChange(CT_TrackChange):
+    """`<w:sectPrChange>` element, recording a section-formatting revision."""
+
+    sectPr: "CT_SectPr | None" = ZeroOrOne("w:sectPr")  # pyright: ignore[reportAssignmentType]
 
 
 def accept_formatting_change(change_elm: BaseOxmlElement) -> None:

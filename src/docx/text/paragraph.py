@@ -331,6 +331,24 @@ class Paragraph(StoryChild):
         self._p.style = style_id
 
     @property
+    def formatting_change(self):
+        """A |FormattingChange| for this paragraph's `w:pPrChange`, or |None|.
+
+        Present when the paragraph's formatting (its `w:pPr`) has been edited while
+        track-changes is enabled. The returned object exposes the author, date, and
+        the prior `w:pPr` via ``old_properties``.
+        """
+        from docx.tracked_changes import FormattingChange
+
+        pPr = self._p.pPr
+        if pPr is None:
+            return None
+        pPrChange = pPr.pPrChange  # pyright: ignore[reportAttributeAccessIssue]
+        if pPrChange is None:
+            return None
+        return FormattingChange(pPrChange)
+
+    @property
     def tracked_changes(self) -> List[TrackedChange]:
         """A list of |TrackedChange| objects for each insertion or deletion in this
         paragraph."""

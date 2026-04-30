@@ -176,6 +176,7 @@ class CT_PPr(BaseOxmlElement):
         "w:outlineLvl", successors=_tag_seq[31:]
     )
     sectPr = ZeroOrOne("w:sectPr", successors=_tag_seq[35:])
+    pPrChange = ZeroOrOne("w:pPrChange", successors=())
     del _tag_seq
 
     @property

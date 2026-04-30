@@ -272,11 +272,21 @@ from .text.paragraph import CT_P
 
 register_element_cls("w:p", CT_P)
 
-from .tracked_changes import CT_Del, CT_DelText, CT_Ins
+from .tracked_changes import (
+    CT_Del,
+    CT_DelText,
+    CT_Ins,
+    CT_PPrChange,
+    CT_RPrChange,
+    CT_SectPrChange,
+)
 
 register_element_cls("w:del", CT_Del)
 register_element_cls("w:delText", CT_DelText)
 register_element_cls("w:ins", CT_Ins)
+register_element_cls("w:pPrChange", CT_PPrChange)
+register_element_cls("w:rPrChange", CT_RPrChange)
+register_element_cls("w:sectPrChange", CT_SectPrChange)
 
 from .text.parfmt import (
     CT_Border,

@@ -457,6 +457,31 @@ class DescribeParagraph:
 
         assert len(tracked_changes) == count
 
+    def it_exposes_its_formatting_change_when_pPrChange_present(self):
+        p = cast(
+            CT_P,
+            element(
+                "w:p/w:pPr/(w:jc{w:val=center}"
+                ",w:pPrChange{w:id=1,w:author=Alice}/w:pPr/w:jc{w:val=left})"
+            ),
+        )
+        paragraph = Paragraph(p, None)
+
+        fc = paragraph.formatting_change
+
+        assert fc is not None
+        assert fc.author == "Alice"
+        assert fc.old_properties is not None
+        assert fc.old_properties.xpath("./w:jc")
+
+    def it_returns_None_for_formatting_change_when_no_pPr(self):
+        paragraph = Paragraph(cast(CT_P, element("w:p")), None)
+        assert paragraph.formatting_change is None
+
+    def it_returns_None_for_formatting_change_when_no_pPrChange(self):
+        paragraph = Paragraph(cast(CT_P, element("w:p/w:pPr/w:jc{w:val=left}")), None)
+        assert paragraph.formatting_change is None
+
     def it_can_replace_the_text_it_contains(self, text_set_fixture):
         paragraph, text, expected_text = text_set_fixture
         paragraph.text = text

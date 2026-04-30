@@ -8,7 +8,16 @@ from typing import TYPE_CHECKING, cast
 from docx.shared import ElementProxy
 
 if TYPE_CHECKING:
-    from docx.oxml.tracked_changes import CT_RunTrackChange
+    from docx.oxml.section import CT_SectPr
+    from docx.oxml.text.font import CT_RPr
+    from docx.oxml.text.parfmt import CT_PPr
+    from docx.oxml.tracked_changes import (
+        CT_PPrChange,
+        CT_RPrChange,
+        CT_RunTrackChange,
+        CT_SectPrChange,
+        CT_TrackChange,
+    )
     from docx.oxml.xmlchemy import BaseOxmlElement
 
 
@@ -61,6 +70,47 @@ class TrackedChange(ElementProxy):
         children are converted back to `w:t` so the content is restored as live text.
         """
         self._tc_element.reject()
+
+
+class FormattingChange(ElementProxy):
+    """Proxy for a formatting revision mark (`w:rPrChange`, `w:pPrChange`,
+    `w:sectPrChange`).
+
+    Records the author and date of a formatting edit and provides access to the
+    previous formatting via :attr:`old_properties`, which returns the inner
+    `w:rPr`, `w:pPr`, or `w:sectPr` element holding the pre-edit values.
+    """
+
+    def __init__(self, element: CT_TrackChange):
+        super().__init__(element)
+        self._fc_element = element
+
+    @property
+    def author(self) -> str:
+        """The author who made this formatting change."""
+        return self._fc_element.author
+
+    @property
+    def date(self) -> dt.datetime | None:
+        """When this formatting change was made, or |None| if not recorded."""
+        return self._fc_element.date
+
+    @property
+    def old_properties(self) -> CT_RPr | CT_PPr | CT_SectPr | None:
+        """The nested `w:rPr`, `w:pPr`, or `w:sectPr` holding prior formatting.
+
+        |None| if the change element has no inner properties element (malformed or
+        "no prior formatting" case).
+        """
+        from docx.oxml.tracked_changes import CT_PPrChange, CT_RPrChange, CT_SectPrChange
+
+        if isinstance(self._fc_element, CT_RPrChange):
+            return self._fc_element.rPr
+        if isinstance(self._fc_element, CT_PPrChange):
+            return self._fc_element.pPr
+        if isinstance(self._fc_element, CT_SectPrChange):
+            return self._fc_element.sectPr
+        return None
 
 
 def _resolve_all_changes(root: BaseOxmlElement, *, accept: bool) -> int:

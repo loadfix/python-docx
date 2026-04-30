@@ -9,8 +9,14 @@ from typing import cast
 
 import pytest
 
-from docx.oxml.tracked_changes import CT_Del, CT_Ins
-from docx.tracked_changes import TrackedChange
+from docx.oxml.tracked_changes import (
+    CT_Del,
+    CT_Ins,
+    CT_PPrChange,
+    CT_RPrChange,
+    CT_SectPrChange,
+)
+from docx.tracked_changes import FormattingChange, TrackedChange
 
 from .unitutil.cxml import element
 
@@ -80,3 +86,57 @@ class DescribeTrackedChange:
         assert p.xpath("./w:del") == []
         # inserted run discarded, deleted run restored (now with w:t)
         assert [t.text for t in p.xpath("./w:r/w:t")] == ["d"]
+
+
+class DescribeFormattingChange:
+    """Unit-test suite for `docx.tracked_changes.FormattingChange`."""
+
+    def it_knows_its_author(self):
+        rPrChange = cast(CT_RPrChange, element("w:rPrChange{w:id=1,w:author=Alice}"))
+        fc = FormattingChange(rPrChange)
+        assert fc.author == "Alice"
+
+    def it_knows_its_date(self):
+        rPrChange = cast(
+            CT_RPrChange,
+            element("w:rPrChange{w:id=1,w:author=Alice,w:date=2024-05-20T14:30:00Z}"),
+        )
+        fc = FormattingChange(rPrChange)
+        assert fc.date == dt.datetime(2024, 5, 20, 14, 30, 0, tzinfo=dt.timezone.utc)
+
+    def it_returns_None_for_date_when_absent(self):
+        rPrChange = cast(CT_RPrChange, element("w:rPrChange{w:id=1,w:author=A}"))
+        fc = FormattingChange(rPrChange)
+        assert fc.date is None
+
+    def it_exposes_old_rPr_for_rPrChange(self):
+        rPrChange = cast(
+            CT_RPrChange,
+            element("w:rPrChange{w:id=1,w:author=A}/w:rPr/w:b"),
+        )
+        fc = FormattingChange(rPrChange)
+        assert fc.old_properties is not None
+        assert fc.old_properties.xpath("./w:b")
+
+    def it_exposes_old_pPr_for_pPrChange(self):
+        pPrChange = cast(
+            CT_PPrChange,
+            element("w:pPrChange{w:id=2,w:author=B}/w:pPr/w:jc{w:val=center}"),
+        )
+        fc = FormattingChange(pPrChange)
+        assert fc.old_properties is not None
+        assert fc.old_properties.xpath("./w:jc")
+
+    def it_exposes_old_sectPr_for_sectPrChange(self):
+        sectPrChange = cast(
+            CT_SectPrChange,
+            element("w:sectPrChange{w:id=3,w:author=C}/w:sectPr/w:pgSz{w:w=12240,w:h=15840}"),
+        )
+        fc = FormattingChange(sectPrChange)
+        assert fc.old_properties is not None
+        assert fc.old_properties.xpath("./w:pgSz")
+
+    def it_returns_None_for_old_properties_when_inner_element_missing(self):
+        rPrChange = cast(CT_RPrChange, element("w:rPrChange{w:id=1,w:author=A}"))
+        fc = FormattingChange(rPrChange)
+        assert fc.old_properties is None
