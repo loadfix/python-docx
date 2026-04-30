@@ -23,7 +23,9 @@ from docx.text.run import Run
 if TYPE_CHECKING:
     import docx.types as t
     from docx.bookmarks import Bookmark
+    from docx.content_controls import ContentControl, ContentControlType
     from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+    from docx.oxml.content_controls import CT_Sdt
     from docx.oxml.document import CT_Body
     from docx.oxml.text.paragraph import CT_P
     from docx.section import Section
@@ -147,6 +149,24 @@ class Paragraph(StoryChild):
             run.style = style
         return run
 
+    def add_content_control(
+        self,
+        type: ContentControlType,
+        tag: str | None = None,
+        title: str | None = None,
+    ) -> ContentControl:
+        """Append an inline content control (structured document tag) to this paragraph.
+
+        `type` is a :class:`ContentControlType` member. `tag` becomes the programmatic
+        `w:sdtPr/w:tag/@w:val` value, and `title` becomes `w:sdtPr/w:alias/@w:val`.
+        Returns the newly appended |ContentControl|.
+        """
+        from docx.content_controls import ContentControl, new_sdt
+
+        sdt = new_sdt(type, tag=tag, title=title, inline=True)
+        self._p.append(sdt)
+        return ContentControl(sdt)
+
     def add_page_break(self) -> Paragraph:
         """Append a page-break run to this paragraph and return self."""
         run = self.add_run()
@@ -188,6 +208,15 @@ class Paragraph(StoryChild):
             else:
                 result.append(Field.for_complex(el))
         return result
+
+    @property
+    def content_controls(self) -> List[ContentControl]:
+        """List of inline |ContentControl| objects in this paragraph, in document order."""
+        from docx.content_controls import ContentControl
+
+        return [
+            ContentControl(cast("CT_Sdt", sdt)) for sdt in self._p.xpath("./w:sdt")
+        ]
 
     @property
     def alignment(self) -> WD_PARAGRAPH_ALIGNMENT | None:

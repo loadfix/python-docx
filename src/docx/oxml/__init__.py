@@ -99,6 +99,12 @@ from .comments import CT_Comments, CT_Comment
 register_element_cls("w:comments", CT_Comments)
 register_element_cls("w:comment", CT_Comment)
 
+from .content_controls import CT_Sdt, CT_SdtContent, CT_SdtPr
+
+register_element_cls("w:sdt", CT_Sdt)
+register_element_cls("w:sdtContent", CT_SdtContent)
+register_element_cls("w:sdtPr", CT_SdtPr)
+
 from .coreprops import CT_CoreProperties
 
 register_element_cls("cp:coreProperties", CT_CoreProperties)

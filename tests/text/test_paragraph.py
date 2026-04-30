@@ -138,6 +138,45 @@ class DescribeParagraph:
         assert len(paragraph.runs) == 1
         assert paragraph._p.xml == xml("w:p/w:r/w:br{w:type=page}")
 
+    def it_can_add_an_inline_content_control(self, fake_parent: t.ProvidesStoryPart):
+        from docx.content_controls import ContentControl, ContentControlType
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+
+        cc = paragraph.add_content_control(
+            ContentControlType.PLAIN_TEXT, tag="Foo", title="Bar"
+        )
+
+        assert isinstance(cc, ContentControl)
+        assert cc.tag == "Foo"
+        assert cc.title == "Bar"
+        assert cc.type is ContentControlType.PLAIN_TEXT
+        # -- the sdt was appended to the paragraph --
+        assert len(paragraph._p.xpath("./w:sdt")) == 1
+
+    def it_lists_inline_content_controls(self, fake_parent: t.ProvidesStoryPart):
+        from docx.content_controls import ContentControlType
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+        paragraph.add_content_control(ContentControlType.PLAIN_TEXT, tag="A")
+        paragraph.add_content_control(ContentControlType.PLAIN_TEXT, tag="B")
+
+        ccs = paragraph.content_controls
+
+        assert [cc.tag for cc in ccs] == ["A", "B"]
+
+    def it_includes_sdt_text_in_paragraph_text(self, fake_parent: t.ProvidesStoryPart):
+        from docx.content_controls import ContentControlType
+
+        p = cast(CT_P, element('w:p/w:r/w:t"Hello "'))
+        paragraph = Paragraph(p, fake_parent)
+        cc = paragraph.add_content_control(ContentControlType.PLAIN_TEXT, tag="X")
+        cc.text = "world"
+
+        assert paragraph.text == "Hello world"
+
     @pytest.mark.parametrize(
         ("p_cxml", "expected_value"),
         [

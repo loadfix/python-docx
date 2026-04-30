@@ -35,6 +35,7 @@ class CT_P(BaseOxmlElement):
     hyperlink = ZeroOrMore("w:hyperlink")
     r = ZeroOrMore("w:r")
     fldSimple = ZeroOrMore("w:fldSimple")
+    sdt = ZeroOrMore("w:sdt")
 
     def add_hyperlink(
         self, rId: str | None, anchor: str | None, text: str, rPr: CT_RPr | None
@@ -233,10 +234,11 @@ class CT_P(BaseOxmlElement):
     def text(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         """The textual content of this paragraph.
 
-        Inner-content child elements like `w:r`, `w:hyperlink`, and `w:fldSimple` are
-        translated to their text equivalent.
+        Inner-content child elements like `w:r`, `w:hyperlink`, `w:fldSimple`, and
+        `w:sdt` (structured document tag / content control) are translated to their
+        text equivalent.
         """
-        return "".join(e.text for e in self.xpath("w:r | w:hyperlink | w:fldSimple"))
+        return "".join(e.text for e in self.xpath("w:r | w:hyperlink | w:fldSimple | w:sdt"))
 
     @property
     def tracked_change_elements(self) -> List[CT_Ins | CT_Del]:

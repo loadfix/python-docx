@@ -576,6 +576,41 @@ class Describe_Body:
         assert body._body.xml == xml(expected_cxml)
         assert _body is body
 
+    def it_can_add_a_block_level_content_control(self, document_: Mock):
+        from docx.content_controls import ContentControl, ContentControlType
+
+        body = _Body(cast(CT_Body, element("w:body")), document_)
+
+        cc = body.add_content_control(
+            ContentControlType.RICH_TEXT, tag="T", title="Title"
+        )
+
+        assert isinstance(cc, ContentControl)
+        assert cc.tag == "T"
+        assert cc.title == "Title"
+        # -- the sdt was appended to the body --
+        assert len(body._body.xpath("./w:sdt")) == 1
+
+    def it_inserts_block_level_sdt_before_trailing_sectPr(self, document_: Mock):
+        from docx.content_controls import ContentControlType
+
+        body = _Body(cast(CT_Body, element("w:body/(w:p,w:sectPr)")), document_)
+
+        body.add_content_control(ContentControlType.RICH_TEXT, tag="T")
+
+        # -- verify order: w:p, w:sdt, w:sectPr --
+        children = [c.tag.rsplit("}", 1)[-1] for c in body._body]
+        assert children == ["p", "sdt", "sectPr"]
+
+    def it_lists_block_level_content_controls(self, document_: Mock):
+        from docx.content_controls import ContentControlType
+
+        body = _Body(cast(CT_Body, element("w:body")), document_)
+        body.add_content_control(ContentControlType.RICH_TEXT, tag="A")
+        body.add_content_control(ContentControlType.RICH_TEXT, tag="B")
+
+        assert [cc.tag for cc in body.content_controls] == ["A", "B"]
+
     # -- fixtures --------------------------------------------------------------------------------
 
     @pytest.fixture
