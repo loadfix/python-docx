@@ -35,6 +35,8 @@ class CT_R(BaseOxmlElement):
     br = ZeroOrMore("w:br")
     cr = ZeroOrMore("w:cr")
     drawing = ZeroOrMore("w:drawing")
+    fldChar = ZeroOrMore("w:fldChar")
+    instrText = ZeroOrMore("w:instrText")
     t = ZeroOrMore("w:t")
     tab = ZeroOrMore("w:tab")
 

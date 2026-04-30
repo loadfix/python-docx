@@ -114,6 +114,12 @@ register_element_cls("w:endnote", CT_Endnote)
 register_element_cls("w:endnotes", CT_Endnotes)
 register_element_cls("w:endnotePr", CT_EdnDocProps)
 
+from .fields import CT_FldChar, CT_FldSimple, CT_InstrText
+
+register_element_cls("w:fldChar", CT_FldChar)
+register_element_cls("w:fldSimple", CT_FldSimple)
+register_element_cls("w:instrText", CT_InstrText)
+
 from .document import CT_Body, CT_Document
 
 register_element_cls("w:body", CT_Body)
