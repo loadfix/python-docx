@@ -745,6 +745,99 @@ class DescribeSection_columns:
         return instance_mock(request, DocumentPart)
 
 
+class DescribeSection_footnote_and_endnote_properties:
+    """Unit-test suite for `Section.footnote_properties` / `endnote_properties`."""
+
+    def it_returns_None_when_no_footnotePr_present(self, document_part_: Mock):
+        from docx.footnotes import FootnoteProperties
+
+        assert FootnoteProperties is not None  # used for type clarity
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        assert section.footnote_properties is None
+
+    def it_returns_a_FootnoteProperties_when_footnotePr_present(self, document_part_: Mock):
+        from docx.enum.text import WD_FOOTNOTE_POSITION
+        from docx.footnotes import FootnoteProperties
+
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:footnotePr/w:pos{w:val=beneathText}"),
+        )
+        section = Section(sectPr, document_part_)
+        props = section.footnote_properties
+        assert isinstance(props, FootnoteProperties)
+        assert props.position == WD_FOOTNOTE_POSITION.BENEATH_TEXT
+
+    def it_can_add_footnote_properties(self, document_part_: Mock):
+        from docx.footnotes import FootnoteProperties
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+
+        props = section.add_footnote_properties()
+
+        assert isinstance(props, FootnoteProperties)
+        assert sectPr.xml == xml("w:sectPr/w:footnotePr")
+
+    def it_places_footnotePr_before_type_when_added(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr/w:type{w:val=continuous}"))
+        section = Section(sectPr, document_part_)
+
+        section.add_footnote_properties()
+
+        assert sectPr.xml == xml(
+            "w:sectPr/(w:footnotePr,w:type{w:val=continuous})"
+        )
+
+    def it_can_remove_footnote_properties(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr/w:footnotePr"))
+        section = Section(sectPr, document_part_)
+        section.remove_footnote_properties()
+        assert sectPr.xml == xml("w:sectPr")
+
+    def it_returns_None_when_no_endnotePr_present(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        assert section.endnote_properties is None
+
+    def it_returns_an_EndnoteProperties_when_endnotePr_present(self, document_part_: Mock):
+        from docx.endnotes import EndnoteProperties
+        from docx.enum.text import WD_ENDNOTE_POSITION
+
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:endnotePr/w:pos{w:val=sectEnd}"),
+        )
+        section = Section(sectPr, document_part_)
+        props = section.endnote_properties
+        assert isinstance(props, EndnoteProperties)
+        assert props.position == WD_ENDNOTE_POSITION.END_OF_SECTION
+
+    def it_can_add_endnote_properties(self, document_part_: Mock):
+        from docx.endnotes import EndnoteProperties
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+
+        props = section.add_endnote_properties()
+
+        assert isinstance(props, EndnoteProperties)
+        assert sectPr.xml == xml("w:sectPr/w:endnotePr")
+
+    def it_can_remove_endnote_properties(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr/w:endnotePr"))
+        section = Section(sectPr, document_part_)
+        section.remove_endnote_properties()
+        assert sectPr.xml == xml("w:sectPr")
+
+    # -- fixtures-----------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)
+
+
 class Describe_BaseHeaderFooter:
     """Unit-test suite for `docx.section._BaseHeaderFooter`."""
 

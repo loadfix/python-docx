@@ -103,20 +103,34 @@ from .coreprops import CT_CoreProperties
 
 register_element_cls("cp:coreProperties", CT_CoreProperties)
 
-from .endnotes import CT_Endnote, CT_Endnotes
+from .endnotes import CT_EdnDocProps, CT_Endnote, CT_Endnotes
 
 register_element_cls("w:endnote", CT_Endnote)
 register_element_cls("w:endnotes", CT_Endnotes)
+register_element_cls("w:endnotePr", CT_EdnDocProps)
 
 from .document import CT_Body, CT_Document
 
 register_element_cls("w:body", CT_Body)
 register_element_cls("w:document", CT_Document)
 
-from .footnotes import CT_Footnote, CT_Footnotes
+from .footnotes import (
+    CT_FtnDocProps,
+    CT_FtnEdnPos,
+    CT_Footnote,
+    CT_Footnotes,
+    CT_NumFmt,
+    CT_NumRestart,
+    CT_NumStart,
+)
 
 register_element_cls("w:footnote", CT_Footnote)
 register_element_cls("w:footnotes", CT_Footnotes)
+register_element_cls("w:footnotePr", CT_FtnDocProps)
+register_element_cls("w:pos", CT_FtnEdnPos)
+register_element_cls("w:numFmt", CT_NumFmt)
+register_element_cls("w:numStart", CT_NumStart)
+register_element_cls("w:numRestart", CT_NumRestart)
 
 from .numbering import CT_Num, CT_Numbering, CT_NumLvl, CT_NumPr
 

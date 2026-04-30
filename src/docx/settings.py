@@ -9,6 +9,8 @@ from docx.shared import ElementProxy
 
 if TYPE_CHECKING:
     import docx.types as t
+    from docx.endnotes import EndnoteProperties
+    from docx.footnotes import FootnoteProperties
     from docx.oxml.settings import CT_Settings
     from docx.oxml.xmlchemy import BaseOxmlElement
     from docx.shared import Length
@@ -113,6 +115,64 @@ class Settings(ElementProxy):
     @zoom_percent.setter
     def zoom_percent(self, value: int | None):
         self._settings.zoom_percent = value
+
+    @property
+    def footnote_properties(self) -> FootnoteProperties | None:
+        """A |FootnoteProperties| object or |None| if no ``w:footnotePr`` is present.
+
+        Provides document-level footnote configuration (number format, start number,
+        restart rule, and position). Use :meth:`add_footnote_properties` to add a
+        ``w:footnotePr`` element when none is present.
+        """
+        from docx.footnotes import FootnoteProperties
+
+        footnotePr = self._settings.footnotePr
+        if footnotePr is None:
+            return None
+        return FootnoteProperties(footnotePr)
+
+    def add_footnote_properties(self) -> FootnoteProperties:
+        """Return a |FootnoteProperties| proxy, adding ``w:footnotePr`` if needed.
+
+        If a ``w:footnotePr`` element is already present, the existing element is used.
+        """
+        from docx.footnotes import FootnoteProperties
+
+        footnotePr = self._settings.get_or_add_footnotePr()
+        return FootnoteProperties(footnotePr)
+
+    def remove_footnote_properties(self) -> None:
+        """Remove the ``w:footnotePr`` child element if present."""
+        self._settings._remove_footnotePr()  # pyright: ignore[reportPrivateUsage]
+
+    @property
+    def endnote_properties(self) -> EndnoteProperties | None:
+        """An |EndnoteProperties| object or |None| if no ``w:endnotePr`` is present.
+
+        Provides document-level endnote configuration (number format, start number,
+        restart rule, and position). Use :meth:`add_endnote_properties` to add a
+        ``w:endnotePr`` element when none is present.
+        """
+        from docx.endnotes import EndnoteProperties
+
+        endnotePr = self._settings.endnotePr
+        if endnotePr is None:
+            return None
+        return EndnoteProperties(endnotePr)
+
+    def add_endnote_properties(self) -> EndnoteProperties:
+        """Return an |EndnoteProperties| proxy, adding ``w:endnotePr`` if needed.
+
+        If a ``w:endnotePr`` element is already present, the existing element is used.
+        """
+        from docx.endnotes import EndnoteProperties
+
+        endnotePr = self._settings.get_or_add_endnotePr()
+        return EndnoteProperties(endnotePr)
+
+    def remove_endnote_properties(self) -> None:
+        """Remove the ``w:endnotePr`` child element if present."""
+        self._settings._remove_endnotePr()  # pyright: ignore[reportPrivateUsage]
 
 
 class _DocumentProtection:

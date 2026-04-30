@@ -254,6 +254,48 @@ class DescribeDocument:
 
         assert document.settings is settings_
 
+    def it_delegates_footnote_properties_to_settings(
+        self, document_part_: Mock, settings_: Mock
+    ):
+        document_part_.settings = settings_
+        settings_.footnote_properties = "fp-sentinel"
+        document = Document(cast(CT_Document, element("w:document")), document_part_)
+
+        assert document.footnote_properties == "fp-sentinel"
+
+    def it_delegates_add_footnote_properties_to_settings(
+        self, document_part_: Mock, settings_: Mock
+    ):
+        document_part_.settings = settings_
+        settings_.add_footnote_properties.return_value = "added-fp"
+        document = Document(cast(CT_Document, element("w:document")), document_part_)
+
+        result = document.add_footnote_properties()
+
+        settings_.add_footnote_properties.assert_called_once_with()
+        assert result == "added-fp"
+
+    def it_delegates_endnote_properties_to_settings(
+        self, document_part_: Mock, settings_: Mock
+    ):
+        document_part_.settings = settings_
+        settings_.endnote_properties = "ep-sentinel"
+        document = Document(cast(CT_Document, element("w:document")), document_part_)
+
+        assert document.endnote_properties == "ep-sentinel"
+
+    def it_delegates_add_endnote_properties_to_settings(
+        self, document_part_: Mock, settings_: Mock
+    ):
+        document_part_.settings = settings_
+        settings_.add_endnote_properties.return_value = "added-ep"
+        document = Document(cast(CT_Document, element("w:document")), document_part_)
+
+        result = document.add_endnote_properties()
+
+        settings_.add_endnote_properties.assert_called_once_with()
+        assert result == "added-ep"
+
     def it_provides_access_to_its_styles(self, document_part_: Mock, styles_: Mock):
         document_part_.styles = styles_
         document = Document(cast(CT_Document, element("w:document")), document_part_)

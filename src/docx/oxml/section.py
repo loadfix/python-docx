@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Callable, Iterator, List, Sequence, cast
+from typing import TYPE_CHECKING, Callable, Iterator, List, Sequence, cast
 
 from lxml import etree
 from typing_extensions import TypeAlias
@@ -28,6 +28,10 @@ from docx.oxml.xmlchemy import (
     ZeroOrOne,
 )
 from docx.shared import Length, lazyproperty
+
+if TYPE_CHECKING:
+    from docx.oxml.endnotes import CT_EdnDocProps
+    from docx.oxml.footnotes import CT_FtnDocProps
 
 BlockElement: TypeAlias = "CT_P | CT_Tbl"
 
@@ -140,8 +144,12 @@ class CT_SectPr(BaseOxmlElement):
     get_or_add_pgSz: Callable[[], CT_PageSz]
     get_or_add_titlePg: Callable[[], CT_OnOff]
     get_or_add_type: Callable[[], CT_SectType]
+    get_or_add_footnotePr: Callable[[], "CT_FtnDocProps"]
+    get_or_add_endnotePr: Callable[[], "CT_EdnDocProps"]
     _add_footerReference: Callable[[], CT_HdrFtrRef]
     _add_headerReference: Callable[[], CT_HdrFtrRef]
+    _remove_footnotePr: Callable[[], None]
+    _remove_endnotePr: Callable[[], None]
     _remove_titlePg: Callable[[], None]
     _remove_type: Callable[[], None]
 
@@ -169,6 +177,12 @@ class CT_SectPr(BaseOxmlElement):
     )
     headerReference = ZeroOrMore("w:headerReference", successors=_tag_seq)
     footerReference = ZeroOrMore("w:footerReference", successors=_tag_seq)
+    footnotePr: "CT_FtnDocProps | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:footnotePr", successors=_tag_seq[1:]
+    )
+    endnotePr: "CT_EdnDocProps | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:endnotePr", successors=_tag_seq[2:]
+    )
     type: CT_SectType | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:type", successors=_tag_seq[3:]
     )

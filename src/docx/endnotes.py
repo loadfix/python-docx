@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterator
 
 from docx.blkcntnr import BlockItemContainer
+from docx.enum.text import WD_ENDNOTE_POSITION, WD_FOOTNOTE_RESTART, WD_NUMBER_FORMAT
 
 if TYPE_CHECKING:
-    from docx.oxml.endnotes import CT_Endnote, CT_Endnotes
+    from docx.oxml.endnotes import CT_EdnDocProps, CT_Endnote, CT_Endnotes
     from docx.parts.endnotes import EndnotesPart
     from docx.styles.style import ParagraphStyle
     from docx.text.paragraph import Paragraph
@@ -132,3 +133,103 @@ class Endnote(BlockItemContainer):
         Paragraph boundaries are indicated with a newline (`"\\n"`).
         """
         return "\n".join(p.text for p in self.paragraphs)
+
+
+class EndnoteProperties:
+    """Proxy for a ``<w:endnotePr>`` element providing endnote configuration.
+
+    A `w:endnotePr` element can appear either at document level (as a child of
+    `w:settings`) or at section level (as a child of `w:sectPr`). In either case it
+    specifies the number format, position, starting number, and restart behaviour for
+    endnote numbering.
+
+    All properties return `None` when the corresponding child element is absent.
+    Assigning `None` to a property removes the corresponding child element.
+    """
+
+    def __init__(self, endnotePr: "CT_EdnDocProps"):
+        self._endnotePr = endnotePr
+
+    @property
+    def element(self) -> "CT_EdnDocProps":
+        """The underlying ``<w:endnotePr>`` XML element."""
+        return self._endnotePr
+
+    @property
+    def number_format(self) -> WD_NUMBER_FORMAT | None:
+        """The :ref:`WdNumberFormat` member corresponding to ``w:numFmt/@w:val``.
+
+        Read/write. Returns |None| when no ``w:numFmt`` child is present.
+        """
+        numFmt = self._endnotePr.numFmt
+        if numFmt is None:
+            return None
+        return numFmt.val
+
+    @number_format.setter
+    def number_format(self, value: WD_NUMBER_FORMAT | None):
+        if value is None:
+            self._endnotePr._remove_numFmt()  # pyright: ignore[reportPrivateUsage]
+            return
+        numFmt = self._endnotePr.get_or_add_numFmt()
+        numFmt.val = value
+
+    @property
+    def start_number(self) -> int | None:
+        """The initial endnote number from ``w:numStart/@w:val`` as an int.
+
+        Read/write. Returns |None| when no ``w:numStart`` child is present.
+        """
+        numStart = self._endnotePr.numStart
+        if numStart is None:
+            return None
+        return numStart.val
+
+    @start_number.setter
+    def start_number(self, value: int | None):
+        if value is None:
+            self._endnotePr._remove_numStart()  # pyright: ignore[reportPrivateUsage]
+            return
+        numStart = self._endnotePr.get_or_add_numStart()
+        numStart.val = value
+
+    @property
+    def restart_rule(self) -> WD_FOOTNOTE_RESTART | None:
+        """The :ref:`WdFootnoteRestart` member indicating when numbering restarts.
+
+        Read/write. Corresponds to ``w:numRestart/@w:val``. Returns |None| when no
+        ``w:numRestart`` child is present. Note that only ``CONTINUOUS`` and
+        ``EACH_SECTION`` are meaningful for endnote numbering.
+        """
+        numRestart = self._endnotePr.numRestart
+        if numRestart is None:
+            return None
+        return numRestart.val
+
+    @restart_rule.setter
+    def restart_rule(self, value: WD_FOOTNOTE_RESTART | None):
+        if value is None:
+            self._endnotePr._remove_numRestart()  # pyright: ignore[reportPrivateUsage]
+            return
+        numRestart = self._endnotePr.get_or_add_numRestart()
+        numRestart.val = value
+
+    @property
+    def position(self) -> WD_ENDNOTE_POSITION | None:
+        """The :ref:`WdEndnotePosition` member indicating where endnotes appear.
+
+        Read/write. Corresponds to ``w:pos/@w:val``. Returns |None| when no ``w:pos``
+        child is present.
+        """
+        pos = self._endnotePr.pos
+        if pos is None or pos.val is None:
+            return None
+        return WD_ENDNOTE_POSITION.from_xml(pos.val)
+
+    @position.setter
+    def position(self, value: WD_ENDNOTE_POSITION | None):
+        if value is None:
+            self._endnotePr._remove_pos()  # pyright: ignore[reportPrivateUsage]
+            return
+        pos = self._endnotePr.get_or_add_pos()
+        pos.val = WD_ENDNOTE_POSITION.to_xml(value)

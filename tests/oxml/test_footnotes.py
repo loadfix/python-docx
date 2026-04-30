@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import cast
 
-from docx.oxml.footnotes import CT_Footnote, CT_Footnotes
+from docx.enum.text import WD_FOOTNOTE_RESTART, WD_NUMBER_FORMAT
+from docx.oxml.footnotes import CT_Footnote, CT_Footnotes, CT_FtnDocProps
 from docx.oxml.ns import qn
 
 from ..unitutil.cxml import element
@@ -117,3 +118,42 @@ class DescribeCT_Footnote:
 
         content = footnote.inner_content_elements
         assert len(content) == 3
+
+
+class DescribeCT_FtnDocProps:
+    """Unit-test suite for `docx.oxml.footnotes.CT_FtnDocProps`."""
+
+    def it_returns_None_when_child_elements_absent(self):
+        footnotePr = cast(CT_FtnDocProps, element("w:footnotePr"))
+        assert footnotePr.numFmt is None
+        assert footnotePr.numStart is None
+        assert footnotePr.numRestart is None
+        assert footnotePr.pos is None
+
+    def it_provides_access_to_numFmt_val(self):
+        footnotePr = cast(
+            CT_FtnDocProps, element("w:footnotePr/w:numFmt{w:val=lowerRoman}")
+        )
+        assert footnotePr.numFmt is not None
+        assert footnotePr.numFmt.val == WD_NUMBER_FORMAT.LOWER_ROMAN
+
+    def it_provides_access_to_numStart_val(self):
+        footnotePr = cast(
+            CT_FtnDocProps, element("w:footnotePr/w:numStart{w:val=5}")
+        )
+        assert footnotePr.numStart is not None
+        assert footnotePr.numStart.val == 5
+
+    def it_provides_access_to_numRestart_val(self):
+        footnotePr = cast(
+            CT_FtnDocProps, element("w:footnotePr/w:numRestart{w:val=eachPage}")
+        )
+        assert footnotePr.numRestart is not None
+        assert footnotePr.numRestart.val == WD_FOOTNOTE_RESTART.EACH_PAGE
+
+    def it_provides_access_to_pos_val(self):
+        footnotePr = cast(
+            CT_FtnDocProps, element("w:footnotePr/w:pos{w:val=pageBottom}")
+        )
+        assert footnotePr.pos is not None
+        assert footnotePr.pos.val == "pageBottom"

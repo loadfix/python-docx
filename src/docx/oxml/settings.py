@@ -14,6 +14,8 @@ from docx.oxml.xmlchemy import (
 )
 
 if TYPE_CHECKING:
+    from docx.oxml.endnotes import CT_EdnDocProps
+    from docx.oxml.footnotes import CT_FtnDocProps
     from docx.oxml.shared import CT_OnOff
     from docx.shared import Length
 
@@ -75,6 +77,10 @@ class CT_Settings(BaseOxmlElement):
     _remove_defaultTabStop: Callable[[], None]
     get_or_add_evenAndOddHeaders: Callable[[], CT_OnOff]
     _remove_evenAndOddHeaders: Callable[[], None]
+    get_or_add_footnotePr: Callable[[], "CT_FtnDocProps"]
+    _remove_footnotePr: Callable[[], None]
+    get_or_add_endnotePr: Callable[[], "CT_EdnDocProps"]
+    _remove_endnotePr: Callable[[], None]
     get_or_add_compat: Callable[[], CT_Compat]
     _remove_compat: Callable[[], None]
 
@@ -192,6 +198,12 @@ class CT_Settings(BaseOxmlElement):
     )
     evenAndOddHeaders: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:evenAndOddHeaders", successors=_tag_seq[48:]
+    )
+    footnotePr: "CT_FtnDocProps | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:footnotePr", successors=_tag_seq[79:]
+    )
+    endnotePr: "CT_EdnDocProps | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:endnotePr", successors=_tag_seq[80:]
     )
     compat: CT_Compat | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:compat", successors=_tag_seq[81:]

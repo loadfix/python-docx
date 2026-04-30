@@ -18,8 +18,8 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.bookmarks import Bookmarks
     from docx.comments import Comment, Comments
-    from docx.endnotes import Endnotes
-    from docx.footnotes import Footnotes
+    from docx.endnotes import Endnotes, EndnoteProperties
+    from docx.footnotes import FootnoteProperties, Footnotes
     from docx.oxml.document import CT_Body, CT_Document
     from docx.parts.document import DocumentPart
     from docx.search import SearchMatch
@@ -217,6 +217,32 @@ class Document(ElementProxy):
         from docx.tracked_changes import _resolve_all_changes
 
         return _resolve_all_changes(self._element.body, accept=False)
+
+    @property
+    def footnote_properties(self) -> FootnoteProperties | None:
+        """Document-level |FootnoteProperties| or |None| if not configured.
+
+        Returns |None| when no ``w:footnotePr`` element exists in the document settings.
+        Use :meth:`add_footnote_properties` to add one and configure it.
+        """
+        return self.settings.footnote_properties
+
+    def add_footnote_properties(self) -> FootnoteProperties:
+        """Return document-level |FootnoteProperties|, adding a ``w:footnotePr`` if needed."""
+        return self.settings.add_footnote_properties()
+
+    @property
+    def endnote_properties(self) -> EndnoteProperties | None:
+        """Document-level |EndnoteProperties| or |None| if not configured.
+
+        Returns |None| when no ``w:endnotePr`` element exists in the document settings.
+        Use :meth:`add_endnote_properties` to add one and configure it.
+        """
+        return self.settings.endnote_properties
+
+    def add_endnote_properties(self) -> EndnoteProperties:
+        """Return document-level |EndnoteProperties|, adding a ``w:endnotePr`` if needed."""
+        return self.settings.add_endnote_properties()
 
     @property
     def core_properties(self):

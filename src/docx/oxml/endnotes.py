@@ -4,10 +4,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable, cast
 
+from docx.oxml.footnotes import CT_FtnEdnPos, CT_NumFmt, CT_NumRestart, CT_NumStart
 from docx.oxml.ns import nsdecls
 from docx.oxml.parser import parse_xml
 from docx.oxml.simpletypes import ST_DecimalNumber, ST_String
-from docx.oxml.xmlchemy import BaseOxmlElement, OptionalAttribute, RequiredAttribute, ZeroOrMore
+from docx.oxml.xmlchemy import (
+    BaseOxmlElement,
+    OptionalAttribute,
+    RequiredAttribute,
+    ZeroOrMore,
+    ZeroOrOne,
+)
 
 if TYPE_CHECKING:
     from docx.oxml.table import CT_Tbl
@@ -121,3 +128,41 @@ class CT_Endnote(BaseOxmlElement):
     def inner_content_elements(self) -> list[CT_P | CT_Tbl]:
         """Return all `w:p` and `w:tbl` elements in this endnote."""
         return self.xpath("./w:p | ./w:tbl")
+
+
+class CT_EdnDocProps(BaseOxmlElement):
+    """`w:endnotePr` element.
+
+    Appears as a child of `w:settings` (document-level) or `w:sectPr` (section-level).
+    Specifies document/section-level endnote properties.
+    """
+
+    get_or_add_pos: Callable[[], CT_FtnEdnPos]
+    _remove_pos: Callable[[], None]
+    get_or_add_numFmt: Callable[[], CT_NumFmt]
+    _remove_numFmt: Callable[[], None]
+    get_or_add_numStart: Callable[[], CT_NumStart]
+    _remove_numStart: Callable[[], None]
+    get_or_add_numRestart: Callable[[], CT_NumRestart]
+    _remove_numRestart: Callable[[], None]
+
+    _tag_seq = (
+        "w:pos",
+        "w:numFmt",
+        "w:numStart",
+        "w:numRestart",
+        "w:endnote",
+    )
+    pos: CT_FtnEdnPos | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:pos", successors=_tag_seq[1:]
+    )
+    numFmt: CT_NumFmt | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:numFmt", successors=_tag_seq[2:]
+    )
+    numStart: CT_NumStart | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:numStart", successors=_tag_seq[3:]
+    )
+    numRestart: CT_NumRestart | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:numRestart", successors=_tag_seq[4:]
+    )
+    del _tag_seq
