@@ -12,7 +12,7 @@ from _pytest.fixtures import FixtureRequest
 from docx.dml.color import ColorFormat
 from docx.enum.text import WD_COLOR, WD_UNDERLINE
 from docx.oxml.text.run import CT_R
-from docx.shared import Length, Pt
+from docx.shared import Length, Pt, RGBColor
 from docx.text.font import Font
 
 from ..unitutil.cxml import element, xml
@@ -572,6 +572,82 @@ class DescribeFont:
 
         font.highlight_color = value
 
+        assert font._element.xml == expected_xml
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r/w:rPr", None),
+            ("w:r/w:rPr/w:shd{w:val=clear,w:fill=D9E2F3}", RGBColor(0xD9, 0xE2, 0xF3)),
+            ("w:r/w:rPr/w:shd{w:fill=FF0000}", RGBColor(0xFF, 0x00, 0x00)),
+            ("w:r/w:rPr/w:shd{w:val=clear,w:fill=auto}", None),
+            ("w:r/w:rPr/w:shd{w:val=clear}", None),
+        ],
+    )
+    def it_knows_its_shading_color(
+        self, r_cxml: str, expected_value: RGBColor | None
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        assert font.shading_color == expected_value
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "value", "expected_r_cxml"),
+        [
+            (
+                "w:r",
+                RGBColor(0xD9, 0xE2, 0xF3),
+                "w:r/w:rPr/w:shd{w:val=clear,w:fill=D9E2F3}",
+            ),
+            (
+                "w:r/w:rPr",
+                RGBColor(0x00, 0x00, 0xFF),
+                "w:r/w:rPr/w:shd{w:val=clear,w:fill=0000FF}",
+            ),
+            (
+                "w:r/w:rPr/w:shd{w:fill=FF0000}",
+                RGBColor(0x00, 0xFF, 0x00),
+                "w:r/w:rPr/w:shd{w:val=clear,w:fill=00FF00}",
+            ),
+            (
+                "w:r/w:rPr/w:shd{w:val=clear,w:fill=D9E2F3}",
+                RGBColor(0xAB, 0xCD, 0xEF),
+                "w:r/w:rPr/w:shd{w:val=clear,w:fill=ABCDEF}",
+            ),
+            (
+                "w:r/w:rPr/w:shd{w:val=clear,w:fill=D9E2F3}",
+                None,
+                "w:r/w:rPr",
+            ),
+            ("w:r/w:rPr", None, "w:r/w:rPr"),
+            ("w:r", None, "w:r"),
+        ],
+    )
+    def it_can_change_its_shading_color(
+        self, r_cxml: str, value: RGBColor | None, expected_r_cxml: str
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        expected_xml = xml(expected_r_cxml)
+
+        font.shading_color = value
+
+        assert font._element.xml == expected_xml
+
+    def it_preserves_sibling_rPr_children_when_setting_shading_color(self):
+        r = cast(
+            CT_R,
+            element("w:r/w:rPr/(w:b,w:color{w:val=FF0000},w:u{w:val=single})"),
+        )
+        font = Font(r)
+
+        font.shading_color = RGBColor(0xAA, 0xBB, 0xCC)
+
+        expected_xml = xml(
+            "w:r/w:rPr/(w:b,w:color{w:val=FF0000},w:u{w:val=single},"
+            "w:shd{w:val=clear,w:fill=AABBCC})"
+        )
         assert font._element.xml == expected_xml
 
     # -- fixtures ----------------------------------------------------

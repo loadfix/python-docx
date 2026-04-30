@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from docx.dml.color import ColorFormat
+from docx.enum.table import WD_SHADING_PATTERN
 from docx.enum.text import WD_UNDERLINE
-from docx.shared import ElementProxy, Emu
+from docx.shared import ElementProxy, Emu, RGBColor
 
 if TYPE_CHECKING:
     from docx.enum.text import WD_COLOR_INDEX
@@ -320,6 +321,42 @@ class Font(ElementProxy):
     @rtl.setter
     def rtl(self, value: bool | None) -> None:
         self._set_bool_prop("rtl", value)
+
+    @property
+    def shading_color(self) -> RGBColor | None:
+        """Run-level background (shading) color as an |RGBColor|, or |None| if not set.
+
+        Read/write. Reads the ``w:fill`` attribute of ``w:rPr/w:shd``. Returns |None|
+        when ``w:shd`` is absent or its ``w:fill`` is missing or set to ``"auto"``.
+
+        Assigning an |RGBColor| writes ``w:rPr/w:shd`` with ``w:val="clear"`` and
+        ``w:fill="RRGGBB"``. Assigning |None| removes the ``w:shd`` child. Distinct
+        from :attr:`highlight_color`, which is a predefined palette applied as
+        ``w:highlight``.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        shd = rPr.shd
+        if shd is None:
+            return None
+        fill = shd.fill
+        if fill is None or not isinstance(fill, RGBColor):
+            return None
+        return fill
+
+    @shading_color.setter
+    def shading_color(self, value: RGBColor | None) -> None:
+        if value is None:
+            rPr = self._element.rPr
+            if rPr is None:
+                return
+            rPr._remove_shd()  # pyright: ignore[reportPrivateUsage]
+            return
+        rPr = self._element.get_or_add_rPr()
+        shd = rPr.get_or_add_shd()
+        shd.val = WD_SHADING_PATTERN.CLEAR
+        shd.fill = value
 
     @property
     def shadow(self) -> bool | None:
