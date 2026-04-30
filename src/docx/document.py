@@ -286,6 +286,16 @@ class Document(ElementProxy):
         return self._part.custom_properties
 
     @property
+    def numbering(self):
+        """A |Numbering| object providing read/write access to the list-style
+        numbering definitions for this document.
+
+        Creates a default (empty) numbering part if one is not already related to the
+        document.
+        """
+        return self._part.numbering_part.numbering
+
+    @property
     def inline_shapes(self):
         """The |InlineShapes| collection for this document.
 

@@ -2,7 +2,11 @@
 
 import pytest
 
+from docx.numbering import Numbering
+from docx.opc.constants import CONTENT_TYPE as CT
+from docx.opc.packuri import PackURI
 from docx.oxml.numbering import CT_Numbering
+from docx.package import Package
 from docx.parts.numbering import NumberingPart, _NumberingDefinitions
 
 from ..oxml.unitdata.numbering import a_num, a_numbering
@@ -10,6 +14,26 @@ from ..unitutil.mock import class_mock, instance_mock
 
 
 class DescribeNumberingPart:
+    def it_can_create_a_default_numbering_part(self, request):
+        package_ = instance_mock(request, Package)
+
+        part = NumberingPart.default(package_)
+
+        assert part.partname == PackURI("/word/numbering.xml")
+        assert part.content_type == CT.WML_NUMBERING
+        # -- the part exposes a Numbering proxy --
+        numbering = part.numbering
+        assert isinstance(numbering, Numbering)
+        # -- freshly-created part has no definitions --
+        assert len(numbering) == 0
+
+    def it_can_still_build_a_numbering_part_via_new(self):
+        # -- legacy compatibility: `NumberingPart.new()` without a package --
+        part = NumberingPart.new()
+
+        assert isinstance(part.numbering_element, CT_Numbering)
+        assert len(part.numbering) == 0
+
     def it_provides_access_to_the_numbering_definitions(self, num_defs_fixture):
         (
             numbering_part,

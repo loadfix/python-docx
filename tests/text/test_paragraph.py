@@ -878,3 +878,195 @@ class DescribeParagraph:
         run_ = instance_mock(request, Run, name="run_")
         run_2_ = instance_mock(request, Run, name="run_2_")
         return run_, run_2_
+
+
+class DescribeParagraph_ListFeatures:
+    """Unit-test suite for the list/numbering API on `Paragraph`."""
+
+    def it_reports_None_list_level_when_no_numPr(self, request: pytest.FixtureRequest):
+        paragraph = self._make_paragraph(request, "w:p")
+        assert paragraph.list_level is None
+
+    def it_reads_list_level_from_numPr_ilvl(self, request: pytest.FixtureRequest):
+        paragraph = self._make_paragraph(
+            request,
+            "w:p/w:pPr/w:numPr/(w:ilvl{w:val=2},w:numId{w:val=1})",
+        )
+        assert paragraph.list_level == 2
+
+    def it_can_set_list_level_round_trip(self, request: pytest.FixtureRequest):
+        paragraph = self._make_paragraph(request, "w:p")
+        paragraph.list_level = 3
+        assert paragraph.list_level == 3
+
+    def it_rejects_an_out_of_range_list_level(self, request: pytest.FixtureRequest):
+        paragraph = self._make_paragraph(request, "w:p")
+        with pytest.raises(ValueError):
+            paragraph.list_level = 9
+
+    def it_returns_empty_list_format_when_not_in_a_list(
+        self, request: pytest.FixtureRequest
+    ):
+        paragraph = self._make_paragraph(request, "w:p")
+
+        list_format = paragraph.list_format
+
+        assert list_format.numbering_definition is None
+        assert list_format.level is None
+
+    def it_resolves_list_format_from_the_numbering_part(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.numbering import Numbering
+        from docx.enum.text import WD_NUMBER_FORMAT
+        from docx.oxml.numbering import CT_Numbering
+        from docx.parts.numbering import NumberingPart
+
+        # -- build a real numbering part with one definition, one num --
+        numbering_elm = cast(CT_Numbering, element("w:numbering"))
+        numbering_part_ = instance_mock(request, NumberingPart)
+        numbering_part_.numbering_element = numbering_elm
+        numbering = Numbering(numbering_elm, numbering_part_)
+        defn = numbering.add_numbering_definition(
+            levels=[{"format": WD_NUMBER_FORMAT.DECIMAL, "text": "%1."}]
+        )
+        num_id = numbering_elm.num_lst[0].numId
+
+        p = cast(
+            CT_P,
+            element(
+                f"w:p/w:pPr/w:numPr/(w:ilvl{{w:val=0}},w:numId{{w:val={num_id}}})"
+            ),
+        )
+        part_ = instance_mock(request, DocumentPart)
+        part_.numbering_part = numbering_part_
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        paragraph = Paragraph(p, FakeParent())
+
+        list_format = paragraph.list_format
+
+        assert list_format.level == 0
+        assert list_format.numbering_definition is not None
+        assert list_format.numbering_definition.abstract_num_id == defn.abstract_num_id
+
+    def it_can_restart_numbering(self, request: pytest.FixtureRequest):
+        from docx.numbering import Numbering
+        from docx.enum.text import WD_NUMBER_FORMAT
+        from docx.oxml.numbering import CT_Numbering
+        from docx.oxml.ns import qn
+        from docx.parts.numbering import NumberingPart
+
+        numbering_elm = cast(CT_Numbering, element("w:numbering"))
+        numbering_part_ = instance_mock(request, NumberingPart)
+        numbering_part_.numbering_element = numbering_elm
+        numbering = Numbering(numbering_elm, numbering_part_)
+        numbering.add_numbering_definition(
+            levels=[{"format": WD_NUMBER_FORMAT.DECIMAL, "text": "%1."}]
+        )
+        original_num_id = numbering_elm.num_lst[0].numId
+
+        p = cast(
+            CT_P,
+            element(
+                f"w:p/w:pPr/w:numPr/"
+                f"(w:ilvl{{w:val=0}},w:numId{{w:val={original_num_id}}})"
+            ),
+        )
+        part_ = instance_mock(request, DocumentPart)
+        part_.numbering_part = numbering_part_
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        paragraph = Paragraph(p, FakeParent())
+
+        paragraph.restart_numbering(start=1)
+
+        # -- a new w:num was created --
+        assert len(numbering_elm.num_lst) == 2
+        new_num_id = numbering_elm.num_lst[-1].numId
+        assert new_num_id != original_num_id
+
+        # -- the paragraph's numId now points at the new num --
+        assert paragraph._p.pPr.numPr.numId_val == new_num_id
+
+        # -- the new num has the startOverride child --
+        new_num = numbering_elm.num_lst[-1]
+        overrides = new_num.xpath("./w:lvlOverride")
+        assert len(overrides) == 1
+        assert overrides[0].get(qn("w:ilvl")) == "0"
+        start_override = overrides[0].xpath("./w:startOverride")
+        assert len(start_override) == 1
+        assert start_override[0].get(qn("w:val")) == "1"
+
+    def it_raises_when_restart_numbering_called_on_non_list_paragraph(
+        self, request: pytest.FixtureRequest
+    ):
+        paragraph = self._make_paragraph(request, "w:p")
+
+        with pytest.raises(ValueError):
+            paragraph.restart_numbering()
+
+    def it_exposes_numbering_format_for_the_current_level(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.numbering import Numbering
+        from docx.enum.text import WD_NUMBER_FORMAT
+        from docx.oxml.numbering import CT_Numbering
+        from docx.parts.numbering import NumberingPart
+
+        numbering_elm = cast(CT_Numbering, element("w:numbering"))
+        numbering_part_ = instance_mock(request, NumberingPart)
+        numbering_part_.numbering_element = numbering_elm
+        numbering = Numbering(numbering_elm, numbering_part_)
+        numbering.add_numbering_definition(
+            levels=[
+                {"format": WD_NUMBER_FORMAT.DECIMAL, "text": "%1."},
+                {"format": WD_NUMBER_FORMAT.LOWER_LETTER, "text": "%2)"},
+            ]
+        )
+        num_id = numbering_elm.num_lst[0].numId
+
+        p = cast(
+            CT_P,
+            element(
+                f"w:p/w:pPr/w:numPr/"
+                f"(w:ilvl{{w:val=1}},w:numId{{w:val={num_id}}})"
+            ),
+        )
+        part_ = instance_mock(request, DocumentPart)
+        part_.numbering_part = numbering_part_
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        paragraph = Paragraph(p, FakeParent())
+
+        fmt = paragraph.numbering_format
+
+        assert fmt is not None
+        assert fmt.number_format == WD_NUMBER_FORMAT.LOWER_LETTER
+        assert fmt.text == "%2)"
+
+    # -- helpers --
+
+    @staticmethod
+    def _make_paragraph(request: pytest.FixtureRequest, cxml: str) -> Paragraph:
+        p = cast(CT_P, element(cxml))
+        part_ = instance_mock(request, DocumentPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        return Paragraph(p, FakeParent())
