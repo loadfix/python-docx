@@ -285,6 +285,97 @@ class DescribeDocument:
         _Body_.assert_called_once_with(body_elm, document)
         assert body is body_
 
+    def it_can_accept_all_tracked_changes(self, document_part_: Mock):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/("
+                'w:p/(w:r/w:t"keep ",w:ins{w:id=1,w:author=A}/w:r/w:t"added"),'
+                'w:p/(w:del{w:id=2,w:author=B}/w:r/w:delText"removed",w:r/w:t" end")'
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.accept_all_changes()
+
+        assert count == 2
+        assert document_elm.xpath(".//w:ins") == []
+        assert document_elm.xpath(".//w:del") == []
+        # Insertion flattened, deletion gone
+        paragraphs = document_elm.xpath(".//w:p")
+        assert "".join(t.text for t in paragraphs[0].xpath(".//w:t")) == "keep added"
+        assert "".join(t.text for t in paragraphs[1].xpath(".//w:t")) == " end"
+
+    def it_can_reject_all_tracked_changes(self, document_part_: Mock):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/("
+                'w:p/(w:r/w:t"keep ",w:ins{w:id=1,w:author=A}/w:r/w:t"added"),'
+                'w:p/(w:del{w:id=2,w:author=B}/w:r/w:delText"removed",w:r/w:t" end")'
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.reject_all_changes()
+
+        assert count == 2
+        assert document_elm.xpath(".//w:ins") == []
+        assert document_elm.xpath(".//w:del") == []
+        assert document_elm.xpath(".//w:delText") == []
+        # Insertion removed, deletion restored
+        paragraphs = document_elm.xpath(".//w:p")
+        assert "".join(t.text for t in paragraphs[0].xpath(".//w:t")) == "keep "
+        assert "".join(t.text for t in paragraphs[1].xpath(".//w:t")) == "removed end"
+
+    def it_resolves_formatting_changes_on_accept(self, document_part_: Mock):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/w:p/w:pPr/("
+                "w:jc{w:val=center},"
+                "w:pPrChange{w:id=5,w:author=C}/w:pPr/w:jc{w:val=left}"
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.accept_all_changes()
+
+        assert count == 1
+        # accept: pPrChange removed, current formatting (center) preserved
+        assert document_elm.xpath(".//w:pPrChange") == []
+        jc = document_elm.xpath(".//w:pPr/w:jc")
+        assert len(jc) == 1
+        assert jc[0].get(
+            "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val"
+        ) == "center"
+
+    def it_resolves_formatting_changes_on_reject(self, document_part_: Mock):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/w:p/w:pPr/("
+                "w:jc{w:val=center},"
+                "w:pPrChange{w:id=5,w:author=C}/w:pPr/w:jc{w:val=left}"
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.reject_all_changes()
+
+        assert count == 1
+        # reject: pPrChange gone, prior formatting (left) restored
+        assert document_elm.xpath(".//w:pPrChange") == []
+        jc = document_elm.xpath(".//w:pPr/w:jc")
+        assert len(jc) == 1
+        assert jc[0].get(
+            "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val"
+        ) == "left"
+
     def it_determines_block_width_to_help(
         self, document: Document, sections_prop_: Mock, section_: Mock
     ):

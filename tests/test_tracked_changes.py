@@ -54,3 +54,29 @@ class DescribeTrackedChange:
         del_elm = cast(CT_Del, element('w:del{w:id=2,w:author=B}/w:r/w:delText"deleted text"'))
         tc = TrackedChange(del_elm)
         assert tc.text == "deleted text"
+
+    def it_delegates_accept_to_the_underlying_element(self):
+        p = element(
+            'w:p/(w:ins{w:id=1,w:author=A}/w:r/w:t"i",w:del{w:id=2,w:author=B}/w:r/w:delText"d")'
+        )
+        ins = cast(CT_Ins, p.xpath("./w:ins")[0])
+        del_ = cast(CT_Del, p.xpath("./w:del")[0])
+        TrackedChange(ins).accept()
+        TrackedChange(del_).accept()
+        assert p.xpath("./w:ins") == []
+        assert p.xpath("./w:del") == []
+        # inserted run survived, deleted run discarded
+        assert [t.text for t in p.xpath("./w:r/w:t")] == ["i"]
+
+    def it_delegates_reject_to_the_underlying_element(self):
+        p = element(
+            'w:p/(w:ins{w:id=1,w:author=A}/w:r/w:t"i",w:del{w:id=2,w:author=B}/w:r/w:delText"d")'
+        )
+        ins = cast(CT_Ins, p.xpath("./w:ins")[0])
+        del_ = cast(CT_Del, p.xpath("./w:del")[0])
+        TrackedChange(ins).reject()
+        TrackedChange(del_).reject()
+        assert p.xpath("./w:ins") == []
+        assert p.xpath("./w:del") == []
+        # inserted run discarded, deleted run restored (now with w:t)
+        assert [t.text for t in p.xpath("./w:r/w:t")] == ["d"]

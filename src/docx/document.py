@@ -192,6 +192,32 @@ class Document(ElementProxy):
         """A |Footnotes| object providing access to footnotes in the document."""
         return self._part.footnotes
 
+    def accept_all_changes(self) -> int:
+        """Accept every tracked change in the document body.
+
+        Insertions are flattened into live content, deletions are removed, and any
+        `w:rPrChange`, `w:pPrChange`, or `w:sectPrChange` elements are discarded
+        (the current, post-edit formatting is retained).
+
+        Returns the number of change elements resolved.
+        """
+        from docx.tracked_changes import _resolve_all_changes
+
+        return _resolve_all_changes(self._element.body, accept=True)
+
+    def reject_all_changes(self) -> int:
+        """Reject every tracked change in the document body.
+
+        Insertions are removed, deletions are restored as live content, and any
+        `w:rPrChange`, `w:pPrChange`, or `w:sectPrChange` elements are unwound so
+        the prior formatting is restored.
+
+        Returns the number of change elements resolved.
+        """
+        from docx.tracked_changes import _resolve_all_changes
+
+        return _resolve_all_changes(self._element.body, accept=False)
+
     @property
     def core_properties(self):
         """A |CoreProperties| object providing Dublin Core properties of document."""
