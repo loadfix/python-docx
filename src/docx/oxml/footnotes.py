@@ -4,10 +4,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable, cast
 
+from docx.enum.text import WD_FOOTNOTE_RESTART, WD_NUMBER_FORMAT
 from docx.oxml.ns import nsdecls
 from docx.oxml.parser import parse_xml
 from docx.oxml.simpletypes import ST_DecimalNumber, ST_String
-from docx.oxml.xmlchemy import BaseOxmlElement, OptionalAttribute, RequiredAttribute, ZeroOrMore
+from docx.oxml.xmlchemy import (
+    BaseOxmlElement,
+    OptionalAttribute,
+    RequiredAttribute,
+    ZeroOrMore,
+    ZeroOrOne,
+)
 
 if TYPE_CHECKING:
     from docx.oxml.table import CT_Tbl
@@ -121,3 +128,78 @@ class CT_Footnote(BaseOxmlElement):
     def inner_content_elements(self) -> list[CT_P | CT_Tbl]:
         """Return all `w:p` and `w:tbl` elements in this footnote."""
         return self.xpath("./w:p | ./w:tbl")
+
+
+class CT_FtnEdnPos(BaseOxmlElement):
+    """`w:pos` child of `w:footnotePr` / `w:endnotePr`.
+
+    Specifies footnote or endnote position. The set of valid values depends on whether
+    this element is a child of `w:footnotePr` or `w:endnotePr`; see `WD_FOOTNOTE_POSITION`
+    and `WD_ENDNOTE_POSITION` respectively.
+    """
+
+    val: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:val", ST_String
+    )
+
+
+class CT_NumFmt(BaseOxmlElement):
+    """`w:numFmt` child of `w:footnotePr`/`w:endnotePr`, specifying number format."""
+
+    val: WD_NUMBER_FORMAT | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:val", WD_NUMBER_FORMAT
+    )
+
+
+class CT_NumStart(BaseOxmlElement):
+    """`w:numStart` child of `w:footnotePr`/`w:endnotePr`, specifying start number."""
+
+    val: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:val", ST_DecimalNumber
+    )
+
+
+class CT_NumRestart(BaseOxmlElement):
+    """`w:numRestart` child of `w:footnotePr`, specifying when footnote numbering restarts."""
+
+    val: WD_FOOTNOTE_RESTART | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:val", WD_FOOTNOTE_RESTART
+    )
+
+
+class CT_FtnDocProps(BaseOxmlElement):
+    """`w:footnotePr` element.
+
+    Appears as a child of `w:settings` (document-level) or `w:sectPr` (section-level).
+    Specifies document/section-level footnote properties.
+    """
+
+    get_or_add_pos: Callable[[], CT_FtnEdnPos]
+    _remove_pos: Callable[[], None]
+    get_or_add_numFmt: Callable[[], CT_NumFmt]
+    _remove_numFmt: Callable[[], None]
+    get_or_add_numStart: Callable[[], CT_NumStart]
+    _remove_numStart: Callable[[], None]
+    get_or_add_numRestart: Callable[[], CT_NumRestart]
+    _remove_numRestart: Callable[[], None]
+
+    _tag_seq = (
+        "w:pos",
+        "w:numFmt",
+        "w:numStart",
+        "w:numRestart",
+        "w:footnote",
+    )
+    pos: CT_FtnEdnPos | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:pos", successors=_tag_seq[1:]
+    )
+    numFmt: CT_NumFmt | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:numFmt", successors=_tag_seq[2:]
+    )
+    numStart: CT_NumStart | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:numStart", successors=_tag_seq[3:]
+    )
+    numRestart: CT_NumRestart | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:numRestart", successors=_tag_seq[4:]
+    )
+    del _tag_seq

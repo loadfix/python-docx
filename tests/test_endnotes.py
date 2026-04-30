@@ -8,17 +8,18 @@ from typing import cast
 
 import pytest
 
-from docx.endnotes import Endnote, Endnotes
+from docx.endnotes import Endnote, EndnoteProperties, Endnotes
+from docx.enum.text import WD_ENDNOTE_POSITION, WD_FOOTNOTE_RESTART, WD_NUMBER_FORMAT
 from docx.opc.constants import CONTENT_TYPE as CT
 from docx.opc.packuri import PackURI
-from docx.oxml.endnotes import CT_Endnote, CT_Endnotes
+from docx.oxml.endnotes import CT_EdnDocProps, CT_Endnote, CT_Endnotes
 from docx.oxml.ns import qn
 from docx.oxml.text.run import CT_R
 from docx.package import Package
 from docx.parts.endnotes import EndnotesPart
 from docx.text.run import Run
 
-from .unitutil.cxml import element
+from .unitutil.cxml import element, xml
 from .unitutil.mock import FixtureRequest, Mock, instance_mock
 
 
@@ -288,3 +289,143 @@ class DescribeEndnote:
     @pytest.fixture
     def endnotes_part_(self, request: FixtureRequest):
         return instance_mock(request, EndnotesPart)
+
+
+class DescribeEndnoteProperties:
+    """Unit-test suite for `docx.endnotes.EndnoteProperties`."""
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:endnotePr", None),
+            ("w:endnotePr/w:numFmt{w:val=decimal}", WD_NUMBER_FORMAT.ARABIC),
+            ("w:endnotePr/w:numFmt{w:val=lowerRoman}", WD_NUMBER_FORMAT.LOWER_ROMAN),
+            ("w:endnotePr/w:numFmt{w:val=upperRoman}", WD_NUMBER_FORMAT.UPPER_ROMAN),
+            ("w:endnotePr/w:numFmt{w:val=lowerLetter}", WD_NUMBER_FORMAT.LOWER_LETTER),
+            ("w:endnotePr/w:numFmt{w:val=upperLetter}", WD_NUMBER_FORMAT.UPPER_LETTER),
+            ("w:endnotePr/w:numFmt{w:val=chicago}", WD_NUMBER_FORMAT.CHICAGO),
+        ],
+    )
+    def it_can_get_the_number_format(
+        self, cxml: str, expected_value: WD_NUMBER_FORMAT | None
+    ):
+        endnotePr = cast(CT_EdnDocProps, element(cxml))
+        assert EndnoteProperties(endnotePr).number_format == expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            ("w:endnotePr", WD_NUMBER_FORMAT.UPPER_ROMAN, "w:endnotePr/w:numFmt{w:val=upperRoman}"),
+            (
+                "w:endnotePr/w:numFmt{w:val=decimal}",
+                WD_NUMBER_FORMAT.CHICAGO,
+                "w:endnotePr/w:numFmt{w:val=chicago}",
+            ),
+            ("w:endnotePr/w:numFmt{w:val=decimal}", None, "w:endnotePr"),
+        ],
+    )
+    def it_can_set_the_number_format(
+        self, cxml: str, new_value: WD_NUMBER_FORMAT | None, expected_cxml: str
+    ):
+        endnotePr = cast(CT_EdnDocProps, element(cxml))
+        props = EndnoteProperties(endnotePr)
+        props.number_format = new_value
+        assert endnotePr.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:endnotePr", None),
+            ("w:endnotePr/w:numStart{w:val=1}", 1),
+            ("w:endnotePr/w:numStart{w:val=42}", 42),
+        ],
+    )
+    def it_can_get_the_start_number(self, cxml: str, expected_value: int | None):
+        endnotePr = cast(CT_EdnDocProps, element(cxml))
+        assert EndnoteProperties(endnotePr).start_number == expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            ("w:endnotePr", 2, "w:endnotePr/w:numStart{w:val=2}"),
+            ("w:endnotePr/w:numStart{w:val=1}", None, "w:endnotePr"),
+        ],
+    )
+    def it_can_set_the_start_number(
+        self, cxml: str, new_value: int | None, expected_cxml: str
+    ):
+        endnotePr = cast(CT_EdnDocProps, element(cxml))
+        props = EndnoteProperties(endnotePr)
+        props.start_number = new_value
+        assert endnotePr.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:endnotePr", None),
+            ("w:endnotePr/w:numRestart{w:val=continuous}", WD_FOOTNOTE_RESTART.CONTINUOUS),
+            ("w:endnotePr/w:numRestart{w:val=eachSect}", WD_FOOTNOTE_RESTART.EACH_SECTION),
+        ],
+    )
+    def it_can_get_the_restart_rule(
+        self, cxml: str, expected_value: WD_FOOTNOTE_RESTART | None
+    ):
+        endnotePr = cast(CT_EdnDocProps, element(cxml))
+        assert EndnoteProperties(endnotePr).restart_rule == expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            (
+                "w:endnotePr",
+                WD_FOOTNOTE_RESTART.EACH_SECTION,
+                "w:endnotePr/w:numRestart{w:val=eachSect}",
+            ),
+            ("w:endnotePr/w:numRestart{w:val=eachSect}", None, "w:endnotePr"),
+        ],
+    )
+    def it_can_set_the_restart_rule(
+        self, cxml: str, new_value: WD_FOOTNOTE_RESTART | None, expected_cxml: str
+    ):
+        endnotePr = cast(CT_EdnDocProps, element(cxml))
+        props = EndnoteProperties(endnotePr)
+        props.restart_rule = new_value
+        assert endnotePr.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:endnotePr", None),
+            ("w:endnotePr/w:pos{w:val=docEnd}", WD_ENDNOTE_POSITION.END_OF_DOCUMENT),
+            ("w:endnotePr/w:pos{w:val=sectEnd}", WD_ENDNOTE_POSITION.END_OF_SECTION),
+        ],
+    )
+    def it_can_get_the_position(
+        self, cxml: str, expected_value: WD_ENDNOTE_POSITION | None
+    ):
+        endnotePr = cast(CT_EdnDocProps, element(cxml))
+        assert EndnoteProperties(endnotePr).position == expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            (
+                "w:endnotePr",
+                WD_ENDNOTE_POSITION.END_OF_DOCUMENT,
+                "w:endnotePr/w:pos{w:val=docEnd}",
+            ),
+            (
+                "w:endnotePr/w:pos{w:val=docEnd}",
+                WD_ENDNOTE_POSITION.END_OF_SECTION,
+                "w:endnotePr/w:pos{w:val=sectEnd}",
+            ),
+            ("w:endnotePr/w:pos{w:val=docEnd}", None, "w:endnotePr"),
+        ],
+    )
+    def it_can_set_the_position(
+        self, cxml: str, new_value: WD_ENDNOTE_POSITION | None, expected_cxml: str
+    ):
+        endnotePr = cast(CT_EdnDocProps, element(cxml))
+        props = EndnoteProperties(endnotePr)
+        props.position = new_value
+        assert endnotePr.xml == xml(expected_cxml)

@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterator
 
 from docx.blkcntnr import BlockItemContainer
+from docx.enum.text import WD_FOOTNOTE_POSITION, WD_FOOTNOTE_RESTART, WD_NUMBER_FORMAT
 
 if TYPE_CHECKING:
-    from docx.oxml.footnotes import CT_Footnote, CT_Footnotes
+    from docx.oxml.footnotes import CT_Footnote, CT_Footnotes, CT_FtnDocProps
     from docx.parts.footnotes import FootnotesPart
     from docx.styles.style import ParagraphStyle
     from docx.text.paragraph import Paragraph
@@ -132,3 +133,102 @@ class Footnote(BlockItemContainer):
         Paragraph boundaries are indicated with a newline (`"\\n"`).
         """
         return "\n".join(p.text for p in self.paragraphs)
+
+
+class FootnoteProperties:
+    """Proxy for a ``<w:footnotePr>`` element providing footnote configuration.
+
+    A `w:footnotePr` element can appear either at document level (as a child of
+    `w:settings`) or at section level (as a child of `w:sectPr`). In either case it
+    specifies the number format, position, starting number, and restart behaviour for
+    footnote numbering.
+
+    All properties return `None` when the corresponding child element is absent.
+    Assigning `None` to a property removes the corresponding child element.
+    """
+
+    def __init__(self, footnotePr: "CT_FtnDocProps"):
+        self._footnotePr = footnotePr
+
+    @property
+    def element(self) -> "CT_FtnDocProps":
+        """The underlying ``<w:footnotePr>`` XML element."""
+        return self._footnotePr
+
+    @property
+    def number_format(self) -> WD_NUMBER_FORMAT | None:
+        """The :ref:`WdNumberFormat` member corresponding to ``w:numFmt/@w:val``.
+
+        Read/write. Returns |None| when no ``w:numFmt`` child is present.
+        """
+        numFmt = self._footnotePr.numFmt
+        if numFmt is None:
+            return None
+        return numFmt.val
+
+    @number_format.setter
+    def number_format(self, value: WD_NUMBER_FORMAT | None):
+        if value is None:
+            self._footnotePr._remove_numFmt()  # pyright: ignore[reportPrivateUsage]
+            return
+        numFmt = self._footnotePr.get_or_add_numFmt()
+        numFmt.val = value
+
+    @property
+    def start_number(self) -> int | None:
+        """The initial footnote number from ``w:numStart/@w:val`` as an int.
+
+        Read/write. Returns |None| when no ``w:numStart`` child is present.
+        """
+        numStart = self._footnotePr.numStart
+        if numStart is None:
+            return None
+        return numStart.val
+
+    @start_number.setter
+    def start_number(self, value: int | None):
+        if value is None:
+            self._footnotePr._remove_numStart()  # pyright: ignore[reportPrivateUsage]
+            return
+        numStart = self._footnotePr.get_or_add_numStart()
+        numStart.val = value
+
+    @property
+    def restart_rule(self) -> WD_FOOTNOTE_RESTART | None:
+        """The :ref:`WdFootnoteRestart` member indicating when numbering restarts.
+
+        Read/write. Corresponds to ``w:numRestart/@w:val``. Returns |None| when no
+        ``w:numRestart`` child is present.
+        """
+        numRestart = self._footnotePr.numRestart
+        if numRestart is None:
+            return None
+        return numRestart.val
+
+    @restart_rule.setter
+    def restart_rule(self, value: WD_FOOTNOTE_RESTART | None):
+        if value is None:
+            self._footnotePr._remove_numRestart()  # pyright: ignore[reportPrivateUsage]
+            return
+        numRestart = self._footnotePr.get_or_add_numRestart()
+        numRestart.val = value
+
+    @property
+    def position(self) -> WD_FOOTNOTE_POSITION | None:
+        """The :ref:`WdFootnotePosition` member indicating footnote page position.
+
+        Read/write. Corresponds to ``w:pos/@w:val``. Returns |None| when no ``w:pos``
+        child is present.
+        """
+        pos = self._footnotePr.pos
+        if pos is None or pos.val is None:
+            return None
+        return WD_FOOTNOTE_POSITION.from_xml(pos.val)
+
+    @position.setter
+    def position(self, value: WD_FOOTNOTE_POSITION | None):
+        if value is None:
+            self._footnotePr._remove_pos()  # pyright: ignore[reportPrivateUsage]
+            return
+        pos = self._footnotePr.get_or_add_pos()
+        pos.val = WD_FOOTNOTE_POSITION.to_xml(value)

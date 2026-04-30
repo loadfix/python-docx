@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import cast
 
-from docx.oxml.endnotes import CT_Endnote, CT_Endnotes
+from docx.enum.text import WD_NUMBER_FORMAT
+from docx.oxml.endnotes import CT_EdnDocProps, CT_Endnote, CT_Endnotes
 from docx.oxml.ns import qn
 
 from ..unitutil.cxml import element
@@ -117,3 +118,28 @@ class DescribeCT_Endnote:
 
         content = endnote.inner_content_elements
         assert len(content) == 3
+
+
+class DescribeCT_EdnDocProps:
+    """Unit-test suite for `docx.oxml.endnotes.CT_EdnDocProps`."""
+
+    def it_returns_None_when_child_elements_absent(self):
+        endnotePr = cast(CT_EdnDocProps, element("w:endnotePr"))
+        assert endnotePr.numFmt is None
+        assert endnotePr.numStart is None
+        assert endnotePr.numRestart is None
+        assert endnotePr.pos is None
+
+    def it_provides_access_to_numFmt_val(self):
+        endnotePr = cast(
+            CT_EdnDocProps, element("w:endnotePr/w:numFmt{w:val=upperRoman}")
+        )
+        assert endnotePr.numFmt is not None
+        assert endnotePr.numFmt.val == WD_NUMBER_FORMAT.UPPER_ROMAN
+
+    def it_provides_access_to_pos_val(self):
+        endnotePr = cast(
+            CT_EdnDocProps, element("w:endnotePr/w:pos{w:val=sectEnd}")
+        )
+        assert endnotePr.pos is not None
+        assert endnotePr.pos.val == "sectEnd"

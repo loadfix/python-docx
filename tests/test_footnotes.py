@@ -8,17 +8,18 @@ from typing import cast
 
 import pytest
 
-from docx.footnotes import Footnote, Footnotes
+from docx.enum.text import WD_FOOTNOTE_POSITION, WD_FOOTNOTE_RESTART, WD_NUMBER_FORMAT
+from docx.footnotes import Footnote, FootnoteProperties, Footnotes
 from docx.opc.constants import CONTENT_TYPE as CT
 from docx.opc.packuri import PackURI
-from docx.oxml.footnotes import CT_Footnote, CT_Footnotes
+from docx.oxml.footnotes import CT_Footnote, CT_Footnotes, CT_FtnDocProps
 from docx.oxml.ns import qn
 from docx.oxml.text.run import CT_R
 from docx.package import Package
 from docx.parts.footnotes import FootnotesPart
 from docx.text.run import Run
 
-from .unitutil.cxml import element
+from .unitutil.cxml import element, xml
 from .unitutil.mock import FixtureRequest, Mock, instance_mock
 
 
@@ -288,3 +289,168 @@ class DescribeFootnote:
     @pytest.fixture
     def footnotes_part_(self, request: FixtureRequest):
         return instance_mock(request, FootnotesPart)
+
+
+class DescribeFootnoteProperties:
+    """Unit-test suite for `docx.footnotes.FootnoteProperties`."""
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:footnotePr", None),
+            ("w:footnotePr/w:numFmt{w:val=decimal}", WD_NUMBER_FORMAT.ARABIC),
+            ("w:footnotePr/w:numFmt{w:val=lowerRoman}", WD_NUMBER_FORMAT.LOWER_ROMAN),
+            ("w:footnotePr/w:numFmt{w:val=upperRoman}", WD_NUMBER_FORMAT.UPPER_ROMAN),
+            ("w:footnotePr/w:numFmt{w:val=lowerLetter}", WD_NUMBER_FORMAT.LOWER_LETTER),
+            ("w:footnotePr/w:numFmt{w:val=upperLetter}", WD_NUMBER_FORMAT.UPPER_LETTER),
+            ("w:footnotePr/w:numFmt{w:val=chicago}", WD_NUMBER_FORMAT.CHICAGO),
+        ],
+    )
+    def it_can_get_the_number_format(
+        self, cxml: str, expected_value: WD_NUMBER_FORMAT | None
+    ):
+        footnotePr = cast(CT_FtnDocProps, element(cxml))
+        assert FootnoteProperties(footnotePr).number_format == expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            ("w:footnotePr", WD_NUMBER_FORMAT.ARABIC, "w:footnotePr/w:numFmt{w:val=decimal}"),
+            (
+                "w:footnotePr/w:numFmt{w:val=decimal}",
+                WD_NUMBER_FORMAT.LOWER_ROMAN,
+                "w:footnotePr/w:numFmt{w:val=lowerRoman}",
+            ),
+            ("w:footnotePr/w:numFmt{w:val=decimal}", None, "w:footnotePr"),
+        ],
+    )
+    def it_can_set_the_number_format(
+        self, cxml: str, new_value: WD_NUMBER_FORMAT | None, expected_cxml: str
+    ):
+        footnotePr = cast(CT_FtnDocProps, element(cxml))
+        props = FootnoteProperties(footnotePr)
+        props.number_format = new_value
+        assert footnotePr.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:footnotePr", None),
+            ("w:footnotePr/w:numStart{w:val=1}", 1),
+            ("w:footnotePr/w:numStart{w:val=5}", 5),
+        ],
+    )
+    def it_can_get_the_start_number(self, cxml: str, expected_value: int | None):
+        footnotePr = cast(CT_FtnDocProps, element(cxml))
+        assert FootnoteProperties(footnotePr).start_number == expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            ("w:footnotePr", 1, "w:footnotePr/w:numStart{w:val=1}"),
+            ("w:footnotePr/w:numStart{w:val=1}", 7, "w:footnotePr/w:numStart{w:val=7}"),
+            ("w:footnotePr/w:numStart{w:val=1}", None, "w:footnotePr"),
+        ],
+    )
+    def it_can_set_the_start_number(
+        self, cxml: str, new_value: int | None, expected_cxml: str
+    ):
+        footnotePr = cast(CT_FtnDocProps, element(cxml))
+        props = FootnoteProperties(footnotePr)
+        props.start_number = new_value
+        assert footnotePr.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:footnotePr", None),
+            ("w:footnotePr/w:numRestart{w:val=continuous}", WD_FOOTNOTE_RESTART.CONTINUOUS),
+            ("w:footnotePr/w:numRestart{w:val=eachSect}", WD_FOOTNOTE_RESTART.EACH_SECTION),
+            ("w:footnotePr/w:numRestart{w:val=eachPage}", WD_FOOTNOTE_RESTART.EACH_PAGE),
+        ],
+    )
+    def it_can_get_the_restart_rule(
+        self, cxml: str, expected_value: WD_FOOTNOTE_RESTART | None
+    ):
+        footnotePr = cast(CT_FtnDocProps, element(cxml))
+        assert FootnoteProperties(footnotePr).restart_rule == expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            (
+                "w:footnotePr",
+                WD_FOOTNOTE_RESTART.EACH_PAGE,
+                "w:footnotePr/w:numRestart{w:val=eachPage}",
+            ),
+            (
+                "w:footnotePr/w:numRestart{w:val=continuous}",
+                WD_FOOTNOTE_RESTART.EACH_SECTION,
+                "w:footnotePr/w:numRestart{w:val=eachSect}",
+            ),
+            ("w:footnotePr/w:numRestart{w:val=eachPage}", None, "w:footnotePr"),
+        ],
+    )
+    def it_can_set_the_restart_rule(
+        self, cxml: str, new_value: WD_FOOTNOTE_RESTART | None, expected_cxml: str
+    ):
+        footnotePr = cast(CT_FtnDocProps, element(cxml))
+        props = FootnoteProperties(footnotePr)
+        props.restart_rule = new_value
+        assert footnotePr.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:footnotePr", None),
+            ("w:footnotePr/w:pos{w:val=pageBottom}", WD_FOOTNOTE_POSITION.BOTTOM_OF_PAGE),
+            ("w:footnotePr/w:pos{w:val=beneathText}", WD_FOOTNOTE_POSITION.BENEATH_TEXT),
+        ],
+    )
+    def it_can_get_the_position(
+        self, cxml: str, expected_value: WD_FOOTNOTE_POSITION | None
+    ):
+        footnotePr = cast(CT_FtnDocProps, element(cxml))
+        assert FootnoteProperties(footnotePr).position == expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            (
+                "w:footnotePr",
+                WD_FOOTNOTE_POSITION.BOTTOM_OF_PAGE,
+                "w:footnotePr/w:pos{w:val=pageBottom}",
+            ),
+            (
+                "w:footnotePr/w:pos{w:val=pageBottom}",
+                WD_FOOTNOTE_POSITION.BENEATH_TEXT,
+                "w:footnotePr/w:pos{w:val=beneathText}",
+            ),
+            ("w:footnotePr/w:pos{w:val=pageBottom}", None, "w:footnotePr"),
+        ],
+    )
+    def it_can_set_the_position(
+        self, cxml: str, new_value: WD_FOOTNOTE_POSITION | None, expected_cxml: str
+    ):
+        footnotePr = cast(CT_FtnDocProps, element(cxml))
+        props = FootnoteProperties(footnotePr)
+        props.position = new_value
+        assert footnotePr.xml == xml(expected_cxml)
+
+    def it_orders_children_in_schema_sequence_when_all_set(self):
+        footnotePr = cast(CT_FtnDocProps, element("w:footnotePr"))
+        props = FootnoteProperties(footnotePr)
+
+        # -- assign in arbitrary order --
+        props.restart_rule = WD_FOOTNOTE_RESTART.EACH_PAGE
+        props.start_number = 3
+        props.position = WD_FOOTNOTE_POSITION.BOTTOM_OF_PAGE
+        props.number_format = WD_NUMBER_FORMAT.LOWER_ROMAN
+
+        expected = (
+            "w:footnotePr/(w:pos{w:val=pageBottom}"
+            ",w:numFmt{w:val=lowerRoman}"
+            ",w:numStart{w:val=3}"
+            ",w:numRestart{w:val=eachPage})"
+        )
+        assert footnotePr.xml == xml(expected)

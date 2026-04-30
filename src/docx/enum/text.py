@@ -471,3 +471,80 @@ class WD_UNDERLINE(BaseXmlEnum):
 
     DASH_LONG_HEAVY = (55, "dashLongHeavy", "Long heavy dashes.")
     """Long heavy dashes."""
+
+
+class WD_NUMBER_FORMAT(BaseXmlEnum):
+    """Specifies the number format used for footnote or endnote numbering.
+
+    Maps to the ``w:numFmt`` child element of ``w:footnotePr`` or ``w:endnotePr``.
+
+    Corresponds to values of the OOXML ``ST_NumberFormat`` simple type.
+    """
+
+    ARABIC = (0, "decimal", "Arabic numerals (1, 2, 3).")
+    """Arabic numerals (1, 2, 3)."""
+
+    LOWER_ROMAN = (1, "lowerRoman", "Lowercase Roman numerals (i, ii, iii).")
+    """Lowercase Roman numerals (i, ii, iii)."""
+
+    UPPER_ROMAN = (2, "upperRoman", "Uppercase Roman numerals (I, II, III).")
+    """Uppercase Roman numerals (I, II, III)."""
+
+    LOWER_LETTER = (3, "lowerLetter", "Lowercase letters (a, b, c).")
+    """Lowercase letters (a, b, c)."""
+
+    UPPER_LETTER = (4, "upperLetter", "Uppercase letters (A, B, C).")
+    """Uppercase letters (A, B, C)."""
+
+    CHICAGO = (
+        5,
+        "chicago",
+        "Chicago Manual of Style footnote marks (*, †, ‡, §).",
+    )
+    """Chicago Manual of Style footnote marks."""
+
+
+class WD_FOOTNOTE_RESTART(BaseXmlEnum):
+    """Specifies when footnote numbering restarts.
+
+    Maps to the ``w:numRestart`` child element of ``w:footnotePr``.
+    """
+
+    CONTINUOUS = (0, "continuous", "Continuous numbering throughout the document.")
+    """Continuous numbering throughout the document."""
+
+    EACH_SECTION = (1, "eachSect", "Numbering restarts at the beginning of each section.")
+    """Numbering restarts at the beginning of each section."""
+
+    EACH_PAGE = (2, "eachPage", "Numbering restarts at the beginning of each page.")
+    """Numbering restarts at the beginning of each page."""
+
+
+class WD_FOOTNOTE_POSITION(BaseXmlEnum):
+    """Specifies the position of footnotes on the page.
+
+    Maps to the ``w:pos`` child element of ``w:footnotePr``.
+    """
+
+    BOTTOM_OF_PAGE = (0, "pageBottom", "Footnotes appear at the bottom of the page.")
+    """Footnotes appear at the bottom of the page."""
+
+    BENEATH_TEXT = (
+        1,
+        "beneathText",
+        "Footnotes appear immediately beneath the body text on the page.",
+    )
+    """Footnotes appear immediately beneath the body text on the page."""
+
+
+class WD_ENDNOTE_POSITION(BaseXmlEnum):
+    """Specifies the position of endnotes in the document.
+
+    Maps to the ``w:pos`` child element of ``w:endnotePr``.
+    """
+
+    END_OF_DOCUMENT = (0, "docEnd", "Endnotes appear at the end of the document.")
+    """Endnotes appear at the end of the document."""
+
+    END_OF_SECTION = (1, "sectEnd", "Endnotes appear at the end of each section.")
+    """Endnotes appear at the end of each section."""

@@ -12,7 +12,9 @@ from docx.table import Table
 from docx.text.paragraph import Paragraph
 
 if TYPE_CHECKING:
+    from docx.endnotes import EndnoteProperties
     from docx.enum.section import WD_ORIENTATION, WD_SECTION_START
+    from docx.footnotes import FootnoteProperties
     from docx.oxml.document import CT_Document
     from docx.oxml.section import CT_Col, CT_Cols, CT_SectPr
     from docx.parts.document import DocumentPart
@@ -270,6 +272,66 @@ class Section:
     @top_margin.setter
     def top_margin(self, value: Length | None):
         self._sectPr.top_margin = value
+
+    @property
+    def footnote_properties(self) -> FootnoteProperties | None:
+        """A |FootnoteProperties| object or |None| when no ``w:footnotePr`` child is
+        present on this section's ``w:sectPr``.
+
+        Section-level footnote properties override document-level defaults. Use
+        :meth:`add_footnote_properties` to add a ``w:footnotePr`` child if not present.
+        """
+        from docx.footnotes import FootnoteProperties
+
+        footnotePr = self._sectPr.footnotePr
+        if footnotePr is None:
+            return None
+        return FootnoteProperties(footnotePr)
+
+    def add_footnote_properties(self) -> FootnoteProperties:
+        """Return a |FootnoteProperties| proxy, adding ``w:footnotePr`` if needed.
+
+        If a ``w:footnotePr`` element is already present on this section, the existing
+        element is used.
+        """
+        from docx.footnotes import FootnoteProperties
+
+        footnotePr = self._sectPr.get_or_add_footnotePr()
+        return FootnoteProperties(footnotePr)
+
+    def remove_footnote_properties(self) -> None:
+        """Remove the ``w:footnotePr`` child element if present."""
+        self._sectPr._remove_footnotePr()  # pyright: ignore[reportPrivateUsage]
+
+    @property
+    def endnote_properties(self) -> EndnoteProperties | None:
+        """An |EndnoteProperties| object or |None| when no ``w:endnotePr`` child is
+        present on this section's ``w:sectPr``.
+
+        Section-level endnote properties override document-level defaults. Use
+        :meth:`add_endnote_properties` to add a ``w:endnotePr`` child if not present.
+        """
+        from docx.endnotes import EndnoteProperties
+
+        endnotePr = self._sectPr.endnotePr
+        if endnotePr is None:
+            return None
+        return EndnoteProperties(endnotePr)
+
+    def add_endnote_properties(self) -> EndnoteProperties:
+        """Return an |EndnoteProperties| proxy, adding ``w:endnotePr`` if needed.
+
+        If a ``w:endnotePr`` element is already present on this section, the existing
+        element is used.
+        """
+        from docx.endnotes import EndnoteProperties
+
+        endnotePr = self._sectPr.get_or_add_endnotePr()
+        return EndnoteProperties(endnotePr)
+
+    def remove_endnote_properties(self) -> None:
+        """Remove the ``w:endnotePr`` child element if present."""
+        self._sectPr._remove_endnotePr()  # pyright: ignore[reportPrivateUsage]
 
 
 class Sections(Sequence[Section]):

@@ -8,6 +8,9 @@ import warnings
 
 import pytest
 
+from docx.endnotes import EndnoteProperties
+from docx.enum.text import WD_ENDNOTE_POSITION, WD_FOOTNOTE_POSITION, WD_NUMBER_FORMAT
+from docx.footnotes import FootnoteProperties
 from docx.settings import Settings
 from docx.shared import Twips
 
@@ -203,3 +206,78 @@ class DescribeSettings:
         settings.compatibility_mode = 15
         settings.compatibility_mode = None
         assert settings.compatibility_mode is None
+
+    def it_returns_None_when_no_footnote_properties_present(self):
+        settings = Settings(element("w:settings"))
+        assert settings.footnote_properties is None
+
+    def it_returns_a_FootnoteProperties_when_footnotePr_is_present(self):
+        settings = Settings(element("w:settings/w:footnotePr"))
+        props = settings.footnote_properties
+        assert isinstance(props, FootnoteProperties)
+
+    def it_can_add_footnote_properties(self):
+        settings = Settings(element("w:settings"))
+
+        props = settings.add_footnote_properties()
+
+        assert isinstance(props, FootnoteProperties)
+        assert settings._settings.xml == xml("w:settings/w:footnotePr")
+
+    def add_footnote_properties_returns_existing_element_when_present(self):
+        settings = Settings(element("w:settings/w:footnotePr/w:numFmt{w:val=chicago}"))
+        props = settings.add_footnote_properties()
+        assert props.number_format == WD_NUMBER_FORMAT.CHICAGO
+
+    def it_can_remove_footnote_properties(self):
+        settings = Settings(element("w:settings/w:footnotePr/w:pos{w:val=pageBottom}"))
+        settings.remove_footnote_properties()
+        assert settings._settings.xml == xml("w:settings")
+
+    def it_round_trips_footnote_properties_through_settings(self):
+        settings = Settings(element("w:settings"))
+        props = settings.add_footnote_properties()
+
+        props.number_format = WD_NUMBER_FORMAT.LOWER_ROMAN
+        props.start_number = 1
+        props.position = WD_FOOTNOTE_POSITION.BENEATH_TEXT
+
+        assert settings.footnote_properties is not None
+        assert settings.footnote_properties.number_format == WD_NUMBER_FORMAT.LOWER_ROMAN
+        assert settings.footnote_properties.start_number == 1
+        assert (
+            settings.footnote_properties.position == WD_FOOTNOTE_POSITION.BENEATH_TEXT
+        )
+
+    def it_returns_None_when_no_endnote_properties_present(self):
+        settings = Settings(element("w:settings"))
+        assert settings.endnote_properties is None
+
+    def it_returns_an_EndnoteProperties_when_endnotePr_is_present(self):
+        settings = Settings(element("w:settings/w:endnotePr"))
+        props = settings.endnote_properties
+        assert isinstance(props, EndnoteProperties)
+
+    def it_can_add_endnote_properties(self):
+        settings = Settings(element("w:settings"))
+
+        props = settings.add_endnote_properties()
+
+        assert isinstance(props, EndnoteProperties)
+        assert settings._settings.xml == xml("w:settings/w:endnotePr")
+
+    def it_can_remove_endnote_properties(self):
+        settings = Settings(element("w:settings/w:endnotePr/w:pos{w:val=docEnd}"))
+        settings.remove_endnote_properties()
+        assert settings._settings.xml == xml("w:settings")
+
+    def it_round_trips_endnote_properties_through_settings(self):
+        settings = Settings(element("w:settings"))
+        props = settings.add_endnote_properties()
+
+        props.number_format = WD_NUMBER_FORMAT.UPPER_LETTER
+        props.position = WD_ENDNOTE_POSITION.END_OF_SECTION
+
+        assert settings.endnote_properties is not None
+        assert settings.endnote_properties.number_format == WD_NUMBER_FORMAT.UPPER_LETTER
+        assert settings.endnote_properties.position == WD_ENDNOTE_POSITION.END_OF_SECTION
