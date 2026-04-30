@@ -463,11 +463,14 @@ class CT_TblPr(BaseOxmlElement):
     get_or_add_jc: Callable[[], CT_Jc]
     get_or_add_tblBorders: Callable[[], CT_TblBorders]
     get_or_add_tblLayout: Callable[[], CT_TblLayoutType]
+    get_or_add_tblW: Callable[[], CT_TblWidth]
     _add_tblStyle: Callable[[], CT_String]
     _remove_bidiVisual: Callable[[], None]
     _remove_jc: Callable[[], None]
     _remove_tblBorders: Callable[[], None]
+    _remove_tblLayout: Callable[[], None]
     _remove_tblStyle: Callable[[], None]
+    _remove_tblW: Callable[[], None]
 
     _tag_seq = (
         "w:tblStyle",
@@ -494,6 +497,9 @@ class CT_TblPr(BaseOxmlElement):
     )
     bidiVisual: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:bidiVisual", successors=_tag_seq[4:]
+    )
+    tblW: CT_TblWidth | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:tblW", successors=_tag_seq[7:]
     )
     jc: CT_Jc | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:jc", successors=_tag_seq[8:]
@@ -535,6 +541,37 @@ class CT_TblPr(BaseOxmlElement):
     def autofit(self, value: bool):
         tblLayout = self.get_or_add_tblLayout()
         tblLayout.type = "autofit" if value else "fixed"
+
+    @property
+    def preferred_width(self) -> Length | None:
+        """EMU |Length| indicated by `./w:tblW`, or |None| if not present or non-dxa.
+
+        Returns |None| when either the ``w:tblW`` child is absent or when its
+        ``w:type`` attribute is not ``"dxa"`` (i.e. when the table width is
+        expressed as a percentage or as ``auto``).
+        """
+        tblW = self.tblW
+        if tblW is None:
+            return None
+        return tblW.width
+
+    @preferred_width.setter
+    def preferred_width(self, value: Length | None):
+        if value is None:
+            self._remove_tblW()
+            return
+        tblW = self.get_or_add_tblW()
+        tblW.width = value
+
+    def set_tblW(self, w: int, type_: str) -> CT_TblWidth:
+        """Set the `w:tblW` child to the given `w` and `type` values.
+
+        Creates the `w:tblW` child if not present, or updates the existing one.
+        """
+        tblW = self.get_or_add_tblW()
+        tblW.type = type_
+        tblW.w = w
+        return tblW
 
     @property
     def style(self):

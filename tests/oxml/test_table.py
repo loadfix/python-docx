@@ -18,10 +18,12 @@ from docx.oxml.table import (
     CT_Tbl,
     CT_TblBorders,
     CT_TblPr,
+    CT_TblWidth,
     CT_Tc,
     CT_TcBorders,
     CT_TcPr,
 )
+from docx.shared import Emu, Inches
 from docx.oxml.text.paragraph import CT_P
 from docx.shared import Inches, Length, RGBColor
 
@@ -151,6 +153,64 @@ class DescribeCT_TblPr_borders:
         tblPr.get_or_add_tblBorders()
         expected = xml("w:tblPr/(w:tblStyle,w:tblBorders,w:tblLayout)")
         assert tblPr.xml == expected
+
+
+class DescribeCT_TblPr_width:
+    """Unit-test suite for `w:tblW` features of CT_TblPr."""
+
+    def it_is_None_when_no_tblW_child_is_present(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        assert tblPr.tblW is None
+        assert tblPr.preferred_width is None
+
+    def it_returns_None_for_non_dxa_tblW(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr/w:tblW{w:type=pct,w:w=5000}"))
+        assert tblPr.preferred_width is None
+
+    def it_returns_EMU_for_dxa_tblW(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr/w:tblW{w:type=dxa,w:w=1440}"))
+        assert tblPr.preferred_width == Inches(1)
+
+    def it_can_set_a_preferred_width(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        tblPr.preferred_width = Inches(1)
+        assert tblPr.xml == xml("w:tblPr/w:tblW{w:type=dxa,w:w=1440}")
+
+    def it_can_clear_a_preferred_width(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr/w:tblW{w:type=dxa,w:w=1440}"))
+        tblPr.preferred_width = None
+        assert tblPr.xml == xml("w:tblPr")
+
+    def it_inserts_tblW_in_the_right_position(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr/(w:tblStyle,w:tblLayout)"))
+        tblPr.set_tblW(1440, "dxa")
+        expected = xml(
+            "w:tblPr/(w:tblStyle,w:tblW{w:type=dxa,w:w=1440},w:tblLayout)"
+        )
+        assert tblPr.xml == expected
+
+    def it_can_update_an_existing_tblW(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr/w:tblW{w:type=auto,w:w=0}"))
+        tblPr.set_tblW(5000, "pct")
+        assert tblPr.xml == xml("w:tblPr/w:tblW{w:type=pct,w:w=5000}")
+
+
+class DescribeCT_TblWidth:
+    """Unit-test suite for `docx.oxml.table.CT_TblWidth` objects."""
+
+    def it_returns_None_when_type_is_not_dxa(self):
+        tblW = cast(CT_TblWidth, element("w:tblW{w:type=auto,w:w=0}"))
+        assert tblW.width is None
+
+    def it_returns_EMU_length_for_dxa(self):
+        tblW = cast(CT_TblWidth, element("w:tblW{w:type=dxa,w:w=1440}"))
+        assert tblW.width == Inches(1)
+
+    def it_switches_to_dxa_when_width_is_set(self):
+        tblW = cast(CT_TblWidth, element("w:tblW{w:type=pct,w:w=5000}"))
+        tblW.width = Emu(914400)
+        assert tblW.type == "dxa"
+        assert tblW.w == 1440
 
 
 class DescribeCT_TcPr_borders:

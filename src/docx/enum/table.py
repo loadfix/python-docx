@@ -344,6 +344,44 @@ class WD_BORDER_STYLE(BaseXmlEnum):
     """No border (used to override inherited border)."""
 
 
+class WD_TABLE_AUTOFIT(BaseEnum):
+    """Specifies the autofit behavior for a table.
+
+    Example::
+
+        from docx.enum.table import WD_TABLE_AUTOFIT
+
+        table = document.add_table(3, 3)
+        table.autofit_behavior = WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS
+
+    This enum does not have a direct MS API analog; it merges the concepts expressed
+    by ``w:tblLayout/@w:type`` (``fixed`` vs. ``autofit``) with the ``w:tblW/@w:type``
+    attribute (``auto`` vs. ``pct``/``dxa``).
+    """
+
+    AUTOFIT_TO_WINDOW = (
+        0,
+        "Column widths adjust automatically so the table fills the window width"
+        " (maps to ``w:tblLayout/@w:type=\"autofit\"`` with"
+        " ``w:tblW/@w:type=\"pct\"`` at 5000 (100%)).",
+    )
+    """Column widths adjust automatically so the table fills the window width."""
+
+    AUTOFIT_TO_CONTENTS = (
+        1,
+        "Column widths adjust automatically based on cell contents (maps to"
+        " ``w:tblLayout/@w:type=\"autofit\"`` with ``w:tblW/@w:type=\"auto\"``).",
+    )
+    """Column widths adjust automatically based on cell contents."""
+
+    FIXED_WIDTH = (
+        2,
+        "Column widths are fixed regardless of cell contents (maps to"
+        " ``w:tblLayout/@w:type=\"fixed\"``).",
+    )
+    """Column widths are fixed regardless of cell contents."""
+
+
 class WD_TABLE_DIRECTION(BaseEnum):
     """Specifies the direction in which an application orders cells in the specified
     table or row.

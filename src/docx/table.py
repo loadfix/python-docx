@@ -9,7 +9,12 @@ from typing_extensions import TypeAlias
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.style import WD_STYLE_TYPE
-from docx.enum.table import WD_BORDER_STYLE, WD_CELL_VERTICAL_ALIGNMENT, WD_SHADING_PATTERN
+from docx.enum.table import (
+    WD_BORDER_STYLE,
+    WD_CELL_VERTICAL_ALIGNMENT,
+    WD_SHADING_PATTERN,
+    WD_TABLE_AUTOFIT,
+)
 from docx.oxml.simpletypes import ST_Merge
 from docx.oxml.table import CT_TblGridCol
 from docx.shared import Emu, Inches, Parented, Pt, RGBColor, StoryChild, lazyproperty
@@ -97,12 +102,94 @@ class Table(StoryChild):
 
         |False| if table layout is fixed. Column widths are adjusted in either case if
         total column width exceeds page width. Read/write boolean.
+
+        Backward-compatible alias. For richer control over the autofit behavior use
+        :attr:`autofit_behavior` (which returns a :class:`WD_TABLE_AUTOFIT` member)
+        and :attr:`allow_autofit` (a narrow bool-only view onto `w:tblLayout`).
         """
         return self._tblPr.autofit
 
     @autofit.setter
     def autofit(self, value: bool):
         self._tblPr.autofit = value
+
+    @property
+    def allow_autofit(self) -> bool:
+        """|True| when the table layout type is ``"autofit"`` (or absent).
+
+        |False| when the table has an explicit ``<w:tblLayout w:type="fixed"/>``
+        child; in that case Word keeps each column at exactly its declared width.
+
+        Read/write. Setting this property only affects the ``w:tblLayout`` child;
+        it does not alter ``w:tblW`` (use :attr:`preferred_width` or
+        :attr:`autofit_behavior` for that). Assigning |True| removes any explicit
+        ``w:tblLayout`` rather than writing ``w:type="autofit"`` so the table falls
+        back to the OOXML default.
+        """
+        return self._tblPr.autofit
+
+    @allow_autofit.setter
+    def allow_autofit(self, value: bool):
+        tblPr = self._tblPr
+        if value:
+            # -- default is autofit; remove the explicit element rather than write it --
+            tblPr._remove_tblLayout()  # pyright: ignore[reportPrivateUsage]
+        else:
+            tblPr.get_or_add_tblLayout().type = "fixed"
+
+    @property
+    def autofit_behavior(self) -> WD_TABLE_AUTOFIT:
+        """The autofit behavior of this table as a |WD_TABLE_AUTOFIT| member.
+
+        Combines the semantics of the ``w:tblLayout/@w:type`` and
+        ``w:tblW/@w:type`` attributes:
+
+        - ``FIXED_WIDTH`` if ``w:tblLayout/@w:type="fixed"``.
+        - ``AUTOFIT_TO_WINDOW`` if layout is autofit and ``w:tblW/@w:type="pct"``.
+        - ``AUTOFIT_TO_CONTENTS`` otherwise (the OOXML default).
+
+        Read/write. Assigning a new value rewrites both ``w:tblLayout`` and
+        ``w:tblW`` to a consistent state.
+        """
+        tblPr = self._tblPr
+        if not tblPr.autofit:
+            return WD_TABLE_AUTOFIT.FIXED_WIDTH
+        tblW = tblPr.tblW
+        if tblW is not None and tblW.type == "pct":
+            return WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW
+        return WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS
+
+    @autofit_behavior.setter
+    def autofit_behavior(self, value: WD_TABLE_AUTOFIT):
+        tblPr = self._tblPr
+        if value == WD_TABLE_AUTOFIT.FIXED_WIDTH:
+            tblPr.get_or_add_tblLayout().type = "fixed"
+            return
+        if value == WD_TABLE_AUTOFIT.AUTOFIT_TO_WINDOW:
+            tblPr._remove_tblLayout()  # pyright: ignore[reportPrivateUsage]
+            tblPr.set_tblW(5000, "pct")
+            return
+        if value == WD_TABLE_AUTOFIT.AUTOFIT_TO_CONTENTS:
+            tblPr._remove_tblLayout()  # pyright: ignore[reportPrivateUsage]
+            tblPr.set_tblW(0, "auto")
+            return
+        raise ValueError(f"unsupported WD_TABLE_AUTOFIT value: {value!r}")
+
+    @property
+    def preferred_width(self) -> Length | None:
+        """The preferred total width of this table in EMU, or |None|.
+
+        Maps to ``w:tblPr/w:tblW`` with ``@w:type="dxa"``. Returns |None| when
+        ``w:tblW`` is absent or when its ``w:type`` is not ``"dxa"`` (e.g. when
+        the table width is declared as a percentage or ``auto``).
+
+        Read/write. Assigning |None| removes ``w:tblW`` entirely.
+        """
+        return self._tblPr.preferred_width
+
+    @preferred_width.setter
+    def preferred_width(self, value: Length | None):
+        self._tblPr.preferred_width = value
 
     @property
     def borders(self) -> TableBorders:
@@ -722,7 +809,39 @@ class _Column(Parented):
 
     @width.setter
     def width(self, value: Length | None):
+        """Set the column width and propagate to each row's corresponding cell.
+
+        Writes ``@w:w`` on this ``w:gridCol`` and updates ``w:tcW`` on every
+        ``w:tc`` at the matching grid-offset. Cells that horizontally span more
+        than one grid column (``w:gridSpan > 1``) are left untouched to avoid
+        clobbering a merged cell's existing width. Assigning |None| removes
+        ``@w:w`` on the gridCol and removes ``w:tcW`` from each matching cell.
+        """
         self._gridCol.w = value
+        tblGrid = self._gridCol.getparent()
+        if tblGrid is None:
+            return
+        tbl = cast("CT_Tbl | None", tblGrid.getparent())
+        if tbl is None:
+            return
+        col_idx = self._index
+        # -- propagate to each row's single-span cell at this grid offset --
+        for tr in tbl.tr_lst:
+            for tc in tr.tc_lst:
+                if tc.grid_offset != col_idx:
+                    continue
+                if tc.grid_span != 1:
+                    # -- leave merged / spanned cells alone --
+                    break
+                if value is None:
+                    tcPr = tc.tcPr
+                    if tcPr is not None:
+                        tcW = tcPr.tcW
+                        if tcW is not None:
+                            tcPr.remove(tcW)
+                else:
+                    tc.width = value
+                break
 
     @property
     def _index(self):
