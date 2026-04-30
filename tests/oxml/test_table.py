@@ -8,7 +8,7 @@ from typing import cast
 
 import pytest
 
-from docx.enum.table import WD_BORDER_STYLE, WD_SHADING_PATTERN
+from docx.enum.table import WD_BORDER_STYLE, WD_ROW_HEIGHT_RULE, WD_SHADING_PATTERN
 from docx.exceptions import InvalidSpanError
 from docx.oxml.parser import parse_xml
 from docx.oxml.table import (
@@ -23,7 +23,7 @@ from docx.oxml.table import (
     CT_TcPr,
 )
 from docx.oxml.text.paragraph import CT_P
-from docx.shared import RGBColor
+from docx.shared import Inches, Length, RGBColor
 
 from ..unitutil.cxml import element, xml
 from ..unitutil.file import snippet_seq
@@ -314,6 +314,104 @@ class DescribeCT_Row:
     ):
         tr = cast(CT_Row, element(tr_cxml))
         tr.is_header = new_value
+        assert tr.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("tr_cxml", "expected_value"),
+        [
+            ("w:tr", None),
+            ("w:tr/w:trPr", None),
+            ("w:tr/w:trPr/w:trHeight", None),
+            ("w:tr/w:trPr/w:trHeight{w:val=0}", 0),
+            ("w:tr/w:trPr/w:trHeight{w:val=1440}", 914400),
+        ],
+    )
+    def it_knows_its_trHeight_val(self, tr_cxml: str, expected_value: int | None):
+        tr = cast(CT_Row, element(tr_cxml))
+        assert tr.trHeight_val == expected_value
+
+    @pytest.mark.parametrize(
+        ("tr_cxml", "new_value", "expected_cxml"),
+        [
+            ("w:tr", Inches(1), "w:tr/w:trPr/w:trHeight{w:val=1440}"),
+            ("w:tr/w:trPr", Inches(1), "w:tr/w:trPr/w:trHeight{w:val=1440}"),
+            ("w:tr/w:trPr/w:trHeight", Inches(1), "w:tr/w:trPr/w:trHeight{w:val=1440}"),
+            (
+                "w:tr/w:trPr/w:trHeight{w:val=1440}",
+                Inches(2),
+                "w:tr/w:trPr/w:trHeight{w:val=2880}",
+            ),
+            ("w:tr/w:trPr/w:trHeight{w:val=2880}", None, "w:tr/w:trPr/w:trHeight"),
+            ("w:tr", None, "w:tr/w:trPr"),
+            ("w:tr/w:trPr", None, "w:tr/w:trPr"),
+        ],
+    )
+    def it_can_change_its_trHeight_val(
+        self, tr_cxml: str, new_value: Length | None, expected_cxml: str
+    ):
+        tr = cast(CT_Row, element(tr_cxml))
+        tr.trHeight_val = new_value
+        assert tr.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("tr_cxml", "expected_value"),
+        [
+            ("w:tr", None),
+            ("w:tr/w:trPr", None),
+            ("w:tr/w:trPr/w:trHeight", None),
+            ("w:tr/w:trPr/w:trHeight{w:hRule=auto}", WD_ROW_HEIGHT_RULE.AUTO),
+            (
+                "w:tr/w:trPr/w:trHeight{w:val=1440, w:hRule=atLeast}",
+                WD_ROW_HEIGHT_RULE.AT_LEAST,
+            ),
+            (
+                "w:tr/w:trPr/w:trHeight{w:val=2880, w:hRule=exact}",
+                WD_ROW_HEIGHT_RULE.EXACTLY,
+            ),
+        ],
+    )
+    def it_knows_its_trHeight_hRule(
+        self, tr_cxml: str, expected_value: WD_ROW_HEIGHT_RULE | None
+    ):
+        tr = cast(CT_Row, element(tr_cxml))
+        assert tr.trHeight_hRule == expected_value
+
+    @pytest.mark.parametrize(
+        ("tr_cxml", "new_value", "expected_cxml"),
+        [
+            ("w:tr", WD_ROW_HEIGHT_RULE.AUTO, "w:tr/w:trPr/w:trHeight{w:hRule=auto}"),
+            (
+                "w:tr/w:trPr",
+                WD_ROW_HEIGHT_RULE.AT_LEAST,
+                "w:tr/w:trPr/w:trHeight{w:hRule=atLeast}",
+            ),
+            (
+                "w:tr/w:trPr/w:trHeight",
+                WD_ROW_HEIGHT_RULE.EXACTLY,
+                "w:tr/w:trPr/w:trHeight{w:hRule=exact}",
+            ),
+            (
+                "w:tr/w:trPr/w:trHeight{w:val=1440, w:hRule=exact}",
+                WD_ROW_HEIGHT_RULE.AUTO,
+                "w:tr/w:trPr/w:trHeight{w:val=1440, w:hRule=auto}",
+            ),
+            (
+                "w:tr/w:trPr/w:trHeight{w:val=1440, w:hRule=auto}",
+                None,
+                "w:tr/w:trPr/w:trHeight{w:val=1440}",
+            ),
+            ("w:tr", None, "w:tr/w:trPr"),
+            ("w:tr/w:trPr", None, "w:tr/w:trPr"),
+        ],
+    )
+    def it_can_change_its_trHeight_hRule(
+        self,
+        tr_cxml: str,
+        new_value: WD_ROW_HEIGHT_RULE | None,
+        expected_cxml: str,
+    ):
+        tr = cast(CT_Row, element(tr_cxml))
+        tr.trHeight_hRule = new_value
         assert tr.xml == xml(expected_cxml)
 
     @pytest.mark.parametrize(("snippet_idx", "row_idx", "col_idx"), [(0, 0, 3), (1, 0, 1)])
