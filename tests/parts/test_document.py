@@ -5,6 +5,7 @@
 import pytest
 
 from docx.comments import Comments
+from docx.custom_properties import CustomProperties
 from docx.enum.style import WD_STYLE_TYPE
 from docx.opc.constants import CONTENT_TYPE as CT
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
@@ -12,6 +13,7 @@ from docx.opc.coreprops import CoreProperties
 from docx.opc.packuri import PackURI
 from docx.package import Package
 from docx.parts.comments import CommentsPart
+from docx.parts.custom_properties import CustomPropertiesPart
 from docx.parts.document import DocumentPart
 from docx.parts.footnotes import FootnotesPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
@@ -274,6 +276,56 @@ class DescribeDocumentPart:
         part_related_by_.assert_called_once_with(document_part, RT.COMMENTS)
         assert comments_part is comments_part_
 
+    def it_provides_access_to_its_custom_properties_part_to_help(
+        self, package_: Mock, part_related_by_: Mock, custom_properties_part_: Mock
+    ):
+        part_related_by_.return_value = custom_properties_part_
+        document_part = DocumentPart(
+            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
+        )
+
+        custom_properties_part = document_part._custom_properties_part
+
+        part_related_by_.assert_called_once_with(document_part, RT.CUSTOM_PROPERTIES)
+        assert custom_properties_part is custom_properties_part_
+
+    def and_it_creates_a_default_custom_properties_part_if_not_present(
+        self,
+        package_: Mock,
+        part_related_by_: Mock,
+        CustomPropertiesPart_: Mock,
+        custom_properties_part_: Mock,
+        relate_to_: Mock,
+    ):
+        part_related_by_.side_effect = KeyError
+        CustomPropertiesPart_.default.return_value = custom_properties_part_
+        document_part = DocumentPart(
+            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
+        )
+
+        custom_properties_part = document_part._custom_properties_part
+
+        CustomPropertiesPart_.default.assert_called_once_with(package_)
+        relate_to_.assert_called_once_with(
+            document_part, custom_properties_part_, RT.CUSTOM_PROPERTIES
+        )
+        assert custom_properties_part is custom_properties_part_
+
+    def it_exposes_the_custom_properties_collection(
+        self,
+        _custom_properties_part_prop_: Mock,
+        custom_properties_part_: Mock,
+        custom_properties_: Mock,
+        package_: Mock,
+    ):
+        custom_properties_part_.custom_properties = custom_properties_
+        _custom_properties_part_prop_.return_value = custom_properties_part_
+        document_part = DocumentPart(
+            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
+        )
+
+        assert document_part.custom_properties is custom_properties_
+
     def and_it_creates_a_default_comments_part_if_not_present(
         self,
         package_: Mock,
@@ -381,6 +433,22 @@ class DescribeDocumentPart:
     @pytest.fixture
     def core_properties_(self, request: FixtureRequest):
         return instance_mock(request, CoreProperties)
+
+    @pytest.fixture
+    def CustomPropertiesPart_(self, request: FixtureRequest) -> Mock:
+        return class_mock(request, "docx.parts.document.CustomPropertiesPart")
+
+    @pytest.fixture
+    def custom_properties_(self, request: FixtureRequest) -> Mock:
+        return instance_mock(request, CustomProperties)
+
+    @pytest.fixture
+    def custom_properties_part_(self, request: FixtureRequest) -> Mock:
+        return instance_mock(request, CustomPropertiesPart)
+
+    @pytest.fixture
+    def _custom_properties_part_prop_(self, request: FixtureRequest) -> Mock:
+        return property_mock(request, DocumentPart, "_custom_properties_part")
 
     @pytest.fixture
     def drop_rel_(self, request: FixtureRequest):

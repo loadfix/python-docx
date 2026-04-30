@@ -103,6 +103,11 @@ from .coreprops import CT_CoreProperties
 
 register_element_cls("cp:coreProperties", CT_CoreProperties)
 
+from .custom_properties import CT_CustomProperties, CT_CustomProperty
+
+register_element_cls("custprops:Properties", CT_CustomProperties)
+register_element_cls("custprops:property", CT_CustomProperty)
+
 from .endnotes import CT_EdnDocProps, CT_Endnote, CT_Endnotes
 
 register_element_cls("w:endnote", CT_Endnote)

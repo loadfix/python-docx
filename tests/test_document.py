@@ -10,6 +10,7 @@ from typing import cast
 import pytest
 
 from docx.comments import Comment, Comments
+from docx.custom_properties import CustomProperties
 from docx.document import Document, _Body
 from docx.enum.section import WD_SECTION
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
@@ -212,6 +213,16 @@ class DescribeDocument:
         core_properties = document.core_properties
 
         assert core_properties is core_properties_
+
+    def it_provides_access_to_its_custom_properties(
+        self, document_part_: Mock, custom_properties_: Mock
+    ):
+        document_part_.custom_properties = custom_properties_
+        document = Document(cast(CT_Document, element("w:document")), document_part_)
+
+        custom_properties = document.custom_properties
+
+        assert custom_properties is custom_properties_
 
     def it_provides_access_to_its_inline_shapes(self, document_part_: Mock, inline_shapes_: Mock):
         document_part_.inline_shapes = inline_shapes_
@@ -468,6 +479,10 @@ class DescribeDocument:
     @pytest.fixture
     def core_properties_(self, request: FixtureRequest):
         return instance_mock(request, CoreProperties)
+
+    @pytest.fixture
+    def custom_properties_(self, request: FixtureRequest):
+        return instance_mock(request, CustomProperties)
 
     @pytest.fixture
     def document(self, document_part_: Mock) -> Document:
