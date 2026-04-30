@@ -9,11 +9,16 @@ from typing import cast
 import pytest
 
 from docx.document import Document
-from docx.enum.shape import WD_INLINE_SHAPE
+from docx.enum.shape import (
+    WD_ANCHOR_H,
+    WD_ANCHOR_V,
+    WD_INLINE_SHAPE,
+    WD_WRAP_TYPE,
+)
 from docx.oxml.document import CT_Body
 from docx.oxml.ns import nsmap
-from docx.oxml.shape import CT_Inline
-from docx.shape import InlineShape, InlineShapes
+from docx.oxml.shape import CT_Anchor, CT_Inline
+from docx.shape import FloatingImage, InlineShape, InlineShapes
 from docx.shared import Emu, Length
 
 from .unitutil.cxml import element, xml
@@ -127,3 +132,80 @@ class DescribeInlineShape:
             "wp:inline/(wp:extent{cx=444,cy=888},a:graphic/a:graphicData/pic:pic/pic:spPr/"
             "a:xfrm/a:ext{cx=444,cy=888})"
         )
+
+
+class DescribeFloatingImage:
+    """Unit-test suite for `docx.shape.FloatingImage`."""
+
+    def it_knows_its_display_dimensions(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 4000, 8000)
+        floating = FloatingImage(anchor)
+
+        width, height = floating.width, floating.height
+
+        assert isinstance(width, Length)
+        assert width == 4000
+        assert isinstance(height, Length)
+        assert height == 8000
+
+    def it_exposes_default_horizontal_and_vertical_anchors(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+
+        assert floating.horizontal_anchor == WD_ANCHOR_H.COLUMN
+        assert floating.vertical_anchor == WD_ANCHOR_V.PARAGRAPH
+
+    def it_exposes_horizontal_and_vertical_offsets_as_Emu(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        anchor.set_horizontal_position("page", 914400)
+        anchor.set_vertical_position("margin", 457200)
+        floating = FloatingImage(anchor)
+
+        assert floating.horizontal_offset == Emu(914400)
+        assert floating.vertical_offset == Emu(457200)
+        assert floating.offset == (Emu(914400), Emu(457200))
+
+    def it_returns_zero_offset_when_not_specified(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+
+        # -- default XML has posOffset of 0 --
+        assert floating.horizontal_offset == 0
+        assert floating.vertical_offset == 0
+
+    @pytest.mark.parametrize(
+        ("wrap_str", "expected"),
+        [
+            ("square", WD_WRAP_TYPE.SQUARE),
+            ("tight", WD_WRAP_TYPE.TIGHT),
+            ("through", WD_WRAP_TYPE.THROUGH),
+            ("topAndBottom", WD_WRAP_TYPE.TOP_AND_BOTTOM),
+            ("behind", WD_WRAP_TYPE.BEHIND),
+            ("inFront", WD_WRAP_TYPE.IN_FRONT),
+        ],
+    )
+    def it_exposes_its_wrap_type(self, wrap_str: str, expected: WD_WRAP_TYPE):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        anchor.set_wrap(wrap_str)
+        floating = FloatingImage(anchor)
+
+        assert floating.wrap_type == expected
+
+    def it_exposes_a_position_dict(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        anchor.set_horizontal_position("page", 100)
+        anchor.set_vertical_position("margin", 200)
+        floating = FloatingImage(anchor)
+
+        position = floating.position
+
+        assert position["h_anchor"] == WD_ANCHOR_H.PAGE
+        assert position["v_anchor"] == WD_ANCHOR_V.MARGIN
+        assert position["horizontal"] == 100
+        assert position["vertical"] == 200
+
+    def it_reports_picture_type_for_a_picture_anchor(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+
+        assert floating.type == WD_INLINE_SHAPE.PICTURE

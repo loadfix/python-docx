@@ -28,3 +28,44 @@ class WD_DRAWING_TYPE(enum.Enum):
     CHART = 4
     DIAGRAM = 5
     PICTURE = 6
+
+
+class WD_ANCHOR_H(enum.Enum):
+    """Horizontal anchor frame-of-reference for a floating image.
+
+    Maps to `wp:positionH/@relativeFrom` attribute on a `wp:anchor` element.
+    """
+
+    PAGE = "page"
+    MARGIN = "margin"
+    COLUMN = "column"
+    CHARACTER = "character"
+
+
+class WD_ANCHOR_V(enum.Enum):
+    """Vertical anchor frame-of-reference for a floating image.
+
+    Maps to `wp:positionV/@relativeFrom` attribute on a `wp:anchor` element.
+    """
+
+    PAGE = "page"
+    MARGIN = "margin"
+    PARAGRAPH = "paragraph"
+    LINE = "line"
+
+
+class WD_WRAP_TYPE(enum.Enum):
+    """Text-wrap style for a floating image.
+
+    SQUARE, TIGHT, THROUGH, and TOP_AND_BOTTOM correspond to `wp:wrapSquare`,
+    `wp:wrapTight`, `wp:wrapThrough`, and `wp:wrapTopAndBottom` respectively.
+    BEHIND and IN_FRONT are both `wp:wrapNone`, distinguished by the `behindDoc`
+    attribute on the parent `wp:anchor` element.
+    """
+
+    SQUARE = "square"
+    TIGHT = "tight"
+    THROUGH = "through"
+    TOP_AND_BOTTOM = "topAndBottom"
+    BEHIND = "behind"
+    IN_FRONT = "inFront"

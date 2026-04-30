@@ -20,9 +20,17 @@ from docx.oxml.shape import (
     CT_Picture,
     CT_PictureNonVisual,
     CT_Point2D,
+    CT_PosOffset,
+    CT_PositionH,
+    CT_PositionV,
     CT_PositiveSize2D,
     CT_ShapeProperties,
     CT_Transform2D,
+    CT_WrapNone,
+    CT_WrapSquare,
+    CT_WrapThrough,
+    CT_WrapTight,
+    CT_WrapTopBottom,
 )
 from docx.oxml.shared import CT_DecimalNumber, CT_OnOff, CT_String
 from docx.oxml.text.hyperlink import CT_Hyperlink
@@ -61,6 +69,14 @@ register_element_cls("wp:anchor", CT_Anchor)
 register_element_cls("wp:docPr", CT_NonVisualDrawingProps)
 register_element_cls("wp:extent", CT_PositiveSize2D)
 register_element_cls("wp:inline", CT_Inline)
+register_element_cls("wp:posOffset", CT_PosOffset)
+register_element_cls("wp:positionH", CT_PositionH)
+register_element_cls("wp:positionV", CT_PositionV)
+register_element_cls("wp:wrapNone", CT_WrapNone)
+register_element_cls("wp:wrapSquare", CT_WrapSquare)
+register_element_cls("wp:wrapThrough", CT_WrapThrough)
+register_element_cls("wp:wrapTight", CT_WrapTight)
+register_element_cls("wp:wrapTopAndBottom", CT_WrapTopBottom)
 register_element_cls("wps:txbx", CT_TextBox)
 register_element_cls("wps:wsp", CT_WordprocessingShape)
 

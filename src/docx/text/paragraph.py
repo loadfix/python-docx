@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator, List, cast
+from typing import IO, TYPE_CHECKING, Iterator, List, cast
 
 from docx.drawing import Drawing
 from docx.enum.section import WD_SECTION_START
+from docx.enum.shape import WD_ANCHOR_H, WD_ANCHOR_V, WD_WRAP_TYPE
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
 from docx.fields import Field
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml.drawing import CT_Drawing
+from docx.oxml.shape import CT_Anchor
 from docx.oxml.text.run import CT_R
+from docx.shape import FloatingImage
 from docx.shared import StoryChild
 from docx.styles.style import ParagraphStyle
 from docx.text.hyperlink import Hyperlink
@@ -29,6 +32,7 @@ if TYPE_CHECKING:
     from docx.oxml.document import CT_Body
     from docx.oxml.text.paragraph import CT_P
     from docx.section import Section
+    from docx.shared import Length
     from docx.styles.style import CharacterStyle
 
 
@@ -194,6 +198,57 @@ class Paragraph(StoryChild):
         begin_run = self._p.add_complex_field(instr, result_text)
         return Field.for_complex(begin_run)
 
+    def add_floating_image(
+        self,
+        image_path_or_stream: str | IO[bytes],
+        width: int | Length | None = None,
+        height: int | Length | None = None,
+        position: dict | None = None,
+    ) -> FloatingImage:
+        """Add a floating (anchored) image to this paragraph and return it.
+
+        `image_path_or_stream` is a path (str) or binary file-like object for the image.
+        `width` and `height` work the same way as for `add_picture`.
+
+        `position` is an optional dict that may contain any of these keys:
+        - `horizontal`: horizontal offset (int EMU or |Length|)
+        - `vertical`: vertical offset (int EMU or |Length|)
+        - `h_anchor`: |WD_ANCHOR_H| member (defaults to `COLUMN`)
+        - `v_anchor`: |WD_ANCHOR_V| member (defaults to `PARAGRAPH`)
+        - `wrap`: |WD_WRAP_TYPE| member (defaults to `SQUARE`)
+        """
+        anchor = self.part.new_pic_anchor(image_path_or_stream, width, height)
+
+        # -- apply optional positioning overrides --
+        if position is not None:
+            h_anchor = position.get("h_anchor", WD_ANCHOR_H.COLUMN)
+            v_anchor = position.get("v_anchor", WD_ANCHOR_V.PARAGRAPH)
+            horizontal = position.get("horizontal", 0)
+            vertical = position.get("vertical", 0)
+            wrap = position.get("wrap", WD_WRAP_TYPE.SQUARE)
+
+            if isinstance(h_anchor, WD_ANCHOR_H):
+                h_anchor_value = h_anchor.value
+            else:
+                h_anchor_value = str(h_anchor)
+            if isinstance(v_anchor, WD_ANCHOR_V):
+                v_anchor_value = v_anchor.value
+            else:
+                v_anchor_value = str(v_anchor)
+            if isinstance(wrap, WD_WRAP_TYPE):
+                wrap_value = wrap.value
+            else:
+                wrap_value = str(wrap)
+
+            anchor.set_horizontal_position(h_anchor_value, int(horizontal))
+            anchor.set_vertical_position(v_anchor_value, int(vertical))
+            anchor.set_wrap(wrap_value)
+
+        # -- append the anchor inside a new run's `w:drawing` --
+        run = self.add_run()
+        run._r.add_drawing(anchor)
+        return FloatingImage(anchor)
+
     @property
     def fields(self) -> List[Field]:
         """List of |Field| objects for each field in this paragraph.
@@ -208,6 +263,14 @@ class Paragraph(StoryChild):
             else:
                 result.append(Field.for_complex(el))
         return result
+
+    @property
+    def floating_images(self) -> List[FloatingImage]:
+        """A |FloatingImage| instance for each `wp:anchor` in this paragraph."""
+        return [
+            FloatingImage(cast(CT_Anchor, a))
+            for a in self._p.xpath(".//w:r/w:drawing/wp:anchor")
+        ]
 
     @property
     def content_controls(self) -> List[ContentControl]:

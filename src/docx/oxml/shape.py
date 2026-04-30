@@ -11,6 +11,7 @@ from docx.oxml.simpletypes import (
     ST_DrawingElementId,
     ST_PositiveCoordinate,
     ST_RelationshipId,
+    XsdBoolean,
     XsdString,
     XsdToken,
 )
@@ -26,8 +27,309 @@ if TYPE_CHECKING:
     from docx.shared import Length
 
 
+class CT_PosOffset(BaseOxmlElement):
+    """`<wp:posOffset>` element, an absolute offset in EMU within a `wp:positionH`
+    or `wp:positionV` element."""
+
+
+class CT_PositionH(BaseOxmlElement):
+    """`<wp:positionH>` element, horizontal positioning of a floating image."""
+
+    posOffset: CT_PosOffset | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "wp:posOffset", successors=()
+    )
+    relativeFrom: str = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "relativeFrom", XsdString
+    )
+
+
+class CT_PositionV(BaseOxmlElement):
+    """`<wp:positionV>` element, vertical positioning of a floating image."""
+
+    posOffset: CT_PosOffset | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "wp:posOffset", successors=()
+    )
+    relativeFrom: str = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "relativeFrom", XsdString
+    )
+
+
+class CT_WrapNone(BaseOxmlElement):
+    """`<wp:wrapNone>` element, used with behindDoc on anchor for BEHIND/IN_FRONT wrap."""
+
+
+class CT_WrapSquare(BaseOxmlElement):
+    """`<wp:wrapSquare>` element, square text-wrap around a floating image."""
+
+    wrapText: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "wrapText", XsdString, default="bothSides"
+    )
+
+
+class CT_WrapTight(BaseOxmlElement):
+    """`<wp:wrapTight>` element, tight text-wrap around a floating image."""
+
+    wrapText: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "wrapText", XsdString, default="bothSides"
+    )
+
+
+class CT_WrapThrough(BaseOxmlElement):
+    """`<wp:wrapThrough>` element, through text-wrap around a floating image."""
+
+    wrapText: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "wrapText", XsdString, default="bothSides"
+    )
+
+
+class CT_WrapTopBottom(BaseOxmlElement):
+    """`<wp:wrapTopAndBottom>` element, top-and-bottom text-wrap."""
+
+
 class CT_Anchor(BaseOxmlElement):
     """`<wp:anchor>` element, container for a "floating" shape."""
+
+    simplePos_elm = ZeroOrOne(
+        "wp:simplePos",
+        successors=(
+            "wp:positionH",
+            "wp:positionV",
+            "wp:extent",
+            "wp:effectExtent",
+            "wp:wrapNone",
+            "wp:wrapSquare",
+            "wp:wrapTight",
+            "wp:wrapThrough",
+            "wp:wrapTopAndBottom",
+            "wp:docPr",
+            "wp:cNvGraphicFramePr",
+            "a:graphic",
+        ),
+    )
+    positionH: CT_PositionH = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "wp:positionH",
+        successors=(
+            "wp:positionV",
+            "wp:extent",
+            "wp:effectExtent",
+            "wp:wrapNone",
+            "wp:wrapSquare",
+            "wp:wrapTight",
+            "wp:wrapThrough",
+            "wp:wrapTopAndBottom",
+            "wp:docPr",
+            "wp:cNvGraphicFramePr",
+            "a:graphic",
+        ),
+    )
+    positionV: CT_PositionV = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "wp:positionV",
+        successors=(
+            "wp:extent",
+            "wp:effectExtent",
+            "wp:wrapNone",
+            "wp:wrapSquare",
+            "wp:wrapTight",
+            "wp:wrapThrough",
+            "wp:wrapTopAndBottom",
+            "wp:docPr",
+            "wp:cNvGraphicFramePr",
+            "a:graphic",
+        ),
+    )
+    extent: CT_PositiveSize2D = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "wp:extent",
+        successors=(
+            "wp:effectExtent",
+            "wp:wrapNone",
+            "wp:wrapSquare",
+            "wp:wrapTight",
+            "wp:wrapThrough",
+            "wp:wrapTopAndBottom",
+            "wp:docPr",
+            "wp:cNvGraphicFramePr",
+            "a:graphic",
+        ),
+    )
+    wrapNone = ZeroOrOne(
+        "wp:wrapNone",
+        successors=("wp:docPr", "wp:cNvGraphicFramePr", "a:graphic"),
+    )
+    wrapSquare = ZeroOrOne(
+        "wp:wrapSquare",
+        successors=("wp:docPr", "wp:cNvGraphicFramePr", "a:graphic"),
+    )
+    wrapTight = ZeroOrOne(
+        "wp:wrapTight",
+        successors=("wp:docPr", "wp:cNvGraphicFramePr", "a:graphic"),
+    )
+    wrapThrough = ZeroOrOne(
+        "wp:wrapThrough",
+        successors=("wp:docPr", "wp:cNvGraphicFramePr", "a:graphic"),
+    )
+    wrapTopAndBottom = ZeroOrOne(
+        "wp:wrapTopAndBottom",
+        successors=("wp:docPr", "wp:cNvGraphicFramePr", "a:graphic"),
+    )
+    docPr: CT_NonVisualDrawingProps = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "wp:docPr",
+        successors=("wp:cNvGraphicFramePr", "a:graphic"),
+    )
+    graphic: CT_GraphicalObject = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "a:graphic", successors=()
+    )
+
+    distT: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "distT", ST_PositiveCoordinate, default=0
+    )
+    distB: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "distB", ST_PositiveCoordinate, default=0
+    )
+    distL: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "distL", ST_PositiveCoordinate, default=0
+    )
+    distR: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "distR", ST_PositiveCoordinate, default=0
+    )
+    behindDoc: bool = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "behindDoc", XsdBoolean
+    )
+    locked: bool = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "locked", XsdBoolean
+    )
+    layoutInCell: bool = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "layoutInCell", XsdBoolean
+    )
+    allowOverlap: bool = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "allowOverlap", XsdBoolean
+    )
+    simplePos: bool = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "simplePos", XsdBoolean
+    )
+    relativeHeight: int = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "relativeHeight", ST_DrawingElementId
+    )
+
+    @classmethod
+    def new(
+        cls,
+        cx: Length,
+        cy: Length,
+        shape_id: int,
+        pic: CT_Picture,
+    ) -> CT_Anchor:
+        """Return a new `<wp:anchor>` element populated with `pic` and dimensions."""
+        anchor = cast(CT_Anchor, parse_xml(cls._anchor_xml()))
+        anchor.extent.cx = cx
+        anchor.extent.cy = cy
+        anchor.docPr.id = shape_id
+        anchor.docPr.name = "Picture %d" % shape_id
+        anchor.graphic.graphicData.uri = "http://schemas.openxmlformats.org/drawingml/2006/picture"
+        anchor.graphic.graphicData._insert_pic(pic)
+        return anchor
+
+    @classmethod
+    def new_pic_anchor(
+        cls, shape_id: int, rId: str, filename: str, cx: Length, cy: Length
+    ) -> CT_Anchor:
+        """Create a `wp:anchor` element with a `pic:pic` child referencing an image."""
+        pic_id = 0
+        pic = CT_Picture.new(pic_id, filename, rId, cx, cy)
+        return cls.new(cx, cy, shape_id, pic)
+
+    def set_horizontal_position(self, relative_from: str, offset_emu: int) -> None:
+        """Set `wp:positionH` to offset-style positioning with given anchor."""
+        # -- remove any existing positionH and rebuild --
+        self._remove_positionH()
+        positionH = self._add_positionH()
+        positionH.relativeFrom = relative_from
+        posOffset = positionH._add_posOffset()
+        posOffset.text = str(int(offset_emu))
+
+    def set_vertical_position(self, relative_from: str, offset_emu: int) -> None:
+        """Set `wp:positionV` to offset-style positioning with given anchor."""
+        self._remove_positionV()
+        positionV = self._add_positionV()
+        positionV.relativeFrom = relative_from
+        posOffset = positionV._add_posOffset()
+        posOffset.text = str(int(offset_emu))
+
+    def set_wrap(self, wrap_type: str) -> None:
+        """Set wrap element based on WD_WRAP_TYPE enum value string.
+
+        `wrap_type` is the string value of a `WD_WRAP_TYPE` member.
+        """
+        # -- remove any existing wrap element --
+        for tag in (
+            "wp:wrapNone",
+            "wp:wrapSquare",
+            "wp:wrapTight",
+            "wp:wrapThrough",
+            "wp:wrapTopAndBottom",
+        ):
+            existing = self.find(qn(tag))
+            if existing is not None:
+                self.remove(existing)
+
+        if wrap_type == "square":
+            self._add_wrapSquare()
+            self.behindDoc = False
+        elif wrap_type == "tight":
+            self._add_wrapTight()
+            self.behindDoc = False
+        elif wrap_type == "through":
+            self._add_wrapThrough()
+            self.behindDoc = False
+        elif wrap_type == "topAndBottom":
+            self._add_wrapTopAndBottom()
+            self.behindDoc = False
+        elif wrap_type == "behind":
+            self._add_wrapNone()
+            self.behindDoc = True
+        elif wrap_type == "inFront":
+            self._add_wrapNone()
+            self.behindDoc = False
+
+    @property
+    def wrap_type(self) -> str:
+        """Return the string value of `WD_WRAP_TYPE` for this anchor."""
+        if self.find(qn("wp:wrapSquare")) is not None:
+            return "square"
+        if self.find(qn("wp:wrapTight")) is not None:
+            return "tight"
+        if self.find(qn("wp:wrapThrough")) is not None:
+            return "through"
+        if self.find(qn("wp:wrapTopAndBottom")) is not None:
+            return "topAndBottom"
+        if self.find(qn("wp:wrapNone")) is not None:
+            return "behind" if self.behindDoc else "inFront"
+        return "square"
+
+    @classmethod
+    def _anchor_xml(cls) -> str:
+        return (
+            '<wp:anchor distT="0" distB="0" distL="0" distR="0"'
+            ' simplePos="0" relativeHeight="0"'
+            ' behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1" %s>\n'
+            '  <wp:simplePos x="0" y="0"/>\n'
+            '  <wp:positionH relativeFrom="column">\n'
+            "    <wp:posOffset>0</wp:posOffset>\n"
+            "  </wp:positionH>\n"
+            '  <wp:positionV relativeFrom="paragraph">\n'
+            "    <wp:posOffset>0</wp:posOffset>\n"
+            "  </wp:positionV>\n"
+            '  <wp:extent cx="914400" cy="914400"/>\n'
+            '  <wp:effectExtent l="0" t="0" r="0" b="0"/>\n'
+            '  <wp:wrapSquare wrapText="bothSides"/>\n'
+            '  <wp:docPr id="666" name="unnamed"/>\n'
+            "  <wp:cNvGraphicFramePr>\n"
+            '    <a:graphicFrameLocks noChangeAspect="1"/>\n'
+            "  </wp:cNvGraphicFramePr>\n"
+            "  <a:graphic>\n"
+            '    <a:graphicData uri="URI not set"/>\n'
+            "  </a:graphic>\n"
+            "</wp:anchor>" % nsdecls("wp", "a", "pic", "r")
+        )
 
 
 class CT_Blip(BaseOxmlElement):
