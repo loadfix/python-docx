@@ -777,6 +777,111 @@ class DescribeParagraph:
         assert isinstance(new_paragraph, Paragraph)
         assert body.xml == expected_xml
 
+    def it_can_insert_a_paragraph_after_itself(self, fake_parent: t.ProvidesStoryPart):
+        body = element("w:body/(w:p{id=1},w:p{id=2})")
+        p1 = body[0]
+        paragraph = Paragraph(cast(CT_P, p1), fake_parent)
+
+        new_paragraph = paragraph.insert_paragraph_after()
+
+        assert isinstance(new_paragraph, Paragraph)
+        # -- new paragraph sits between p1 and p2 --
+        assert list(body) == [p1, new_paragraph._p, body[2]]
+        assert new_paragraph._parent is fake_parent
+
+    def it_can_insert_a_paragraph_after_with_text(
+        self, fake_parent: t.ProvidesStoryPart
+    ):
+        body = element("w:body/w:p{id=1}")
+        paragraph = Paragraph(cast(CT_P, body[0]), fake_parent)
+
+        new_paragraph = paragraph.insert_paragraph_after(text="hello")
+
+        assert new_paragraph.text == "hello"
+        # -- new paragraph sits after the reference paragraph --
+        assert list(body) == [paragraph._p, new_paragraph._p]
+
+    def it_can_insert_a_paragraph_after_with_text_and_style(
+        self, request: pytest.FixtureRequest
+    ):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.get_style_id.return_value = "Heading1"
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        body = element("w:body/w:p")
+        paragraph = Paragraph(cast(CT_P, body[0]), FakeParent())
+
+        new_paragraph = paragraph.insert_paragraph_after(text="hi", style="Heading 1")
+
+        assert new_paragraph.text == "hi"
+        story_part_.get_style_id.assert_called_with("Heading 1", WD_STYLE_TYPE.PARAGRAPH)
+
+    def it_can_insert_a_paragraph_after_inside_a_cell(
+        self, fake_parent: t.ProvidesStoryPart
+    ):
+        # -- the paragraph is inside a w:tc (cell). The new paragraph should also be
+        # -- inserted in the cell, not at the body level. --
+        tc = element("w:tc/(w:p{id=1},w:p{id=2})")
+        p1 = tc[0]
+        paragraph = Paragraph(cast(CT_P, p1), fake_parent)
+
+        new_paragraph = paragraph.insert_paragraph_after(text="middle")
+
+        assert list(tc) == [p1, new_paragraph._p, tc[2]]
+        assert new_paragraph.text == "middle"
+
+    def it_can_insert_a_table_before_itself(
+        self, fake_parent: t.ProvidesStoryPart
+    ):
+        body = element("w:body/(w:p{id=1},w:p{id=2})")
+        p2 = body[1]
+        paragraph = Paragraph(cast(CT_P, p2), fake_parent)
+
+        from docx.table import Table
+
+        table = paragraph.insert_table_before(rows=2, cols=2)
+
+        assert isinstance(table, Table)
+        # -- the new table sits between p1 and p2 --
+        assert list(body) == [body[0], table._tbl, p2]
+        assert table._parent is fake_parent
+        # -- structure: w:tblPr, w:tblGrid, 2 rows each with 2 cells --
+        assert len(table._tbl.tr_lst) == 2
+        assert table._tbl.col_count == 2
+
+    def it_can_insert_a_table_after_itself(
+        self, fake_parent: t.ProvidesStoryPart
+    ):
+        body = element("w:body/(w:p{id=1},w:p{id=2})")
+        p1 = body[0]
+        paragraph = Paragraph(cast(CT_P, p1), fake_parent)
+
+        from docx.table import Table
+
+        table = paragraph.insert_table_after(rows=1, cols=3)
+
+        assert isinstance(table, Table)
+        # -- the new table sits between p1 and p2 --
+        assert list(body) == [p1, table._tbl, body[2]]
+        assert len(table._tbl.tr_lst) == 1
+        assert table._tbl.col_count == 3
+
+    def it_can_insert_a_table_after_itself_inside_a_cell(
+        self, fake_parent: t.ProvidesStoryPart
+    ):
+        tc = element("w:tc/w:p{id=1}")
+        p1 = tc[0]
+        paragraph = Paragraph(cast(CT_P, p1), fake_parent)
+
+        table = paragraph.insert_table_after(rows=1, cols=1)
+
+        # -- the new table is a sibling of the paragraph in the cell --
+        assert list(tc) == [p1, table._tbl]
+
     # fixtures -------------------------------------------------------
 
     @pytest.fixture(

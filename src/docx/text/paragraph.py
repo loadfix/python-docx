@@ -13,9 +13,10 @@ from docx.fields import Field
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml.drawing import CT_Drawing
 from docx.oxml.shape import CT_Anchor
+from docx.oxml.table import CT_Tbl
 from docx.oxml.text.run import CT_R
 from docx.shape import FloatingImage
-from docx.shared import StoryChild
+from docx.shared import Inches, StoryChild
 from docx.styles.style import ParagraphStyle
 from docx.text.hyperlink import Hyperlink
 from docx.text.pagebreak import RenderedPageBreak
@@ -34,6 +35,8 @@ if TYPE_CHECKING:
     from docx.section import Section
     from docx.shared import Length
     from docx.styles.style import CharacterStyle
+    from docx.table import Table as _Table
+    from docx.styles.style import _TableStyle  # pyright: ignore[reportPrivateUsage]
 
 
 class Paragraph(StoryChild):
@@ -403,6 +406,77 @@ class Paragraph(StoryChild):
         if style is not None:
             paragraph.style = style
         return paragraph
+
+    def insert_paragraph_after(
+        self, text: str | None = None, style: str | ParagraphStyle | None = None
+    ) -> Paragraph:
+        """Return a newly created paragraph, inserted directly after this paragraph.
+
+        If `text` is supplied, the new paragraph contains that text in a single run. If
+        `style` is provided, that style is assigned to the new paragraph. The new
+        paragraph is inserted into the same parent element as this paragraph (which
+        may be a body, cell, header/footer, or other block-level container).
+        """
+        from docx.oxml.parser import OxmlElement
+
+        new_p = cast("CT_P", OxmlElement("w:p"))
+        self._p.addnext(new_p)
+        paragraph = Paragraph(new_p, self._parent)
+        if text:
+            paragraph.add_run(text)
+        if style is not None:
+            paragraph.style = style
+        return paragraph
+
+    def insert_table_before(
+        self,
+        rows: int,
+        cols: int,
+        style: str | _TableStyle | None = None,
+        width: Length | None = None,
+    ) -> _Table:
+        """Return a new table with `rows` rows and `cols` cols, inserted directly
+        before this paragraph.
+
+        If `style` is supplied, that style is assigned to the new table. The new
+        table is inserted as a sibling of this paragraph in its parent element.
+        `width` is an optional total table width; if not provided it defaults to 6
+        inches (a reasonable default for a US-Letter page with 1" margins).
+        """
+        from docx.table import Table
+
+        table_width = width if width is not None else Inches(6)
+        tbl = CT_Tbl.new_tbl(rows, cols, table_width)
+        self._p.addprevious(tbl)
+        table = Table(tbl, self._parent)
+        if style is not None:
+            table.style = style
+        return table
+
+    def insert_table_after(
+        self,
+        rows: int,
+        cols: int,
+        style: str | _TableStyle | None = None,
+        width: Length | None = None,
+    ) -> _Table:
+        """Return a new table with `rows` rows and `cols` cols, inserted directly
+        after this paragraph.
+
+        If `style` is supplied, that style is assigned to the new table. The new
+        table is inserted as a sibling of this paragraph in its parent element.
+        `width` is an optional total table width; if not provided it defaults to 6
+        inches.
+        """
+        from docx.table import Table
+
+        table_width = width if width is not None else Inches(6)
+        tbl = CT_Tbl.new_tbl(rows, cols, table_width)
+        self._p.addnext(tbl)
+        table = Table(tbl, self._parent)
+        if style is not None:
+            table.style = style
+        return table
 
     def iter_inner_content(self) -> Iterator[Run | Hyperlink]:
         """Generate the runs and hyperlinks in this paragraph, in the order they appear.
