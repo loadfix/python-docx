@@ -63,6 +63,21 @@ class Section:
         self._sectPr.titlePg_val = value
 
     @property
+    def formatting_change(self):
+        """A |FormattingChange| for this section's `w:sectPrChange`, or |None|.
+
+        Present when the section's formatting has been edited while track-changes is
+        enabled. The returned object exposes the author, date, and the prior
+        `w:sectPr` via ``old_properties``.
+        """
+        from docx.tracked_changes import FormattingChange
+
+        sectPrChange = self._sectPr.sectPrChange  # pyright: ignore[reportAttributeAccessIssue]
+        if sectPrChange is None:
+            return None
+        return FormattingChange(sectPrChange)
+
+    @property
     def even_page_footer(self) -> _Footer:
         """|_Footer| object defining footer content for even pages.
 

@@ -184,6 +184,7 @@ class CT_SectPr(BaseOxmlElement):
     titlePg: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:titlePg", successors=_tag_seq[14:]
     )
+    sectPrChange = ZeroOrOne("w:sectPrChange", successors=())
     del _tag_seq
 
     def add_footerReference(self, type_: WD_HEADER_FOOTER, rId: str) -> CT_HdrFtrRef:

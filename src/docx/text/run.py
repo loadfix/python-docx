@@ -209,6 +209,24 @@ class Run(StoryChild):
         return self, right_run
 
     @property
+    def formatting_change(self):
+        """A |FormattingChange| for this run's `w:rPrChange`, or |None|.
+
+        Present when the run's formatting (its `w:rPr`) has been edited while
+        track-changes is enabled. The returned object exposes the author, date,
+        and the prior `w:rPr` via ``old_properties``.
+        """
+        from docx.tracked_changes import FormattingChange
+
+        rPr = self._r.rPr
+        if rPr is None:
+            return None
+        rPrChange = rPr.rPrChange  # pyright: ignore[reportAttributeAccessIssue]
+        if rPrChange is None:
+            return None
+        return FormattingChange(rPrChange)
+
+    @property
     def style(self) -> CharacterStyle:
         """Read/write.
 

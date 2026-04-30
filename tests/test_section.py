@@ -157,6 +157,32 @@ class DescribeSection:
 
         assert sectPr.xml == expected_xml
 
+    def it_exposes_its_formatting_change_when_sectPrChange_present(
+        self, document_part_: Mock
+    ):
+        sectPr = cast(
+            CT_SectPr,
+            element(
+                "w:sectPr/(w:pgSz{w:w=12240,w:h=15840}"
+                ",w:sectPrChange{w:id=1,w:author=Alice}/w:sectPr/w:pgSz{w:w=10000,w:h=15000})"
+            ),
+        )
+        section = Section(sectPr, document_part_)
+
+        fc = section.formatting_change
+
+        assert fc is not None
+        assert fc.author == "Alice"
+        assert fc.old_properties is not None
+        assert fc.old_properties.xpath("./w:pgSz")
+
+    def it_returns_None_for_formatting_change_when_no_sectPrChange(
+        self, document_part_: Mock
+    ):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        assert section.formatting_change is None
+
     def it_provides_access_to_its_even_page_footer(
         self, document_part_: Mock, _Footer_: Mock, footer_: Mock
     ):

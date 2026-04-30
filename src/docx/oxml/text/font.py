@@ -122,6 +122,7 @@ class CT_RPr(BaseOxmlElement):
         "w:eastAsianLayout",
         "w:specVanish",
         "w:oMath",
+        "w:rPrChange",
     )
     rStyle: CT_String | None = ZeroOrOne("w:rStyle", successors=_tag_seq[1:])
     rFonts: CT_Fonts | None = ZeroOrOne("w:rFonts", successors=_tag_seq[2:])
@@ -152,6 +153,7 @@ class CT_RPr(BaseOxmlElement):
     cs = ZeroOrOne("w:cs", successors=_tag_seq[34:])
     specVanish = ZeroOrOne("w:specVanish", successors=_tag_seq[38:])
     oMath = ZeroOrOne("w:oMath", successors=_tag_seq[39:])
+    rPrChange = ZeroOrOne("w:rPrChange", successors=())
     del _tag_seq
 
     def _new_color(self):

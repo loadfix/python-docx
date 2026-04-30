@@ -151,6 +151,31 @@ class DescribeRun:
         actual = [type(item).__name__ for item in inner_content]
         assert actual == expected, f"expected: {expected}, got: {actual}"
 
+    def it_exposes_its_formatting_change_when_rPrChange_present(self, paragraph_: Mock):
+        r = cast(
+            CT_R,
+            element(
+                "w:r/w:rPr/(w:b,w:rPrChange{w:id=1,w:author=Alice}/w:rPr/w:i)"
+            ),
+        )
+        run = Run(r, paragraph_)
+
+        fc = run.formatting_change
+
+        assert fc is not None
+        assert fc.author == "Alice"
+        # old formatting was italic (w:i), current is bold (w:b)
+        assert fc.old_properties is not None
+        assert fc.old_properties.xpath("./w:i")
+
+    def it_returns_None_for_formatting_change_when_no_rPr(self, paragraph_: Mock):
+        run = Run(cast(CT_R, element("w:r")), paragraph_)
+        assert run.formatting_change is None
+
+    def it_returns_None_for_formatting_change_when_no_rPrChange(self, paragraph_: Mock):
+        run = Run(cast(CT_R, element("w:r/w:rPr/w:b")), paragraph_)
+        assert run.formatting_change is None
+
     def it_can_mark_a_comment_reference_range(self, paragraph_: Mock):
         p = cast(CT_P, element('w:p/w:r/w:t"referenced text"'))
         run = last_run = Run(p.r_lst[0], paragraph_)
