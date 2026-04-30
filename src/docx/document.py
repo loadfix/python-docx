@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import IO, TYPE_CHECKING, Iterator, List, Sequence
+from typing import IO, TYPE_CHECKING, Iterator, List, Sequence, cast
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_SECTION
@@ -18,9 +18,11 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.bookmarks import Bookmarks
     from docx.comments import Comment, Comments
+    from docx.content_controls import ContentControl, ContentControlType
     from docx.custom_properties import CustomProperties
     from docx.endnotes import Endnotes, EndnoteProperties
     from docx.footnotes import FootnoteProperties, Footnotes
+    from docx.oxml.content_controls import CT_Sdt
     from docx.oxml.document import CT_Body, CT_Document
     from docx.parts.document import DocumentPart
     from docx.search import SearchMatch
@@ -123,6 +125,20 @@ class Document(ElementProxy):
         """
         return self._body.add_paragraph(text, style)
 
+    def add_content_control(
+        self,
+        type: ContentControlType,
+        tag: str | None = None,
+        title: str | None = None,
+    ) -> ContentControl:
+        """Add a block-level content control at the end of the document body.
+
+        `type` selects the kind of content control (see :class:`ContentControlType`).
+        `tag` and `title` map to `w:sdtPr/w:tag/@w:val` and `w:sdtPr/w:alias/@w:val`
+        respectively.
+        """
+        return self._body.add_content_control(type, tag=tag, title=title)
+
     def add_picture(
         self,
         image_path_or_stream: str | IO[bytes],
@@ -173,6 +189,15 @@ class Document(ElementProxy):
     def comments(self) -> Comments:
         """A |Comments| object providing access to comments added to the document."""
         return self._part.comments
+
+    @property
+    def content_controls(self) -> List[ContentControl]:
+        """All block-level |ContentControl| objects in this document body, in order.
+
+        Only block-level content controls (direct children of `w:body`) are returned.
+        Inline content controls are accessible via :attr:`Paragraph.content_controls`.
+        """
+        return self._body.content_controls
 
     @property
     def endnotes(self) -> Endnotes:
@@ -394,6 +419,24 @@ class _Body(BlockItemContainer):
         super(_Body, self).__init__(body_elm, parent)
         self._body = body_elm
 
+    def add_content_control(
+        self,
+        type: ContentControlType,
+        tag: str | None = None,
+        title: str | None = None,
+    ) -> ContentControl:
+        """Add a block-level content control at the end of the body.
+
+        The new `w:sdt` is inserted before any trailing `w:sectPr` element, mirroring
+        how paragraphs and tables are appended.
+        """
+        from docx.content_controls import ContentControl, new_sdt
+
+        sdt = new_sdt(type, tag=tag, title=title, inline=False)
+        # -- insert before trailing sectPr, if present --
+        self._body._insert_sdt(sdt)  # pyright: ignore[reportPrivateUsage]
+        return ContentControl(sdt)
+
     def clear_content(self) -> _Body:
         """Return this |_Body| instance after clearing it of all content.
 
@@ -401,3 +444,12 @@ class _Body(BlockItemContainer):
         """
         self._body.clear_content()
         return self
+
+    @property
+    def content_controls(self) -> List[ContentControl]:
+        """List of block-level |ContentControl| objects in this body, in document order."""
+        from docx.content_controls import ContentControl
+
+        return [
+            ContentControl(cast("CT_Sdt", sdt)) for sdt in self._body.xpath("./w:sdt")
+        ]
