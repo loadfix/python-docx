@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.bookmarks import Bookmarks
     from docx.comments import Comment, Comments
+    from docx.custom_properties import CustomProperties
     from docx.endnotes import Endnotes, EndnoteProperties
     from docx.footnotes import FootnoteProperties, Footnotes
     from docx.oxml.document import CT_Body, CT_Document
@@ -248,6 +249,16 @@ class Document(ElementProxy):
     def core_properties(self):
         """A |CoreProperties| object providing Dublin Core properties of document."""
         return self._part.core_properties
+
+    @property
+    def custom_properties(self) -> CustomProperties:
+        """A |CustomProperties| collection providing access to custom document properties.
+
+        Custom properties are user-defined, typed name/value pairs stored in the
+        ``docProps/custom.xml`` part of the package. They are distinct from the fixed
+        "core" Dublin-Core properties available via :attr:`core_properties`.
+        """
+        return self._part.custom_properties
 
     @property
     def inline_shapes(self):

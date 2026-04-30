@@ -7,6 +7,7 @@ from typing import IO, TYPE_CHECKING, cast
 from docx.document import Document
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.parts.comments import CommentsPart
+from docx.parts.custom_properties import CustomPropertiesPart
 from docx.parts.endnotes import EndnotesPart
 from docx.parts.footnotes import FootnotesPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
@@ -19,6 +20,7 @@ from docx.shared import lazyproperty
 
 if TYPE_CHECKING:
     from docx.comments import Comments
+    from docx.custom_properties import CustomProperties
     from docx.endnotes import Endnotes
     from docx.enum.style import WD_STYLE_TYPE
     from docx.footnotes import Footnotes
@@ -96,6 +98,28 @@ class DocumentPart(StoryPart):
         """A |CoreProperties| object providing read/write access to the core properties
         of this document."""
         return self.package.core_properties
+
+    @property
+    def custom_properties(self) -> CustomProperties:
+        """A |CustomProperties| collection for this document.
+
+        Creates an empty custom properties part lazily if one is not already present.
+        """
+        return self._custom_properties_part.custom_properties
+
+    @property
+    def _custom_properties_part(self) -> CustomPropertiesPart:
+        """A |CustomPropertiesPart| for this document.
+
+        Creates a default (empty) custom properties part if one is not present.
+        """
+        try:
+            return cast(CustomPropertiesPart, self.part_related_by(RT.CUSTOM_PROPERTIES))
+        except KeyError:
+            assert self.package is not None
+            custom_properties_part = CustomPropertiesPart.default(self.package)
+            self.relate_to(custom_properties_part, RT.CUSTOM_PROPERTIES)
+            return custom_properties_part
 
     @property
     def document(self):
