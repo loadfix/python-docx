@@ -363,6 +363,136 @@ class Paragraph(StoryChild):
         return ParagraphFormat(self._element)
 
     @property
+    def list_level(self) -> int | None:
+        """The integer list-level of this paragraph (``w:numPr/w:ilvl/@w:val``).
+
+        Returns |None| when the paragraph has no ``w:numPr`` or ``w:ilvl``
+        child. Valid values are ``0`` through ``8``.
+
+        Assigning |None| removes the ``w:ilvl`` child. Assigning an integer
+        outside the range 0..8 raises ``ValueError``.
+        """
+        pPr = self._p.pPr
+        if pPr is None or pPr.numPr is None:
+            return None
+        return pPr.numPr.ilvl_val
+
+    @list_level.setter
+    def list_level(self, value: int | None) -> None:
+        if value is not None:
+            if not isinstance(value, int) or not 0 <= value <= 8:
+                raise ValueError(
+                    "list_level must be an int in 0..8 or None, got %r" % (value,)
+                )
+        pPr = self._p.get_or_add_pPr()
+        numPr = pPr.get_or_add_numPr()
+        numPr.ilvl_val = value
+
+    @property
+    def list_format(self):
+        """Named tuple ``(numbering_definition, level)`` describing this paragraph's
+        list settings.
+
+        Both fields are |None| when the paragraph is not part of a list. The
+        ``numbering_definition`` is resolved by looking up the paragraph's
+        ``numId`` in the document's numbering part.
+
+        To set a paragraph's list format, use
+        :meth:`NumberingDefinition.apply_to`.
+        """
+        from docx.numbering import ListFormat, Numbering, NumberingDefinition
+
+        pPr = self._p.pPr
+        if pPr is None or pPr.numPr is None:
+            return ListFormat(None, None)
+        numPr = pPr.numPr
+        num_id = numPr.numId_val
+        level = numPr.ilvl_val
+        if num_id is None:
+            return ListFormat(None, level)
+
+        numbering_part = getattr(self.part, "numbering_part", None)
+        if numbering_part is None:
+            return ListFormat(None, level)
+
+        numbering_elm = numbering_part.numbering_element
+        try:
+            num = numbering_elm.num_having_numId(num_id)
+        except KeyError:
+            return ListFormat(None, level)
+
+        abstractNumId_elm = num.abstractNumId
+        abstract_num_id = abstractNumId_elm.val
+        try:
+            abstractNum = numbering_elm.abstractNum_having_abstractNumId(
+                abstract_num_id
+            )
+        except KeyError:
+            return ListFormat(None, level)
+
+        numbering_proxy = Numbering(numbering_elm, numbering_part)
+        return ListFormat(
+            NumberingDefinition(abstractNum, numbering_proxy), level
+        )
+
+    @property
+    def numbering_format(self):
+        """Read-only |Level| describing this paragraph's current level in its list.
+
+        Returns |None| if the paragraph is not part of a numbered list, or if the
+        list-level entry cannot be found in the document's numbering part.
+        """
+        list_format = self.list_format
+        if list_format.numbering_definition is None:
+            return None
+        level = list_format.level if list_format.level is not None else 0
+        return list_format.numbering_definition.level(level)
+
+    def restart_numbering(self, start: int = 1) -> None:
+        """Create a new numbering instance that restarts the current list at `start`.
+
+        The new ``w:num`` reuses the existing abstract definition but adds a
+        ``w:lvlOverride/w:startOverride`` for this paragraph's level. The
+        paragraph's ``w:numPr/w:numId`` is rewritten to point at the new
+        instance, so subsequent siblings at the same level continue the fresh
+        count.
+
+        Raises ``ValueError`` when the paragraph is not currently part of a
+        numbered list.
+        """
+        pPr = self._p.pPr
+        if pPr is None or pPr.numPr is None or pPr.numPr.numId_val is None:
+            raise ValueError(
+                "paragraph is not part of a numbered list; apply a numbering "
+                "definition before calling restart_numbering()"
+            )
+        numPr = pPr.numPr
+        num_id = numPr.numId_val
+        ilvl = numPr.ilvl_val or 0
+
+        try:
+            numbering_part = self.part.numbering_part  # type: ignore[attr-defined]
+        except AttributeError as err:
+            raise ValueError(
+                "cannot locate numbering part for this paragraph"
+            ) from err
+
+        numbering_elm = numbering_part.numbering_element
+        try:
+            existing_num = numbering_elm.num_having_numId(num_id)
+        except KeyError as err:
+            raise ValueError(
+                "paragraph's numId %d does not match any w:num" % num_id
+            ) from err
+
+        abstract_num_id = existing_num.abstractNumId.val
+        new_num = numbering_elm.add_num(abstract_num_id)
+        override = new_num.add_lvlOverride(ilvl=ilvl)
+        override.add_startOverride(val=start)
+
+        numPr.numId_val = new_num.numId
+
+    @property
     def rendered_page_breaks(self) -> List[RenderedPageBreak]:
         """All rendered page-breaks in this paragraph.
 

@@ -474,34 +474,58 @@ class WD_UNDERLINE(BaseXmlEnum):
 
 
 class WD_NUMBER_FORMAT(BaseXmlEnum):
-    """Specifies the number format used for footnote or endnote numbering.
+    """Specifies a numeric format used for numbering list items, footnotes, or endnotes.
 
-    Maps to the ``w:numFmt`` child element of ``w:footnotePr`` or ``w:endnotePr``.
+    Maps to ``ST_NumberFormat`` values in OOXML. Used by:
 
-    Corresponds to values of the OOXML ``ST_NumberFormat`` simple type.
+    - ``w:numFmt`` child of ``w:footnotePr`` / ``w:endnotePr`` (footnote and endnote
+      numbering style)
+    - ``w:numFmt`` child of ``w:lvl`` within ``w:abstractNum`` (list item numbering)
+
+    Only the most common members are exposed; the full OOXML enumeration is large
+    and rarely needed. Use :meth:`from_xml` to convert a raw ``w:numFmt/@w:val``
+    string to an enumeration member.
     """
 
-    ARABIC = (0, "decimal", "Arabic numerals (1, 2, 3).")
-    """Arabic numerals (1, 2, 3)."""
+    DECIMAL = (0, "decimal", "Decimal numbers (1, 2, 3 ...).")
+    """Decimal numbers (1, 2, 3 ...)."""
 
-    LOWER_ROMAN = (1, "lowerRoman", "Lowercase Roman numerals (i, ii, iii).")
-    """Lowercase Roman numerals (i, ii, iii)."""
+    ARABIC = DECIMAL
+    """Alias for :attr:`DECIMAL` (Arabic numerals: 1, 2, 3 ...)."""
 
-    UPPER_ROMAN = (2, "upperRoman", "Uppercase Roman numerals (I, II, III).")
-    """Uppercase Roman numerals (I, II, III)."""
+    UPPER_ROMAN = (1, "upperRoman", "Uppercase Roman numerals (I, II, III ...).")
+    """Uppercase Roman numerals (I, II, III ...)."""
 
-    LOWER_LETTER = (3, "lowerLetter", "Lowercase letters (a, b, c).")
-    """Lowercase letters (a, b, c)."""
+    LOWER_ROMAN = (2, "lowerRoman", "Lowercase Roman numerals (i, ii, iii ...).")
+    """Lowercase Roman numerals (i, ii, iii ...)."""
 
-    UPPER_LETTER = (4, "upperLetter", "Uppercase letters (A, B, C).")
-    """Uppercase letters (A, B, C)."""
+    UPPER_LETTER = (3, "upperLetter", "Uppercase letters (A, B, C ...).")
+    """Uppercase letters (A, B, C ...)."""
+
+    LOWER_LETTER = (4, "lowerLetter", "Lowercase letters (a, b, c ...).")
+    """Lowercase letters (a, b, c ...)."""
+
+    ORDINAL = (5, "ordinal", "Ordinal numbers (1st, 2nd, 3rd ...).")
+    """Ordinal numbers (1st, 2nd, 3rd ...)."""
+
+    CARDINAL_TEXT = (6, "cardinalText", "Cardinal text (One, Two, Three ...).")
+    """Cardinal text (One, Two, Three ...)."""
+
+    ORDINAL_TEXT = (7, "ordinalText", "Ordinal text (First, Second ...).")
+    """Ordinal text (First, Second ...)."""
 
     CHICAGO = (
-        5,
+        8,
         "chicago",
         "Chicago Manual of Style footnote marks (*, †, ‡, §).",
     )
-    """Chicago Manual of Style footnote marks."""
+    """Chicago Manual of Style footnote marks (*, †, ‡, §)."""
+
+    BULLET = (23, "bullet", "Bullet character (not numbered).")
+    """Bullet character (not numbered)."""
+
+    NONE = (255, "none", "No number.")
+    """No number."""
 
 
 class WD_FOOTNOTE_RESTART(BaseXmlEnum):
