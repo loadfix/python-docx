@@ -21,8 +21,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from docx.oxml.ns import qn
+from docx.oxml.parser import OxmlElement
 
 if TYPE_CHECKING:
+    from docx.document import Document
     from docx.oxml.fields import CT_FldSimple
     from docx.oxml.text.run import CT_R
     from docx.oxml.xmlchemy import BaseOxmlElement
@@ -173,3 +175,191 @@ class Field:
             if sibling.tag == qn("w:r"):
                 yield sibling
             sibling = sibling.getnext()
+
+    # -- cross-reference resolution ---------------------------------------
+
+    def resolve(self, document: "Document") -> str:
+        """Return best-effort resolved text for this field.
+
+        For ``REF`` fields referencing a bookmark, the text between the
+        matching ``w:bookmarkStart`` and ``w:bookmarkEnd`` is returned as a
+        single concatenated string. Heading references (``REF _Ref12345``)
+        work the same way — the target is still a bookmark, typically placed
+        around the heading's run text.
+
+        For ``PAGEREF`` fields, python-docx cannot compute real page numbers
+        because there is no layout engine; this method returns the cached
+        :attr:`result_text` when present, otherwise ``"?"``.
+
+        For any other field type (including ``PAGE``, ``DATE``, ``SEQ``,
+        etc.), the existing :attr:`result_text` is returned unchanged. This
+        method never raises for unresolvable references; callers can detect
+        "couldn't resolve" by comparing against the field's original
+        :attr:`result_text`.
+        """
+        field_type = self.type
+        if field_type == "PAGEREF":
+            cached = self.result_text
+            return cached if cached else "?"
+        if field_type != "REF":
+            return self.result_text
+
+        bookmark_name = _parse_ref_bookmark_name(self.instruction)
+        if not bookmark_name:
+            return self.result_text
+
+        text = _bookmark_text(document, bookmark_name)
+        if text is None:
+            return self.result_text
+        return text
+
+    def update_result_text(self, new_text: str) -> None:
+        """Replace this field's rendered result with `new_text`.
+
+        For a simple field (``w:fldSimple``), this removes any existing runs
+        and inserts a single ``w:r/w:t`` child. For a complex field, all runs
+        between the ``separate`` and ``end`` markers are removed and replaced
+        with a single new run containing `new_text`, inserted immediately
+        before the ``end`` marker's run.
+        """
+        if self._kind == "simple":
+            self._update_simple_result(new_text)
+        else:
+            self._update_complex_result(new_text)
+
+    def _update_simple_result(self, new_text: str) -> None:
+        fldSimple = self._element
+        # -- remove all existing runs --
+        for r in fldSimple.xpath("./w:r"):
+            fldSimple.remove(r)
+        # -- append a single new run carrying the text --
+        new_r = OxmlElement("w:r")
+        t = OxmlElement("w:t")
+        t.text = new_text
+        if new_text != new_text.strip():
+            t.set(qn("xml:space"), "preserve")
+        new_r.append(t)
+        fldSimple.append(new_r)
+
+    def _update_complex_result(self, new_text: str) -> None:
+        """Replace runs between ``separate`` and ``end`` with a single run.
+
+        If no ``separate`` marker exists the field has no result region; this
+        is a no-op — there's nowhere to write the rendered text.
+        """
+        separate_run = None
+        end_run = None
+        for r in self._iter_runs_after_begin():
+            for child in r:
+                if child.tag != qn("w:fldChar"):
+                    continue
+                fld_type = child.get(qn("w:fldCharType"))
+                if fld_type == "separate":
+                    separate_run = r
+                elif fld_type == "end":
+                    end_run = r
+                    break
+            if end_run is not None:
+                break
+
+        if separate_run is None or end_run is None:
+            return
+
+        # -- remove every sibling run strictly between separate_run and end_run --
+        parent = separate_run.getparent()
+        if parent is None:
+            return
+        sep_index = list(parent).index(separate_run)
+        end_index = list(parent).index(end_run)
+        # -- remove back-to-front to keep index valid --
+        for i in range(end_index - 1, sep_index, -1):
+            child = parent[i]
+            if child.tag == qn("w:r"):
+                parent.remove(child)
+
+        # -- insert a single new run carrying the rendered text before end_run --
+        new_r = OxmlElement("w:r")
+        t = OxmlElement("w:t")
+        t.text = new_text
+        if new_text != new_text.strip():
+            t.set(qn("xml:space"), "preserve")
+        new_r.append(t)
+        end_run.addprevious(new_r)
+
+
+# -- module-level helpers -------------------------------------------------
+
+
+def _parse_ref_bookmark_name(instruction: str) -> str | None:
+    """Return the bookmark name from a ``REF`` / ``PAGEREF`` instruction.
+
+    Tokens are split on whitespace. The first token is the field type and is
+    skipped. Subsequent tokens starting with a backslash (switches like ``\\h``,
+    ``\\p``, ``\\* MERGEFORMAT``) are ignored. The first non-switch,
+    non-quoted-empty token is treated as the bookmark name. Returns ``None``
+    when no such token is present.
+    """
+    tokens = instruction.split()
+    if len(tokens) < 2:
+        return None
+    # -- skip type token; then skip switches and their arguments --
+    i = 1
+    skip_next = False
+    while i < len(tokens):
+        token = tokens[i]
+        if skip_next:
+            skip_next = False
+            i += 1
+            continue
+        if token.startswith("\\"):
+            # -- switches like `\* MERGEFORMAT` consume an argument; `\h`
+            #    and `\p` don't. We conservatively skip only formatting
+            #    switches that are known to take an argument. --
+            if token in ("\\*", "\\@", "\\#", "\\f"):
+                skip_next = True
+            i += 1
+            continue
+        # -- strip surrounding quotes if present --
+        return token.strip('"')
+    return None
+
+
+def _bookmark_text(document: "Document", name: str) -> str | None:
+    """Return the concatenated text between the bookmark's start and end.
+
+    Walks the body XML from the matching ``w:bookmarkStart`` element to the
+    ``w:bookmarkEnd`` with the same id, collecting every ``w:t`` descendant's
+    text along the way. Returns ``None`` when no bookmark with `name` exists.
+
+    The walk tolerates bookmarks that span paragraphs or sit inside hyperlinks
+    / fields because it iterates the flattened pre-order descendant sequence
+    of the body.
+    """
+    bookmark = document.bookmarks.get(name)
+    if bookmark is None:
+        return None
+
+    bookmark_id = str(bookmark.bookmark_id)
+    body = document._element.body  # pyright: ignore[reportPrivateUsage]
+    start = body.xpath(f".//w:bookmarkStart[@w:id='{bookmark_id}']")
+    end = body.xpath(f".//w:bookmarkEnd[@w:id='{bookmark_id}']")
+    if not start:
+        return None
+    start_elm = start[0]
+    end_elm = end[0] if end else None
+
+    # -- iterate every descendant of body in document order; collect w:t text
+    #    that sits between the start and (if present) end markers. --
+    collecting = False
+    parts: list[str] = []
+    for elm in body.iter():
+        if elm is start_elm:
+            collecting = True
+            continue
+        if end_elm is not None and elm is end_elm:
+            break
+        if not collecting:
+            continue
+        if elm.tag == qn("w:t"):
+            parts.append(elm.text or "")
+    return "".join(parts)

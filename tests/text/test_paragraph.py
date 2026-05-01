@@ -649,6 +649,30 @@ class DescribeParagraph:
 
         assert paragraph.fields == []
 
+    def it_can_resolve_a_REF_field_against_a_document_bookmark(self):
+        # -- end-to-end: build a document with a bookmark, add a REF field to
+        #    a paragraph in that document, then resolve the field. --
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        doc_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/w:p/("
+                "w:bookmarkStart{w:id=0,w:name=Ref1}"
+                ',w:r/w:t"target text"'
+                ",w:bookmarkEnd{w:id=0}"
+                ")"
+            ),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+        # -- locate the single paragraph in the body and append a REF field --
+        p_elm = cast(CT_P, doc_elm.body.p_lst[0])
+        paragraph = Paragraph(p_elm, None)  # type: ignore[arg-type]
+        field = paragraph.add_complex_field("REF Ref1 \\h", "stale")
+
+        assert field.resolve(doc) == "target text"
+
     @pytest.mark.parametrize(
         ("p_cxml", "count"),
         [
