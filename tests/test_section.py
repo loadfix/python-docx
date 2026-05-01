@@ -15,7 +15,7 @@ from docx.oxml.section import CT_SectPr
 from docx.parts.document import DocumentPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
 from docx.section import Column, Section, SectionColumns, Sections, _BaseHeaderFooter, _Footer, _Header
-from docx.shared import Inches, Length, Twips
+from docx.shared import Inches, Length, RGBColor, Twips
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
@@ -1206,3 +1206,312 @@ class Describe_Header:
     @pytest.fixture
     def header_part_(self, request: FixtureRequest):
         return instance_mock(request, HeaderPart)
+
+
+class DescribePageBorder:
+    """Unit-test suite for `docx.section.PageBorder`."""
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "side", "expected"),
+        [
+            ("w:sectPr", "top", None),
+            ("w:sectPr/w:pgBorders", "top", None),
+            ("w:sectPr/w:pgBorders/w:top{w:val=single}", "top", "single"),
+            ("w:sectPr/w:pgBorders/w:bottom{w:val=dashed}", "bottom", "dashed"),
+            ("w:sectPr/w:pgBorders/w:left{w:val=double}", "left", "double"),
+            ("w:sectPr/w:pgBorders/w:right{w:val=dotted}", "right", "dotted"),
+        ],
+    )
+    def it_knows_its_style(
+        self, sectPr_cxml: str, side: str, expected: str | None, document_part_: Mock
+    ):
+        from docx.enum.text import WD_BORDER_STYLE
+        from docx.section import PageBorder
+
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        border = PageBorder(sectPr, side)
+        style = border.style
+        if expected is None:
+            assert style is None
+        else:
+            assert style == WD_BORDER_STYLE.from_xml(expected)
+
+    def it_can_set_its_style_creating_pgBorders_and_edge(self, document_part_: Mock):
+        from docx.enum.text import WD_BORDER_STYLE
+        from docx.section import PageBorder
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        border = PageBorder(sectPr, "top")
+        border.style = WD_BORDER_STYLE.SINGLE
+        assert sectPr.xml == xml("w:sectPr/w:pgBorders/w:top{w:val=single}")
+
+    def it_knows_its_width(self, document_part_: Mock):
+        from docx.section import PageBorder
+        from docx.shared import Pt
+
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:pgBorders/w:top{w:val=single,w:sz=24}")
+        )
+        border = PageBorder(sectPr, "top")
+        # -- 24 eighth-points => 3 points --
+        assert border.width == Pt(3)
+
+    def it_can_set_its_width(self, document_part_: Mock):
+        from docx.section import PageBorder
+        from docx.shared import Pt
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        border = PageBorder(sectPr, "top")
+        border.width = Pt(3)
+        assert sectPr.xml == xml("w:sectPr/w:pgBorders/w:top{w:sz=24}")
+
+    def it_knows_its_color(self, document_part_: Mock):
+        from docx.section import PageBorder
+
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:pgBorders/w:top{w:color=FF0000}")
+        )
+        border = PageBorder(sectPr, "top")
+        assert border.color == RGBColor(0xFF, 0x00, 0x00)
+
+    def it_returns_None_color_for_auto(self, document_part_: Mock):
+        from docx.section import PageBorder
+
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:pgBorders/w:top{w:color=auto}")
+        )
+        border = PageBorder(sectPr, "top")
+        assert border.color is None
+
+    def it_can_set_its_color(self, document_part_: Mock):
+        from docx.section import PageBorder
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        border = PageBorder(sectPr, "left")
+        border.color = RGBColor(0x12, 0x34, 0x56)
+        assert sectPr.xml == xml("w:sectPr/w:pgBorders/w:left{w:color=123456}")
+
+    def it_knows_its_space(self, document_part_: Mock):
+        from docx.section import PageBorder
+        from docx.shared import Pt
+
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:pgBorders/w:top{w:space=24}")
+        )
+        border = PageBorder(sectPr, "top")
+        assert border.space == Pt(24)
+
+    def it_can_set_its_space(self, document_part_: Mock):
+        from docx.section import PageBorder
+        from docx.shared import Pt
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        border = PageBorder(sectPr, "bottom")
+        border.space = Pt(24)
+        assert sectPr.xml == xml("w:sectPr/w:pgBorders/w:bottom{w:space=24}")
+
+    def it_can_clear_its_style_to_None(self, document_part_: Mock):
+        from docx.section import PageBorder
+
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:pgBorders/w:top{w:val=single,w:sz=24}"),
+        )
+        border = PageBorder(sectPr, "top")
+        border.style = None
+        assert sectPr.xml == xml("w:sectPr/w:pgBorders/w:top{w:sz=24}")
+
+    # -- fixtures ---------------------------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)
+
+
+class DescribePageBorders:
+    """Unit-test suite for `docx.section.PageBorders`."""
+
+    def it_provides_access_to_each_edge(self, document_part_: Mock):
+        from docx.section import PageBorder, PageBorders
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        borders = PageBorders(sectPr)
+        assert isinstance(borders.top, PageBorder)
+        assert isinstance(borders.bottom, PageBorder)
+        assert isinstance(borders.left, PageBorder)
+        assert isinstance(borders.right, PageBorder)
+
+    def it_returns_None_attributes_when_pgBorders_missing(self, document_part_: Mock):
+        from docx.section import PageBorders
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        borders = PageBorders(sectPr)
+        assert borders.display is None
+        assert borders.offset_from is None
+        assert borders.top.style is None
+        assert borders.top.width is None
+        assert borders.top.color is None
+        assert borders.top.space is None
+
+    @pytest.mark.parametrize(
+        ("xml_val", "enum_member"),
+        [
+            ("allPages", "ALL_PAGES"),
+            ("firstPage", "FIRST_PAGE"),
+            ("notFirstPage", "NOT_FIRST_PAGE"),
+        ],
+    )
+    def it_knows_its_display(self, xml_val: str, enum_member: str, document_part_: Mock):
+        from docx.enum.section import WD_BORDER_DISPLAY
+        from docx.section import PageBorders
+
+        sectPr = cast(
+            CT_SectPr, element(f"w:sectPr/w:pgBorders{{w:display={xml_val}}}")
+        )
+        borders = PageBorders(sectPr)
+        assert borders.display is getattr(WD_BORDER_DISPLAY, enum_member)
+
+    @pytest.mark.parametrize(
+        ("enum_member", "xml_val"),
+        [
+            ("ALL_PAGES", "allPages"),
+            ("FIRST_PAGE", "firstPage"),
+            ("NOT_FIRST_PAGE", "notFirstPage"),
+        ],
+    )
+    def it_can_set_its_display_round_trip(
+        self, enum_member: str, xml_val: str, document_part_: Mock
+    ):
+        from docx.enum.section import WD_BORDER_DISPLAY
+        from docx.section import PageBorders
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        borders = PageBorders(sectPr)
+        borders.display = getattr(WD_BORDER_DISPLAY, enum_member)
+        assert sectPr.xml == xml(f"w:sectPr/w:pgBorders{{w:display={xml_val}}}")
+
+    @pytest.mark.parametrize(
+        ("xml_val", "enum_member"),
+        [
+            ("text", "TEXT"),
+            ("page", "PAGE"),
+        ],
+    )
+    def it_knows_its_offset_from(
+        self, xml_val: str, enum_member: str, document_part_: Mock
+    ):
+        from docx.enum.section import WD_BORDER_OFFSET_FROM
+        from docx.section import PageBorders
+
+        sectPr = cast(
+            CT_SectPr, element(f"w:sectPr/w:pgBorders{{w:offsetFrom={xml_val}}}")
+        )
+        borders = PageBorders(sectPr)
+        assert borders.offset_from is getattr(WD_BORDER_OFFSET_FROM, enum_member)
+
+    @pytest.mark.parametrize(
+        ("enum_member", "xml_val"),
+        [
+            ("TEXT", "text"),
+            ("PAGE", "page"),
+        ],
+    )
+    def it_can_set_its_offset_from_round_trip(
+        self, enum_member: str, xml_val: str, document_part_: Mock
+    ):
+        from docx.enum.section import WD_BORDER_OFFSET_FROM
+        from docx.section import PageBorders
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        borders = PageBorders(sectPr)
+        borders.offset_from = getattr(WD_BORDER_OFFSET_FROM, enum_member)
+        assert sectPr.xml == xml(f"w:sectPr/w:pgBorders{{w:offsetFrom={xml_val}}}")
+
+    def it_can_clear_its_display(self, document_part_: Mock):
+        from docx.section import PageBorders
+
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:pgBorders{w:display=allPages}")
+        )
+        borders = PageBorders(sectPr)
+        borders.display = None
+        assert sectPr.xml == xml("w:sectPr/w:pgBorders")
+
+    # -- fixtures ---------------------------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)
+
+
+class DescribeSection_page_borders:
+    """Unit-test suite for `docx.section.Section.page_borders` and related API."""
+
+    def it_provides_access_to_page_borders(self, document_part_: Mock):
+        from docx.section import PageBorders
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        borders = section.page_borders
+        assert isinstance(borders, PageBorders)
+
+    def it_returns_None_style_when_no_pgBorders(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        borders = section.page_borders
+        assert borders.top.style is None
+        assert borders.bottom.style is None
+        assert borders.left.style is None
+        assert borders.right.style is None
+        assert borders.display is None
+        assert borders.offset_from is None
+
+    def it_can_set_a_single_edge_via_set_page_border(self, document_part_: Mock):
+        from docx.enum.text import WD_BORDER_STYLE
+        from docx.shared import Pt
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        section.set_page_border(
+            "top",
+            style=WD_BORDER_STYLE.SINGLE,
+            width=Pt(3),
+            color=RGBColor(0xFF, 0x00, 0x00),
+            space=Pt(24),
+        )
+        assert sectPr.xml == xml(
+            "w:sectPr/w:pgBorders/w:top{w:val=single,w:sz=24,"
+            "w:space=24,w:color=FF0000}"
+        )
+
+    def it_raises_ValueError_for_invalid_side_in_set_page_border(
+        self, document_part_: Mock
+    ):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        with pytest.raises(ValueError):
+            section.set_page_border("middle")
+
+    def it_can_remove_page_borders(self, document_part_: Mock):
+        sectPr = cast(
+            CT_SectPr,
+            element(
+                "w:sectPr/w:pgBorders/(w:top{w:val=single},w:bottom{w:val=dashed})"
+            ),
+        )
+        section = Section(sectPr, document_part_)
+        section.remove_page_borders()
+        assert sectPr.xml == xml("w:sectPr")
+
+    def it_does_nothing_on_remove_when_no_pgBorders(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        # -- should not raise --
+        section.remove_page_borders()
+        assert sectPr.xml == xml("w:sectPr")
+
+    # -- fixtures ---------------------------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)

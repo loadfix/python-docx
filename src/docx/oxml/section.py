@@ -9,7 +9,13 @@ from collections.abc import Callable, Iterator, Sequence
 from lxml import etree
 from typing_extensions import TypeAlias
 
-from docx.enum.section import WD_HEADER_FOOTER, WD_ORIENTATION, WD_SECTION_START
+from docx.enum.section import (
+    WD_BORDER_DISPLAY,
+    WD_BORDER_OFFSET_FROM,
+    WD_HEADER_FOOTER,
+    WD_ORIENTATION,
+    WD_SECTION_START,
+)
 from docx.oxml.ns import nsmap
 from docx.oxml.shared import CT_OnOff
 from docx.oxml.simpletypes import (
@@ -33,6 +39,7 @@ from docx.shared import Length, lazyproperty
 if TYPE_CHECKING:
     from docx.oxml.endnotes import CT_EdnDocProps
     from docx.oxml.footnotes import CT_FtnDocProps
+    from docx.oxml.text.parfmt import CT_Border
 
 BlockElement: TypeAlias = "CT_P | CT_Tbl"
 
@@ -123,6 +130,45 @@ class CT_PageMar(BaseOxmlElement):
     )
 
 
+class CT_PgBorders(BaseOxmlElement):
+    """``<w:pgBorders>`` element, defining decorative page-borders for a section.
+
+    Contains up to four child border elements (``w:top``, ``w:left``, ``w:bottom``,
+    ``w:right``) and optional ``w:display`` and ``w:offsetFrom`` attributes.
+    """
+
+    get_or_add_top: Callable[[], "CT_Border"]
+    get_or_add_left: Callable[[], "CT_Border"]
+    get_or_add_bottom: Callable[[], "CT_Border"]
+    get_or_add_right: Callable[[], "CT_Border"]
+    _remove_top: Callable[[], None]
+    _remove_left: Callable[[], None]
+    _remove_bottom: Callable[[], None]
+    _remove_right: Callable[[], None]
+
+    _tag_seq = ("w:top", "w:left", "w:bottom", "w:right")
+    top: "CT_Border | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:top", successors=_tag_seq[1:]
+    )
+    left: "CT_Border | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:left", successors=_tag_seq[2:]
+    )
+    bottom: "CT_Border | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:bottom", successors=_tag_seq[3:]
+    )
+    right: "CT_Border | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:right", successors=()
+    )
+    del _tag_seq
+
+    display: WD_BORDER_DISPLAY | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:display", WD_BORDER_DISPLAY
+    )
+    offsetFrom: WD_BORDER_OFFSET_FROM | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:offsetFrom", WD_BORDER_OFFSET_FROM
+    )
+
+
 class CT_PageSz(BaseOxmlElement):
     """``<w:pgSz>`` element, defining page dimensions and orientation."""
 
@@ -141,6 +187,7 @@ class CT_SectPr(BaseOxmlElement):
     """`w:sectPr` element, the container element for section properties."""
 
     get_or_add_cols: Callable[[], CT_Cols]
+    get_or_add_pgBorders: Callable[[], CT_PgBorders]
     get_or_add_pgMar: Callable[[], CT_PageMar]
     get_or_add_pgSz: Callable[[], CT_PageSz]
     get_or_add_titlePg: Callable[[], CT_OnOff]
@@ -151,6 +198,7 @@ class CT_SectPr(BaseOxmlElement):
     _add_headerReference: Callable[[], CT_HdrFtrRef]
     _remove_footnotePr: Callable[[], None]
     _remove_endnotePr: Callable[[], None]
+    _remove_pgBorders: Callable[[], None]
     _remove_titlePg: Callable[[], None]
     _remove_type: Callable[[], None]
 
@@ -192,6 +240,9 @@ class CT_SectPr(BaseOxmlElement):
     )
     pgMar: CT_PageMar | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:pgMar", successors=_tag_seq[5:]
+    )
+    pgBorders: CT_PgBorders | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:pgBorders", successors=_tag_seq[7:]
     )
     cols: CT_Cols | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:cols", successors=_tag_seq[10:]
