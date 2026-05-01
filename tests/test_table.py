@@ -31,6 +31,7 @@ from docx.table import (
     CellShading,
     Table,
     TableBorders,
+    TableStyleFlags,
     _Cell,
     _Column,
     _Columns,
@@ -1021,6 +1022,127 @@ class DescribeTableBorders:
         assert borders.top.style == WD_BORDER_STYLE.DOUBLE
         assert borders.top.color == RGBColor(0xFF, 0, 0)
         assert borders.bottom.style == WD_BORDER_STYLE.DOUBLE
+
+    # fixtures -------------------------------------------------------
+
+    @pytest.fixture
+    def document_(self, request: FixtureRequest):
+        return instance_mock(request, Document)
+
+
+class DescribeTableStyleFlags:
+    """Unit-test suite for `docx.table.TableStyleFlags` objects."""
+
+    def it_is_accessed_via_Table_style_flags(self, document_: Mock):
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblPr"))
+        table = Table(tbl, document_)
+        assert isinstance(table.style_flags, TableStyleFlags)
+
+    def it_returns_False_for_every_flag_when_tblLook_is_absent(self, document_: Mock):
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblPr"))
+        table = Table(tbl, document_)
+        flags = table.style_flags
+        assert flags.first_row is False
+        assert flags.last_row is False
+        assert flags.first_column is False
+        assert flags.last_column is False
+        assert flags.no_horizontal_banding is False
+        assert flags.no_vertical_banding is False
+
+    def it_does_not_create_tblLook_when_only_reading(self, document_: Mock):
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblPr"))
+        table = Table(tbl, document_)
+        _ = table.style_flags.first_row
+        assert tbl.tblPr.tblLook is None
+
+    def it_creates_tblLook_on_first_write(self, document_: Mock):
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblPr"))
+        table = Table(tbl, document_)
+        table.style_flags.first_row = True
+        assert tbl.tblPr.tblLook is not None
+        assert tbl.tblPr.tblLook.get(
+            "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}firstRow"
+        ) == "1"
+
+    def it_writes_False_as_explicit_0(self, document_: Mock):
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblPr"))
+        table = Table(tbl, document_)
+        table.style_flags.first_row = False
+        tblLook = tbl.tblPr.tblLook
+        assert tblLook is not None
+        assert tblLook.get(
+            "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}firstRow"
+        ) == "0"
+
+    @pytest.mark.parametrize(
+        ("attr", "xml_attr"),
+        [
+            ("first_row", "firstRow"),
+            ("last_row", "lastRow"),
+            ("first_column", "firstColumn"),
+            ("last_column", "lastColumn"),
+            ("no_horizontal_banding", "noHBand"),
+            ("no_vertical_banding", "noVBand"),
+        ],
+    )
+    def it_round_trips_each_flag(
+        self, attr: str, xml_attr: str, document_: Mock
+    ):
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblPr"))
+        table = Table(tbl, document_)
+        flags = table.style_flags
+        setattr(flags, attr, True)
+        assert getattr(flags, attr) is True
+        setattr(flags, attr, False)
+        assert getattr(flags, attr) is False
+
+    def it_reads_flags_from_existing_tblLook(self, document_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/w:tblPr/w:tblLook{w:firstRow=1,w:firstColumn=1,w:noVBand=1}"
+            ),
+        )
+        table = Table(tbl, document_)
+        flags = table.style_flags
+        assert flags.first_row is True
+        assert flags.first_column is True
+        assert flags.no_vertical_banding is True
+        assert flags.last_row is False
+        assert flags.no_horizontal_banding is False
+
+    def it_reads_legacy_val_bitmask_when_individual_attrs_absent(
+        self, document_: Mock
+    ):
+        # 0x04A0 = firstRow | firstColumn | noVBand
+        tbl = cast(
+            CT_Tbl, element("w:tbl/w:tblPr/w:tblLook{w:val=04A0}")
+        )
+        table = Table(tbl, document_)
+        flags = table.style_flags
+        assert flags.first_row is True
+        assert flags.first_column is True
+        assert flags.no_vertical_banding is True
+        assert flags.last_row is False
+
+    def it_individual_attrs_override_legacy_val(self, document_: Mock):
+        # val bitmask says firstRow=1 (0x0020) but explicit w:firstRow=0
+        tbl = cast(
+            CT_Tbl,
+            element("w:tbl/w:tblPr/w:tblLook{w:val=0020,w:firstRow=0}"),
+        )
+        table = Table(tbl, document_)
+        assert table.style_flags.first_row is False
+
+    def it_setting_a_flag_toggles_an_existing_value(self, document_: Mock):
+        tbl = cast(
+            CT_Tbl, element("w:tbl/w:tblPr/w:tblLook{w:firstRow=1}")
+        )
+        table = Table(tbl, document_)
+        flags = table.style_flags
+        assert flags.first_row is True
+        flags.first_row = False
+        assert flags.first_row is False
 
     # fixtures -------------------------------------------------------
 

@@ -34,6 +34,7 @@ if TYPE_CHECKING:
         CT_Row,
         CT_Shd,
         CT_TblBorders,
+        CT_TblLook,
         CT_TblPr,
         CT_Tc,
         CT_TcBorders,
@@ -291,6 +292,16 @@ class Table(StoryChild):
         create the required XML elements on demand.
         """
         return TableBorders(self._tbl)
+
+    @property
+    def style_flags(self) -> TableStyleFlags:
+        """Read-only. |TableStyleFlags| access to the `w:tblLook` conditional-style flags.
+
+        Always returns a |TableStyleFlags| object. Reading a flag when the
+        `w:tblLook` child is absent yields |False|; writing to any flag creates
+        the `w:tblLook` element on demand.
+        """
+        return TableStyleFlags(self._tbl)
 
     def set_borders(
         self,
@@ -884,6 +895,86 @@ class TableBorders:
 
     def _get_or_add_tblBorders(self) -> CT_TblBorders:
         return self._tbl.tblPr.get_or_add_tblBorders()
+
+
+class TableStyleFlags:
+    """Provides access to the `w:tblLook` conditional-formatting flags for a table.
+
+    Each flag corresponds to one of the individual ST_OnOff attributes on
+    `w:tblLook` and controls which table-style "conditional" features Word will
+    render (e.g. banded rows, first-row/column emphasis).
+
+    Accessed via ``Table.style_flags``. When the underlying `w:tblLook` element
+    is absent, reading a flag returns |False|; writing any flag creates the
+    `w:tblLook` element on demand.
+    """
+
+    def __init__(self, tbl: CT_Tbl):
+        self._tbl = tbl
+
+    @property
+    def first_row(self) -> bool:
+        """|True| when the table-style formatting for the first row is applied."""
+        return self._get_flag("firstRow")
+
+    @first_row.setter
+    def first_row(self, value: bool) -> None:
+        self._set_flag("firstRow", value)
+
+    @property
+    def last_row(self) -> bool:
+        """|True| when the table-style formatting for the last row is applied."""
+        return self._get_flag("lastRow")
+
+    @last_row.setter
+    def last_row(self, value: bool) -> None:
+        self._set_flag("lastRow", value)
+
+    @property
+    def first_column(self) -> bool:
+        """|True| when table-style formatting for the first column is applied."""
+        return self._get_flag("firstColumn")
+
+    @first_column.setter
+    def first_column(self, value: bool) -> None:
+        self._set_flag("firstColumn", value)
+
+    @property
+    def last_column(self) -> bool:
+        """|True| when table-style formatting for the last column is applied."""
+        return self._get_flag("lastColumn")
+
+    @last_column.setter
+    def last_column(self, value: bool) -> None:
+        self._set_flag("lastColumn", value)
+
+    @property
+    def no_horizontal_banding(self) -> bool:
+        """|True| when row-banding formatting is suppressed (``@w:noHBand="1"``)."""
+        return self._get_flag("noHBand")
+
+    @no_horizontal_banding.setter
+    def no_horizontal_banding(self, value: bool) -> None:
+        self._set_flag("noHBand", value)
+
+    @property
+    def no_vertical_banding(self) -> bool:
+        """|True| when column-banding formatting is suppressed (``@w:noVBand="1"``)."""
+        return self._get_flag("noVBand")
+
+    @no_vertical_banding.setter
+    def no_vertical_banding(self, value: bool) -> None:
+        self._set_flag("noVBand", value)
+
+    def _get_flag(self, name: str) -> bool:
+        tblLook = self._tbl.tblPr.tblLook
+        if tblLook is None:
+            return False
+        return tblLook.get_flag(name)
+
+    def _set_flag(self, name: str, value: bool) -> None:
+        tblLook = self._tbl.tblPr.get_or_add_tblLook()
+        tblLook.set_flag(name, value)
 
 
 class CellBorders:

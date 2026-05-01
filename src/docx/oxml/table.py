@@ -21,6 +21,8 @@ from docx.oxml.simpletypes import (
     ST_EighthPointMeasure,
     ST_HexColor,
     ST_Merge,
+    ST_OnOff,
+    ST_String,
     ST_TblLayoutType,
     ST_TblWidth,
     ST_TwipsMeasure,
@@ -579,6 +581,82 @@ class CT_TblLayoutType(BaseOxmlElement):
     )
 
 
+class CT_TblLook(BaseOxmlElement):
+    """`w:tblLook` element, child of `w:tblPr`.
+
+    Specifies which table-style features should be applied for the table
+    (e.g. first-row formatting, banded rows, first-column formatting).
+
+    Each of the six individual attributes (`w:firstRow`, `w:lastRow`,
+    `w:firstColumn`, `w:lastColumn`, `w:noHBand`, `w:noVBand`) is an optional
+    ST_OnOff. The legacy `w:val` attribute holds a 4-character hexadecimal
+    bitmask that encodes the same information; it is retained for
+    round-tripping but the individual attributes take precedence when read.
+    """
+
+    firstRow: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:firstRow", ST_OnOff
+    )
+    lastRow: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:lastRow", ST_OnOff
+    )
+    firstColumn: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:firstColumn", ST_OnOff
+    )
+    lastColumn: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:lastColumn", ST_OnOff
+    )
+    noHBand: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:noHBand", ST_OnOff
+    )
+    noVBand: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:noVBand", ST_OnOff
+    )
+    val: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:val", ST_String
+    )
+
+    # -- mapping from attribute name -> bit in the legacy hex bitmask --
+    # -- Per ECMA-376 §17.4.61: firstRow=0x0020, lastRow=0x0040,
+    # -- firstColumn=0x0080, lastColumn=0x0100, noHBand=0x0200, noVBand=0x0400.
+    _VAL_BITS: dict[str, int] = {
+        "firstRow": 0x0020,
+        "lastRow": 0x0040,
+        "firstColumn": 0x0080,
+        "lastColumn": 0x0100,
+        "noHBand": 0x0200,
+        "noVBand": 0x0400,
+    }
+
+    def get_flag(self, name: str) -> bool:
+        """Return the effective boolean value for flag `name`.
+
+        Prefers the individual ST_OnOff attribute. Falls back to decoding the
+        legacy `@w:val` hex bitmask if the individual attribute is absent.
+        Returns |False| when neither is present.
+        """
+        direct = getattr(self, name)
+        if direct is not None:
+            return bool(direct)
+        val = self.val
+        if val is None:
+            return False
+        try:
+            bitmask = int(val, 16)
+        except (TypeError, ValueError):
+            return False
+        return bool(bitmask & self._VAL_BITS[name])
+
+    def set_flag(self, name: str, value: bool) -> None:
+        """Set flag `name` to `value`, writing a concrete ST_OnOff attribute.
+
+        A `True` value writes ``"1"`` and `False` writes ``"0"``, matching the
+        convention used by Microsoft Word (which records explicitly-off flags
+        as "0" rather than removing the attribute).
+        """
+        setattr(self, name, bool(value))
+
+
 class CT_TblPr(BaseOxmlElement):
     """``<w:tblPr>`` element, child of ``<w:tbl>``, holds child elements that define
     table properties such as style and borders."""
@@ -587,12 +665,14 @@ class CT_TblPr(BaseOxmlElement):
     get_or_add_jc: Callable[[], CT_Jc]
     get_or_add_tblBorders: Callable[[], CT_TblBorders]
     get_or_add_tblLayout: Callable[[], CT_TblLayoutType]
+    get_or_add_tblLook: Callable[[], CT_TblLook]
     get_or_add_tblW: Callable[[], CT_TblWidth]
     _add_tblStyle: Callable[[], CT_String]
     _remove_bidiVisual: Callable[[], None]
     _remove_jc: Callable[[], None]
     _remove_tblBorders: Callable[[], None]
     _remove_tblLayout: Callable[[], None]
+    _remove_tblLook: Callable[[], None]
     _remove_tblStyle: Callable[[], None]
     _remove_tblW: Callable[[], None]
 
@@ -633,6 +713,9 @@ class CT_TblPr(BaseOxmlElement):
     )
     tblLayout: CT_TblLayoutType | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:tblLayout", successors=_tag_seq[13:]
+    )
+    tblLook: CT_TblLook | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:tblLook", successors=_tag_seq[15:]
     )
     del _tag_seq
 
