@@ -24,6 +24,7 @@ from docx.shared import lazyproperty
 if TYPE_CHECKING:
     from docx.comments import Comments
     from docx.custom_properties import CustomProperties
+    from docx.custom_xml import CustomXmlPart as CustomXmlPartProxy
     from docx.endnotes import Endnotes
     from docx.enum.style import WD_STYLE_TYPE
     from docx.font_table import FontTable
@@ -138,6 +139,16 @@ class DocumentPart(StoryPart):
         Creates an empty custom properties part lazily if one is not already present.
         """
         return self._custom_properties_part.custom_properties
+
+    @property
+    def custom_xml_parts(self) -> list[CustomXmlPartProxy]:
+        """List of |CustomXmlPart| proxies for each related custom XML data part.
+
+        Empty when the document has no ``customXml`` relationships. Read-only.
+        """
+        from docx.custom_xml import iter_custom_xml_parts
+
+        return iter_custom_xml_parts(self)
 
     @property
     def _custom_properties_part(self) -> CustomPropertiesPart:

@@ -10,7 +10,7 @@ from docx.oxml.ns import qn
 from docx.oxml.parser import OxmlElement
 
 if TYPE_CHECKING:
-    from docx.oxml.content_controls import CT_Sdt
+    from docx.oxml.content_controls import CT_DataBinding, CT_Sdt
 
 
 class ContentControlType(enum.Enum):
@@ -191,6 +191,60 @@ class ContentControl:
         # -- default: treat as inline (tighter scope for `.text` assignment) --
         return True
 
+    # -- data binding --------------------------------------------------------
+
+    @property
+    def data_binding(self) -> "DataBinding | None":
+        """The |DataBinding| for this content control, or |None| if unbound.
+
+        A content control is "data-bound" when its `w:sdtPr` contains a
+        `w:dataBinding` child. The binding ties the SDT's displayed text to an
+        XPath expression over a custom XML data part (``/customXml/itemN.xml``).
+        python-docx surfaces the binding metadata only — it does not evaluate
+        the XPath.
+        """
+        sdtPr = self._sdt.sdtPr
+        if sdtPr is None:
+            return None
+        dataBinding = sdtPr.dataBinding
+        if dataBinding is None:
+            return None
+        return DataBinding(dataBinding)
+
+    def set_data_binding(
+        self,
+        xpath: str,
+        prefix_mappings: str = "",
+        store_item_id: str | None = None,
+    ) -> "DataBinding":
+        """Create or update this content control's `w:dataBinding`.
+
+        `xpath` is the XPath expression the binding points at. `prefix_mappings`
+        is a whitespace-separated list of namespace declarations used to
+        resolve prefixes in `xpath` (e.g.
+        ``"xmlns:ns0='http://example.com/ns'"``). `store_item_id` is the
+        ``{GUID}``-formatted id of the target custom XML data part; |None|
+        leaves the `@w:storeItemID` attribute unset.
+
+        Returns the resulting |DataBinding|.
+        """
+        sdtPr = self._sdt.get_or_add_sdtPr()
+        dataBinding = sdtPr.get_or_add_dataBinding()
+        dataBinding.xpath_val = xpath
+        dataBinding.prefixMappings = prefix_mappings
+        dataBinding.storeItemID = store_item_id
+        return DataBinding(dataBinding)
+
+    def remove_data_binding(self) -> None:
+        """Remove the `w:dataBinding` child, if present.
+
+        Does nothing when this content control has no data binding.
+        """
+        sdtPr = self._sdt.sdtPr
+        if sdtPr is None:
+            return
+        sdtPr._remove_dataBinding()  # pyright: ignore[reportPrivateUsage]
+
     # -- checkbox ------------------------------------------------------------
 
     @property
@@ -204,6 +258,64 @@ class ContentControl:
     @checked.setter
     def checked(self, value: bool) -> None:
         self._sdt.checked = value
+
+
+class DataBinding:
+    """Read/write proxy for the `w:dataBinding` child of a content control's `w:sdtPr`.
+
+    A data binding ties a content control to an XPath expression over a custom
+    XML data part in the package (``/customXml/itemN.xml``). python-docx
+    exposes the binding metadata only — it does not evaluate the XPath or
+    synchronize the control's displayed text with the bound value.
+    """
+
+    def __init__(self, dataBinding: "CT_DataBinding"):
+        self._dataBinding = dataBinding
+
+    @property
+    def element(self) -> "CT_DataBinding":
+        """The underlying `w:dataBinding` lxml element."""
+        return self._dataBinding
+
+    @property
+    def prefix_mappings(self) -> str:
+        """Value of `@w:prefixMappings` — namespace declarations for `xpath`.
+
+        Returns the empty string when the attribute is not present, matching
+        Word's behavior of omitting the attribute when no namespace prefixes
+        are required.
+        """
+        value = self._dataBinding.prefixMappings
+        return value if value is not None else ""
+
+    @prefix_mappings.setter
+    def prefix_mappings(self, value: str) -> None:
+        self._dataBinding.prefixMappings = value if value else None
+
+    @property
+    def xpath(self) -> str:
+        """Value of `@w:xpath` — the XPath expression for this binding.
+
+        Returns the empty string when the attribute is not present.
+        """
+        value = self._dataBinding.xpath_val
+        return value if value is not None else ""
+
+    @xpath.setter
+    def xpath(self, value: str) -> None:
+        self._dataBinding.xpath_val = value if value else None
+
+    @property
+    def store_item_id(self) -> str | None:
+        """Value of `@w:storeItemID` — `{GUID}` of the target custom XML part.
+
+        |None| when the attribute is not present.
+        """
+        return self._dataBinding.storeItemID
+
+    @store_item_id.setter
+    def store_item_id(self, value: str | None) -> None:
+        self._dataBinding.storeItemID = value
 
 
 # ---------------------------------------------------------------------------

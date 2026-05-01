@@ -27,6 +27,7 @@ from docx.opc.part import PartFactory
 from docx.opc.parts.coreprops import CorePropertiesPart
 from docx.parts.comments import CommentsPart
 from docx.parts.custom_properties import CustomPropertiesPart
+from docx.parts.custom_xml import CustomXmlPart
 from docx.parts.document import DocumentPart
 from docx.parts.embedded_object import EmbeddedObjectPart
 from docx.parts.endnotes import EndnotesPart
@@ -51,6 +52,7 @@ def part_class_selector(content_type: str, reltype: str) -> type[Part] | None:
 PartFactory.part_class_selector = part_class_selector
 PartFactory.part_type_for[CT.OFC_CUSTOM_PROPERTIES] = CustomPropertiesPart
 PartFactory.part_type_for[CT.OPC_CORE_PROPERTIES] = CorePropertiesPart
+PartFactory.part_type_for[CT.XML] = CustomXmlPart
 PartFactory.part_type_for[CT.WML_COMMENTS] = CommentsPart
 PartFactory.part_type_for[CT.WML_DOCUMENT_MAIN] = DocumentPart
 PartFactory.part_type_for[CT.WML_DOCUMENT_MACRO] = DocumentPart
@@ -72,6 +74,7 @@ del (
     CorePropertiesPart,
     CommentsPart,
     CustomPropertiesPart,
+    CustomXmlPart,
     DocumentPart,
     EmbeddedObjectPart,
     EndnotesPart,
