@@ -46,6 +46,31 @@ class WD_BORDER_OFFSET_FROM(BaseXmlEnum):
     """Border is positioned relative to the page edge."""
 
 
+class WD_LINE_NUMBERING_RESTART(BaseXmlEnum):
+    """Specifies when line numbering restarts within a section.
+
+    Maps to the ``w:restart`` attribute of the ``w:lnNumType`` element.
+
+    Example::
+
+        from docx.enum.section import WD_LINE_NUMBERING_RESTART
+
+        section = document.sections[0]
+        section.set_line_numbering(
+            count_by=1, restart=WD_LINE_NUMBERING_RESTART.NEW_PAGE
+        )
+    """
+
+    CONTINUOUS = (0, "continuous", "Line numbering continues from the previous section.")
+    """Line numbering continues from the previous section."""
+
+    NEW_SECTION = (1, "newSection", "Line numbering restarts at the beginning of each section.")
+    """Line numbering restarts at the beginning of each section."""
+
+    NEW_PAGE = (2, "newPage", "Line numbering restarts at the beginning of each page.")
+    """Line numbering restarts at the beginning of each page."""
+
+
 class WD_HEADER_FOOTER_INDEX(BaseXmlEnum):
     """Alias: **WD_HEADER_FOOTER**
 

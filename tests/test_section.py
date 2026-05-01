@@ -1515,3 +1515,196 @@ class DescribeSection_page_borders:
     @pytest.fixture
     def document_part_(self, request: FixtureRequest):
         return instance_mock(request, DocumentPart)
+
+
+class DescribeLineNumbering:
+    """Unit-test suite for `docx.section.LineNumbering`."""
+
+    def it_knows_its_count_by(self):
+        from docx.oxml.section import CT_LineNumber
+        from docx.section import LineNumbering
+
+        lnNumType = cast(CT_LineNumber, element("w:lnNumType{w:countBy=5}"))
+        numbering = LineNumbering(lnNumType)
+        assert numbering.count_by == 5
+
+    def it_knows_its_start(self):
+        from docx.oxml.section import CT_LineNumber
+        from docx.section import LineNumbering
+
+        lnNumType = cast(CT_LineNumber, element("w:lnNumType{w:start=3}"))
+        numbering = LineNumbering(lnNumType)
+        assert numbering.start == 3
+
+    def it_knows_its_distance(self):
+        from docx.oxml.section import CT_LineNumber
+        from docx.section import LineNumbering
+        from docx.shared import Twips
+
+        lnNumType = cast(CT_LineNumber, element("w:lnNumType{w:distance=720}"))
+        numbering = LineNumbering(lnNumType)
+        assert numbering.distance == Twips(720)
+
+    def it_returns_None_attributes_when_unset(self):
+        from docx.oxml.section import CT_LineNumber
+        from docx.section import LineNumbering
+
+        lnNumType = cast(CT_LineNumber, element("w:lnNumType"))
+        numbering = LineNumbering(lnNumType)
+        assert numbering.count_by is None
+        assert numbering.start is None
+        assert numbering.distance is None
+        assert numbering.restart is None
+
+    def it_can_set_its_count_by(self):
+        from docx.oxml.section import CT_LineNumber
+        from docx.section import LineNumbering
+
+        lnNumType = cast(CT_LineNumber, element("w:lnNumType"))
+        numbering = LineNumbering(lnNumType)
+        numbering.count_by = 2
+        assert lnNumType.xml == xml("w:lnNumType{w:countBy=2}")
+
+    def it_can_set_its_start(self):
+        from docx.oxml.section import CT_LineNumber
+        from docx.section import LineNumbering
+
+        lnNumType = cast(CT_LineNumber, element("w:lnNumType"))
+        numbering = LineNumbering(lnNumType)
+        numbering.start = 10
+        assert lnNumType.xml == xml("w:lnNumType{w:start=10}")
+
+    def it_can_set_its_distance(self):
+        from docx.oxml.section import CT_LineNumber
+        from docx.section import LineNumbering
+        from docx.shared import Twips
+
+        lnNumType = cast(CT_LineNumber, element("w:lnNumType"))
+        numbering = LineNumbering(lnNumType)
+        numbering.distance = Twips(720)
+        assert lnNumType.xml == xml("w:lnNumType{w:distance=720}")
+
+    @pytest.mark.parametrize(
+        ("enum_member", "xml_val"),
+        [
+            ("CONTINUOUS", "continuous"),
+            ("NEW_SECTION", "newSection"),
+            ("NEW_PAGE", "newPage"),
+        ],
+    )
+    def it_knows_its_restart(self, enum_member: str, xml_val: str):
+        from docx.enum.section import WD_LINE_NUMBERING_RESTART
+        from docx.oxml.section import CT_LineNumber
+        from docx.section import LineNumbering
+
+        lnNumType = cast(
+            CT_LineNumber, element(f"w:lnNumType{{w:restart={xml_val}}}")
+        )
+        numbering = LineNumbering(lnNumType)
+        assert numbering.restart is getattr(WD_LINE_NUMBERING_RESTART, enum_member)
+
+    @pytest.mark.parametrize(
+        ("enum_member", "xml_val"),
+        [
+            ("CONTINUOUS", "continuous"),
+            ("NEW_SECTION", "newSection"),
+            ("NEW_PAGE", "newPage"),
+        ],
+    )
+    def it_can_set_its_restart_round_trip(self, enum_member: str, xml_val: str):
+        from docx.enum.section import WD_LINE_NUMBERING_RESTART
+        from docx.oxml.section import CT_LineNumber
+        from docx.section import LineNumbering
+
+        lnNumType = cast(CT_LineNumber, element("w:lnNumType"))
+        numbering = LineNumbering(lnNumType)
+        numbering.restart = getattr(WD_LINE_NUMBERING_RESTART, enum_member)
+        assert lnNumType.xml == xml(f"w:lnNumType{{w:restart={xml_val}}}")
+
+    def it_can_clear_its_count_by(self):
+        from docx.oxml.section import CT_LineNumber
+        from docx.section import LineNumbering
+
+        lnNumType = cast(CT_LineNumber, element("w:lnNumType{w:countBy=2}"))
+        numbering = LineNumbering(lnNumType)
+        numbering.count_by = None
+        assert lnNumType.xml == xml("w:lnNumType")
+
+
+class DescribeSection_line_numbering:
+    """Unit-test suite for `docx.section.Section.line_numbering` and related API."""
+
+    def it_returns_None_when_no_lnNumType(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        assert section.line_numbering is None
+
+    def it_provides_access_to_LineNumbering_when_present(self, document_part_: Mock):
+        from docx.section import LineNumbering
+
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:lnNumType{w:countBy=1,w:start=1}")
+        )
+        section = Section(sectPr, document_part_)
+        numbering = section.line_numbering
+        assert isinstance(numbering, LineNumbering)
+        assert numbering.count_by == 1
+        assert numbering.start == 1
+
+    def it_can_set_line_numbering_creating_lnNumType(self, document_part_: Mock):
+        from docx.enum.section import WD_LINE_NUMBERING_RESTART
+        from docx.shared import Twips
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        section.set_line_numbering(
+            count_by=1,
+            start=1,
+            distance=Twips(360),
+            restart=WD_LINE_NUMBERING_RESTART.NEW_PAGE,
+        )
+        assert sectPr.xml == xml(
+            "w:sectPr/w:lnNumType{w:countBy=1,w:start=1,"
+            "w:distance=360,w:restart=newPage}"
+        )
+
+    def it_returns_a_LineNumbering_from_set_line_numbering(self, document_part_: Mock):
+        from docx.section import LineNumbering
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        numbering = section.set_line_numbering(count_by=1)
+        assert isinstance(numbering, LineNumbering)
+        assert numbering.count_by == 1
+
+    def it_leaves_unchanged_attributes_alone_in_set_line_numbering(
+        self, document_part_: Mock
+    ):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:lnNumType{w:countBy=1,w:start=5}"),
+        )
+        section = Section(sectPr, document_part_)
+        section.set_line_numbering(count_by=2)
+        assert sectPr.xml == xml("w:sectPr/w:lnNumType{w:countBy=2,w:start=5}")
+
+    def it_can_remove_line_numbering(self, document_part_: Mock):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:lnNumType{w:countBy=1}"),
+        )
+        section = Section(sectPr, document_part_)
+        section.remove_line_numbering()
+        assert sectPr.xml == xml("w:sectPr")
+
+    def it_does_nothing_on_remove_when_no_lnNumType(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        section.remove_line_numbering()
+        assert sectPr.xml == xml("w:sectPr")
+
+    # -- fixtures ---------------------------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)

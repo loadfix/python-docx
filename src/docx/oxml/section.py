@@ -13,6 +13,7 @@ from docx.enum.section import (
     WD_BORDER_DISPLAY,
     WD_BORDER_OFFSET_FROM,
     WD_HEADER_FOOTER,
+    WD_LINE_NUMBERING_RESTART,
     WD_ORIENTATION,
     WD_SECTION_START,
 )
@@ -169,6 +170,23 @@ class CT_PgBorders(BaseOxmlElement):
     )
 
 
+class CT_LineNumber(BaseOxmlElement):
+    """``<w:lnNumType>`` element, defining line numbering for a section."""
+
+    countBy: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:countBy", ST_DecimalNumber
+    )
+    start: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:start", ST_DecimalNumber
+    )
+    distance: Length | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:distance", ST_TwipsMeasure
+    )
+    restart: WD_LINE_NUMBERING_RESTART | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:restart", WD_LINE_NUMBERING_RESTART
+    )
+
+
 class CT_PageSz(BaseOxmlElement):
     """``<w:pgSz>`` element, defining page dimensions and orientation."""
 
@@ -187,6 +205,7 @@ class CT_SectPr(BaseOxmlElement):
     """`w:sectPr` element, the container element for section properties."""
 
     get_or_add_cols: Callable[[], CT_Cols]
+    get_or_add_lnNumType: Callable[[], CT_LineNumber]
     get_or_add_pgBorders: Callable[[], CT_PgBorders]
     get_or_add_pgMar: Callable[[], CT_PageMar]
     get_or_add_pgSz: Callable[[], CT_PageSz]
@@ -198,6 +217,7 @@ class CT_SectPr(BaseOxmlElement):
     _add_headerReference: Callable[[], CT_HdrFtrRef]
     _remove_footnotePr: Callable[[], None]
     _remove_endnotePr: Callable[[], None]
+    _remove_lnNumType: Callable[[], None]
     _remove_pgBorders: Callable[[], None]
     _remove_titlePg: Callable[[], None]
     _remove_type: Callable[[], None]
@@ -243,6 +263,9 @@ class CT_SectPr(BaseOxmlElement):
     )
     pgBorders: CT_PgBorders | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:pgBorders", successors=_tag_seq[7:]
+    )
+    lnNumType: CT_LineNumber | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:lnNumType", successors=_tag_seq[8:]
     )
     cols: CT_Cols | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:cols", successors=_tag_seq[10:]
