@@ -339,6 +339,65 @@ class DescribeTable:
 
         assert column_count == expected_value
 
+    def it_tolerates_orphan_vMerge_continuation_in_top_row(self, document_: Mock):
+        """A vMerge="continue" in the first row has no row above to delegate to.
+
+        Without the hardening, ``Table._cells`` would index ``cells[-col_count]``
+        on an empty-or-short list and raise. After the fix it emits a fresh
+        cell for the orphan tc.
+        """
+        tbl_cxml = (
+            "w:tbl/(w:tblGrid/(w:gridCol,w:gridCol),"
+            "w:tr/(w:tc/w:p,w:tc/(w:tcPr/w:vMerge,w:p)))"
+        )
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+
+        cells = table._cells
+
+        assert len(cells) == 2
+        # -- both cells should resolve to real _Cell objects --
+        assert all(isinstance(c, _Cell) for c in cells)
+
+    def it_resolves_every_continuation_in_a_multi_row_vMerge_span(
+        self, document_: Mock
+    ):
+        """vMerge="restart" + several vMerge (continue) cells all alias to origin."""
+        tbl_cxml = (
+            "w:tbl/(w:tblGrid/w:gridCol,"
+            "w:tr/w:tc/(w:tcPr/w:vMerge{w:val=restart},w:p),"
+            "w:tr/w:tc/(w:tcPr/w:vMerge,w:p),"
+            "w:tr/w:tc/(w:tcPr/w:vMerge,w:p),"
+            "w:tr/w:tc/(w:tcPr/w:vMerge,w:p))"
+        )
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+
+        cells = table._cells
+
+        # -- 4 rows * 1 column = 4 grid positions, all the same cell object --
+        assert len(cells) == 4
+        assert len(set(cells)) == 1
+
+    def it_preserves_nested_table_access_inside_a_merged_origin_cell(
+        self, document_: Mock
+    ):
+        """Nested ``w:tbl`` inside a vMerge origin cell should remain discoverable."""
+        tbl_cxml = (
+            "w:tbl/(w:tblGrid/w:gridCol,"
+            "w:tr/w:tc/(w:tcPr/w:vMerge{w:val=restart},w:p,"
+            "w:tbl/(w:tblGrid/w:gridCol,w:tr/w:tc/w:p),"
+            "w:p),"
+            "w:tr/w:tc/(w:tcPr/w:vMerge,w:p))"
+        )
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+
+        # -- _cells should aggregate correctly (both rows point to origin) --
+        cells = table._cells
+        assert len(cells) == 2
+        assert cells[0] is cells[1]
+        # -- origin cell should expose its nested table --
+        origin = cells[0]
+        assert len(origin.tables) == 1
+
     @pytest.mark.parametrize(
         ("tbl_cxml", "expected_value"),
         [
@@ -849,6 +908,121 @@ class Describe_Cell:
         cell = _Cell(cast(CT_Tc, element("w:tc")), parent_)
         shading = cell.shading
         assert isinstance(shading, CellShading)
+
+    # -- is_merge_origin / merge_origin ----------------------------------------
+
+    @pytest.mark.parametrize(
+        ("tc_cxml", "expected_value"),
+        [
+            # -- plain cell, no merge, no gridSpan --
+            ("w:tc", None),
+            ("w:tc/w:tcPr", None),
+            ("w:tc/w:tcPr/w:gridSpan{w:val=1}", None),
+            # -- horizontal-only merge (gridSpan>1, no vMerge) -> origin --
+            ("w:tc/w:tcPr/w:gridSpan{w:val=2}", True),
+            ("w:tc/w:tcPr/w:gridSpan{w:val=5}", True),
+            # -- vMerge="restart" (with or without gridSpan) -> origin --
+            ("w:tc/w:tcPr/w:vMerge{w:val=restart}", True),
+            (
+                "w:tc/w:tcPr/(w:gridSpan{w:val=2},w:vMerge{w:val=restart})",
+                True,
+            ),
+            # -- vMerge="continue" -> continuation --
+            ("w:tc/w:tcPr/w:vMerge", False),
+            ("w:tc/w:tcPr/w:vMerge{w:val=continue}", False),
+            (
+                "w:tc/w:tcPr/(w:gridSpan{w:val=2},w:vMerge{w:val=continue})",
+                False,
+            ),
+        ],
+    )
+    def it_knows_its_merge_origin_role(
+        self, tc_cxml: str, expected_value: bool | None, parent_: Mock
+    ):
+        cell = _Cell(cast(CT_Tc, element(tc_cxml)), parent_)
+        assert cell.is_merge_origin is expected_value
+
+    def it_returns_self_as_merge_origin_when_not_merged(self, parent_: Mock):
+        cell = _Cell(cast(CT_Tc, element("w:tc/w:p")), parent_)
+        assert cell.merge_origin is cell
+
+    def it_returns_self_as_merge_origin_for_horizontal_only_merge(self, parent_: Mock):
+        cell = _Cell(
+            cast(CT_Tc, element("w:tc/(w:tcPr/w:gridSpan{w:val=2},w:p)")),
+            parent_,
+        )
+        assert cell.merge_origin is cell
+
+    def it_returns_self_as_merge_origin_for_vMerge_restart(self, parent_: Mock):
+        cell = _Cell(
+            cast(CT_Tc, element("w:tc/(w:tcPr/w:vMerge{w:val=restart},w:p)")),
+            parent_,
+        )
+        assert cell.merge_origin is cell
+
+    def it_walks_up_to_find_merge_origin_from_continuation(self, parent_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/(w:tcPr/w:vMerge{w:val=restart},w:p),"
+                "w:tr/w:tc/(w:tcPr/w:vMerge,w:p),"
+                "w:tr/w:tc/(w:tcPr/w:vMerge,w:p))"
+            ),
+        )
+        root_tc = tbl.tr_lst[0].tc_lst[0]
+        continuation_tc = tbl.tr_lst[2].tc_lst[0]
+        cell = _Cell(continuation_tc, parent_)
+
+        origin = cell.merge_origin
+
+        assert origin._tc is root_tc
+
+    def it_raises_when_merge_origin_is_orphaned(self, parent_: Mock):
+        # -- vMerge="continue" in first row (no row above to walk to) --
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/(w:tcPr/w:vMerge,w:p))"
+            ),
+        )
+        orphan_tc = tbl.tr_lst[0].tc_lst[0]
+        cell = _Cell(orphan_tc, parent_)
+
+        with pytest.raises(ValueError, match="orphan vMerge continuation"):
+            cell.merge_origin
+
+    # -- merged-cell read robustness edge cases --------------------------------
+
+    def it_tolerates_orphan_vMerge_continuation_in_first_row(self, parent_: Mock):
+        """Cell with vMerge="continue" in the top row (no restart above).
+
+        ``_Row.cells`` should not crash; the orphan cell is surfaced as its
+        own cell rather than delegating up a non-existent row.
+        """
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblGrid/(w:gridCol,w:gridCol),"
+                "w:tr/(w:tc/w:p,w:tc/(w:tcPr/w:vMerge,w:p)))"
+            ),
+        )
+        table = Table(tbl, parent_)
+
+        # -- should not raise --
+        cells = table.rows[0].cells
+
+        assert len(cells) == 2
+
+    def it_treats_malformed_gridSpan_zero_as_span_one(self, parent_: Mock):
+        cell = _Cell(
+            cast(CT_Tc, element("w:tc/(w:tcPr/w:gridSpan{w:val=0},w:p)")),
+            parent_,
+        )
+        assert cell.grid_span == 1
+        # -- grid_span==1 with no vMerge should be "not merged" --
+        assert cell.is_merge_origin is None
 
     # fixtures -------------------------------------------------------
 
@@ -1832,6 +2006,89 @@ class Describe_Row:
 
         assert len(cells) == expected_len
         assert all(type(c) is _Cell for c in cells)
+
+    def it_resolves_continuation_cells_to_the_same_restart_origin(self, parent_: Mock):
+        """vMerge="restart" followed by multiple continuations (no val) all
+        yield cells that share the same underlying ``w:tc`` origin.
+        """
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/(w:tcPr/w:vMerge{w:val=restart},w:p),"
+                "w:tr/w:tc/(w:tcPr/w:vMerge,w:p),"
+                "w:tr/w:tc/(w:tcPr/w:vMerge,w:p),"
+                "w:tr/w:tc/(w:tcPr/w:vMerge,w:p))"
+            ),
+        )
+        table = Table(tbl, parent_)
+        root_tc = tbl.tr_lst[0].tc_lst[0]
+
+        # -- each row's single cell should be backed by the restart tc --
+        for row_idx in range(4):
+            row = table.rows[row_idx]
+            cells = row.cells
+            assert len(cells) == 1
+            assert cells[0]._tc is root_tc
+
+    def it_tolerates_orphan_continuation_in_first_row_iteration(self, parent_: Mock):
+        """First-row vMerge="continue" (orphan) should not crash ``_Row.cells``."""
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblGrid/(w:gridCol,w:gridCol),"
+                "w:tr/(w:tc/w:p,w:tc/(w:tcPr/w:vMerge,w:p)))"
+            ),
+        )
+        table = Table(tbl, parent_)
+        row = table.rows[0]
+
+        # -- should not raise --
+        cells = row.cells
+        assert len(cells) == 2
+
+    def it_resolves_vMerge_chain_ending_at_last_row(self, parent_: Mock):
+        """Vertical merge whose continuation hits the final table row."""
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblGrid/(w:gridCol,w:gridCol),"
+                "w:tr/(w:tc/w:p,w:tc/(w:tcPr/w:vMerge{w:val=restart},w:p)),"
+                "w:tr/(w:tc/w:p,w:tc/(w:tcPr/w:vMerge,w:p)))"
+            ),
+        )
+        table = Table(tbl, parent_)
+        last_row_cells = table.rows[1].cells
+        restart_tc = tbl.tr_lst[0].tc_lst[1]
+
+        # -- last-row second cell delegates up to restart in row 0 --
+        assert last_row_cells[1]._tc is restart_tc
+
+    def it_resolves_rectangular_region_spanning_gridSpan_and_vMerge(
+        self, parent_: Mock
+    ):
+        """Horizontal gridSpan combined with vertical merge."""
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblGrid/(w:gridCol,w:gridCol,w:gridCol),"
+                "w:tr/(w:tc/(w:tcPr/(w:gridSpan{w:val=2},w:vMerge{w:val=restart}),w:p),"
+                "w:tc/w:p),"
+                "w:tr/(w:tc/(w:tcPr/(w:gridSpan{w:val=2},w:vMerge),w:p),"
+                "w:tc/w:p))"
+            ),
+        )
+        table = Table(tbl, parent_)
+        row0 = table.rows[0].cells
+        row1 = table.rows[1].cells
+        # -- row 0: gridSpan=2 origin, then cell[2]; row should have 3 cells --
+        assert len(row0) == 3
+        # -- first two cells of row 0 share the spanned tc --
+        assert row0[0]._tc is row0[1]._tc
+        # -- row 1: continuation resolves to the same spanned tc in row 0 --
+        assert len(row1) == 3
+        assert row1[0]._tc is row0[0]._tc
+        assert row1[1]._tc is row0[0]._tc
 
     def it_provides_access_to_the_table_it_belongs_to(self, parent_: Mock, table_: Mock):
         parent_.table = table_

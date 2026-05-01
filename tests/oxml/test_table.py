@@ -1046,6 +1046,73 @@ class DescribeCT_Tc:
         with pytest.raises(ValueError, match="no tr above topmost tr"):
             tc._tr_above
 
+    @pytest.mark.parametrize(
+        ("tc_cxml", "expected"),
+        [
+            # -- absent gridSpan defaults to 1 --
+            ("w:tc", 1),
+            ("w:tc/w:tcPr", 1),
+            # -- explicit value of 1 --
+            ("w:tc/w:tcPr/w:gridSpan{w:val=1}", 1),
+            # -- normal span values --
+            ("w:tc/w:tcPr/w:gridSpan{w:val=2}", 2),
+            ("w:tc/w:tcPr/w:gridSpan{w:val=5}", 5),
+            # -- malformed: gridSpan=0 is coerced to 1 (read robustness) --
+            ("w:tc/w:tcPr/w:gridSpan{w:val=0}", 1),
+        ],
+    )
+    def it_coerces_malformed_grid_span_to_one(self, tc_cxml: str, expected: int):
+        tc = cast(CT_Tc, element(tc_cxml))
+        assert tc.grid_span == expected
+
+    def it_traces_bottom_through_multiple_vMerge_continuations(self):
+        """Restart followed by 3 continuations should report bottom==4."""
+        tbl = cast(
+            CT_Tbl,
+            parse_xml(
+                '<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                "<w:tblGrid><w:gridCol/></w:tblGrid>"
+                "<w:tr><w:tc><w:tcPr><w:vMerge w:val=\"restart\"/></w:tcPr><w:p/></w:tc></w:tr>"
+                "<w:tr><w:tc><w:tcPr><w:vMerge/></w:tcPr><w:p/></w:tc></w:tr>"
+                "<w:tr><w:tc><w:tcPr><w:vMerge/></w:tcPr><w:p/></w:tc></w:tr>"
+                "<w:tr><w:tc><w:tcPr><w:vMerge/></w:tcPr><w:p/></w:tc></w:tr>"
+                "</w:tbl>"
+            ),
+        )
+        root_tc = tbl.tr_lst[0].tc_lst[0]
+        last_tc = tbl.tr_lst[3].tc_lst[0]
+
+        # -- root sees the full span: 4 rows --
+        assert root_tc.top == 0
+        assert root_tc.bottom == 4
+        # -- last continuation points back up to row 0 as its top --
+        assert last_tc.top == 0
+        assert last_tc.bottom == 4
+
+    def it_handles_vMerge_chain_to_last_row(self):
+        """vMerge chain that ends at the final row (no row below).
+
+        Regression guard: ``bottom`` walks forward while there is another
+        continuation; when the current row is the last, it should return
+        ``_tr_idx + 1`` without trying to access a nonexistent row below.
+        """
+        tbl = cast(
+            CT_Tbl,
+            parse_xml(
+                '<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                "<w:tblGrid><w:gridCol/></w:tblGrid>"
+                "<w:tr><w:tc><w:tcPr><w:vMerge w:val=\"restart\"/></w:tcPr><w:p/></w:tc></w:tr>"
+                "<w:tr><w:tc><w:tcPr><w:vMerge/></w:tcPr><w:p/></w:tc></w:tr>"
+                "</w:tbl>"
+            ),
+        )
+        root_tc = tbl.tr_lst[0].tc_lst[0]
+        last_tc = tbl.tr_lst[1].tc_lst[0]
+        # -- root's bottom is just past the last continuation row --
+        assert root_tc.bottom == 2
+        # -- last continuation has no row below; bottom is its own row +1 --
+        assert last_tc.bottom == 2
+
     # fixtures -------------------------------------------------------
 
     @pytest.fixture

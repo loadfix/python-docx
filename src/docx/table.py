@@ -441,7 +441,14 @@ class Table(StoryChild):
         for tc in self._tbl.iter_tcs():
             for grid_span_idx in range(tc.grid_span):
                 if tc.vMerge == ST_Merge.CONTINUE:
-                    cells.append(cells[-col_count])
+                    # -- continuation cell: delegate to the cell one row above.
+                    # -- If there's no preceding row (orphan continuation in the
+                    # -- first row, malformed document), fall back to treating
+                    # -- this tc as its own cell so callers don't crash.
+                    if len(cells) >= col_count:
+                        cells.append(cells[-col_count])
+                    else:
+                        cells.append(_Cell(tc, self))
                 elif grid_span_idx > 0:
                     cells.append(cells[-1])
                 else:
@@ -511,6 +518,64 @@ class _Cell(BlockItemContainer):
         more.
         """
         return self._tc.grid_span
+
+    @property
+    def is_merge_origin(self) -> bool | None:
+        """Tri-state indicator of this cell's role in a merged region.
+
+        - |None| when this cell is not part of any merged region (``w:gridSpan`` is
+          1 or absent *and* ``w:vMerge`` is absent).
+        - |True| when this cell is the top-left of a merged region. That is,
+          either ``w:vMerge/@w:val="restart"`` or ``w:gridSpan > 1`` without a
+          ``w:vMerge`` child indicating it is a later row of a vertical span.
+        - |False| when this cell is a continuation of a merged region (has
+          ``w:vMerge`` without ``@w:val="restart"``, i.e. the default
+          ``"continue"`` value).
+
+        Read-only.
+        """
+        tc = self._tc
+        vMerge = tc.vMerge
+        # -- treat grid_span <= 1 as "no horizontal span" --
+        has_h_span = tc.grid_span > 1
+        if vMerge is None and not has_h_span:
+            return None
+        if vMerge == ST_Merge.CONTINUE:
+            return False
+        # -- vMerge == "restart" or (vMerge is None and has_h_span) --
+        return True
+
+    @property
+    def merge_origin(self) -> _Cell:
+        """The top-left |_Cell| of the merged region this cell belongs to.
+
+        Returns this cell itself if it is not part of any merged region or if it
+        is already the origin (e.g. horizontal-only merge, or vMerge="restart").
+        Walks up the vertical span, following ``w:vMerge`` continuations, until
+        it reaches the ``w:vMerge/@w:val="restart"`` cell.
+
+        Raises |ValueError| if this cell is an orphan continuation — i.e. it has
+        ``w:vMerge`` but no ancestor row contains a corresponding
+        ``w:vMerge="restart"`` cell.
+        """
+        tc = self._tc
+        if tc.vMerge != ST_Merge.CONTINUE:
+            return self
+        # -- walk up following vMerge="continue" until we find "restart" --
+        current = tc
+        visited: set[int] = set()
+        while current.vMerge == ST_Merge.CONTINUE:
+            if id(current) in visited:
+                raise ValueError("cycle detected while locating merge origin")
+            visited.add(id(current))
+            try:
+                above = current._tc_above  # pyright: ignore[reportPrivateUsage]
+            except (ValueError, IndexError):
+                raise ValueError(
+                    "orphan vMerge continuation cell has no restart ancestor"
+                )
+            current = above
+        return _Cell(current, self._parent)
 
     def merge(self, other_cell: _Cell):
         """Return a merged cell created by spanning the rectangular region having this
@@ -1279,8 +1344,16 @@ class _Row(Parented):
             # -- discovery to that prior-row `w:tc` element (recursively) until we arrive at the
             # -- "root" cell -- for the vertical span.
             if tc.vMerge == "continue":
-                yield from iter_tc_cells(tc._tc_above)  # pyright: ignore[reportPrivateUsage]
-                return
+                try:
+                    above = tc._tc_above  # pyright: ignore[reportPrivateUsage]
+                except (ValueError, IndexError):
+                    # -- orphan continuation cell (no preceding row or no tc at
+                    # -- same grid offset). Treat this tc as its own cell so
+                    # -- iteration doesn't crash on malformed documents.
+                    above = None
+                if above is not None:
+                    yield from iter_tc_cells(above)
+                    return
 
             # -- Otherwise, vMerge is either "restart" or None, meaning this `tc` holds the actual
             # -- content of the cell (whether it is vertically merged or not).

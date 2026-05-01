@@ -1260,10 +1260,17 @@ class CT_TcPr(BaseOxmlElement):
     def grid_span(self) -> int:
         """The integer number of columns this cell spans.
 
-        Determined by ./w:gridSpan/@val, it defaults to 1.
+        Determined by ./w:gridSpan/@val, it defaults to 1. Malformed
+        ``w:gridSpan`` values of 0 or negative (seen in the wild from some
+        generators) are coerced to 1 for read robustness.
         """
         gridSpan = self.gridSpan
-        return 1 if gridSpan is None else gridSpan.val
+        if gridSpan is None:
+            return 1
+        val = gridSpan.val
+        # -- defensive: some buggy generators emit w:gridSpan/@w:val="0". --
+        # -- OOXML requires val >= 1; coerce anything less to 1 on read. --
+        return val if val >= 1 else 1
 
     @grid_span.setter
     def grid_span(self, value: int):
