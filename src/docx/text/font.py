@@ -10,7 +10,7 @@ from docx.enum.text import WD_UNDERLINE
 from docx.shared import ElementProxy, Emu, RGBColor
 
 if TYPE_CHECKING:
-    from docx.enum.text import WD_COLOR_INDEX
+    from docx.enum.text import WD_BORDER_STYLE, WD_COLOR_INDEX
     from docx.oxml.text.run import CT_R
     from docx.shared import Length
 
@@ -65,6 +65,149 @@ class Font(ElementProxy):
     @bold.setter
     def bold(self, value: bool | None) -> None:
         self._set_bool_prop("b", value)
+
+    @property
+    def border_color(self) -> RGBColor | None:
+        """Run-border color as an |RGBColor|, or |None| if not set.
+
+        Read/write. Reads ``w:rPr/w:bdr/@w:color``. Returns |None| when the
+        ``w:bdr`` element is absent, when the attribute is missing, or when it
+        is set to ``"auto"``. Assigning an |RGBColor| creates the ``w:bdr``
+        child if necessary. Assigning |None| clears the attribute but leaves
+        any sibling border attributes intact.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        bdr = rPr.bdr
+        if bdr is None:
+            return None
+        color = bdr.color
+        if color is None or not isinstance(color, RGBColor):
+            return None
+        return color
+
+    @border_color.setter
+    def border_color(self, value: RGBColor | None) -> None:
+        if value is None:
+            rPr = self._element.rPr
+            if rPr is None:
+                return
+            bdr = rPr.bdr
+            if bdr is None:
+                return
+            bdr.color = None
+            return
+        rPr = self._element.get_or_add_rPr()
+        bdr = rPr.get_or_add_bdr()
+        bdr.color = value
+
+    @property
+    def border_space(self) -> Length | None:
+        """Space between the border and the text, in points.
+
+        Read/write. Maps to ``w:rPr/w:bdr/@w:space``. Returns |None| when the
+        ``w:bdr`` element or the attribute is absent. Assigning a |Length| or
+        |Pt| value creates the ``w:bdr`` child if necessary. Assigning |None|
+        clears the attribute.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        bdr = rPr.bdr
+        if bdr is None:
+            return None
+        return bdr.space
+
+    @border_space.setter
+    def border_space(self, value: Length | None) -> None:
+        if value is None:
+            rPr = self._element.rPr
+            if rPr is None:
+                return
+            bdr = rPr.bdr
+            if bdr is None:
+                return
+            bdr.space = None
+            return
+        rPr = self._element.get_or_add_rPr()
+        bdr = rPr.get_or_add_bdr()
+        bdr.space = value
+
+    @property
+    def border_style(self) -> WD_BORDER_STYLE | None:
+        """Border style as a member of :ref:`WdBorderStyle`, or |None| if not set.
+
+        Read/write. Maps to ``w:rPr/w:bdr/@w:val``. Returns |None| when the
+        ``w:bdr`` element or the attribute is absent. Assigning a
+        |WD_BORDER_STYLE| member creates the ``w:bdr`` child if necessary.
+        Assigning |None| clears the attribute.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        bdr = rPr.bdr
+        if bdr is None:
+            return None
+        return bdr.val
+
+    @border_style.setter
+    def border_style(self, value: WD_BORDER_STYLE | None) -> None:
+        if value is None:
+            rPr = self._element.rPr
+            if rPr is None:
+                return
+            bdr = rPr.bdr
+            if bdr is None:
+                return
+            bdr.val = None
+            return
+        rPr = self._element.get_or_add_rPr()
+        bdr = rPr.get_or_add_bdr()
+        bdr.val = value
+
+    @property
+    def border_width(self) -> Length | None:
+        """Border width as a |Length| value, or |None| if not set.
+
+        Read/write. Maps to ``w:rPr/w:bdr/@w:sz`` which is measured in
+        eighth-points. Returns |None| when the ``w:bdr`` element or the
+        attribute is absent. Assigning a |Length| or |Pt| value creates the
+        ``w:bdr`` child if necessary. Assigning |None| clears the attribute.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        bdr = rPr.bdr
+        if bdr is None:
+            return None
+        return bdr.sz
+
+    @border_width.setter
+    def border_width(self, value: Length | None) -> None:
+        if value is None:
+            rPr = self._element.rPr
+            if rPr is None:
+                return
+            bdr = rPr.bdr
+            if bdr is None:
+                return
+            bdr.sz = None
+            return
+        rPr = self._element.get_or_add_rPr()
+        bdr = rPr.get_or_add_bdr()
+        bdr.sz = value
+
+    def remove_border(self) -> None:
+        """Remove the entire ``w:rPr/w:bdr`` child element, if present.
+
+        Clears all run-border state in a single call. Has no effect when no
+        ``w:bdr`` element is present.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return
+        rPr._remove_bdr()  # pyright: ignore[reportPrivateUsage]
 
     @property
     def color(self):

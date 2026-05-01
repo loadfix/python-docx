@@ -369,6 +369,7 @@ from .text.parfmt import (
 )
 
 register_element_cls("w:bar", CT_Border)
+register_element_cls("w:bdr", CT_Border)
 register_element_cls("w:between", CT_Border)
 register_element_cls("w:bottom", CT_Border)
 register_element_cls("w:ind", CT_Ind)
