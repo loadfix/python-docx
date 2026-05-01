@@ -16,6 +16,7 @@ from docx.parts.numbering import NumberingPart
 from docx.parts.settings import SettingsPart
 from docx.parts.story import StoryPart
 from docx.parts.styles import StylesPart
+from docx.parts.web_settings import WebSettingsPart
 from docx.shape import InlineShapes
 from docx.shared import lazyproperty
 
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     from docx.opc.coreprops import CoreProperties
     from docx.settings import Settings
     from docx.styles.style import BaseStyle
+    from docx.web_settings import WebSettings
 
 
 class DocumentPart(StoryPart):
@@ -218,6 +220,32 @@ class DocumentPart(StoryPart):
         """A |Styles| object providing access to the styles in the styles part of this
         document."""
         return self._styles_part.styles
+
+    @property
+    def web_settings(self) -> WebSettings | None:
+        """A |WebSettings| proxy for this document, or |None| when no web-settings part exists.
+
+        The web-settings part is managed by Word; python-docx does not create one
+        on demand, so this returns |None| when the document has no existing
+        ``webSettings`` relationship.
+        """
+        web_settings_part = self._web_settings_part
+        if web_settings_part is None:
+            return None
+        return web_settings_part.web_settings
+
+    @property
+    def _web_settings_part(self) -> WebSettingsPart | None:
+        """The |WebSettingsPart| related to this document, or |None| if not present.
+
+        Unlike the settings part, a default web-settings part is not created on
+        demand; the part is exposed read-only and only available when the source
+        document already contains one.
+        """
+        try:
+            return cast(WebSettingsPart, self.part_related_by(RT.WEB_SETTINGS))
+        except KeyError:
+            return None
 
     @property
     def _comments_part(self) -> CommentsPart:
