@@ -425,6 +425,51 @@ class CT_Inline(BaseOxmlElement):
         return inline
 
     @classmethod
+    def new_chart_inline(
+        cls, shape_id: int, rId: str, cx: Length, cy: Length
+    ) -> CT_Inline:
+        """Return a new `wp:inline` element wrapping a chart graphic.
+
+        `rId` is the relationship id pointing at the related chart part. The
+        resulting drawing has `a:graphicData/@uri` set to the chart namespace
+        and an embedded `c:chart` element with `r:id="rId"`.
+        """
+        inline = cast(CT_Inline, parse_xml(cls._chart_inline_xml()))
+        inline.extent.cx = cx
+        inline.extent.cy = cy
+        inline.docPr.id = shape_id
+        inline.docPr.name = "Chart %d" % shape_id
+        graphicData = inline.graphic.graphicData
+        graphicData.uri = "http://schemas.openxmlformats.org/drawingml/2006/chart"
+        chart_elm = parse_xml(
+            '<c:chart %s %s r:id="%s"/>'
+            % (
+                nsdecls("c"),
+                'xmlns:r="http://schemas.openxmlformats.org/'
+                'officeDocument/2006/relationships"',
+                rId,
+            )
+        )
+        graphicData.append(chart_elm)
+        return inline
+
+    @classmethod
+    def _chart_inline_xml(cls) -> str:
+        return (
+            '<wp:inline distT="0" distB="0" distL="0" distR="0" %s>\n'
+            '  <wp:extent cx="914400" cy="914400"/>\n'
+            '  <wp:effectExtent l="0" t="0" r="0" b="0"/>\n'
+            '  <wp:docPr id="666" name="unnamed"/>\n'
+            "  <wp:cNvGraphicFramePr>\n"
+            '    <a:graphicFrameLocks noChangeAspect="1"/>\n'
+            "  </wp:cNvGraphicFramePr>\n"
+            "  <a:graphic>\n"
+            '    <a:graphicData uri="URI not set"/>\n'
+            "  </a:graphic>\n"
+            "</wp:inline>" % nsdecls("wp", "a", "r")
+        )
+
+    @classmethod
     def _inline_xml(cls):
         return (
             '<wp:inline distT="0" distB="0" distL="0" distR="0" %s>\n'

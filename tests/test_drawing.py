@@ -141,6 +141,75 @@ class DescribeDrawing:
 
         assert drawing.type == expected_type
 
+    @pytest.mark.parametrize(
+        ("cxml", "expected"),
+        [
+            ("w:drawing/wp:inline/a:graphic/a:graphicData/c:chart", True),
+            ("w:drawing/wp:anchor/a:graphic/a:graphicData/c:chart", True),
+            ("w:drawing/wp:inline/a:graphic/a:graphicData/pic:pic", False),
+            ("w:drawing", False),
+        ],
+    )
+    def it_knows_when_it_has_a_chart(
+        self, cxml: str, expected: bool, document_part_: Mock
+    ):
+        drawing = Drawing(cast(CT_Drawing, element(cxml)), document_part_)
+        assert drawing.has_chart is expected
+
+    def it_returns_None_chart_when_no_chart_ref(self, document_part_: Mock):
+        drawing = Drawing(
+            cast(CT_Drawing, element("w:drawing/wp:inline/a:graphic/a:graphicData/pic:pic")),
+            document_part_,
+        )
+        assert drawing.chart is None
+
+    def it_returns_None_chart_when_related_part_missing(self, document_part_: Mock):
+        document_part_.part.related_parts = {}
+        drawing = Drawing(
+            cast(
+                CT_Drawing,
+                element(
+                    "w:drawing/wp:inline/a:graphic/a:graphicData"
+                    "/c:chart{r:id=rIdX}"
+                ),
+            ),
+            document_part_,
+        )
+        assert drawing.chart is None
+
+    def it_returns_a_Chart_when_related_part_is_a_ChartPart(self, document_part_: Mock):
+        from docx.chart import Chart
+        from docx.opc.constants import CONTENT_TYPE as CT
+        from docx.opc.packuri import PackURI
+        from docx.oxml.chart import CT_ChartSpace
+        from docx.package import Package
+        from docx.parts.chart import ChartPart
+
+        chartSpace = cast(
+            CT_ChartSpace,
+            element(
+                "c:chartSpace/c:chart/c:plotArea/c:barChart/c:barDir{val=bar}"
+            ),
+        )
+        package = Package()
+        chart_part = ChartPart(
+            PackURI("/word/charts/chart1.xml"), CT.DML_CHART, chartSpace, package
+        )
+        document_part_.part.related_parts = {"rId9": chart_part}
+        drawing = Drawing(
+            cast(
+                CT_Drawing,
+                element(
+                    "w:drawing/wp:inline/a:graphic/a:graphicData"
+                    "/c:chart{r:id=rId9}"
+                ),
+            ),
+            document_part_,
+        )
+
+        chart = drawing.chart
+        assert isinstance(chart, Chart)
+
     def it_knows_it_is_not_a_group_when_it_wraps_a_picture(self, document_part_: Mock):
         drawing = Drawing(
             cast(CT_Drawing, element("w:drawing/wp:inline/a:graphic/a:graphicData/pic:pic")),

@@ -11,6 +11,7 @@ from docx.shared import ElementProxy, Parented
 
 if TYPE_CHECKING:
     import docx.types as t
+    from docx.chart import Chart
     from docx.image.image import Image
     from docx.smart_art import SmartArt
     from docx.text.paragraph import Paragraph
@@ -61,6 +62,47 @@ class Drawing(Parented):
         doc_part = self.part
         image_part = doc_part.related_parts[rId]
         return image_part.image
+
+    @property
+    def has_chart(self) -> bool:
+        """True when this drawing contains a `c:chart` reference element.
+
+        Note this checks only the *presence* of the chart placeholder; the
+        related chart part must exist in the package for :attr:`chart` to
+        return a non-None value.
+        """
+        xpath_expr = (
+            "./wp:inline/a:graphic/a:graphicData/c:chart"
+            " | ./wp:anchor/a:graphic/a:graphicData/c:chart"
+        )
+        return bool(self._drawing.xpath(xpath_expr))
+
+    @property
+    def chart(self) -> Chart | None:
+        """A |Chart| proxy for the chart in this drawing, or |None|.
+
+        Returns |None| when the drawing does not contain a chart reference or
+        when the referenced chart part cannot be resolved via the document's
+        relationship graph.
+        """
+        chart_refs = self._drawing.xpath(
+            "./wp:inline/a:graphic/a:graphicData/c:chart/@r:id"
+            " | ./wp:anchor/a:graphic/a:graphicData/c:chart/@r:id"
+        )
+        if not chart_refs:
+            return None
+        rId = chart_refs[0]
+        try:
+            chart_part = self.part.related_parts[rId]
+        except KeyError:
+            return None
+        # -- local import to avoid a circular-import at module load time --
+        from docx.chart import Chart
+        from docx.parts.chart import ChartPart
+
+        if not isinstance(chart_part, ChartPart):
+            return None
+        return Chart(chart_part)
 
     @property
     def text(self) -> str:

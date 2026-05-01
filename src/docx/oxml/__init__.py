@@ -602,6 +602,33 @@ register_element_cls("dgm:ptLst", CT_PtLst)
 register_element_cls("dgm:relIds", CT_RelIds)
 
 # ---------------------------------------------------------------------------
+# Chart-related elements
+
+from .chart import (
+    CT_AreaChart,
+    CT_BarChart,
+    CT_Chart,
+    CT_ChartSpace,
+    CT_DoughnutChart,
+    CT_LineChart,
+    CT_PieChart,
+    CT_PlotArea,
+    CT_ScatterChart,
+    CT_Ser,
+)
+
+register_element_cls("c:chartSpace", CT_ChartSpace)
+register_element_cls("c:chart", CT_Chart)
+register_element_cls("c:plotArea", CT_PlotArea)
+register_element_cls("c:barChart", CT_BarChart)
+register_element_cls("c:lineChart", CT_LineChart)
+register_element_cls("c:pieChart", CT_PieChart)
+register_element_cls("c:doughnutChart", CT_DoughnutChart)
+register_element_cls("c:scatterChart", CT_ScatterChart)
+register_element_cls("c:areaChart", CT_AreaChart)
+register_element_cls("c:ser", CT_Ser)
+
+# ---------------------------------------------------------------------------
 # VML watermark-related elements
 
 from .watermark import CT_Pict, CT_VmlFill, CT_VmlImageData, CT_VmlShape, CT_VmlTextpath
