@@ -204,6 +204,11 @@ register_element_cls("w:numFmt", CT_NumFmt)
 register_element_cls("w:numStart", CT_NumStart)
 register_element_cls("w:numRestart", CT_NumRestart)
 
+from .permissions import CT_PermEnd, CT_PermStart
+
+register_element_cls("w:permEnd", CT_PermEnd)
+register_element_cls("w:permStart", CT_PermStart)
+
 from .numbering import (
     CT_AbstractNum,
     CT_Lvl,

@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from docx.oxml.content_controls import CT_Sdt
     from docx.oxml.document import CT_Body, CT_Document
     from docx.parts.document import DocumentPart
+    from docx.permissions import PermissionRange
     from docx.search import SearchMatch
     from docx.settings import Settings
     from docx.signatures import SignatureInfo
@@ -277,6 +278,22 @@ class Document(ElementProxy):
     def comments(self) -> Comments:
         """A |Comments| object providing access to comments added to the document."""
         return self._part.comments
+
+    @property
+    def permission_ranges(self) -> list[PermissionRange]:
+        """All rich-text permission ranges (`w:permStart`) in this document body.
+
+        Returned list is ordered by document-order of the `w:permStart` elements
+        in the body.
+        """
+        from docx.oxml.permissions import CT_PermStart
+        from docx.permissions import PermissionRange
+
+        body = self._element.body
+        return [
+            PermissionRange(cast("CT_PermStart", ps), body)
+            for ps in body.xpath(".//w:permStart")
+        ]
 
     @property
     def content_controls(self) -> list[ContentControl]:

@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from docx.oxml.content_controls import CT_Sdt
     from docx.oxml.document import CT_Body
     from docx.oxml.text.paragraph import CT_P
+    from docx.permissions import PermissionRange
     from docx.section import Section
     from docx.shared import Length
     from docx.styles.style import CharacterStyle
@@ -83,6 +84,51 @@ class Paragraph(StoryChild):
 
         bookmarkStart = self._p.xpath(f".//w:bookmarkStart[@w:id='{bookmark_id}']")
         return Bookmark(bookmarkStart[0], body)
+
+    def add_permission_range(
+        self,
+        name: str | None = None,
+        user: str | None = None,
+        edit_group: str | None = None,
+    ) -> PermissionRange:
+        """Add a permission range wrapping this paragraph and return it.
+
+        `user` is the single-user restriction (`w:ed`), and `edit_group`
+        is a group restriction (`w:edGrp`, e.g. ``"everyone"`` or
+        ``"current"``). At least one should typically be supplied.
+
+        `name` is accepted for symmetry with ``add_bookmark()`` but is not
+        persisted on the element — `w:permStart` has no `@w:name` attribute in
+        OOXML; it is kept in the signature purely for call-site readability.
+        """
+        from docx.permissions import PermissionRange
+        from docx.oxml.permissions import CT_PermStart
+
+        body = self._get_body()
+        perm_id = self._next_permission_range_id(body)
+
+        self._p.add_permission_range(perm_id, edit_group=edit_group, user=user)
+
+        permStart = self._p.xpath(f".//w:permStart[@w:id='{perm_id}']")[0]
+        return PermissionRange(cast(CT_PermStart, permStart), body)
+
+    @property
+    def permission_ranges(self) -> list[PermissionRange]:
+        """List of |PermissionRange| objects rooted at `w:permStart` in this paragraph."""
+        from docx.permissions import PermissionRange
+        from docx.oxml.permissions import CT_PermStart
+
+        body = self._get_body()
+        return [
+            PermissionRange(cast(CT_PermStart, ps), body)
+            for ps in self._p.xpath(".//w:permStart")
+        ]
+
+    @staticmethod
+    def _next_permission_range_id(body) -> int:
+        """Return the next available `w:permStart/@w:id` in the document body."""
+        used_ids = [int(x) for x in body.xpath(".//w:permStart/@w:id")]
+        return max(used_ids, default=-1) + 1
 
     def _get_body(self) -> CT_Body:
         """Return the w:body ancestor element."""

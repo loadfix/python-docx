@@ -89,6 +89,33 @@ class CT_P(BaseOxmlElement):
             self.insert(0, bookmarkStart)
         self.append(bookmarkEnd)
 
+    def add_permission_range(
+        self,
+        perm_id: int,
+        edit_group: str | None = None,
+        user: str | None = None,
+    ) -> None:
+        """Add permStart/permEnd pair wrapping this paragraph's run content.
+
+        At least one of `edit_group` or `user` should be provided for the range
+        to be meaningful to consumers, but the XSD permits both to be absent.
+        """
+        start_attrs: dict[str, str] = {qn("w:id"): str(perm_id)}
+        if edit_group is not None:
+            start_attrs[qn("w:edGrp")] = edit_group
+        if user is not None:
+            start_attrs[qn("w:ed")] = user
+
+        permStart = OxmlElement("w:permStart", attrs=start_attrs)
+        permEnd = OxmlElement("w:permEnd", attrs={qn("w:id"): str(perm_id)})
+
+        # -- insert permStart after pPr (or at beginning) and permEnd at end --
+        if self.pPr is not None:
+            self.pPr.addnext(permStart)
+        else:
+            self.insert(0, permStart)
+        self.append(permEnd)
+
     def add_p_before(self) -> CT_P:
         """Return a new `<w:p>` element inserted directly prior to this one."""
         new_p = cast(CT_P, OxmlElement("w:p"))
