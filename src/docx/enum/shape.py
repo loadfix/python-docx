@@ -69,3 +69,19 @@ class WD_WRAP_TYPE(enum.Enum):
     TOP_AND_BOTTOM = "topAndBottom"
     BEHIND = "behind"
     IN_FRONT = "inFront"
+
+
+class WD_SHAPE(enum.Enum):
+    """Preset shape type for a DrawingML ``wps:wsp`` shape.
+
+    The enum value is the DrawingML ``a:prstGeom/@prst`` token used to identify
+    the preset geometry of the shape. Only a small subset of the full
+    ``ST_ShapeType`` catalog is implemented for create; all preset names that
+    appear in a document round-trip correctly regardless.
+    """
+
+    RECTANGLE = "rect"
+    ROUNDED_RECTANGLE = "roundRect"
+    OVAL = "ellipse"
+    ARROW_RIGHT = "rightArrow"
+    CALLOUT_ROUNDED_RECTANGLE = "wedgeRoundRectCallout"

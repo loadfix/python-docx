@@ -9,9 +9,9 @@ from typing import cast
 import pytest
 
 from docx.drawing import Drawing, GroupShape, Picture, WordprocessingShape
-from docx.enum.shape import WD_DRAWING_TYPE
+from docx.enum.shape import WD_DRAWING_TYPE, WD_SHAPE
 from docx.image.image import Image
-from docx.oxml.drawing import CT_Drawing, CT_GroupShape
+from docx.oxml.drawing import CT_Drawing, CT_GroupShape, CT_WordprocessingShape
 from docx.parts.document import DocumentPart
 from docx.parts.image import ImagePart
 from docx.text.paragraph import Paragraph
@@ -268,6 +268,89 @@ class DescribeGroupShape:
         shape = group.shapes[0]
         assert isinstance(shape, WordprocessingShape)
         assert shape.text == "Hi\nThere"
+
+    # -- fixtures --------------------------------------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)
+
+
+class DescribeWordprocessingShape:
+    """Unit-test suite for `docx.drawing.WordprocessingShape`."""
+
+    def it_reads_name_from_wps_cNvPr(self, document_part_: Mock):
+        wsp = cast(
+            CT_WordprocessingShape,
+            element("wps:wsp/wps:cNvPr{id=1,name=Rectangle 1}"),
+        )
+
+        shape = WordprocessingShape(wsp, document_part_)
+
+        assert shape.name == "Rectangle 1"
+
+    def its_name_is_None_when_absent(self, document_part_: Mock):
+        wsp = cast(CT_WordprocessingShape, element("wps:wsp"))
+
+        shape = WordprocessingShape(wsp, document_part_)
+
+        assert shape.name is None
+
+    @pytest.mark.parametrize(
+        ("prst", "expected"),
+        [
+            ("rect", WD_SHAPE.RECTANGLE),
+            ("roundRect", WD_SHAPE.ROUNDED_RECTANGLE),
+            ("ellipse", WD_SHAPE.OVAL),
+            ("rightArrow", WD_SHAPE.ARROW_RIGHT),
+            ("wedgeRoundRectCallout", WD_SHAPE.CALLOUT_ROUNDED_RECTANGLE),
+        ],
+    )
+    def it_infers_shape_type_from_prstGeom(
+        self, prst: str, expected: WD_SHAPE, document_part_: Mock
+    ):
+        cxml = "wps:wsp/wps:spPr/a:prstGeom{prst=%s}" % prst
+        wsp = cast(CT_WordprocessingShape, element(cxml))
+
+        shape = WordprocessingShape(wsp, document_part_)
+
+        assert shape.shape_type is expected
+
+    def its_shape_type_is_None_when_preset_is_unknown(self, document_part_: Mock):
+        wsp = cast(
+            CT_WordprocessingShape,
+            element("wps:wsp/wps:spPr/a:prstGeom{prst=someUnknownPreset}"),
+        )
+
+        shape = WordprocessingShape(wsp, document_part_)
+
+        assert shape.shape_type is None
+
+    def its_shape_type_is_None_when_prstGeom_absent(self, document_part_: Mock):
+        wsp = cast(CT_WordprocessingShape, element("wps:wsp"))
+
+        shape = WordprocessingShape(wsp, document_part_)
+
+        assert shape.shape_type is None
+
+    def it_can_set_text(self, document_part_: Mock):
+        wsp = cast(CT_WordprocessingShape, element("wps:wsp"))
+        shape = WordprocessingShape(wsp, document_part_)
+
+        shape.text = "Hello"
+
+        assert shape.text == "Hello"
+
+    def it_replaces_existing_text_on_assignment(self, document_part_: Mock):
+        wsp = cast(
+            CT_WordprocessingShape,
+            element('wps:wsp/wps:txbx/w:txbxContent/w:p/w:r/w:t"Old"'),
+        )
+        shape = WordprocessingShape(wsp, document_part_)
+
+        shape.text = "New"
+
+        assert shape.text == "New"
 
     # -- fixtures --------------------------------------------------------------------------------
 

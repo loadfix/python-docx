@@ -89,6 +89,7 @@ register_element_cls("wpg:grpSp", CT_GroupShape)
 register_element_cls("wpg:wgp", CT_GroupShape)
 register_element_cls("wpg:nvGrpSpPr", CT_NonVisualGroupShapeProperties)
 register_element_cls("wpg:cNvPr", CT_NonVisualDrawingProps)
+register_element_cls("wps:cNvPr", CT_NonVisualDrawingProps)
 register_element_cls("wps:txbx", CT_TextBox)
 register_element_cls("wps:wsp", CT_WordprocessingShape)
 

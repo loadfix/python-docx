@@ -7,7 +7,7 @@ from collections.abc import Iterator
 
 from docx.drawing import Drawing
 from docx.enum.section import WD_SECTION_START
-from docx.enum.shape import WD_ANCHOR_H, WD_ANCHOR_V, WD_WRAP_TYPE
+from docx.enum.shape import WD_ANCHOR_H, WD_ANCHOR_V, WD_SHAPE, WD_WRAP_TYPE
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
 from docx.fields import Field
@@ -362,6 +362,50 @@ class Paragraph(StoryChild):
         ):
             result.append(Equation(cast("CT_OMath | CT_OMathPara", el)))
         return result
+
+    def add_shape(
+        self,
+        shape_type,
+        width: Length | None = None,
+        height: Length | None = None,
+        text: str | None = None,
+    ):
+        """Append an inline `wps:wsp` DrawingML shape to this paragraph.
+
+        `shape_type` is a :class:`docx.enum.shape.WD_SHAPE` member identifying
+        the preset geometry. `width` and `height` are |Length| values; they
+        default to 2 inches by 1 inch when omitted. When `text` is provided the
+        shape gets a minimal text frame containing that string.
+
+        Returns a :class:`docx.drawing.WordprocessingShape` proxy for the newly
+        created shape.
+        """
+        from docx.drawing import WordprocessingShape
+        from docx.oxml.drawing import new_inline_shape_drawing
+
+        if not isinstance(shape_type, WD_SHAPE):
+            raise TypeError(
+                "shape_type must be a WD_SHAPE member, got %r" % (shape_type,)
+            )
+
+        cx = int(width) if width is not None else int(Inches(2))
+        cy = int(height) if height is not None else int(Inches(1))
+
+        story_part = self.part
+        shape_id = story_part.next_id
+        name = "%s %d" % (_shape_name_for(shape_type), shape_id)
+
+        drawing = new_inline_shape_drawing(
+            shape_type.value, cx, cy, shape_id, name, text=text
+        )
+
+        run = self.add_run()
+        run._r.append(drawing)
+
+        wsp = drawing.xpath(
+            ".//wp:inline/a:graphic/a:graphicData/wps:wsp"
+        )[0]
+        return WordprocessingShape(wsp, self)
 
     def add_floating_image(
         self,
@@ -1092,3 +1136,18 @@ class Paragraph(StoryChild):
         """Return a newly created paragraph, inserted directly before this paragraph."""
         p = self._p.add_p_before()
         return Paragraph(p, self._parent)
+
+
+# -- human-readable prefixes for generated shape names (used in @name attrs) --
+_SHAPE_NAME_PREFIX: dict[WD_SHAPE, str] = {
+    WD_SHAPE.RECTANGLE: "Rectangle",
+    WD_SHAPE.ROUNDED_RECTANGLE: "Rounded Rectangle",
+    WD_SHAPE.OVAL: "Oval",
+    WD_SHAPE.ARROW_RIGHT: "Right Arrow",
+    WD_SHAPE.CALLOUT_ROUNDED_RECTANGLE: "Callout",
+}
+
+
+def _shape_name_for(shape_type: WD_SHAPE) -> str:
+    """Return a human-readable prefix used to build a `wps:cNvPr/@name`."""
+    return _SHAPE_NAME_PREFIX.get(shape_type, "Shape")

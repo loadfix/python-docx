@@ -240,6 +240,171 @@ class DescribeParagraph:
         assert img.vertical_offset == 457200
         assert img.wrap_type == WD_WRAP_TYPE.BEHIND
 
+    def it_can_add_a_shape(self, request: pytest.FixtureRequest):
+        from docx.drawing import WordprocessingShape
+        from docx.enum.shape import WD_SHAPE
+        from docx.oxml.ns import qn
+        from docx.parts.story import StoryPart
+        from docx.shared import Inches
+
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.next_id = 1
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, FakeParent())
+
+        shape = paragraph.add_shape(
+            WD_SHAPE.RECTANGLE, Inches(2), Inches(1), text="Hi"
+        )
+
+        assert isinstance(shape, WordprocessingShape)
+        assert shape.shape_type is WD_SHAPE.RECTANGLE
+        assert shape.name == "Rectangle 1"
+        assert shape.text == "Hi"
+
+        # -- drawing is nested inside a w:r/w:drawing --
+        drawings = paragraph._p.xpath(".//w:r/w:drawing")
+        assert len(drawings) == 1
+
+        # -- extent reflects custom dimensions --
+        extent = drawings[0].find(f"{qn('wp:inline')}/{qn('wp:extent')}")
+        assert extent is not None
+        assert extent.get("cx") == str(int(Inches(2)))
+        assert extent.get("cy") == str(int(Inches(1)))
+
+        # -- a:xfrm/a:ext mirrors wp:extent --
+        ext = drawings[0].find(
+            f"{qn('wp:inline')}/{qn('a:graphic')}/{qn('a:graphicData')}"
+            f"/{qn('wps:wsp')}/{qn('wps:spPr')}/{qn('a:xfrm')}/{qn('a:ext')}"
+        )
+        assert ext is not None
+        assert ext.get("cx") == str(int(Inches(2)))
+        assert ext.get("cy") == str(int(Inches(1)))
+
+    @pytest.mark.parametrize(
+        ("shape_member", "expected_prst"),
+        [
+            ("RECTANGLE", "rect"),
+            ("ROUNDED_RECTANGLE", "roundRect"),
+            ("OVAL", "ellipse"),
+            ("ARROW_RIGHT", "rightArrow"),
+            ("CALLOUT_ROUNDED_RECTANGLE", "wedgeRoundRectCallout"),
+        ],
+    )
+    def it_maps_each_shape_type_to_the_expected_prst(
+        self,
+        shape_member: str,
+        expected_prst: str,
+        request: pytest.FixtureRequest,
+    ):
+        from docx.enum.shape import WD_SHAPE
+        from docx.oxml.ns import qn
+        from docx.parts.story import StoryPart
+        from docx.shared import Inches
+
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.next_id = 1
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, FakeParent())
+
+        paragraph.add_shape(WD_SHAPE[shape_member], Inches(1), Inches(1))
+
+        prstGeom = paragraph._p.find(
+            f"{qn('w:r')}/{qn('w:drawing')}/{qn('wp:inline')}"
+            f"/{qn('a:graphic')}/{qn('a:graphicData')}/{qn('wps:wsp')}"
+            f"/{qn('wps:spPr')}/{qn('a:prstGeom')}"
+        )
+        assert prstGeom is not None
+        assert prstGeom.get("prst") == expected_prst
+
+    def it_defaults_dimensions_when_omitted(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.enum.shape import WD_SHAPE
+        from docx.oxml.ns import qn
+        from docx.parts.story import StoryPart
+        from docx.shared import Inches
+
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.next_id = 1
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, FakeParent())
+
+        paragraph.add_shape(WD_SHAPE.OVAL)
+
+        extent = paragraph._p.find(
+            f"{qn('w:r')}/{qn('w:drawing')}/{qn('wp:inline')}/{qn('wp:extent')}"
+        )
+        assert extent is not None
+        assert extent.get("cx") == str(int(Inches(2)))
+        assert extent.get("cy") == str(int(Inches(1)))
+
+    def it_raises_when_shape_type_is_not_a_WD_SHAPE(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.parts.story import StoryPart
+
+        story_part_ = instance_mock(request, StoryPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, FakeParent())
+
+        with pytest.raises(TypeError, match="WD_SHAPE"):
+            paragraph.add_shape("rect")  # type: ignore[arg-type]
+
+    def it_round_trips_a_created_shape_via_drawings(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.enum.shape import WD_SHAPE
+        from docx.parts.story import StoryPart
+        from docx.shared import Inches
+
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.next_id = 7
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, FakeParent())
+
+        created = paragraph.add_shape(
+            WD_SHAPE.OVAL, Inches(2), Inches(1), text="Round-trip"
+        )
+
+        # -- find the shape via the public drawings API --
+        drawings = paragraph.drawings
+        assert len(drawings) == 1
+        assert drawings[0].text == "Round-trip"
+
+        # -- the created shape's metadata matches --
+        assert created.shape_type is WD_SHAPE.OVAL
+        assert created.name == "Oval 7"
+
     @pytest.mark.parametrize(
         ("p_cxml", "count"),
         [
