@@ -9,7 +9,7 @@ from collections.abc import Callable, Iterator
 from docx.oxml.drawing import CT_Drawing
 from docx.oxml.ns import qn
 from docx.oxml.parser import OxmlElement
-from docx.oxml.simpletypes import ST_BrClear, ST_BrType
+from docx.oxml.simpletypes import ST_BrClear, ST_BrType, ST_String
 from docx.oxml.text.font import CT_RPr
 from docx.oxml.xmlchemy import BaseOxmlElement, OptionalAttribute, ZeroOrMore, ZeroOrOne
 from docx.shared import TextAccumulator
@@ -40,6 +40,10 @@ class CT_R(BaseOxmlElement):
     instrText = ZeroOrMore("w:instrText")
     t = ZeroOrMore("w:t")
     tab = ZeroOrMore("w:tab")
+
+    rsidR: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:rsidR", ST_String
+    )
 
     def add_t(self, text: str) -> CT_Text:
         """Return a newly added `<w:t>` element containing `text`."""

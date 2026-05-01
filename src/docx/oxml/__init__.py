@@ -243,6 +243,8 @@ from .settings import (
     CT_CompatSetting,
     CT_DefaultTabStop,
     CT_DocProtect,
+    CT_LongHexNumber,
+    CT_Rsids,
     CT_Settings,
     CT_View,
     CT_Zoom,
@@ -252,6 +254,9 @@ register_element_cls("w:compat", CT_Compat)
 register_element_cls("w:compatSetting", CT_CompatSetting)
 register_element_cls("w:defaultTabStop", CT_DefaultTabStop)
 register_element_cls("w:documentProtection", CT_DocProtect)
+register_element_cls("w:rsid", CT_LongHexNumber)
+register_element_cls("w:rsidRoot", CT_LongHexNumber)
+register_element_cls("w:rsids", CT_Rsids)
 register_element_cls("w:settings", CT_Settings)
 register_element_cls("w:trackRevisions", CT_OnOff)
 register_element_cls("w:view", CT_View)

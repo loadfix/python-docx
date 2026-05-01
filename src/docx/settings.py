@@ -221,6 +221,33 @@ class Settings(ElementProxy):
         self._settings.trackRevisions_val = value
 
     @property
+    def rsid_root(self) -> str | None:
+        """The document's root revision-save ID (``w:rsids/w:rsidRoot/@w:val``).
+
+        Read-only. Returns the 8-character hex string of the first RSID ever
+        assigned to this document, or |None| when no ``w:rsids`` or
+        ``w:rsidRoot`` element is present. Word generates these values; they
+        are surfaced here for downstream diff/merge tooling.
+        """
+        rsids = self._settings.rsids
+        if rsids is None:
+            return None
+        return rsids.rsidRoot_val
+
+    @property
+    def rsids(self) -> list[str]:
+        """The document's revision-save IDs (``w:rsids/w:rsid/@w:val`` values).
+
+        Read-only. Returns a list of 8-character hex strings in document order.
+        An empty list is returned when no ``w:rsids`` element is present, or
+        when it has no ``w:rsid`` children.
+        """
+        rsids = self._settings.rsids
+        if rsids is None:
+            return []
+        return rsids.rsid_vals
+
+    @property
     def zoom_percent(self) -> int | None:
         """The zoom percentage for the document view (e.g. 100 for 100%).
 

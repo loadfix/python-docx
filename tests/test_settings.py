@@ -350,6 +350,56 @@ class DescribeSettings:
         assert settings.endnote_properties.position == WD_ENDNOTE_POSITION.END_OF_SECTION
 
 
+class DescribeSettings_Rsids:
+    """Unit-test suite for RSID access on `docx.settings.Settings`."""
+
+    # -- rsid_root ----------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:settings", None),
+            ("w:settings/w:rsids", None),
+            ("w:settings/w:rsids/w:rsidRoot", None),
+            ("w:settings/w:rsids/w:rsidRoot{w:val=00FA1B42}", "00FA1B42"),
+            (
+                "w:settings/w:rsids/("
+                "w:rsidRoot{w:val=00ABCDEF},"
+                "w:rsid{w:val=001234AB})",
+                "00ABCDEF",
+            ),
+        ],
+    )
+    def it_can_get_the_rsid_root(self, cxml: str, expected_value: str | None):
+        assert Settings(element(cxml)).rsid_root == expected_value
+
+    # -- rsids --------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:settings", []),
+            ("w:settings/w:rsids", []),
+            ("w:settings/w:rsids/w:rsidRoot{w:val=00FA1B42}", []),
+            (
+                "w:settings/w:rsids/w:rsid{w:val=001234AB}",
+                ["001234AB"],
+            ),
+            (
+                "w:settings/w:rsids/("
+                "w:rsidRoot{w:val=00FA1B42},"
+                "w:rsid{w:val=001234AB},"
+                "w:rsid{w:val=00567890})",
+                ["001234AB", "00567890"],
+            ),
+        ],
+    )
+    def it_can_get_the_rsids_in_document_order(
+        self, cxml: str, expected_value: list[str]
+    ):
+        assert Settings(element(cxml)).rsids == expected_value
+
+
 class DescribeCompatSettings:
     """Unit-test suite for `docx.settings.CompatSettings`."""
 

@@ -631,6 +631,16 @@ class Paragraph(StoryChild):
         numPr.numId_val = new_num.numId
 
     @property
+    def rsid(self) -> str | None:
+        """The paragraph's revision-save ID (``w:p/@w:rsidR``) or |None|.
+
+        Read-only. Returns the 8-character hex string Word assigns to mark the
+        editing session in which this paragraph was last modified, or |None|
+        when the ``@w:rsidR`` attribute is not present.
+        """
+        return self._p.rsidR
+
+    @property
     def rendered_page_breaks(self) -> list[RenderedPageBreak]:
         """All rendered page-breaks in this paragraph.
 

@@ -8,7 +8,7 @@ from typing import cast
 
 import pytest
 
-from docx.oxml.settings import CT_Settings
+from docx.oxml.settings import CT_Rsids, CT_Settings
 from docx.shared import Twips
 
 from ..unitutil.cxml import element, xml
@@ -212,6 +212,65 @@ class DescribeCT_Settings:
         settings = cast(CT_Settings, element(cxml))
         settings.view_val = new_value
         assert settings.xml == xml(expected_cxml)
+
+
+class DescribeCT_Rsids:
+    """Unit-test suite for `docx.oxml.settings.CT_Rsids`."""
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:rsids", None),
+            ("w:rsids/w:rsidRoot{w:val=00FA1B42}", "00FA1B42"),
+            ("w:rsids/w:rsidRoot", None),
+            (
+                "w:rsids/(w:rsidRoot{w:val=00ABCDEF},w:rsid{w:val=001234AB})",
+                "00ABCDEF",
+            ),
+        ],
+    )
+    def it_reads_rsidRoot_val(self, cxml: str, expected_value: str | None):
+        rsids = cast(CT_Rsids, element(cxml))
+        assert rsids.rsidRoot_val == expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:rsids", []),
+            ("w:rsids/w:rsidRoot{w:val=00FA1B42}", []),
+            ("w:rsids/w:rsid{w:val=001234AB}", ["001234AB"]),
+            (
+                "w:rsids/("
+                "w:rsidRoot{w:val=00FA1B42},"
+                "w:rsid{w:val=001234AB},"
+                "w:rsid{w:val=00567890},"
+                "w:rsid{w:val=00ABCDEF})",
+                ["001234AB", "00567890", "00ABCDEF"],
+            ),
+        ],
+    )
+    def it_reads_rsid_vals_in_document_order(
+        self, cxml: str, expected_value: list[str]
+    ):
+        rsids = cast(CT_Rsids, element(cxml))
+        assert rsids.rsid_vals == expected_value
+
+
+class DescribeCT_Settings_Rsids:
+    """Unit-test suite for RSID access via `docx.oxml.settings.CT_Settings`."""
+
+    def it_returns_None_for_rsids_when_not_present(self):
+        settings = cast(CT_Settings, element("w:settings"))
+        assert settings.rsids is None
+
+    def it_returns_the_rsids_element_when_present(self):
+        settings = cast(
+            CT_Settings,
+            element("w:settings/w:rsids/w:rsidRoot{w:val=00FA1B42}"),
+        )
+        rsids = settings.rsids
+        assert rsids is not None
+        assert rsids.rsidRoot_val == "00FA1B42"
 
 
 class DescribeCT_Compat:
