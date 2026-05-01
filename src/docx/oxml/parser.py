@@ -4,7 +4,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Iterator, cast
 
 from lxml import etree
 
@@ -26,14 +27,81 @@ oxml_parser = etree.XMLParser(
 )
 oxml_parser.set_element_class_lookup(element_class_lookup)
 
+# -- a second parser configured with recover=True is used for recovery mode. It
+# -- shares the same element-class lookup so custom classes are still produced for
+# -- elements that survive recovery.
+_recovery_parser = etree.XMLParser(
+    remove_blank_text=True,
+    resolve_entities=False,
+    no_network=True,
+    huge_tree=False,
+    recover=True,
+)
+_recovery_parser.set_element_class_lookup(element_class_lookup)
 
-def parse_xml(xml: str | bytes) -> "BaseOxmlElement":
+
+class _RecoveryState:
+    """Opt-in, process-wide recovery-mode state for `parse_xml()`.
+
+    While active, `parse_xml()` falls back to the lxml recover parser when no
+    explicit ``recover`` argument is passed, and collected parse warnings are
+    appended to :attr:`warnings`. Not thread-safe — intended for single-threaded
+    package-open flows.
+    """
+
+    def __init__(self) -> None:
+        self.active: bool = False
+        self.warnings: list[str] = []
+
+
+_recovery_state = _RecoveryState()
+
+
+@contextmanager
+def recovery_mode() -> Iterator[list[str]]:
+    """Context manager enabling recovery parsing for the duration of the block.
+
+    Yields the shared list of warning strings collected while active. The list
+    is cleared on entry and left populated on exit so callers can read it.
+    """
+    _recovery_state.active = True
+    _recovery_state.warnings = []
+    try:
+        yield _recovery_state.warnings
+    finally:
+        _recovery_state.active = False
+
+
+def parse_xml(xml: str | bytes, recover: bool | None = None) -> "BaseOxmlElement":
     """Root lxml element obtained by parsing XML character string `xml`.
 
     The custom parser is used, so custom element classes are produced for elements in
     `xml` that have them.
+
+    When `recover` is True (or when the ambient :func:`recovery_mode` context is
+    active and `recover` is not explicitly False), lxml's recovering parser is
+    used: malformed XML yields a best-effort partial element tree instead of
+    raising :class:`lxml.etree.XMLSyntaxError`. If the content is completely
+    irrecoverable, lxml returns ``None`` — callers in recovery mode must be
+    prepared to substitute an empty stub. Any errors encountered during
+    recovery are appended as strings to the active recovery-mode warnings list.
     """
-    return cast("BaseOxmlElement", etree.fromstring(xml, oxml_parser))
+    use_recover = recover if recover is not None else _recovery_state.active
+    if not use_recover:
+        return cast("BaseOxmlElement", etree.fromstring(xml, oxml_parser))
+
+    try:
+        element = etree.fromstring(xml, _recovery_parser)
+    except etree.XMLSyntaxError as exc:
+        # -- lxml still raises for entirely empty input even with recover=True --
+        if _recovery_state.active:
+            _recovery_state.warnings.append(str(exc))
+        element = None
+    # -- collect parse warnings when the ambient recovery context is active --
+    if _recovery_state.active:
+        for entry in _recovery_parser.error_log:
+            _recovery_state.warnings.append(str(entry))
+    return cast("BaseOxmlElement", element)
 
 
 def register_element_cls(tag: str, cls: type["BaseOxmlElement"]):

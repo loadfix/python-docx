@@ -1,5 +1,8 @@
 """Test suite for opc.oxml module."""
 
+import pytest
+from lxml import etree
+
 from docx.opc.constants import RELATIONSHIP_TARGET_MODE as RTM
 from docx.opc.oxml import (
     CT_Default,
@@ -7,6 +10,7 @@ from docx.opc.oxml import (
     CT_Relationship,
     CT_Relationships,
     CT_Types,
+    parse_xml,
 )
 from docx.oxml.xmlchemy import serialize_for_reading
 
@@ -130,3 +134,23 @@ class DescribeCT_Types:
         types.add_override("/docProps/thumbnail.jpeg", "image/jpeg")
         expected_types_xml = a_Types().xml
         assert types.xml == expected_types_xml
+
+
+class Describe_parse_xml_recovery:
+    """Unit-test suite for `parse_xml(..., recover=True)`."""
+
+    def it_raises_on_malformed_xml_by_default(self):
+        with pytest.raises(etree.XMLSyntaxError):
+            parse_xml(b"<root>unclosed")
+
+    def it_returns_partial_tree_in_recover_mode(self):
+        element = parse_xml(b"<root>unclosed", recover=True)
+
+        assert element is not None
+        assert element.tag == "root"
+
+    def it_recovers_mismatched_end_tags(self):
+        element = parse_xml(b"<a><b></c></a>", recover=True)
+
+        assert element is not None
+        assert element.tag == "a"

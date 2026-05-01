@@ -498,6 +498,18 @@ class Document(ElementProxy):
         return self._body.iter_inner_content()
 
     @property
+    def recovery_warnings(self) -> list[str]:
+        """List of parse-warning strings collected while opening this document.
+
+        Populated only when the document was opened via :func:`docx.Document`
+        with ``recover=True``. Empty for normally-opened documents and for
+        well-formed documents opened in recovery mode.
+        """
+        from docx.package import Package
+
+        return cast("Package", self._part.package).recovery_warnings
+
+    @property
     def paragraphs(self) -> list[Paragraph]:
         """The |Paragraph| instances in the document, in document order.
 

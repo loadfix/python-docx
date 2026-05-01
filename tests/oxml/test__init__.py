@@ -80,6 +80,46 @@ class DescribeParseXml:
         ).encode("utf-8")
 
 
+class DescribeParseXmlRecovery:
+    def it_raises_XMLSyntaxError_by_default_on_malformed_xml(self):
+        with pytest.raises(etree.XMLSyntaxError):
+            parse_xml(b"<w:p>unclosed")
+
+    def it_returns_partial_tree_when_recover_is_True(self):
+        element = parse_xml(b"<w:p>unclosed", recover=True)
+
+        assert element is not None
+        assert element.tag.endswith("}p") or element.tag == "p" or element.tag.endswith("p")
+
+    def it_returns_None_when_input_is_unrecoverable(self):
+        from docx.oxml.parser import recovery_mode
+
+        with recovery_mode() as warnings:
+            element = parse_xml(b"", recover=True)
+
+        assert element is None
+        assert len(warnings) >= 1
+
+    def it_accumulates_warnings_under_recovery_mode(self):
+        from docx.oxml.parser import recovery_mode
+
+        with recovery_mode() as warnings:
+            parse_xml(b"<root><child></root>")
+
+        assert len(warnings) >= 1
+        assert all(isinstance(w, str) for w in warnings)
+
+    def it_deactivates_recovery_after_context_exits(self):
+        from docx.oxml.parser import _recovery_state, recovery_mode
+
+        with recovery_mode():
+            assert _recovery_state.active is True
+        assert _recovery_state.active is False
+        # -- and subsequent calls without recover=True raise as usual --
+        with pytest.raises(etree.XMLSyntaxError):
+            parse_xml(b"<root>unclosed")
+
+
 class DescribeRegisterElementCls:
     def it_determines_class_used_for_elements_with_matching_tagname(self, xml_text):
         register_element_cls("a:foo", CustElmCls)

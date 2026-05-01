@@ -28,6 +28,17 @@ oxml_parser = etree.XMLParser(
 )
 oxml_parser.set_element_class_lookup(element_class_lookup)
 
+# -- paired recovering parser used when `parse_xml(..., recover=True)` is called,
+# -- sharing the same element-class lookup so known tags still get their CT_* wrapper.
+_recovery_parser = etree.XMLParser(
+    remove_blank_text=True,
+    resolve_entities=False,
+    no_network=True,
+    huge_tree=False,
+    recover=True,
+)
+_recovery_parser.set_element_class_lookup(element_class_lookup)
+
 nsmap = {
     "ct": NS.OPC_CONTENT_TYPES,
     "pr": NS.OPC_RELATIONSHIPS,
@@ -40,9 +51,15 @@ nsmap = {
 # ===========================================================================
 
 
-def parse_xml(text: str) -> etree._Element:
-    """`etree.fromstring()` replacement that uses oxml parser."""
-    return etree.fromstring(text, oxml_parser)
+def parse_xml(text: str | bytes, recover: bool = False) -> etree._Element:
+    """`etree.fromstring()` replacement that uses oxml parser.
+
+    When `recover` is True, the lxml recovering parser is used so malformed
+    input yields a best-effort partial element tree rather than raising
+    :class:`lxml.etree.XMLSyntaxError`.
+    """
+    parser = _recovery_parser if recover else oxml_parser
+    return etree.fromstring(text, parser)
 
 
 def qn(tag: str) -> str:
