@@ -292,6 +292,7 @@ from .table import (
     CT_TblWidth,
     CT_Tc,
     CT_TcBorders,
+    CT_TcMar,
     CT_TcPr,
     CT_TextDirection,
     CT_TrPr,
@@ -323,6 +324,7 @@ register_element_cls("w:tblPrEx", CT_TblPrEx)
 register_element_cls("w:tblStyle", CT_String)
 register_element_cls("w:tblW", CT_TblWidth)
 register_element_cls("w:tc", CT_Tc)
+register_element_cls("w:tcMar", CT_TcMar)
 register_element_cls("w:tcPr", CT_TcPr)
 register_element_cls("w:tcW", CT_TblWidth)
 register_element_cls("w:textDirection", CT_TextDirection)
