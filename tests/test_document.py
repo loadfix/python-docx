@@ -26,6 +26,7 @@ from docx.styles.styles import Styles
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 from docx.text.run import Run
+from docx.theme import Theme
 from docx.web_settings import WebSettings
 
 from .unitutil.cxml import element, xml
@@ -283,6 +284,22 @@ class DescribeDocument:
         document = Document(cast(CT_Document, element("w:document")), document_part_)
 
         assert document.web_settings is None
+
+    def it_provides_access_to_its_theme(
+        self, document_part_: Mock, theme_: Mock
+    ):
+        document_part_.theme = theme_
+        document = Document(cast(CT_Document, element("w:document")), document_part_)
+
+        assert document.theme is theme_
+
+    def and_theme_is_None_when_the_document_has_no_theme_part(
+        self, document_part_: Mock
+    ):
+        document_part_.theme = None
+        document = Document(cast(CT_Document, element("w:document")), document_part_)
+
+        assert document.theme is None
 
     def it_provides_access_to_its_inline_shapes(self, document_part_: Mock, inline_shapes_: Mock):
         document_part_.inline_shapes = inline_shapes_
@@ -781,6 +798,10 @@ class DescribeDocument:
     @pytest.fixture
     def web_settings_(self, request: FixtureRequest):
         return instance_mock(request, WebSettings)
+
+    @pytest.fixture
+    def theme_(self, request: FixtureRequest):
+        return instance_mock(request, Theme)
 
 
 class Describe_Body:

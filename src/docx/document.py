@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from docx.styles.style import ParagraphStyle, _TableStyle
     from docx.table import Table
     from docx.text.paragraph import Paragraph
+    from docx.theme import Theme
     from docx.web_settings import WebSettings
 
 
@@ -768,6 +769,17 @@ class Document(ElementProxy):
     def styles(self):
         """A |Styles| object providing access to the styles in this document."""
         return self._part.styles
+
+    @property
+    def theme(self) -> Theme | None:
+        """A |Theme| proxy, or |None| when no ``theme`` part is related.
+
+        The theme part is owned by Word, so python-docx exposes it read-only.
+        Returns |None| when the document has no ``theme`` relationship — which
+        is uncommon for documents created by Word but possible for minimal
+        documents synthesized by other tools.
+        """
+        return self._part.theme
 
     @property
     def web_settings(self) -> WebSettings | None:

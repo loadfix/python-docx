@@ -16,6 +16,7 @@ from docx.parts.numbering import NumberingPart
 from docx.parts.settings import SettingsPart
 from docx.parts.story import StoryPart
 from docx.parts.styles import StylesPart
+from docx.parts.theme import ThemePart
 from docx.parts.web_settings import WebSettingsPart
 from docx.shape import InlineShapes
 from docx.shared import lazyproperty
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
     from docx.opc.coreprops import CoreProperties
     from docx.settings import Settings
     from docx.styles.style import BaseStyle
+    from docx.theme import Theme
     from docx.web_settings import WebSettings
 
 
@@ -220,6 +222,32 @@ class DocumentPart(StoryPart):
         """A |Styles| object providing access to the styles in the styles part of this
         document."""
         return self._styles_part.styles
+
+    @property
+    def theme(self) -> Theme | None:
+        """A |Theme| proxy for this document, or |None| when no theme part is related.
+
+        The theme part is managed by Word; python-docx does not create one on
+        demand, so this returns |None| when the document has no existing
+        ``theme`` relationship.
+        """
+        theme_part = self._theme_part
+        if theme_part is None:
+            return None
+        return theme_part.theme
+
+    @property
+    def _theme_part(self) -> ThemePart | None:
+        """The |ThemePart| related to this document, or |None| if not present.
+
+        A default theme part is not created on demand; the part is exposed
+        read-only and only available when the source document already contains
+        one.
+        """
+        try:
+            return cast(ThemePart, self.part_related_by(RT.THEME))
+        except KeyError:
+            return None
 
     @property
     def web_settings(self) -> WebSettings | None:

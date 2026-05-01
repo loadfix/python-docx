@@ -21,6 +21,7 @@ from docx.parts.hdrftr import FooterPart, HeaderPart
 from docx.parts.numbering import NumberingPart
 from docx.parts.settings import SettingsPart
 from docx.parts.styles import StylesPart
+from docx.parts.theme import ThemePart
 from docx.settings import Settings
 from docx.styles.style import BaseStyle
 from docx.styles.styles import Styles
@@ -275,6 +276,50 @@ class DescribeDocumentPart:
 
         assert document_part._font_table_part is None
 
+    def it_provides_access_to_its_theme_when_a_part_is_related(
+        self, package_: Mock, part_related_by_: Mock, theme_part_: Mock
+    ):
+        theme_part_.theme = "theme-sentinel"
+        part_related_by_.return_value = theme_part_
+        document_part = DocumentPart(
+            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
+        )
+
+        assert document_part.theme == "theme-sentinel"
+        part_related_by_.assert_called_once_with(document_part, RT.THEME)
+
+    def and_theme_is_None_when_no_theme_part_is_related(
+        self, package_: Mock, part_related_by_: Mock
+    ):
+        part_related_by_.side_effect = KeyError
+        document_part = DocumentPart(
+            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
+        )
+
+        assert document_part.theme is None
+        part_related_by_.assert_called_once_with(document_part, RT.THEME)
+
+    def it_provides_access_to_its_theme_part_to_help(
+        self, package_: Mock, part_related_by_: Mock, theme_part_: Mock
+    ):
+        part_related_by_.return_value = theme_part_
+        document_part = DocumentPart(
+            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
+        )
+
+        assert document_part._theme_part is theme_part_
+        part_related_by_.assert_called_once_with(document_part, RT.THEME)
+
+    def and_the_theme_part_accessor_returns_None_when_not_present(
+        self, package_: Mock, part_related_by_: Mock
+    ):
+        part_related_by_.side_effect = KeyError
+        document_part = DocumentPart(
+            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
+        )
+
+        assert document_part._theme_part is None
+
     def it_provides_access_to_its_footnotes_part_to_help(
         self, package_: Mock, part_related_by_: Mock, footnotes_part_: Mock
     ):
@@ -502,6 +547,10 @@ class DescribeDocumentPart:
     @pytest.fixture
     def font_table_part_(self, request: FixtureRequest):
         return instance_mock(request, FontTablePart)
+
+    @pytest.fixture
+    def theme_part_(self, request: FixtureRequest):
+        return instance_mock(request, ThemePart)
 
     @pytest.fixture
     def FootnotesPart_(self, request: FixtureRequest):
