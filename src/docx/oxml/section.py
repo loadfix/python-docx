@@ -12,6 +12,7 @@ from typing_extensions import TypeAlias
 from docx.enum.section import (
     WD_BORDER_DISPLAY,
     WD_BORDER_OFFSET_FROM,
+    WD_DOC_GRID_TYPE,
     WD_HEADER_FOOTER,
     WD_LINE_NUMBERING_RESTART,
     WD_ORIENTATION,
@@ -187,6 +188,20 @@ class CT_LineNumber(BaseOxmlElement):
     )
 
 
+class CT_DocGrid(BaseOxmlElement):
+    """``<w:docGrid>`` element, defining the East Asian character grid for a section."""
+
+    type: WD_DOC_GRID_TYPE | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:type", WD_DOC_GRID_TYPE
+    )
+    linePitch: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:linePitch", ST_DecimalNumber
+    )
+    charSpace: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:charSpace", ST_DecimalNumber
+    )
+
+
 class CT_PageSz(BaseOxmlElement):
     """``<w:pgSz>`` element, defining page dimensions and orientation."""
 
@@ -220,6 +235,7 @@ class CT_SectPr(BaseOxmlElement):
     """`w:sectPr` element, the container element for section properties."""
 
     get_or_add_cols: Callable[[], CT_Cols]
+    get_or_add_docGrid: Callable[[], CT_DocGrid]
     get_or_add_lnNumType: Callable[[], CT_LineNumber]
     get_or_add_paperSrc: Callable[[], CT_PaperSource]
     get_or_add_pgBorders: Callable[[], CT_PgBorders]
@@ -231,6 +247,7 @@ class CT_SectPr(BaseOxmlElement):
     get_or_add_endnotePr: Callable[[], "CT_EdnDocProps"]
     _add_footerReference: Callable[[], CT_HdrFtrRef]
     _add_headerReference: Callable[[], CT_HdrFtrRef]
+    _remove_docGrid: Callable[[], None]
     _remove_footnotePr: Callable[[], None]
     _remove_endnotePr: Callable[[], None]
     _remove_lnNumType: Callable[[], None]
@@ -292,6 +309,9 @@ class CT_SectPr(BaseOxmlElement):
     )
     titlePg: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:titlePg", successors=_tag_seq[14:]
+    )
+    docGrid: CT_DocGrid | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:docGrid", successors=_tag_seq[18:]
     )
     sectPrChange = ZeroOrOne("w:sectPrChange", successors=())
     del _tag_seq

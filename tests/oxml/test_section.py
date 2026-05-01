@@ -9,12 +9,14 @@ import pytest
 from docx.enum.section import (
     WD_BORDER_DISPLAY,
     WD_BORDER_OFFSET_FROM,
+    WD_DOC_GRID_TYPE,
     WD_LINE_NUMBERING_RESTART,
 )
 from docx.enum.text import WD_BORDER_STYLE
 from docx.oxml.section import (
     CT_Col,
     CT_Cols,
+    CT_DocGrid,
     CT_HdrFtr,
     CT_LineNumber,
     CT_PaperSource,
@@ -361,6 +363,99 @@ class DescribeCT_SectPr_paperSrc:
         )
         sectPr._remove_paperSrc()  # pyright: ignore[reportPrivateUsage]
         assert sectPr.paperSrc is None
+
+
+class DescribeCT_DocGrid:
+    """Unit-test suite for `docx.oxml.section.CT_DocGrid`."""
+
+    @pytest.mark.parametrize(
+        ("docGrid_cxml", "grid_type", "line_pitch", "char_space"),
+        [
+            ("w:docGrid", None, None, None),
+            (
+                "w:docGrid{w:type=default,w:linePitch=360,w:charSpace=0}",
+                WD_DOC_GRID_TYPE.DEFAULT,
+                360,
+                0,
+            ),
+            (
+                "w:docGrid{w:type=lines,w:linePitch=312}",
+                WD_DOC_GRID_TYPE.LINES,
+                312,
+                None,
+            ),
+            (
+                "w:docGrid{w:type=linesAndChars,w:linePitch=400,w:charSpace=100}",
+                WD_DOC_GRID_TYPE.LINES_AND_CHARS,
+                400,
+                100,
+            ),
+            (
+                "w:docGrid{w:type=snapToChars,w:charSpace=-50}",
+                WD_DOC_GRID_TYPE.SNAP_TO_CHARS,
+                None,
+                -50,
+            ),
+        ],
+    )
+    def it_knows_its_attributes(
+        self, docGrid_cxml, grid_type, line_pitch, char_space
+    ):
+        docGrid = cast(CT_DocGrid, element(docGrid_cxml))
+        assert docGrid.type == grid_type
+        assert docGrid.linePitch == line_pitch
+        assert docGrid.charSpace == char_space
+
+    def it_can_set_its_attributes(self):
+        docGrid = cast(CT_DocGrid, element("w:docGrid"))
+        docGrid.type = WD_DOC_GRID_TYPE.LINES_AND_CHARS
+        docGrid.linePitch = 360
+        docGrid.charSpace = 100
+        assert docGrid.xml == xml(
+            "w:docGrid{w:type=linesAndChars,w:linePitch=360,w:charSpace=100}"
+        )
+
+
+class DescribeCT_SectPr_docGrid:
+    """Unit-test suite for CT_SectPr document-grid features."""
+
+    def it_returns_None_when_no_docGrid_child(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        assert sectPr.docGrid is None
+
+    def it_can_access_its_docGrid_child(self):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:docGrid{w:linePitch=360}"),
+        )
+        docGrid = sectPr.docGrid
+        assert docGrid is not None
+        assert docGrid.linePitch == 360
+
+    def it_can_add_a_docGrid_child(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        docGrid = sectPr.get_or_add_docGrid()
+        assert docGrid is not None
+        assert sectPr.docGrid is docGrid
+
+    def it_inserts_docGrid_in_the_right_position(self):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/(w:pgSz,w:pgMar,w:cols,w:titlePg)"),
+        )
+        sectPr.get_or_add_docGrid()
+        expected = xml(
+            "w:sectPr/(w:pgSz,w:pgMar,w:cols,w:titlePg,w:docGrid)"
+        )
+        assert sectPr.xml == expected
+
+    def it_can_remove_its_docGrid_child(self):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:docGrid{w:linePitch=360}"),
+        )
+        sectPr._remove_docGrid()  # pyright: ignore[reportPrivateUsage]
+        assert sectPr.docGrid is None
 
 
 class DescribeCT_HdrFtr:

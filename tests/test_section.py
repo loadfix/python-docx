@@ -1796,6 +1796,186 @@ class DescribeSection_paper_source:
             "w:sectPr/(w:pgSz,w:pgMar,w:paperSrc{w:first=1},w:cols)"
         )
 
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)
+
+
+class DescribeDocumentGrid:
+    """Unit-test suite for `docx.section.DocumentGrid`."""
+
+    def it_knows_its_type(self):
+        from docx.enum.section import WD_DOC_GRID_TYPE
+        from docx.oxml.section import CT_DocGrid
+        from docx.section import DocumentGrid
+
+        docGrid = cast(CT_DocGrid, element("w:docGrid{w:type=lines}"))
+        grid = DocumentGrid(docGrid)
+        assert grid.type is WD_DOC_GRID_TYPE.LINES
+
+    def it_knows_its_line_pitch(self):
+        from docx.oxml.section import CT_DocGrid
+        from docx.section import DocumentGrid
+
+        docGrid = cast(CT_DocGrid, element("w:docGrid{w:linePitch=360}"))
+        grid = DocumentGrid(docGrid)
+        assert grid.line_pitch == 360
+
+    def it_knows_its_char_space(self):
+        from docx.oxml.section import CT_DocGrid
+        from docx.section import DocumentGrid
+
+        docGrid = cast(CT_DocGrid, element("w:docGrid{w:charSpace=100}"))
+        grid = DocumentGrid(docGrid)
+        assert grid.char_space == 100
+
+    def it_returns_None_attributes_when_unset(self):
+        from docx.oxml.section import CT_DocGrid
+        from docx.section import DocumentGrid
+
+        docGrid = cast(CT_DocGrid, element("w:docGrid"))
+        grid = DocumentGrid(docGrid)
+        assert grid.type is None
+        assert grid.line_pitch is None
+        assert grid.char_space is None
+
+    def it_can_set_its_line_pitch(self):
+        from docx.oxml.section import CT_DocGrid
+        from docx.section import DocumentGrid
+
+        docGrid = cast(CT_DocGrid, element("w:docGrid"))
+        grid = DocumentGrid(docGrid)
+        grid.line_pitch = 360
+        assert docGrid.xml == xml("w:docGrid{w:linePitch=360}")
+
+    def it_can_set_its_char_space(self):
+        from docx.oxml.section import CT_DocGrid
+        from docx.section import DocumentGrid
+
+        docGrid = cast(CT_DocGrid, element("w:docGrid"))
+        grid = DocumentGrid(docGrid)
+        grid.char_space = 50
+        assert docGrid.xml == xml("w:docGrid{w:charSpace=50}")
+
+    @pytest.mark.parametrize(
+        ("enum_member", "xml_val"),
+        [
+            ("DEFAULT", "default"),
+            ("LINES", "lines"),
+            ("LINES_AND_CHARS", "linesAndChars"),
+            ("SNAP_TO_CHARS", "snapToChars"),
+        ],
+    )
+    def it_knows_its_type_for_each_enum_value(self, enum_member: str, xml_val: str):
+        from docx.enum.section import WD_DOC_GRID_TYPE
+        from docx.oxml.section import CT_DocGrid
+        from docx.section import DocumentGrid
+
+        docGrid = cast(CT_DocGrid, element(f"w:docGrid{{w:type={xml_val}}}"))
+        grid = DocumentGrid(docGrid)
+        assert grid.type is getattr(WD_DOC_GRID_TYPE, enum_member)
+
+    @pytest.mark.parametrize(
+        ("enum_member", "xml_val"),
+        [
+            ("DEFAULT", "default"),
+            ("LINES", "lines"),
+            ("LINES_AND_CHARS", "linesAndChars"),
+            ("SNAP_TO_CHARS", "snapToChars"),
+        ],
+    )
+    def it_can_set_its_type_round_trip(self, enum_member: str, xml_val: str):
+        from docx.enum.section import WD_DOC_GRID_TYPE
+        from docx.oxml.section import CT_DocGrid
+        from docx.section import DocumentGrid
+
+        docGrid = cast(CT_DocGrid, element("w:docGrid"))
+        grid = DocumentGrid(docGrid)
+        grid.type = getattr(WD_DOC_GRID_TYPE, enum_member)
+        assert docGrid.xml == xml(f"w:docGrid{{w:type={xml_val}}}")
+
+    def it_can_clear_its_line_pitch(self):
+        from docx.oxml.section import CT_DocGrid
+        from docx.section import DocumentGrid
+
+        docGrid = cast(CT_DocGrid, element("w:docGrid{w:linePitch=360}"))
+        grid = DocumentGrid(docGrid)
+        grid.line_pitch = None
+        assert docGrid.xml == xml("w:docGrid")
+
+
+class DescribeSection_document_grid:
+    """Unit-test suite for `docx.section.Section.document_grid` and related API."""
+
+    def it_returns_None_when_no_docGrid(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        assert section.document_grid is None
+
+    def it_provides_access_to_DocumentGrid_when_present(self, document_part_: Mock):
+        from docx.section import DocumentGrid
+
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:docGrid{w:linePitch=360,w:charSpace=100}"),
+        )
+        section = Section(sectPr, document_part_)
+        grid = section.document_grid
+        assert isinstance(grid, DocumentGrid)
+        assert grid.line_pitch == 360
+        assert grid.char_space == 100
+
+    def it_can_set_document_grid_creating_docGrid(self, document_part_: Mock):
+        from docx.enum.section import WD_DOC_GRID_TYPE
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        section.set_document_grid(
+            type=WD_DOC_GRID_TYPE.LINES_AND_CHARS,
+            line_pitch=360,
+            char_space=100,
+        )
+        assert sectPr.xml == xml(
+            "w:sectPr/w:docGrid{w:type=linesAndChars,w:linePitch=360,w:charSpace=100}"
+        )
+
+    def it_returns_a_DocumentGrid_from_set_document_grid(self, document_part_: Mock):
+        from docx.section import DocumentGrid
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        grid = section.set_document_grid(line_pitch=360)
+        assert isinstance(grid, DocumentGrid)
+        assert grid.line_pitch == 360
+
+    def it_leaves_unchanged_attributes_alone_in_set_document_grid(
+        self, document_part_: Mock
+    ):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:docGrid{w:type=lines,w:linePitch=360}"),
+        )
+        section = Section(sectPr, document_part_)
+        section.set_document_grid(line_pitch=400)
+        assert sectPr.xml == xml(
+            "w:sectPr/w:docGrid{w:type=lines,w:linePitch=400}"
+        )
+
+    def it_can_remove_document_grid(self, document_part_: Mock):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:docGrid{w:linePitch=360}"),
+        )
+        section = Section(sectPr, document_part_)
+        section.remove_document_grid()
+        assert sectPr.xml == xml("w:sectPr")
+
+    def it_does_nothing_on_remove_when_no_docGrid(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        section.remove_document_grid()
+        assert sectPr.xml == xml("w:sectPr")
+
     # -- fixtures ---------------------------------------------------------------------
 
     @pytest.fixture
