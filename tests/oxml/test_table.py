@@ -8,7 +8,12 @@ from typing import cast
 
 import pytest
 
-from docx.enum.table import WD_BORDER_STYLE, WD_ROW_HEIGHT_RULE, WD_SHADING_PATTERN
+from docx.enum.table import (
+    WD_BORDER_STYLE,
+    WD_ROW_HEIGHT_RULE,
+    WD_SHADING_PATTERN,
+    WD_TEXT_DIRECTION,
+)
 from docx.exceptions import InvalidSpanError
 from docx.oxml.parser import parse_xml
 from docx.oxml.table import (
@@ -294,6 +299,57 @@ class DescribeCT_TcPr:
         assert isinstance(shd, CT_Shd)
         # shd should appear between tcW and vAlign
         expected_xml = xml("w:tcPr/(w:tcW,w:shd,w:vAlign{w:val=center})")
+        assert tcPr.xml == expected_xml
+
+    @pytest.mark.parametrize(
+        ("tcPr_cxml", "expected_value"),
+        [
+            ("w:tcPr", None),
+            ("w:tcPr/w:textDirection{w:val=lrTb}", WD_TEXT_DIRECTION.LR_TB),
+            ("w:tcPr/w:textDirection{w:val=tbRl}", WD_TEXT_DIRECTION.TB_RL),
+            ("w:tcPr/w:textDirection{w:val=btLr}", WD_TEXT_DIRECTION.BT_LR),
+            ("w:tcPr/w:textDirection{w:val=lrTbV}", WD_TEXT_DIRECTION.LR_TB_V),
+            ("w:tcPr/w:textDirection{w:val=tbRlV}", WD_TEXT_DIRECTION.TB_RL_V),
+            ("w:tcPr/w:textDirection{w:val=tbLrV}", WD_TEXT_DIRECTION.TB_LR_V),
+        ],
+    )
+    def it_knows_its_text_direction(
+        self, tcPr_cxml: str, expected_value: WD_TEXT_DIRECTION | None
+    ):
+        tcPr = cast(CT_TcPr, element(tcPr_cxml))
+        assert tcPr.text_direction == expected_value
+
+    @pytest.mark.parametrize(
+        ("tcPr_cxml", "new_value", "expected_cxml"),
+        [
+            (
+                "w:tcPr",
+                WD_TEXT_DIRECTION.TB_RL,
+                "w:tcPr/w:textDirection{w:val=tbRl}",
+            ),
+            (
+                "w:tcPr/w:textDirection{w:val=tbRl}",
+                WD_TEXT_DIRECTION.BT_LR,
+                "w:tcPr/w:textDirection{w:val=btLr}",
+            ),
+            ("w:tcPr/w:textDirection{w:val=tbRl}", None, "w:tcPr"),
+            ("w:tcPr", None, "w:tcPr"),
+        ],
+    )
+    def it_can_change_its_text_direction(
+        self, tcPr_cxml: str, new_value: WD_TEXT_DIRECTION | None, expected_cxml: str
+    ):
+        tcPr = cast(CT_TcPr, element(tcPr_cxml))
+        tcPr.text_direction = new_value
+        assert tcPr.xml == xml(expected_cxml)
+
+    def it_inserts_textDirection_in_the_right_position(self):
+        tcPr = cast(CT_TcPr, element("w:tcPr/(w:tcW,w:vAlign{w:val=center})"))
+        tcPr.text_direction = WD_TEXT_DIRECTION.BT_LR
+        # textDirection should appear between tcW and vAlign
+        expected_xml = xml(
+            "w:tcPr/(w:tcW,w:textDirection{w:val=btLr},w:vAlign{w:val=center})"
+        )
         assert tcPr.xml == expected_xml
 
 

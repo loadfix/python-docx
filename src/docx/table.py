@@ -23,7 +23,12 @@ from docx.text.paragraph import Paragraph
 
 if TYPE_CHECKING:
     import docx.types as t
-    from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_TABLE_ALIGNMENT, WD_TABLE_DIRECTION
+    from docx.enum.table import (
+        WD_ROW_HEIGHT_RULE,
+        WD_TABLE_ALIGNMENT,
+        WD_TABLE_DIRECTION,
+        WD_TEXT_DIRECTION,
+    )
     from docx.oxml.table import (
         CT_Border,
         CT_Row,
@@ -552,6 +557,29 @@ class _Cell(BlockItemContainer):
         create the required XML elements on demand.
         """
         return CellShading(self._tc)
+
+    @property
+    def text_direction(self) -> WD_TEXT_DIRECTION | None:
+        """Member of :ref:`WdTextDirection` or |None|.
+
+        Controls the flow direction of text within the cell. A value of |None|
+        indicates the text direction for this cell is inherited. Assigning |None|
+        causes any explicitly defined text direction to be removed, restoring
+        inheritance.
+
+        The common cell-rotation cases are ``WD_TEXT_DIRECTION.TB_RL`` (rotate
+        90 degrees clockwise) and ``WD_TEXT_DIRECTION.BT_LR`` (rotate 90 degrees
+        counter-clockwise).
+        """
+        tcPr = self._element.tcPr
+        if tcPr is None:
+            return None
+        return tcPr.text_direction
+
+    @text_direction.setter
+    def text_direction(self, value: WD_TEXT_DIRECTION | None):
+        tcPr = self._element.get_or_add_tcPr()
+        tcPr.text_direction = value
 
     @property
     def vertical_alignment(self):

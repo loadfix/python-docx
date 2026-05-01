@@ -18,6 +18,7 @@ from docx.enum.table import (
     WD_TABLE_ALIGNMENT,
     WD_TABLE_AUTOFIT,
     WD_TABLE_DIRECTION,
+    WD_TEXT_DIRECTION,
 )
 from docx.oxml.parser import parse_xml
 from docx.oxml.table import CT_Row, CT_Tbl, CT_TblGridCol, CT_Tc
@@ -681,6 +682,63 @@ class Describe_Cell:
     ):
         cell = _Cell(cast(CT_Tc, element(tc_cxml)), parent_)
         cell.vertical_alignment = new_value
+        assert cell._element.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("tc_cxml", "expected_value"),
+        [
+            ("w:tc", None),
+            ("w:tc/w:tcPr", None),
+            ("w:tc/w:tcPr/w:textDirection{w:val=lrTb}", WD_TEXT_DIRECTION.LR_TB),
+            ("w:tc/w:tcPr/w:textDirection{w:val=tbRl}", WD_TEXT_DIRECTION.TB_RL),
+            ("w:tc/w:tcPr/w:textDirection{w:val=btLr}", WD_TEXT_DIRECTION.BT_LR),
+            ("w:tc/w:tcPr/w:textDirection{w:val=lrTbV}", WD_TEXT_DIRECTION.LR_TB_V),
+            ("w:tc/w:tcPr/w:textDirection{w:val=tbRlV}", WD_TEXT_DIRECTION.TB_RL_V),
+            ("w:tc/w:tcPr/w:textDirection{w:val=tbLrV}", WD_TEXT_DIRECTION.TB_LR_V),
+        ],
+    )
+    def it_knows_its_text_direction(
+        self, tc_cxml: str, expected_value: WD_TEXT_DIRECTION | None, parent_: Mock
+    ):
+        cell = _Cell(cast(CT_Tc, element(tc_cxml)), parent_)
+        assert cell.text_direction == expected_value
+
+    @pytest.mark.parametrize(
+        ("tc_cxml", "new_value", "expected_cxml"),
+        [
+            (
+                "w:tc",
+                WD_TEXT_DIRECTION.TB_RL,
+                "w:tc/w:tcPr/w:textDirection{w:val=tbRl}",
+            ),
+            (
+                "w:tc/w:tcPr",
+                WD_TEXT_DIRECTION.BT_LR,
+                "w:tc/w:tcPr/w:textDirection{w:val=btLr}",
+            ),
+            (
+                "w:tc/w:tcPr/w:textDirection{w:val=tbRl}",
+                WD_TEXT_DIRECTION.BT_LR,
+                "w:tc/w:tcPr/w:textDirection{w:val=btLr}",
+            ),
+            (
+                "w:tc/w:tcPr/w:textDirection{w:val=tbRl}",
+                None,
+                "w:tc/w:tcPr",
+            ),
+            ("w:tc", None, "w:tc/w:tcPr"),
+            ("w:tc/w:tcPr", None, "w:tc/w:tcPr"),
+        ],
+    )
+    def it_can_change_its_text_direction(
+        self,
+        tc_cxml: str,
+        new_value: WD_TEXT_DIRECTION | None,
+        expected_cxml: str,
+        parent_: Mock,
+    ):
+        cell = _Cell(cast(CT_Tc, element(tc_cxml)), parent_)
+        cell.text_direction = new_value
         assert cell._element.xml == xml(expected_cxml)
 
     @pytest.mark.parametrize(
