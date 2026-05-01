@@ -25,9 +25,11 @@ if TYPE_CHECKING:
 
 
 class CT_RunTrackChange(BaseOxmlElement):
-    """Base for `<w:ins>` and `<w:del>` elements wrapping runs in a paragraph.
+    """Base for `<w:ins>`, `<w:del>`, `<w:moveFrom>`, and `<w:moveTo>`.
 
-    Both share the same attribute set: `w:id`, `w:author`, and `w:date`.
+    All four share the same attribute set: `w:id`, `w:author`, and `w:date`. The
+    move-revision subclasses additionally carry `w:name` pairing source and
+    destination wrappers.
     """
 
     r_lst: list[CT_R]
@@ -127,6 +129,52 @@ class CT_DelText(BaseOxmlElement):
     def __str__(self) -> str:
         """Text contained in this element, the empty string if it has no content."""
         return self.text or ""
+
+
+class CT_MoveFrom(CT_Del):
+    """`<w:moveFrom>` element — the source side of a move revision.
+
+    Shares `<w:del>`'s schema: contains runs whose text uses `w:delText`. The
+    additional `w:name` attribute pairs this element with its `<w:moveTo>`
+    counterpart elsewhere in the document.
+
+    Accept/reject semantics mirror the intuition of completing or cancelling the
+    move:
+
+    - ``accept()`` removes this element and its content (the move has been
+      completed, the source text goes away).
+    - ``reject()`` unwraps this element, converting `w:delText` descendants back
+      to `w:t` so the source text is restored as live content.
+    """
+
+    name: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:name", ST_String
+    )
+
+    # -- accept/reject inherit from CT_Del (remove on accept, restore on reject) --
+
+
+class CT_MoveTo(CT_Ins):
+    """`<w:moveTo>` element — the destination side of a move revision.
+
+    Shares `<w:ins>`'s schema: contains plain runs with `w:t`. The additional
+    `w:name` attribute pairs this element with its `<w:moveFrom>` counterpart
+    elsewhere in the document.
+
+    Accept/reject semantics mirror the intuition of completing or cancelling the
+    move:
+
+    - ``accept()`` unwraps this element, keeping its runs as live content (the
+      move has been completed at the destination).
+    - ``reject()`` removes this element and its content (cancelling the move at
+      the destination).
+    """
+
+    name: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:name", ST_String
+    )
+
+    # -- accept/reject inherit from CT_Ins (unwrap on accept, remove on reject) --
 
 
 class CT_TrackChange(BaseOxmlElement):

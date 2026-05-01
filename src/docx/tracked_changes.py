@@ -24,9 +24,11 @@ if TYPE_CHECKING:
 
 
 class TrackedChange(ElementProxy):
-    """Proxy for a single tracked change (insertion or deletion) in a paragraph.
+    """Proxy for a single tracked change in a paragraph.
 
-    Wraps a `<w:ins>` or `<w:del>` element that contains one or more runs.
+    Wraps a `<w:ins>`, `<w:del>`, `<w:moveFrom>`, or `<w:moveTo>` element
+    containing one or more runs. For move revisions the :class:`MoveRevision`
+    subclass exposes the additional `w:name` attribute and paired-peer lookup.
     """
 
     def __init__(self, element: CT_RunTrackChange):
@@ -50,9 +52,18 @@ class TrackedChange(ElementProxy):
 
     @property
     def type(self) -> str:
-        """The type of this tracked change, either ``"insertion"`` or ``"deletion"``."""
-        from docx.oxml.tracked_changes import CT_Ins
+        """The type of this tracked change.
 
+        One of ``"insertion"``, ``"deletion"``, ``"move_from"``, or ``"move_to"``.
+        """
+        # -- check the move subclasses before their bases (CT_MoveFrom extends
+        # -- CT_Del, CT_MoveTo extends CT_Ins) --
+        from docx.oxml.tracked_changes import CT_Ins, CT_MoveFrom, CT_MoveTo
+
+        if isinstance(self._tc_element, CT_MoveFrom):
+            return "move_from"
+        if isinstance(self._tc_element, CT_MoveTo):
+            return "move_to"
         return "insertion" if isinstance(self._tc_element, CT_Ins) else "deletion"
 
     def accept(self) -> None:
@@ -60,7 +71,9 @@ class TrackedChange(ElementProxy):
 
         For an insertion, the `w:ins` wrapper is removed and its inserted runs remain
         in the paragraph. For a deletion, the `w:del` element and its deleted content
-        are removed entirely.
+        are removed entirely. For a `w:moveFrom`, the source element and its content
+        are removed (completing the move). For a `w:moveTo`, the wrapper is removed
+        and its runs survive as live content.
         """
         self._tc_element.accept()
 
@@ -70,8 +83,74 @@ class TrackedChange(ElementProxy):
         For an insertion, the `w:ins` element and its inserted content are removed
         entirely. For a deletion, the `w:del` wrapper is removed and its `w:delText`
         children are converted back to `w:t` so the content is restored as live text.
+        For a `w:moveFrom`, the wrapper is unwound so the source text is restored in
+        place. For a `w:moveTo`, the destination element and its content are removed
+        (cancelling the move).
         """
         self._tc_element.reject()
+
+
+class MoveRevision(TrackedChange):
+    """Proxy for a move revision — a `<w:moveFrom>` or `<w:moveTo>` element.
+
+    In addition to the common author/date/text surface inherited from
+    :class:`TrackedChange`, a move revision carries a ``name`` that pairs the
+    source (`w:moveFrom`) with the destination (`w:moveTo`). The :attr:`peer`
+    property resolves the counterpart element anywhere in the same XML tree by
+    matching `@w:name`.
+
+    Note on the paragraph-level range markers `w:moveFromRangeStart/End` and
+    `w:moveToRangeStart/End`: those bracket cross-paragraph moves rather than
+    wrap run content, so no proxy type is exposed for them. They survive a
+    round-trip unchanged; callers that need to work with them can iterate the
+    underlying XML.
+    """
+
+    @property
+    def name(self) -> str | None:
+        """The `@w:name` attribute pairing this move half with its peer, or |None|.
+
+        Well-formed move-revision XML always includes a name, but the attribute
+        is declared optional per ECMA-376 so callers must handle |None|.
+        """
+        return self._tc_element.get(qn("w:name"))
+
+    @property
+    def peer(self) -> MoveRevision | None:
+        """The paired `w:moveFrom`/`w:moveTo` on the other side of the move.
+
+        Looks up the first element (other than ``self``) in the same tree whose
+        local tag matches the opposite side and whose `@w:name` equals this
+        element's name. Returns |None| if the name is unset, if there is no
+        tree root (detached element), or if no peer is found.
+        """
+        from docx.oxml.tracked_changes import CT_MoveFrom, CT_MoveTo
+
+        name = self.name
+        if not name:
+            return None
+
+        # -- walk up to the document root (or nearest ancestor) and search from
+        # -- there; this handles both attached and fragment-rooted elements --
+        root = self._tc_element
+        while root.getparent() is not None:
+            root = cast("CT_RunTrackChange", root.getparent())
+
+        if isinstance(self._tc_element, CT_MoveFrom):
+            peer_xpath = ".//w:moveTo"
+            peer_cls: type = CT_MoveTo
+        else:
+            peer_xpath = ".//w:moveFrom"
+            peer_cls = CT_MoveFrom
+
+        for candidate in root.xpath(peer_xpath):
+            if candidate is self._tc_element:
+                continue
+            if not isinstance(candidate, peer_cls):
+                continue
+            if candidate.get(qn("w:name")) == name:
+                return MoveRevision(candidate)
+        return None
 
 
 class FormattingChange(ElementProxy):
@@ -186,9 +265,9 @@ def _append_container_text(
 def _resolve_all_changes(root: BaseOxmlElement, *, accept: bool) -> int:
     """Accept or reject every tracked change beneath `root`.
 
-    Processes run-level track changes (`w:ins`, `w:del`) and formatting track changes
-    (`w:rPrChange`, `w:pPrChange`, `w:sectPrChange`). Returns the count of change
-    elements resolved.
+    Processes run-level track changes (`w:ins`, `w:del`, `w:moveFrom`,
+    `w:moveTo`) and formatting track changes (`w:rPrChange`, `w:pPrChange`,
+    `w:sectPrChange`). Returns the count of change elements resolved.
 
     Nested changes (e.g. a `w:ins` inside a `w:del`) are handled by processing
     innermost elements first so outer wrappers see stable children.
@@ -200,12 +279,16 @@ def _resolve_all_changes(root: BaseOxmlElement, *, accept: bool) -> int:
         reject_formatting_change,
     )
 
-    run_changes: list[BaseOxmlElement] = root.xpath(".//w:ins | .//w:del")
+    run_changes: list[BaseOxmlElement] = root.xpath(
+        ".//w:ins | .//w:del | .//w:moveFrom | .//w:moveTo"
+    )
     run_changes.sort(key=lambda e: len(list(e.iterancestors())), reverse=True)
     count = 0
     for elm in run_changes:
         if elm.getparent() is None:
             continue
+        # -- CT_MoveFrom is a CT_Del and CT_MoveTo is a CT_Ins, so this check
+        # -- covers all four element types without listing the move classes --
         if isinstance(elm, (CT_Ins, CT_Del)):
             elm.accept() if accept else elm.reject()
             count += 1
