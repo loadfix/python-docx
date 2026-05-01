@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterator
 from collections.abc import Callable
 
+from lxml import etree
+
+from docx.oxml.ns import qn
+from docx.oxml.parser import OxmlElement
 from docx.oxml.simpletypes import ST_DecimalNumber, ST_OnOff, ST_String, ST_TwipsMeasure
 from docx.oxml.xmlchemy import (
     BaseOxmlElement,
@@ -56,6 +60,9 @@ class CT_CompatSetting(BaseOxmlElement):
     val: str = RequiredAttribute("w:val", ST_String)  # pyright: ignore[reportAssignmentType]
 
 
+_COMPAT_SETTING_DEFAULT_URI = "http://schemas.microsoft.com/office/word"
+
+
 class CT_Compat(BaseOxmlElement):
     """`w:compat` element, containing document compatibility settings."""
 
@@ -63,6 +70,97 @@ class CT_Compat(BaseOxmlElement):
     compatSetting_lst: list[CT_CompatSetting]
 
     compatSetting = ZeroOrMore("w:compatSetting", successors=())
+
+    # --- compatSetting dict-style accessors --------------------------------
+
+    def get_compat_setting(self, name: str) -> str | None:
+        """Return the value of the ``w:compatSetting`` with ``@w:name == name``.
+
+        Returns |None| if no such compatSetting is present.
+        """
+        for setting in self.compatSetting_lst:
+            if setting.name == name:
+                return setting.val
+        return None
+
+    def set_compat_setting(
+        self, name: str, value: str, uri: str = _COMPAT_SETTING_DEFAULT_URI
+    ) -> None:
+        """Set the value of the ``w:compatSetting`` matching `name`.
+
+        If a ``w:compatSetting`` with ``@w:name == name`` exists, its ``@w:val`` is
+        updated in place (its ``@w:uri`` is left unchanged). Otherwise a new
+        compatSetting is appended using `uri` as the URI.
+        """
+        for setting in self.compatSetting_lst:
+            if setting.name == name:
+                setting.val = value
+                return
+        self._add_compatSetting(name=name, uri=uri, val=value)
+
+    def remove_compat_setting(self, name: str) -> bool:
+        """Remove the ``w:compatSetting`` with ``@w:name == name``.
+
+        Returns |True| if a matching element was removed, |False| otherwise.
+        """
+        removed = False
+        for setting in list(self.compatSetting_lst):
+            if setting.name == name:
+                self.remove(setting)
+                removed = True
+        return removed
+
+    def iter_compat_setting_names(self) -> Iterator[str]:
+        """Yield the ``@w:name`` of each ``w:compatSetting`` child in document order."""
+        for setting in self.compatSetting_lst:
+            yield setting.name
+
+    # --- direct-child flag accessors ---------------------------------------
+
+    def has_flag(self, name: str) -> bool:
+        """Return |True| if direct child element ``w:{name}`` is present.
+
+        ``name`` is the local name (without the ``w:`` prefix). A flag is considered
+        "present" regardless of any ``w:val`` attribute value -- merely occurring as a
+        child element is enough (the ``w:val`` semantics follow Word's default
+        on-when-present convention used for :class:`CT_OnOff` elements).
+        """
+        return self.find(qn("w:%s" % name)) is not None
+
+    def set_flag(self, name: str, value: bool) -> None:
+        """Ensure direct child ``w:{name}`` is present if `value` else absent.
+
+        When `value` is |True|, an empty ``w:{name}`` element is appended if no such
+        child is already present (existing children are left unchanged, including any
+        ``w:val`` attribute). When `value` is |False|, every direct child matching
+        ``w:{name}`` is removed.
+        """
+        tag = qn("w:%s" % name)
+        if value:
+            if self.find(tag) is None:
+                self.append(OxmlElement("w:%s" % name))
+            return
+        for child in list(self.findall(tag)):
+            self.remove(child)
+
+    def iter_flag_names(self) -> Iterator[str]:
+        """Yield the local name of each direct child that is not a ``w:compatSetting``.
+
+        Children are yielded in document order. The ``w:`` prefix is stripped.
+        """
+        compatSetting_tag = qn("w:compatSetting")
+        for child in self:
+            if child.tag == compatSetting_tag:
+                continue
+            yield etree.QName(child.tag).localname  # pyright: ignore[reportArgumentType]
+
+    def clear_flags(self) -> None:
+        """Remove every direct child that is not a ``w:compatSetting``."""
+        compatSetting_tag = qn("w:compatSetting")
+        for child in list(self):
+            if child.tag == compatSetting_tag:
+                continue
+            self.remove(child)
 
 
 class CT_DefaultTabStop(BaseOxmlElement):

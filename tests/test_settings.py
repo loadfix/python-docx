@@ -16,7 +16,7 @@ from docx.enum.text import (
     WD_VIEW,
 )
 from docx.footnotes import FootnoteProperties
-from docx.settings import Settings
+from docx.settings import CompatFlags, CompatSettings, Settings
 from docx.shared import Twips
 
 from .unitutil.cxml import element, xml
@@ -348,3 +348,231 @@ class DescribeSettings:
         assert settings.endnote_properties is not None
         assert settings.endnote_properties.number_format == WD_NUMBER_FORMAT.UPPER_LETTER
         assert settings.endnote_properties.position == WD_ENDNOTE_POSITION.END_OF_SECTION
+
+
+class DescribeCompatSettings:
+    """Unit-test suite for `docx.settings.CompatSettings`."""
+
+    def it_is_exposed_on_Settings(self):
+        settings = Settings(element("w:settings"))
+        assert isinstance(settings.compat_settings, CompatSettings)
+
+    def it_is_empty_when_no_compat_child_present(self):
+        settings = Settings(element("w:settings"))
+        assert len(settings.compat_settings) == 0
+        assert list(settings.compat_settings) == []
+        assert "x" not in settings.compat_settings
+
+    def it_reports_len_and_iter(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/("
+                "w:compatSetting{w:name=a,w:uri=http://x,w:val=1},"
+                "w:compatSetting{w:name=b,w:uri=http://x,w:val=2})"
+            )
+        )
+        assert len(settings.compat_settings) == 2
+        assert list(settings.compat_settings) == ["a", "b"]
+
+    def it_supports_contains(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/w:compatSetting"
+                "{w:name=compatibilityMode,w:uri=http://x,w:val=15}"
+            )
+        )
+        assert "compatibilityMode" in settings.compat_settings
+        assert "other" not in settings.compat_settings
+
+    def it_returns_the_value_via_getitem(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/w:compatSetting"
+                "{w:name=compatibilityMode,w:uri=http://x,w:val=15}"
+            )
+        )
+        assert settings.compat_settings["compatibilityMode"] == "15"
+
+    def it_raises_KeyError_for_missing_name(self):
+        settings = Settings(element("w:settings"))
+        with pytest.raises(KeyError):
+            settings.compat_settings["missing"]
+
+    def it_supports_get_with_default(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/w:compatSetting"
+                "{w:name=foo,w:uri=http://x,w:val=1}"
+            )
+        )
+        assert settings.compat_settings.get("foo") == "1"
+        assert settings.compat_settings.get("bar") is None
+        assert settings.compat_settings.get("bar", "fallback") == "fallback"
+
+    def it_creates_w_compat_on_first_set(self):
+        settings = Settings(element("w:settings"))
+        settings.compat_settings["compatibilityMode"] = "15"
+        assert settings.compat_settings["compatibilityMode"] == "15"
+        assert "compatibilityMode" in settings.compat_settings
+
+    def it_updates_an_existing_setting_in_place(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/w:compatSetting"
+                "{w:name=compatibilityMode,w:uri=http://x,w:val=14}"
+            )
+        )
+        settings.compat_settings["compatibilityMode"] = "15"
+        assert settings.compat_settings["compatibilityMode"] == "15"
+        assert len(settings.compat_settings) == 1
+
+    def it_can_remove_via_delitem(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/w:compatSetting"
+                "{w:name=foo,w:uri=http://x,w:val=1}"
+            )
+        )
+        del settings.compat_settings["foo"]
+        assert "foo" not in settings.compat_settings
+        # -- w:compat child is pruned once empty --
+        assert settings._settings.xml == xml("w:settings")
+
+    def it_can_remove_via_remove_method(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/("
+                "w:compatSetting{w:name=a,w:uri=http://x,w:val=1},"
+                "w:compatSetting{w:name=b,w:uri=http://x,w:val=2})"
+            )
+        )
+        settings.compat_settings.remove("a")
+        assert list(settings.compat_settings) == ["b"]
+
+    def it_raises_KeyError_when_removing_missing_name(self):
+        settings = Settings(element("w:settings"))
+        with pytest.raises(KeyError):
+            settings.compat_settings.remove("missing")
+
+    def it_coerces_set_values_to_str(self):
+        settings = Settings(element("w:settings"))
+        settings.compat_settings["compatibilityMode"] = 15  # type: ignore[assignment]
+        assert settings.compat_settings["compatibilityMode"] == "15"
+
+
+class DescribeCompatFlags:
+    """Unit-test suite for `docx.settings.CompatFlags`."""
+
+    def it_is_exposed_on_Settings(self):
+        settings = Settings(element("w:settings"))
+        assert isinstance(settings.compat_flags, CompatFlags)
+
+    def it_returns_False_for_missing_flag_without_raising(self):
+        settings = Settings(element("w:settings"))
+        assert settings.compat_flags["growAutofit"] is False
+
+    def it_returns_True_when_flag_element_is_present(self):
+        settings = Settings(element("w:settings/w:compat/w:growAutofit"))
+        assert settings.compat_flags["growAutofit"] is True
+
+    def it_creates_the_flag_element_when_set_True(self):
+        settings = Settings(element("w:settings"))
+        settings.compat_flags["growAutofit"] = True
+        assert settings.compat_flags["growAutofit"] is True
+        assert settings._settings.xml == xml(
+            "w:settings/w:compat/w:growAutofit"
+        )
+
+    def it_is_idempotent_when_setting_True_twice(self):
+        settings = Settings(element("w:settings"))
+        settings.compat_flags["growAutofit"] = True
+        settings.compat_flags["growAutofit"] = True
+        assert len(settings.compat_flags) == 1
+
+    def it_removes_the_element_when_set_False(self):
+        settings = Settings(element("w:settings/w:compat/w:growAutofit"))
+        settings.compat_flags["growAutofit"] = False
+        assert settings.compat_flags["growAutofit"] is False
+        # -- empty w:compat is pruned --
+        assert settings._settings.xml == xml("w:settings")
+
+    def it_tolerates_set_False_for_missing_flag(self):
+        settings = Settings(element("w:settings"))
+        settings.compat_flags["growAutofit"] = False
+        assert settings._settings.xml == xml("w:settings")
+
+    def it_supports_contains(self):
+        settings = Settings(element("w:settings/w:compat/w:growAutofit"))
+        assert "growAutofit" in settings.compat_flags
+        assert "useFELayout" not in settings.compat_flags
+
+    def it_iterates_present_flag_names(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/("
+                "w:growAutofit,w:useFELayout,"
+                "w:compatSetting{w:name=n,w:uri=http://x,w:val=1})"
+            )
+        )
+        assert list(settings.compat_flags) == ["growAutofit", "useFELayout"]
+
+    def it_reports_len_as_number_of_present_flags(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/("
+                "w:growAutofit,w:useFELayout,"
+                "w:compatSetting{w:name=n,w:uri=http://x,w:val=1})"
+            )
+        )
+        assert len(settings.compat_flags) == 2
+
+    def it_can_clear_all_flags_and_prunes_empty_compat(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/(w:growAutofit,w:useFELayout)"
+            )
+        )
+        settings.compat_flags.clear()
+        assert len(settings.compat_flags) == 0
+        assert settings._settings.xml == xml("w:settings")
+
+    def it_preserves_compat_settings_when_clearing_flags(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/("
+                "w:growAutofit,"
+                "w:compatSetting{w:name=n,w:uri=http://x,w:val=1})"
+            )
+        )
+        settings.compat_flags.clear()
+        assert len(settings.compat_flags) == 0
+        assert "n" in settings.compat_settings
+
+    def it_accepts_unknown_flag_names(self):
+        settings = Settings(element("w:settings"))
+        # -- any local name gets the w: prefix applied --
+        settings.compat_flags["someCustomFlag"] = True
+        assert settings.compat_flags["someCustomFlag"] is True
+        assert settings._settings.xml == xml(
+            "w:settings/w:compat/w:someCustomFlag"
+        )
+
+    def it_can_delete_a_present_flag_via_delitem(self):
+        settings = Settings(element("w:settings/w:compat/w:growAutofit"))
+        del settings.compat_flags["growAutofit"]
+        assert "growAutofit" not in settings.compat_flags
+        assert settings._settings.xml == xml("w:settings")
+
+    def it_raises_KeyError_when_deleting_absent_flag(self):
+        settings = Settings(element("w:settings"))
+        with pytest.raises(KeyError):
+            del settings.compat_flags["growAutofit"]
+
+    def it_exposes_a_list_of_known_flag_names(self):
+        names = CompatFlags.names()
+        assert isinstance(names, tuple)
+        assert "growAutofit" in names
+        assert "doNotBreakWrappedTables" in names
+        assert "cachedColBalance" in names
+        # -- a reasonable coverage threshold --
+        assert len(names) >= 50
