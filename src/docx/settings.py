@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Iterator, cast
 
 from docx.enum.text import WD_VIEW
 from docx.shared import ElementProxy
@@ -12,9 +12,80 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.endnotes import EndnoteProperties
     from docx.footnotes import FootnoteProperties
-    from docx.oxml.settings import CT_Settings
+    from docx.oxml.settings import CT_Compat, CT_Settings
     from docx.oxml.xmlchemy import BaseOxmlElement
     from docx.shared import Length
+
+
+# -- Curated list of well-known direct-child compat-flag element names. Used by
+# -- `CompatFlags.names()` for discoverability. Ordering follows roughly the
+# -- historical / schema order of common Word compatibility flags.
+_KNOWN_COMPAT_FLAG_NAMES: tuple[str, ...] = (
+    "useSingleBorderforContiguousCells",
+    "wpJustification",
+    "noTabHangInd",
+    "noLeading",
+    "spaceForUL",
+    "balanceSingleByteDoubleByteWidth",
+    "noExtraLineSpacing",
+    "doNotLeaveBackslashAlone",
+    "ulTrailSpace",
+    "doNotExpandShiftReturn",
+    "spacingInWholePoints",
+    "lineWrapLikeWord6",
+    "printBodyTextBeforeHeader",
+    "printColBlack",
+    "wpSpaceWidth",
+    "showBreaksInFrames",
+    "subFontBySize",
+    "suppressBottomSpacing",
+    "suppressTopSpacing",
+    "suppressSpacingAtTopOfPage",
+    "suppressTopSpacingWP",
+    "suppressSpBfAfterPgBrk",
+    "swapBordersFacingPages",
+    "convMailMergeEsc",
+    "truncateFontHeightsLikeWP6",
+    "mwSmallCaps",
+    "usePrinterMetrics",
+    "doNotSuppressParagraphBorders",
+    "wrapTrailSpaces",
+    "footnoteLayoutLikeWW8",
+    "shapeLayoutLikeWW8",
+    "alignTablesRowByRow",
+    "forgetLastTabAlignment",
+    "adjustLineHeightInTable",
+    "autoSpaceLikeWord95",
+    "noSpaceRaiseLower",
+    "doNotUseHTMLParagraphAutoSpacing",
+    "layoutRawTableWidth",
+    "layoutTableRowsApart",
+    "useWord97LineBreakRules",
+    "doNotBreakWrappedTables",
+    "doNotSnapToGridInCell",
+    "selectFldWithFirstOrLastChar",
+    "applyBreakingRules",
+    "doNotWrapTextWithPunct",
+    "doNotUseEastAsianBreakRules",
+    "useWord2002TableStyleRules",
+    "growAutofit",
+    "useFELayout",
+    "useNormalStyleForList",
+    "doNotUseIndentAsNumberingTabStop",
+    "useAltKinsokuLineBreakRules",
+    "allowSpaceOfSameStyleInTable",
+    "doNotSuppressIndentation",
+    "doNotAutofitConstrainedTables",
+    "autofitToFirstFixedWidthCell",
+    "underlineTabInNumList",
+    "displayHangulFixedWidth",
+    "splitPgBreakAndParaMark",
+    "doNotVertAlignCellWithSp",
+    "doNotBreakConstrainedForcedTable",
+    "doNotVertAlignInTxbx",
+    "useAnsiKerningPairs",
+    "cachedColBalance",
+)
 
 
 class Settings(ElementProxy):
@@ -38,6 +109,29 @@ class Settings(ElementProxy):
     @compatibility_mode.setter
     def compatibility_mode(self, value: int | None):
         self._settings.compatibilityMode = value
+
+    @property
+    def compat_settings(self) -> CompatSettings:
+        """Dict-like access to ``w:compat/w:compatSetting`` entries.
+
+        Keys are the ``@w:name`` strings; values are the ``@w:val`` strings. The
+        returned object is a live view -- assignments and deletions are reflected in
+        the underlying XML immediately and create/remove the ``w:compat`` element as
+        needed.
+        """
+        return CompatSettings(self._settings)
+
+    @property
+    def compat_flags(self) -> CompatFlags:
+        """Dict-like access to direct-child flag elements under ``w:compat``.
+
+        Each known Word compatibility flag (e.g. ``growAutofit``,
+        ``doNotBreakWrappedTables``, ...) is represented as a direct child of
+        ``w:compat`` whose mere presence turns the behaviour on. Keys are the flag
+        names without the ``w:`` prefix; values are booleans. Unknown keys are also
+        accepted and written/read using the ``w:`` namespace.
+        """
+        return CompatFlags(self._settings)
 
     @property
     def default_tab_stop(self) -> Length | None:
@@ -213,3 +307,176 @@ class _DocumentProtection:
         """The protection type (e.g. "readOnly", "comments", "trackedChanges", "forms")
         or None if no protection is set."""
         return self._settings.documentProtection_edit
+
+
+class CompatSettings:
+    """Dict-like view over ``w:compat/w:compatSetting`` entries.
+
+    Obtained via :attr:`Settings.compat_settings`. Keys are the ``@w:name`` strings;
+    values are the ``@w:val`` strings. The collection is a live view -- all
+    mutations are persisted to the underlying XML immediately.
+    """
+
+    def __init__(self, settings: CT_Settings):
+        self._settings = settings
+
+    # -- internal helpers ---------------------------------------------------
+
+    def _compat_or_none(self) -> CT_Compat | None:
+        return self._settings.compat
+
+    def _compat_or_add(self) -> CT_Compat:
+        return self._settings.get_or_add_compat()
+
+    def _prune_compat_if_empty(self) -> None:
+        compat = self._settings.compat
+        if compat is None:
+            return
+        if len(compat) == 0:
+            self._settings._remove_compat()  # pyright: ignore[reportPrivateUsage]
+
+    # -- Mapping-like protocol ---------------------------------------------
+
+    def __getitem__(self, name: str) -> str:
+        compat = self._compat_or_none()
+        if compat is not None:
+            val = compat.get_compat_setting(name)
+            if val is not None:
+                return val
+        raise KeyError(name)
+
+    def __setitem__(self, name: str, value: str) -> None:
+        self._compat_or_add().set_compat_setting(name, str(value))
+
+    def __delitem__(self, name: str) -> None:
+        compat = self._compat_or_none()
+        if compat is None or not compat.remove_compat_setting(name):
+            raise KeyError(name)
+        self._prune_compat_if_empty()
+
+    def __contains__(self, name: object) -> bool:
+        if not isinstance(name, str):
+            return False
+        compat = self._compat_or_none()
+        if compat is None:
+            return False
+        return compat.get_compat_setting(name) is not None
+
+    def __iter__(self) -> Iterator[str]:
+        compat = self._compat_or_none()
+        if compat is None:
+            return iter(())
+        return iter(list(compat.iter_compat_setting_names()))
+
+    def __len__(self) -> int:
+        compat = self._compat_or_none()
+        if compat is None:
+            return 0
+        return len(compat.compatSetting_lst)
+
+    # -- convenience --------------------------------------------------------
+
+    def get(self, name: str, default: str | None = None) -> str | None:
+        """Return the value for ``name`` if present, else `default`."""
+        compat = self._compat_or_none()
+        if compat is None:
+            return default
+        val = compat.get_compat_setting(name)
+        return default if val is None else val
+
+    def remove(self, name: str) -> None:
+        """Remove the compatSetting named `name`, raising |KeyError| if absent."""
+        del self[name]
+
+
+class CompatFlags:
+    """Dict-like view over direct-child flag elements under ``w:compat``.
+
+    Obtained via :attr:`Settings.compat_flags`. Keys are the flag element's local
+    name (without the ``w:`` prefix); values are booleans indicating the element's
+    presence. Missing flags read as |False| rather than raising |KeyError| -- this
+    matches how Word treats absent flag elements.
+    """
+
+    def __init__(self, settings: CT_Settings):
+        self._settings = settings
+
+    # -- internal helpers ---------------------------------------------------
+
+    def _compat_or_none(self) -> CT_Compat | None:
+        return self._settings.compat
+
+    def _compat_or_add(self) -> CT_Compat:
+        return self._settings.get_or_add_compat()
+
+    def _prune_compat_if_empty(self) -> None:
+        compat = self._settings.compat
+        if compat is None:
+            return
+        if len(compat) == 0:
+            self._settings._remove_compat()  # pyright: ignore[reportPrivateUsage]
+
+    # -- Mapping-like protocol ---------------------------------------------
+
+    def __getitem__(self, name: str) -> bool:
+        compat = self._compat_or_none()
+        if compat is None:
+            return False
+        return compat.has_flag(name)
+
+    def __setitem__(self, name: str, value: bool) -> None:
+        if value:
+            self._compat_or_add().set_flag(name, True)
+            return
+        compat = self._compat_or_none()
+        if compat is None:
+            return
+        compat.set_flag(name, False)
+        self._prune_compat_if_empty()
+
+    def __delitem__(self, name: str) -> None:
+        compat = self._compat_or_none()
+        if compat is None or not compat.has_flag(name):
+            raise KeyError(name)
+        compat.set_flag(name, False)
+        self._prune_compat_if_empty()
+
+    def __contains__(self, name: object) -> bool:
+        if not isinstance(name, str):
+            return False
+        compat = self._compat_or_none()
+        if compat is None:
+            return False
+        return compat.has_flag(name)
+
+    def __iter__(self) -> Iterator[str]:
+        compat = self._compat_or_none()
+        if compat is None:
+            return iter(())
+        return iter(list(compat.iter_flag_names()))
+
+    def __len__(self) -> int:
+        compat = self._compat_or_none()
+        if compat is None:
+            return 0
+        return sum(1 for _ in compat.iter_flag_names())
+
+    # -- convenience --------------------------------------------------------
+
+    def clear(self) -> None:
+        """Remove every non-``w:compatSetting`` child from ``w:compat``."""
+        compat = self._compat_or_none()
+        if compat is None:
+            return
+        compat.clear_flags()
+        self._prune_compat_if_empty()
+
+    @staticmethod
+    def names() -> tuple[str, ...]:
+        """Return a tuple of well-known compatibility flag names.
+
+        Useful for discoverability -- the returned names correspond to direct child
+        elements commonly seen under ``w:compat`` in real-world Word documents.
+        Setting a name not in this list still works.
+        """
+        return _KNOWN_COMPAT_FLAG_NAMES

@@ -212,3 +212,147 @@ class DescribeCT_Settings:
         settings = cast(CT_Settings, element(cxml))
         settings.view_val = new_value
         assert settings.xml == xml(expected_cxml)
+
+
+class DescribeCT_Compat:
+    """Unit-test suite for `docx.oxml.settings.CT_Compat`."""
+
+    # -- compatSetting dict-style helpers -----------------------------------
+
+    def it_returns_None_for_unknown_compat_setting_name(self):
+        compat = cast(
+            CT_Settings, element("w:settings/w:compat")
+        ).compat
+        assert compat is not None
+        assert compat.get_compat_setting("notThere") is None
+
+    def it_can_get_a_compat_setting_by_name(self):
+        settings = cast(
+            CT_Settings,
+            element(
+                "w:settings/w:compat/w:compatSetting"
+                "{w:name=compatibilityMode,w:uri=http://x,w:val=15}"
+            ),
+        )
+        assert settings.compat is not None
+        assert settings.compat.get_compat_setting("compatibilityMode") == "15"
+
+    def it_can_add_a_new_compat_setting(self):
+        settings = cast(CT_Settings, element("w:settings/w:compat"))
+        assert settings.compat is not None
+        settings.compat.set_compat_setting("foo", "1", uri="http://bar")
+        assert settings.xml == xml(
+            "w:settings/w:compat/w:compatSetting"
+            "{w:name=foo,w:uri=http://bar,w:val=1}"
+        )
+
+    def it_can_update_an_existing_compat_setting_in_place(self):
+        settings = cast(
+            CT_Settings,
+            element(
+                "w:settings/w:compat/w:compatSetting"
+                "{w:name=foo,w:uri=http://keep,w:val=old}"
+            ),
+        )
+        assert settings.compat is not None
+        settings.compat.set_compat_setting("foo", "new", uri="http://ignored")
+        # -- URI is left unchanged when the setting already exists --
+        assert settings.xml == xml(
+            "w:settings/w:compat/w:compatSetting"
+            "{w:name=foo,w:uri=http://keep,w:val=new}"
+        )
+
+    def it_can_remove_a_compat_setting(self):
+        settings = cast(
+            CT_Settings,
+            element(
+                "w:settings/w:compat/w:compatSetting"
+                "{w:name=foo,w:uri=http://x,w:val=1}"
+            ),
+        )
+        assert settings.compat is not None
+        assert settings.compat.remove_compat_setting("foo") is True
+        assert settings.xml == xml("w:settings/w:compat")
+
+    def it_returns_False_when_removing_a_missing_compat_setting(self):
+        settings = cast(CT_Settings, element("w:settings/w:compat"))
+        assert settings.compat is not None
+        assert settings.compat.remove_compat_setting("absent") is False
+
+    def it_iterates_compat_setting_names_in_document_order(self):
+        settings = cast(
+            CT_Settings,
+            element(
+                "w:settings/w:compat/("
+                "w:compatSetting{w:name=a,w:uri=http://x,w:val=1},"
+                "w:compatSetting{w:name=b,w:uri=http://x,w:val=2},"
+                "w:compatSetting{w:name=c,w:uri=http://x,w:val=3})"
+            ),
+        )
+        assert settings.compat is not None
+        assert list(settings.compat.iter_compat_setting_names()) == ["a", "b", "c"]
+
+    # -- direct flag helpers ------------------------------------------------
+
+    def it_reports_has_flag_for_present_child(self):
+        settings = cast(
+            CT_Settings, element("w:settings/w:compat/w:growAutofit")
+        )
+        assert settings.compat is not None
+        assert settings.compat.has_flag("growAutofit") is True
+        assert settings.compat.has_flag("useFELayout") is False
+
+    def it_can_add_a_flag(self):
+        settings = cast(CT_Settings, element("w:settings/w:compat"))
+        assert settings.compat is not None
+        settings.compat.set_flag("growAutofit", True)
+        assert settings.xml == xml("w:settings/w:compat/w:growAutofit")
+
+    def it_does_not_duplicate_existing_flag(self):
+        settings = cast(
+            CT_Settings, element("w:settings/w:compat/w:growAutofit")
+        )
+        assert settings.compat is not None
+        settings.compat.set_flag("growAutofit", True)
+        assert settings.xml == xml("w:settings/w:compat/w:growAutofit")
+
+    def it_can_remove_a_flag(self):
+        settings = cast(
+            CT_Settings, element("w:settings/w:compat/w:growAutofit")
+        )
+        assert settings.compat is not None
+        settings.compat.set_flag("growAutofit", False)
+        assert settings.xml == xml("w:settings/w:compat")
+
+    def it_iterates_flag_names_skipping_compatSetting(self):
+        settings = cast(
+            CT_Settings,
+            element(
+                "w:settings/w:compat/("
+                "w:growAutofit,"
+                "w:compatSetting{w:name=n,w:uri=http://x,w:val=1},"
+                "w:useFELayout)"
+            ),
+        )
+        assert settings.compat is not None
+        assert list(settings.compat.iter_flag_names()) == [
+            "growAutofit",
+            "useFELayout",
+        ]
+
+    def it_can_clear_all_flags_but_preserve_compat_settings(self):
+        settings = cast(
+            CT_Settings,
+            element(
+                "w:settings/w:compat/("
+                "w:growAutofit,"
+                "w:compatSetting{w:name=n,w:uri=http://x,w:val=1},"
+                "w:useFELayout)"
+            ),
+        )
+        assert settings.compat is not None
+        settings.compat.clear_flags()
+        assert settings.xml == xml(
+            "w:settings/w:compat/w:compatSetting"
+            "{w:name=n,w:uri=http://x,w:val=1}"
+        )
