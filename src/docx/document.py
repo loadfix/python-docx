@@ -435,6 +435,33 @@ class Document(ElementProxy):
             self.paragraphs, old_text, new_text, case_sensitive, whole_word
         )
 
+    def replace_all(
+        self,
+        old_text: str,
+        new_text: str,
+        case_sensitive: bool = True,
+        whole_word: bool = False,
+    ) -> int:
+        """Replace `old_text` with `new_text` in every story in this document.
+
+        Unlike :meth:`replace`, which updates only top-level body paragraphs, this
+        method walks every "story" in the package — the body (including top-level
+        body tables), each section's non-inherited headers and footers, footnotes,
+        endnotes, and comments — and applies the replacement to each.
+
+        Paragraphs nested inside tables that live within a header, footer,
+        footnote, endnote, or comment story are not descended into, and neither
+        are tables nested inside body-level table cells; see
+        :func:`docx.search._iter_all_paragraphs` for the full iteration contract.
+
+        Returns the total number of replacements made across all stories.
+        """
+        from docx.search import replace_in_all_paragraphs
+
+        return replace_in_all_paragraphs(
+            self, old_text, new_text, case_sensitive, whole_word
+        )
+
     def replace_regex(
         self,
         pattern: str | re.Pattern[str],
@@ -459,6 +486,24 @@ class Document(ElementProxy):
         return replace_in_paragraphs_regex(
             self.paragraphs, pattern, replacement, flags
         )
+
+    def replace_regex_all(
+        self,
+        pattern: str | re.Pattern[str],
+        replacement: str,
+        flags: int = 0,
+    ) -> int:
+        """Replace regex `pattern` with `replacement` across every story in this document.
+
+        Like :meth:`replace_all` but using regex semantics. ``replacement`` follows
+        :func:`re.sub` semantics — backreferences such as ``\\1`` and ``\\g<name>``
+        are expanded per match.
+
+        Returns the total number of replacements made across all stories.
+        """
+        from docx.search import replace_in_all_paragraphs_regex
+
+        return replace_in_all_paragraphs_regex(self, pattern, replacement, flags)
 
     def revision_marks_text(
         self,
@@ -512,6 +557,30 @@ class Document(ElementProxy):
 
         return search_paragraphs(self.paragraphs, text, case_sensitive, whole_word)
 
+    def search_all(
+        self,
+        text: str,
+        case_sensitive: bool = True,
+        whole_word: bool = False,
+    ) -> list[SearchMatch]:
+        """Find `text` in every story across this document.
+
+        Unlike :meth:`search`, which only looks at top-level body paragraphs, this
+        walks all document "stories" — the body and its top-level tables, each
+        section's non-inherited headers and footers, footnotes, endnotes, and
+        comments — and returns a |SearchMatch| for every hit. Each match's
+        :attr:`SearchMatch.location` identifies which story produced it (e.g.
+        ``"body"``, ``"table:0:row:1:col:2"``, ``"header:section0:primary"``,
+        ``"footnote:2"``, ``"endnote:3"``, or ``"comment:5"``).
+
+        Tables nested inside other stories (headers, footers, footnotes, etc.) and
+        tables nested inside body-table cells are not descended into; see
+        :func:`docx.search._iter_all_paragraphs` for details.
+        """
+        from docx.search import search_all_paragraphs
+
+        return search_all_paragraphs(self, text, case_sensitive, whole_word)
+
     def search_regex(
         self,
         pattern: str | re.Pattern[str],
@@ -532,6 +601,22 @@ class Document(ElementProxy):
         from docx.search import search_paragraphs_regex
 
         return search_paragraphs_regex(self.paragraphs, pattern, flags)
+
+    def search_regex_all(
+        self,
+        pattern: str | re.Pattern[str],
+        flags: int = 0,
+    ) -> list[SearchMatch]:
+        """Find regex matches of `pattern` in every story in this document.
+
+        Like :meth:`search_all` but using regex semantics. ``pattern`` may be a
+        string or a compiled :class:`re.Pattern`. Each returned |SearchMatch|
+        carries a :attr:`SearchMatch.location` identifying the story that
+        produced it.
+        """
+        from docx.search import search_all_paragraphs_regex
+
+        return search_all_paragraphs_regex(self, pattern, flags)
 
     @property
     def sections(self) -> Sections:

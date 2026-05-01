@@ -13,8 +13,13 @@ from docx.oxml.document import CT_Document
 from docx.search import (
     SearchMatch,
     _build_char_map,
+    _iter_all_paragraphs,
+    replace_in_all_paragraphs,
+    replace_in_all_paragraphs_regex,
     replace_in_paragraphs,
     replace_in_paragraphs_regex,
+    search_all_paragraphs,
+    search_all_paragraphs_regex,
     search_paragraphs,
     search_paragraphs_regex,
 )
@@ -43,6 +48,27 @@ class DescribeSearchMatch:
         assert match.run_indices == [0, 1]
         assert match.start == 5
         assert match.end == 10
+
+    def it_defaults_location_to_None(self):
+        match = SearchMatch(
+            paragraph=Mock(spec=Paragraph),
+            paragraph_index=0,
+            run_indices=[0],
+            start=0,
+            end=1,
+        )
+        assert match.location is None
+
+    def it_accepts_an_explicit_location(self):
+        match = SearchMatch(
+            paragraph=Mock(spec=Paragraph),
+            paragraph_index=0,
+            run_indices=[0],
+            start=0,
+            end=1,
+            location="footer:section0:primary",
+        )
+        assert match.location == "footer:section0:primary"
 
 
 class DescribeSearch:
@@ -740,3 +766,328 @@ class DescribeDocumentRegex:
 
         assert count == 2
         assert doc.paragraphs[0].text == "hi hi"
+
+
+# ---------------------------------------------------------------------------
+# Cross-story search / replace (issue #154)
+# ---------------------------------------------------------------------------
+
+
+def _fixture_document_with_stories():
+    """Build a |Document| that has content in every searchable story."""
+    import docx as _docx
+
+    doc = _docx.Document()
+
+    # -- body paragraph --
+    doc.add_paragraph("needle in body")
+
+    # -- a body table with content in two cells --
+    table = doc.add_table(rows=2, cols=2)
+    table.cell(0, 0).text = "needle in cell 0,0"
+    table.cell(1, 1).text = "needle in cell 1,1"
+
+    # -- primary footer --
+    footer = doc.sections[0].footer
+    footer.paragraphs[0].text = "needle in footer"
+
+    # -- primary header --
+    header = doc.sections[0].header
+    header.paragraphs[0].text = "needle in header"
+
+    # -- footnote anchored from a run in the body --
+    run_fn = doc.add_paragraph("body host").runs[0]
+    doc.footnotes.add(run_fn, "needle in footnote")
+
+    # -- endnote anchored from a run in the body --
+    run_en = doc.add_paragraph("body host 2").runs[0]
+    doc.endnotes.add(run_en, "needle in endnote")
+
+    # -- comment anchored on a run --
+    run_cm = doc.add_paragraph("commented host").runs[0]
+    doc.add_comment(run_cm, "needle in comment", author="Ben")
+
+    return doc
+
+
+class DescribeIterAllParagraphs:
+    """Unit-test suite for `docx.search._iter_all_paragraphs`."""
+
+    def it_visits_every_story_at_least_once(self):
+        doc = _fixture_document_with_stories()
+
+        locations = [loc for _, loc in _iter_all_paragraphs(doc)]
+
+        assert "body" in locations
+        assert any(loc.startswith("table:0:row:0:col:0") for loc in locations)
+        assert any(loc.startswith("table:0:row:1:col:1") for loc in locations)
+        assert "header:section0:primary" in locations
+        assert "footer:section0:primary" in locations
+        assert any(loc.startswith("footnote:") for loc in locations)
+        assert any(loc.startswith("endnote:") for loc in locations)
+        assert any(loc.startswith("comment:") for loc in locations)
+
+    def it_skips_linked_headers_and_footers(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        # -- leave the primary header/footer linked-to-previous; no definition --
+        locations = [loc for _, loc in _iter_all_paragraphs(doc)]
+
+        assert not any(loc.startswith("header:") for loc in locations)
+        assert not any(loc.startswith("footer:") for loc in locations)
+
+    def it_does_not_error_on_a_minimal_cxml_document(self):
+        """Feeding a Mock-part Document through the iterator must not raise."""
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"only body"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        pairs = list(_iter_all_paragraphs(doc))
+
+        # -- body is always present --
+        assert pairs[0][1] == "body"
+
+
+class DescribeSearchAllParagraphs:
+    """Unit-test suite for `docx.search.search_all_paragraphs`."""
+
+    def it_finds_matches_only_in_body(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        doc.add_paragraph("needle body")
+
+        matches = search_all_paragraphs(doc, "needle")
+
+        assert len(matches) == 1
+        assert matches[0].location == "body"
+
+    def it_finds_matches_in_a_footer(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        doc.sections[0].footer.paragraphs[0].text = "needle footer"
+
+        matches = search_all_paragraphs(doc, "needle")
+
+        assert len(matches) == 1
+        assert matches[0].location == "footer:section0:primary"
+
+    def it_finds_matches_in_a_footnote(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        run = doc.add_paragraph("host").runs[0]
+        doc.footnotes.add(run, "needle in note")
+
+        matches = search_all_paragraphs(doc, "needle")
+
+        assert len(matches) == 1
+        assert matches[0].location.startswith("footnote:")
+
+    def it_finds_matches_in_an_endnote(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        run = doc.add_paragraph("host").runs[0]
+        doc.endnotes.add(run, "needle endnote")
+
+        matches = search_all_paragraphs(doc, "needle")
+
+        assert len(matches) == 1
+        assert matches[0].location.startswith("endnote:")
+
+    def it_finds_matches_in_a_comment(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        run = doc.add_paragraph("host").runs[0]
+        doc.add_comment(run, "needle in comment", author="Ben")
+
+        matches = search_all_paragraphs(doc, "needle")
+
+        assert len(matches) == 1
+        assert matches[0].location.startswith("comment:")
+
+    def it_finds_matches_in_a_body_table_cell(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        tbl = doc.add_table(rows=1, cols=1)
+        tbl.cell(0, 0).text = "needle in cell"
+
+        matches = search_all_paragraphs(doc, "needle")
+
+        assert len(matches) == 1
+        assert matches[0].location == "table:0:row:0:col:0"
+
+    def it_aggregates_matches_across_every_story(self):
+        doc = _fixture_document_with_stories()
+
+        matches = search_all_paragraphs(doc, "needle")
+        locations = [m.location for m in matches]
+
+        # -- one per story we seeded: body, two cells, header, footer, footnote,
+        # -- endnote, comment = 8 total --
+        assert len(matches) == 8
+        assert locations.count("body") == 1
+        assert locations.count("header:section0:primary") == 1
+        assert locations.count("footer:section0:primary") == 1
+        assert sum(1 for loc in locations if loc.startswith("table:")) == 2
+        assert sum(1 for loc in locations if loc.startswith("footnote:")) == 1
+        assert sum(1 for loc in locations if loc.startswith("endnote:")) == 1
+        assert sum(1 for loc in locations if loc.startswith("comment:")) == 1
+
+    def it_returns_empty_list_for_empty_search_text(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        doc.add_paragraph("hello")
+
+        assert search_all_paragraphs(doc, "") == []
+
+
+class DescribeReplaceInAllParagraphs:
+    """Unit-test suite for `docx.search.replace_in_all_paragraphs`."""
+
+    def it_updates_text_in_every_story(self):
+        doc = _fixture_document_with_stories()
+
+        count = replace_in_all_paragraphs(doc, "needle", "thread")
+
+        # -- one per story as above --
+        assert count == 8
+        # -- verify no "needle" remains anywhere --
+        assert search_all_paragraphs(doc, "needle") == []
+        # -- verify "thread" is present everywhere "needle" used to be --
+        assert len(search_all_paragraphs(doc, "thread")) == 8
+
+    def it_preserves_stories_that_contain_no_match(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        doc.add_paragraph("hello")
+        doc.sections[0].footer.paragraphs[0].text = "untouched footer"
+
+        count = replace_in_all_paragraphs(doc, "hello", "hi")
+
+        assert count == 1
+        assert doc.paragraphs[0].text == "hi"
+        assert doc.sections[0].footer.paragraphs[0].text == "untouched footer"
+
+    def it_returns_zero_for_empty_old_text(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        doc.add_paragraph("hello")
+
+        assert replace_in_all_paragraphs(doc, "", "x") == 0
+
+
+class DescribeSearchAllRegex:
+    """Unit-test suite for the `*_regex` cross-story helpers."""
+
+    def it_finds_regex_matches_across_stories(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        doc.add_paragraph("body 12")
+        doc.sections[0].footer.paragraphs[0].text = "footer 345"
+
+        matches = search_all_paragraphs_regex(doc, r"\d+")
+
+        locs = sorted(m.location for m in matches)
+        assert locs == ["body", "footer:section0:primary"]
+
+    def it_replaces_regex_matches_across_stories(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        doc.add_paragraph("body 12")
+        doc.sections[0].footer.paragraphs[0].text = "footer 345"
+
+        count = replace_in_all_paragraphs_regex(doc, r"\d+", "N")
+
+        assert count == 2
+        assert doc.paragraphs[0].text == "body N"
+        assert doc.sections[0].footer.paragraphs[0].text == "footer N"
+
+
+class DescribeDocumentSearchAllAndReplaceAll:
+    """Unit-test suite for the Document.*_all convenience methods."""
+
+    def it_exposes_search_all_on_document(self):
+        doc = _fixture_document_with_stories()
+
+        matches = doc.search_all("needle")
+
+        assert len(matches) == 8
+        # -- every match carries a location --
+        assert all(m.location for m in matches)
+
+    def it_exposes_replace_all_on_document(self):
+        doc = _fixture_document_with_stories()
+
+        count = doc.replace_all("needle", "thread")
+
+        assert count == 8
+        assert doc.search_all("needle") == []
+
+    def it_exposes_search_regex_all_on_document(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        doc.add_paragraph("a1 b2")
+        doc.sections[0].footer.paragraphs[0].text = "c3"
+
+        matches = doc.search_regex_all(r"\w\d")
+
+        assert len(matches) == 3
+
+    def it_exposes_replace_regex_all_on_document(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        doc.add_paragraph("foo bar")
+        doc.sections[0].footer.paragraphs[0].text = "foo baz"
+
+        count = doc.replace_regex_all(r"(foo)", r"\1!")
+
+        assert count == 2
+        assert doc.paragraphs[0].text == "foo! bar"
+        assert doc.sections[0].footer.paragraphs[0].text == "foo! baz"
+
+    def it_preserves_body_only_search_semantics(self):
+        """The existing `Document.search()` / `.replace()` must still ignore non-body stories."""
+        doc = _fixture_document_with_stories()
+
+        body_only_matches = doc.search("needle")
+
+        # -- only the single body paragraph has "needle"; table cells, header,
+        # -- footer, footnote, endnote, and comment content is not visited --
+        assert len(body_only_matches) == 1
+        assert body_only_matches[0].location is None
+
+    def it_passes_options_through_to_search_all(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        doc.add_paragraph("Hello HELLO")
+
+        matches = doc.search_all("hello", case_sensitive=False)
+
+        assert len(matches) == 2
+
+    def it_passes_options_through_to_replace_all(self):
+        import docx as _docx
+
+        doc = _docx.Document()
+        doc.add_paragraph("cat concatenate cat")
+
+        count = doc.replace_all("cat", "dog", whole_word=True)
+
+        assert count == 2
+        assert doc.paragraphs[0].text == "dog concatenate dog"
