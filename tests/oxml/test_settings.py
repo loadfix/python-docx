@@ -8,7 +8,7 @@ from typing import cast
 
 import pytest
 
-from docx.oxml.settings import CT_Rsids, CT_Settings
+from docx.oxml.settings import CT_DocProtect, CT_Rsids, CT_Settings
 from docx.shared import Twips
 
 from ..unitutil.cxml import element, xml
@@ -131,6 +131,47 @@ class DescribeCT_Settings:
         settings = cast(CT_Settings, element(cxml))
         assert settings.documentProtection_edit == expected_edit
         assert settings.documentProtection_enforcement is expected_enforcement
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            ("w:settings", "readOnly", "w:settings/w:documentProtection{w:edit=readOnly}"),
+            (
+                "w:settings/w:documentProtection{w:edit=readOnly}",
+                "comments",
+                "w:settings/w:documentProtection{w:edit=comments}",
+            ),
+            (
+                "w:settings/w:documentProtection{w:edit=readOnly}",
+                None,
+                "w:settings/w:documentProtection",
+            ),
+        ],
+    )
+    def it_can_set_documentProtection_edit(
+        self, cxml: str, new_value: str | None, expected_cxml: str
+    ):
+        settings = cast(CT_Settings, element(cxml))
+        settings.documentProtection_edit = new_value
+        assert settings.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            ("w:settings", True, "w:settings/w:documentProtection{w:enforcement=1}"),
+            (
+                "w:settings/w:documentProtection{w:enforcement=1}",
+                False,
+                "w:settings/w:documentProtection",
+            ),
+        ],
+    )
+    def it_can_set_documentProtection_enforcement(
+        self, cxml: str, new_value: bool, expected_cxml: str
+    ):
+        settings = cast(CT_Settings, element(cxml))
+        settings.documentProtection_enforcement = new_value
+        assert settings.xml == xml(expected_cxml)
 
     def it_can_get_the_compatibilityMode_when_absent(self):
         settings = cast(CT_Settings, element("w:settings"))
@@ -415,3 +456,95 @@ class DescribeCT_Compat:
             "w:settings/w:compat/w:compatSetting"
             "{w:name=n,w:uri=http://x,w:val=1}"
         )
+
+
+class DescribeCT_DocProtect:
+    """Unit-test suite for `docx.oxml.settings.CT_DocProtect`."""
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_edit", "expected_enforcement", "expected_formatting"),
+        [
+            ("w:documentProtection", None, False, False),
+            (
+                "w:documentProtection{w:edit=readOnly,w:enforcement=1}",
+                "readOnly",
+                True,
+                False,
+            ),
+            (
+                "w:documentProtection{w:edit=comments,w:formatting=1}",
+                "comments",
+                False,
+                True,
+            ),
+        ],
+    )
+    def it_can_get_core_attributes(
+        self,
+        cxml: str,
+        expected_edit: str | None,
+        expected_enforcement: bool,
+        expected_formatting: bool,
+    ):
+        dp = cast(CT_DocProtect, element(cxml))
+        assert dp.edit == expected_edit
+        assert dp.enforcement is expected_enforcement
+        assert dp.formatting is expected_formatting
+
+    @pytest.mark.parametrize(
+        ("attr_name", "xml_name", "value"),
+        [
+            ("hash", "w:hash", "abc123"),
+            ("salt", "w:salt", "def456"),
+            ("cryptProviderType", "w:cryptProviderType", "rsaAES"),
+            ("cryptAlgorithmClass", "w:cryptAlgorithmClass", "hash"),
+            ("cryptAlgorithmType", "w:cryptAlgorithmType", "typeAny"),
+        ],
+    )
+    def it_round_trips_each_string_attribute(
+        self, attr_name: str, xml_name: str, value: str
+    ):
+        dp = cast(
+            CT_DocProtect,
+            element("w:documentProtection{%s=%s}" % (xml_name, value)),
+        )
+        assert getattr(dp, attr_name) == value
+
+    @pytest.mark.parametrize(
+        ("attr_name", "xml_name", "value"),
+        [
+            ("cryptAlgorithmSid", "w:cryptAlgorithmSid", 4),
+            ("cryptSpinCount", "w:cryptSpinCount", 100000),
+        ],
+    )
+    def it_round_trips_each_int_attribute(
+        self, attr_name: str, xml_name: str, value: int
+    ):
+        dp = cast(
+            CT_DocProtect,
+            element("w:documentProtection{%s=%d}" % (xml_name, value)),
+        )
+        assert getattr(dp, attr_name) == value
+
+    def it_can_set_hash_and_salt(self):
+        dp = cast(CT_DocProtect, element("w:documentProtection"))
+        dp.hash = "deadbeef=="
+        dp.salt = "cafebabe+/"
+        # -- hashes/salts are base64 strings in real use, which can include
+        # -- characters the cxml parser rejects; exercise the setter path
+        # -- using raw lxml access, not via cxml element syntax.
+        assert dp.hash == "deadbeef=="
+        assert dp.salt == "cafebabe+/"
+
+    def it_can_set_algorithm_metadata(self):
+        dp = cast(CT_DocProtect, element("w:documentProtection"))
+        dp.cryptProviderType = "rsaAES"
+        dp.cryptAlgorithmClass = "hash"
+        dp.cryptAlgorithmType = "typeAny"
+        dp.cryptAlgorithmSid = 4
+        dp.cryptSpinCount = 100000
+        assert dp.cryptProviderType == "rsaAES"
+        assert dp.cryptAlgorithmClass == "hash"
+        assert dp.cryptAlgorithmType == "typeAny"
+        assert dp.cryptAlgorithmSid == 4
+        assert dp.cryptSpinCount == 100000

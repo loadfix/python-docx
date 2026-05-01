@@ -47,8 +47,32 @@ class CT_DocProtect(BaseOxmlElement):
     edit: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:edit", ST_String
     )
+    formatting: bool = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:formatting", ST_OnOff, default=False
+    )
     enforcement: bool = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:enforcement", ST_OnOff, default=False
+    )
+    cryptProviderType: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:cryptProviderType", ST_String
+    )
+    cryptAlgorithmClass: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:cryptAlgorithmClass", ST_String
+    )
+    cryptAlgorithmType: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:cryptAlgorithmType", ST_String
+    )
+    cryptAlgorithmSid: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:cryptAlgorithmSid", ST_DecimalNumber
+    )
+    cryptSpinCount: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:cryptSpinCount", ST_DecimalNumber
+    )
+    hash: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:hash", ST_String
+    )
+    salt: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:salt", ST_String
     )
 
 
@@ -451,6 +475,15 @@ class CT_Settings(BaseOxmlElement):
             return None
         return dp.edit
 
+    @documentProtection_edit.setter
+    def documentProtection_edit(self, value: str | None):
+        if value is None:
+            dp = self.documentProtection
+            if dp is not None:
+                dp.edit = None
+            return
+        self.get_or_add_documentProtection().edit = value
+
     @property
     def documentProtection_enforcement(self) -> bool:
         """True if `w:documentProtection/@w:enforcement` is enabled."""
@@ -458,6 +491,10 @@ class CT_Settings(BaseOxmlElement):
         if dp is None:
             return False
         return dp.enforcement
+
+    @documentProtection_enforcement.setter
+    def documentProtection_enforcement(self, value: bool):
+        self.get_or_add_documentProtection().enforcement = bool(value)
 
     @property
     def compatibilityMode(self) -> int | None:
