@@ -157,6 +157,45 @@ class DescribeSection:
 
         assert sectPr.xml == expected_xml
 
+    @pytest.mark.parametrize("initial_value", [True, False])
+    def it_reads_different_odd_and_even_headers_from_the_settings_part(
+        self, initial_value: bool, document_part_: Mock
+    ):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        document_part_.settings.even_and_odd_headers = initial_value
+        section = Section(sectPr, document_part_)
+
+        assert section.different_odd_and_even_pages_header_footer is initial_value
+
+    def it_writes_different_odd_and_even_headers_to_the_settings_part(
+        self, document_part_: Mock
+    ):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        document_part_.settings.even_and_odd_headers = False
+        section = Section(sectPr, document_part_)
+
+        section.different_odd_and_even_pages_header_footer = True
+
+        assert document_part_.settings.even_and_odd_headers is True
+
+    def it_round_trips_different_odd_and_even_headers_through_settings(self):
+        """End-to-end: Section delegate reads/writes the document settings element."""
+        document = Document()
+        section = document.sections[0]
+
+        # -- default: no w:evenAndOddHeaders in settings --
+        assert section.different_odd_and_even_pages_header_footer is False
+
+        # -- enabling flips the settings-level value --
+        section.different_odd_and_even_pages_header_footer = True
+        assert section.different_odd_and_even_pages_header_footer is True
+        assert document.settings.even_and_odd_headers is True
+
+        # -- disabling round-trips back (and removes the element) --
+        section.different_odd_and_even_pages_header_footer = False
+        assert section.different_odd_and_even_pages_header_footer is False
+        assert document.settings.even_and_odd_headers is False
+
     def it_exposes_its_formatting_change_when_sectPrChange_present(
         self, document_part_: Mock
     ):

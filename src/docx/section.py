@@ -103,11 +103,36 @@ class Section:
         return FormattingChange(sectPrChange)
 
     @property
+    def different_odd_and_even_pages_header_footer(self) -> bool:
+        """Read/write. |True| when this document displays distinct odd/even headers.
+
+        This is a **document-level** setting, not a per-section setting. It maps to
+        ``w:settings/w:evenAndOddHeaders`` in the settings part and applies to every
+        section in the document. It is surfaced on |Section| for discoverability --
+        authors intuitively look for it beside :attr:`different_first_page_header_footer`.
+
+        When |False|, the content of :attr:`even_page_header` and
+        :attr:`even_page_footer` is ignored by Word and the primary (odd) header/footer
+        is used for every page. Setting this to |True| is required for
+        :attr:`even_page_header` and :attr:`even_page_footer` to take effect.
+
+        This property is a thin alias for
+        :attr:`docx.settings.Settings.even_and_odd_headers` on the parent document.
+        """
+        return self._document_part.settings.even_and_odd_headers
+
+    @different_odd_and_even_pages_header_footer.setter
+    def different_odd_and_even_pages_header_footer(self, value: bool):
+        self._document_part.settings.even_and_odd_headers = value
+
+    @property
     def even_page_footer(self) -> _Footer:
         """|_Footer| object defining footer content for even pages.
 
         The content of this footer definition is ignored unless the document setting
-        :attr:`~.Settings.odd_and_even_pages_header_footer` is set True.
+        :attr:`different_odd_and_even_pages_header_footer` is set |True| (equivalent to
+        setting :attr:`docx.settings.Settings.even_and_odd_headers`). That setting is
+        document-level, not per-section, so toggling it affects every section.
         """
         return _Footer(self._sectPr, self._document_part, WD_HEADER_FOOTER.EVEN_PAGE)
 
@@ -116,7 +141,9 @@ class Section:
         """|_Header| object defining header content for even pages.
 
         The content of this header definition is ignored unless the document setting
-        :attr:`~.Settings.odd_and_even_pages_header_footer` is set True.
+        :attr:`different_odd_and_even_pages_header_footer` is set |True| (equivalent to
+        setting :attr:`docx.settings.Settings.even_and_odd_headers`). That setting is
+        document-level, not per-section, so toggling it affects every section.
         """
         return _Header(self._sectPr, self._document_part, WD_HEADER_FOOTER.EVEN_PAGE)
 
