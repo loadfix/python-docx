@@ -133,6 +133,68 @@ class DescribeInlineShape:
             "a:xfrm/a:ext{cx=444,cy=888})"
         )
 
+    def it_returns_None_for_alt_text_when_absent(self):
+        inline = cast(CT_Inline, element("wp:inline/wp:docPr{id=1,name=P1}"))
+
+        assert InlineShape(inline).alt_text is None
+
+    def it_returns_the_alt_text_when_present(self):
+        inline = cast(
+            CT_Inline, element("wp:inline/wp:docPr{id=1,name=P1,descr=a cat}")
+        )
+
+        assert InlineShape(inline).alt_text == "a cat"
+
+    def it_can_set_the_alt_text(self):
+        inline = cast(CT_Inline, element("wp:inline/wp:docPr{id=1,name=P1}"))
+        inline_shape = InlineShape(inline)
+
+        inline_shape.alt_text = "a cat"
+
+        assert inline_shape._inline.docPr.descr == "a cat"
+
+    def it_removes_the_alt_text_when_set_to_None(self):
+        inline = cast(
+            CT_Inline, element("wp:inline/wp:docPr{id=1,name=P1,descr=a cat}")
+        )
+        inline_shape = InlineShape(inline)
+
+        inline_shape.alt_text = None
+
+        assert inline_shape._inline.docPr.descr is None
+        assert "descr" not in inline_shape._inline.docPr.attrib
+
+    def it_returns_None_for_title_when_absent(self):
+        inline = cast(CT_Inline, element("wp:inline/wp:docPr{id=1,name=P1}"))
+
+        assert InlineShape(inline).title is None
+
+    def it_returns_the_title_when_present(self):
+        inline = cast(
+            CT_Inline, element("wp:inline/wp:docPr{id=1,name=P1,title=Kitty}")
+        )
+
+        assert InlineShape(inline).title == "Kitty"
+
+    def it_can_set_the_title(self):
+        inline = cast(CT_Inline, element("wp:inline/wp:docPr{id=1,name=P1}"))
+        inline_shape = InlineShape(inline)
+
+        inline_shape.title = "Kitty"
+
+        assert inline_shape._inline.docPr.title == "Kitty"
+
+    def it_removes_the_title_when_set_to_None(self):
+        inline = cast(
+            CT_Inline, element("wp:inline/wp:docPr{id=1,name=P1,title=Kitty}")
+        )
+        inline_shape = InlineShape(inline)
+
+        inline_shape.title = None
+
+        assert inline_shape._inline.docPr.title is None
+        assert "title" not in inline_shape._inline.docPr.attrib
+
 
 class DescribeFloatingImage:
     """Unit-test suite for `docx.shape.FloatingImage`."""
@@ -209,3 +271,61 @@ class DescribeFloatingImage:
         floating = FloatingImage(anchor)
 
         assert floating.type == WD_INLINE_SHAPE.PICTURE
+
+    def it_returns_None_for_alt_text_when_absent(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+
+        assert FloatingImage(anchor).alt_text is None
+
+    def it_returns_the_alt_text_when_present(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        anchor.docPr.descr = "a cat"
+
+        assert FloatingImage(anchor).alt_text == "a cat"
+
+    def it_can_set_the_alt_text(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+
+        floating.alt_text = "a cat"
+
+        assert anchor.docPr.descr == "a cat"
+
+    def it_removes_the_alt_text_when_set_to_None(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        anchor.docPr.descr = "a cat"
+        floating = FloatingImage(anchor)
+
+        floating.alt_text = None
+
+        assert anchor.docPr.descr is None
+        assert "descr" not in anchor.docPr.attrib
+
+    def it_returns_None_for_title_when_absent(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+
+        assert FloatingImage(anchor).title is None
+
+    def it_returns_the_title_when_present(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        anchor.docPr.title = "Kitty"
+
+        assert FloatingImage(anchor).title == "Kitty"
+
+    def it_can_set_the_title(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+
+        floating.title = "Kitty"
+
+        assert anchor.docPr.title == "Kitty"
+
+    def it_removes_the_title_when_set_to_None(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        anchor.docPr.title = "Kitty"
+        floating = FloatingImage(anchor)
+
+        floating.title = None
+
+        assert anchor.docPr.title is None
+        assert "title" not in anchor.docPr.attrib

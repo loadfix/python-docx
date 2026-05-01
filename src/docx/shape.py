@@ -102,6 +102,32 @@ class InlineShape:
         self._inline.extent.cx = cx
         self._inline.graphic.graphicData.pic.spPr.cx = cx
 
+    @property
+    def alt_text(self) -> str | None:
+        """Alternative text (accessibility description) for this inline shape.
+
+        Maps to ``wp:inline/wp:docPr/@descr``. Returns |None| when the attribute
+        is not present. Assigning |None| removes the attribute.
+        """
+        return self._inline.docPr.descr
+
+    @alt_text.setter
+    def alt_text(self, value: str | None):
+        self._inline.docPr.descr = value
+
+    @property
+    def title(self) -> str | None:
+        """Title (accessibility title) for this inline shape.
+
+        Maps to ``wp:inline/wp:docPr/@title``. Returns |None| when the attribute
+        is not present. Assigning |None| removes the attribute.
+        """
+        return self._inline.docPr.title
+
+    @title.setter
+    def title(self, value: str | None):
+        self._inline.docPr.title = value
+
 
 class FloatingImage:
     """Proxy for a `<wp:anchor>` element, representing a floating (non-inline) image.
@@ -189,6 +215,42 @@ class FloatingImage:
     def wrap_type(self) -> WD_WRAP_TYPE:
         """The text-wrap style of this floating image, a |WD_WRAP_TYPE| member."""
         return WD_WRAP_TYPE(self._anchor.wrap_type)
+
+    @property
+    def alt_text(self) -> str | None:
+        """Alternative text (accessibility description) for this floating image.
+
+        Maps to ``wp:anchor/wp:docPr/@descr``. Returns |None| when the attribute
+        (or the ``wp:docPr`` element) is not present. Assigning |None| removes
+        the attribute.
+        """
+        docPr = self._anchor.docPr
+        if docPr is None:
+            return None
+        return docPr.descr
+
+    @alt_text.setter
+    def alt_text(self, value: str | None):
+        docPr = self._anchor.get_or_add_docPr()
+        docPr.descr = value
+
+    @property
+    def title(self) -> str | None:
+        """Title (accessibility title) for this floating image.
+
+        Maps to ``wp:anchor/wp:docPr/@title``. Returns |None| when the attribute
+        (or the ``wp:docPr`` element) is not present. Assigning |None| removes
+        the attribute.
+        """
+        docPr = self._anchor.docPr
+        if docPr is None:
+            return None
+        return docPr.title
+
+    @title.setter
+    def title(self, value: str | None):
+        docPr = self._anchor.get_or_add_docPr()
+        docPr.title = value
 
     @property
     def type(self):
