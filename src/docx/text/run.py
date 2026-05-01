@@ -15,6 +15,7 @@ from docx.shared import StoryChild
 from docx.styles.style import CharacterStyle
 from docx.text.font import Font
 from docx.text.pagebreak import RenderedPageBreak
+from docx.text.symbol import Symbol
 
 if TYPE_CHECKING:
     import docx.types as t
@@ -95,6 +96,31 @@ class Run(StoryChild):
         """
         t = self._r.add_t(text)
         return _Text(t)
+
+    def add_symbol(self, char_code: int | str, font: str) -> Symbol:
+        """Append a ``<w:sym>`` element to this run and return a |Symbol| for it.
+
+        `char_code` identifies the glyph's Unicode code point within `font`. It
+        may be an ``int`` (e.g. ``0xF0E0``) or a hex ``str`` (e.g. ``"F0E0"``
+        or ``"0xF0E0"``). Word always stores this value as a 4-character
+        uppercase hex string in the XML; integer and lowercase-hex inputs are
+        normalized on write. `font` is the name of the font supplying the
+        glyph, for example ``"Wingdings"``.
+        """
+        if isinstance(char_code, str):
+            code_int = int(char_code, 16)
+        else:
+            code_int = int(char_code)
+        char_hex = format(code_int, "04X")
+        sym = self._r.add_sym(char_hex, font)
+        return Symbol(sym)
+
+    @property
+    def symbols(self) -> Iterator[Symbol]:
+        """Generate a |Symbol| for each ``<w:sym>`` child of this run, in document
+        order."""
+        for sym in self._r.sym_lst:
+            yield Symbol(sym)
 
     @property
     def bold(self) -> bool | None:

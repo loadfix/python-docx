@@ -5,7 +5,7 @@ from typing import cast
 import pytest
 
 from docx.oxml.text.paragraph import CT_P
-from docx.oxml.text.run import CT_R
+from docx.oxml.text.run import CT_R, CT_Sym
 
 from ...unitutil.cxml import element, xml
 
@@ -104,3 +104,28 @@ class DescribeCT_R:
             r.split_run(-1)
         with pytest.raises(ValueError, match="offset 6 out of range"):
             r.split_run(6)
+
+    def it_can_add_a_w_sym_child(self):
+        r = cast(CT_R, element("w:r"))
+
+        sym = r.add_sym("F0E0", "Wingdings")
+
+        assert r.xml == xml("w:r/w:sym{w:font=Wingdings,w:char=F0E0}")
+        assert isinstance(sym, CT_Sym)
+        assert sym.font == "Wingdings"
+        assert sym.char == "F0E0"
+
+    def it_exposes_its_w_sym_children_via_sym_lst(self):
+        r = cast(
+            CT_R,
+            element(
+                "w:r/(w:sym{w:font=Wingdings,w:char=F0E0},"
+                "w:t\"x\","
+                "w:sym{w:font=Symbol,w:char=0041})"
+            ),
+        )
+
+        syms = r.sym_lst
+
+        assert [s.char for s in syms] == ["F0E0", "0041"]
+        assert [s.font for s in syms] == ["Wingdings", "Symbol"]

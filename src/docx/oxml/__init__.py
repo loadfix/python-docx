@@ -48,6 +48,7 @@ from docx.oxml.text.run import (
     CT_Cr,
     CT_NoBreakHyphen,
     CT_PTab,
+    CT_Sym,
     CT_Text,
 )
 
@@ -105,6 +106,7 @@ register_element_cls("w:lastRenderedPageBreak", CT_LastRenderedPageBreak)
 register_element_cls("w:noBreakHyphen", CT_NoBreakHyphen)
 register_element_cls("w:ptab", CT_PTab)
 register_element_cls("w:r", CT_R)
+register_element_cls("w:sym", CT_Sym)
 register_element_cls("w:t", CT_Text)
 
 # ---------------------------------------------------------------------------

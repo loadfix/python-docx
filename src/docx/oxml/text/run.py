@@ -11,7 +11,13 @@ from docx.oxml.ns import qn
 from docx.oxml.parser import OxmlElement
 from docx.oxml.simpletypes import ST_BrClear, ST_BrType, ST_String
 from docx.oxml.text.font import CT_RPr
-from docx.oxml.xmlchemy import BaseOxmlElement, OptionalAttribute, ZeroOrMore, ZeroOrOne
+from docx.oxml.xmlchemy import (
+    BaseOxmlElement,
+    OptionalAttribute,
+    RequiredAttribute,
+    ZeroOrMore,
+    ZeroOrOne,
+)
 from docx.shared import TextAccumulator
 
 if TYPE_CHECKING:
@@ -29,7 +35,9 @@ class CT_R(BaseOxmlElement):
     add_br: Callable[[], CT_Br]
     add_tab: Callable[[], CT_TabStop]
     get_or_add_rPr: Callable[[], CT_RPr]
+    sym_lst: list["CT_Sym"]
     _add_drawing: Callable[[], CT_Drawing]
+    _add_sym: Callable[[], "CT_Sym"]
     _add_t: Callable[..., CT_Text]
 
     rPr: CT_RPr | None = ZeroOrOne("w:rPr")  # pyright: ignore[reportAssignmentType]
@@ -38,6 +46,7 @@ class CT_R(BaseOxmlElement):
     drawing = ZeroOrMore("w:drawing")
     fldChar = ZeroOrMore("w:fldChar")
     instrText = ZeroOrMore("w:instrText")
+    sym = ZeroOrMore("w:sym")
     t = ZeroOrMore("w:t")
     tab = ZeroOrMore("w:tab")
 
@@ -51,6 +60,18 @@ class CT_R(BaseOxmlElement):
         if len(text.strip()) < len(text):
             t.set(qn("xml:space"), "preserve")
         return t
+
+    def add_sym(self, char: str, font: str) -> CT_Sym:
+        """Return a newly added `<w:sym>` element with `@w:char` and `@w:font`.
+
+        `char` is the 4-character uppercase hex string Word uses to encode the
+        Unicode code point of the symbol glyph within `font` (e.g. ``"F0E0"``).
+        `font` is the named font the glyph is taken from (e.g. ``"Wingdings"``).
+        """
+        sym = self._add_sym()
+        sym.char = char
+        sym.font = font
+        return sym
 
     def add_drawing(self, inline_or_anchor: CT_Inline | CT_Anchor) -> CT_Drawing:
         """Return newly appended `CT_Drawing` (`w:drawing`) child element.
@@ -324,6 +345,22 @@ class CT_PTab(BaseOxmlElement):
 # -- CT_Tab functionality is provided by CT_TabStop which also uses `w:tab` tag. That
 # -- element class provides the __str__() method for this empty element, unconditionally
 # -- returning "\t".
+
+
+class CT_Sym(BaseOxmlElement):
+    """`<w:sym>` element, a Unicode code point glyph from a specific font.
+
+    Word uses this element to represent characters whose glyph is taken from a
+    non-Unicode font (like ``Wingdings``) where the glyph at a given code point
+    differs from the normal Unicode character at that code point.
+    """
+
+    font: str = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:font", ST_String
+    )
+    char: str = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:char", ST_String
+    )
 
 
 class CT_Text(BaseOxmlElement):
