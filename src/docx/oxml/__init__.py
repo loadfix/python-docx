@@ -99,6 +99,7 @@ register_element_cls("w:t", CT_Text)
 # ---------------------------------------------------------------------------
 # header/footer-related mappings
 
+register_element_cls("w:bidi", CT_OnOff)
 register_element_cls("w:evenAndOddHeaders", CT_OnOff)
 register_element_cls("w:titlePg", CT_OnOff)
 

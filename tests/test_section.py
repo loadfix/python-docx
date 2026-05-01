@@ -1981,3 +1981,121 @@ class DescribeSection_document_grid:
     @pytest.fixture
     def document_part_(self, request: FixtureRequest):
         return instance_mock(request, DocumentPart)
+
+
+class DescribeSection_text_direction:
+    """Unit-test suite for `docx.section.Section.text_direction`."""
+
+    def it_returns_None_when_no_textDirection(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        assert section.text_direction is None
+
+    @pytest.mark.parametrize(
+        ("enum_member", "xml_val"),
+        [
+            ("LR_TB", "lrTb"),
+            ("TB_RL", "tbRl"),
+            ("BT_LR", "btLr"),
+            ("LR_TB_V", "lrTbV"),
+            ("TB_RL_V", "tbRlV"),
+            ("TB_LR_V", "tbLrV"),
+        ],
+    )
+    def it_knows_its_text_direction_for_each_enum_value(
+        self, enum_member: str, xml_val: str, document_part_: Mock
+    ):
+        from docx.enum.table import WD_TEXT_DIRECTION
+
+        sectPr = cast(
+            CT_SectPr, element(f"w:sectPr/w:textDirection{{w:val={xml_val}}}")
+        )
+        section = Section(sectPr, document_part_)
+        assert section.text_direction is getattr(WD_TEXT_DIRECTION, enum_member)
+
+    @pytest.mark.parametrize(
+        ("enum_member", "xml_val"),
+        [
+            ("LR_TB", "lrTb"),
+            ("TB_RL", "tbRl"),
+            ("BT_LR", "btLr"),
+            ("LR_TB_V", "lrTbV"),
+            ("TB_RL_V", "tbRlV"),
+            ("TB_LR_V", "tbLrV"),
+        ],
+    )
+    def it_can_set_its_text_direction_round_trip(
+        self, enum_member: str, xml_val: str, document_part_: Mock
+    ):
+        from docx.enum.table import WD_TEXT_DIRECTION
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        section.text_direction = getattr(WD_TEXT_DIRECTION, enum_member)
+        assert sectPr.xml == xml(f"w:sectPr/w:textDirection{{w:val={xml_val}}}")
+
+    def it_can_clear_its_text_direction(self, document_part_: Mock):
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:textDirection{w:val=tbRl}")
+        )
+        section = Section(sectPr, document_part_)
+        section.text_direction = None
+        assert sectPr.xml == xml("w:sectPr")
+
+    # -- fixtures ---------------------------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)
+
+
+class DescribeSection_right_to_left:
+    """Unit-test suite for `docx.section.Section.right_to_left`."""
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "expected_value"),
+        [
+            ("w:sectPr", False),
+            ("w:sectPr/w:bidi", True),
+            ("w:sectPr/w:bidi{w:val=1}", True),
+            ("w:sectPr/w:bidi{w:val=true}", True),
+            ("w:sectPr/w:bidi{w:val=on}", True),
+            ("w:sectPr/w:bidi{w:val=0}", False),
+            ("w:sectPr/w:bidi{w:val=false}", False),
+            ("w:sectPr/w:bidi{w:val=off}", False),
+        ],
+    )
+    def it_knows_whether_it_is_right_to_left(
+        self, sectPr_cxml: str, expected_value: bool, document_part_: Mock
+    ):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        section = Section(sectPr, document_part_)
+        assert section.right_to_left is expected_value
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "value", "expected_cxml"),
+        [
+            ("w:sectPr", True, "w:sectPr/w:bidi"),
+            ("w:sectPr/w:bidi", False, "w:sectPr"),
+            ("w:sectPr/w:bidi", None, "w:sectPr"),
+            ("w:sectPr/w:bidi{w:val=off}", True, "w:sectPr/w:bidi"),
+            ("w:sectPr", False, "w:sectPr"),
+        ],
+    )
+    def it_can_change_whether_it_is_right_to_left(
+        self,
+        sectPr_cxml: str,
+        value: bool | None,
+        expected_cxml: str,
+        document_part_: Mock,
+    ):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        section = Section(sectPr, document_part_)
+        section.right_to_left = value
+        assert sectPr.xml == xml(expected_cxml)
+
+    # -- fixtures ---------------------------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)

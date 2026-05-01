@@ -458,6 +458,125 @@ class DescribeCT_SectPr_docGrid:
         assert sectPr.docGrid is None
 
 
+class DescribeCT_SectPr_text_direction:
+    """Unit-test suite for `CT_SectPr.text_direction`."""
+
+    def it_returns_None_when_no_textDirection_child(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        assert sectPr.text_direction is None
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "expected_value"),
+        [
+            ("w:sectPr/w:textDirection{w:val=lrTb}", "LR_TB"),
+            ("w:sectPr/w:textDirection{w:val=tbRl}", "TB_RL"),
+            ("w:sectPr/w:textDirection{w:val=btLr}", "BT_LR"),
+            ("w:sectPr/w:textDirection{w:val=lrTbV}", "LR_TB_V"),
+            ("w:sectPr/w:textDirection{w:val=tbRlV}", "TB_RL_V"),
+            ("w:sectPr/w:textDirection{w:val=tbLrV}", "TB_LR_V"),
+        ],
+    )
+    def it_knows_its_text_direction(self, sectPr_cxml: str, expected_value: str):
+        from docx.enum.table import WD_TEXT_DIRECTION
+
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        assert sectPr.text_direction is getattr(WD_TEXT_DIRECTION, expected_value)
+
+    @pytest.mark.parametrize(
+        ("enum_member", "xml_val"),
+        [
+            ("LR_TB", "lrTb"),
+            ("TB_RL", "tbRl"),
+            ("BT_LR", "btLr"),
+            ("LR_TB_V", "lrTbV"),
+            ("TB_RL_V", "tbRlV"),
+            ("TB_LR_V", "tbLrV"),
+        ],
+    )
+    def it_can_set_its_text_direction_round_trip(
+        self, enum_member: str, xml_val: str
+    ):
+        from docx.enum.table import WD_TEXT_DIRECTION
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        sectPr.text_direction = getattr(WD_TEXT_DIRECTION, enum_member)
+        assert sectPr.xml == xml(f"w:sectPr/w:textDirection{{w:val={xml_val}}}")
+
+    def it_can_clear_its_text_direction(self):
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:textDirection{w:val=tbRl}")
+        )
+        sectPr.text_direction = None
+        assert sectPr.xml == xml("w:sectPr")
+
+    def it_inserts_textDirection_in_the_right_position(self):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/(w:pgSz,w:pgMar,w:cols,w:titlePg,w:docGrid)"),
+        )
+        sectPr.get_or_add_textDirection()
+        expected = xml(
+            "w:sectPr/(w:pgSz,w:pgMar,w:cols,w:titlePg,w:textDirection,w:docGrid)"
+        )
+        assert sectPr.xml == expected
+
+
+class DescribeCT_SectPr_bidi:
+    """Unit-test suite for `CT_SectPr.bidi_val`."""
+
+    def it_returns_False_when_no_bidi_child(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        assert sectPr.bidi_val is False
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "expected_value"),
+        [
+            ("w:sectPr/w:bidi", True),
+            ("w:sectPr/w:bidi{w:val=1}", True),
+            ("w:sectPr/w:bidi{w:val=true}", True),
+            ("w:sectPr/w:bidi{w:val=on}", True),
+            ("w:sectPr/w:bidi{w:val=0}", False),
+            ("w:sectPr/w:bidi{w:val=false}", False),
+            ("w:sectPr/w:bidi{w:val=off}", False),
+        ],
+    )
+    def it_knows_its_bidi_val(self, sectPr_cxml: str, expected_value: bool):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        assert sectPr.bidi_val is expected_value
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "value", "expected_cxml"),
+        [
+            ("w:sectPr", True, "w:sectPr/w:bidi"),
+            ("w:sectPr/w:bidi", False, "w:sectPr"),
+            ("w:sectPr/w:bidi", None, "w:sectPr"),
+            ("w:sectPr/w:bidi{w:val=off}", True, "w:sectPr/w:bidi"),
+            ("w:sectPr", False, "w:sectPr"),
+        ],
+    )
+    def it_can_change_its_bidi_val(
+        self, sectPr_cxml: str, value: bool | None, expected_cxml: str
+    ):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        sectPr.bidi_val = value
+        assert sectPr.xml == xml(expected_cxml)
+
+    def it_inserts_bidi_in_the_right_position(self):
+        sectPr = cast(
+            CT_SectPr,
+            element(
+                "w:sectPr/(w:pgSz,w:pgMar,w:cols,w:titlePg"
+                ",w:textDirection{w:val=tbRl},w:docGrid)"
+            ),
+        )
+        sectPr.get_or_add_bidi()
+        expected = xml(
+            "w:sectPr/(w:pgSz,w:pgMar,w:cols,w:titlePg"
+            ",w:textDirection{w:val=tbRl},w:bidi,w:docGrid)"
+        )
+        assert sectPr.xml == expected
+
+
 class DescribeCT_HdrFtr:
     """Unit-test suite for selected units of `docx.oxml.section.CT_HdrFtr`."""
 
