@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from docx.endnotes import Endnotes, EndnoteProperties
     from docx.font_table import FontTable
     from docx.footnotes import FootnoteProperties, Footnotes
+    from docx.ink import InkAnnotation
     from docx.oxml.content_controls import CT_Sdt
     from docx.oxml.document import CT_Body, CT_Document
     from docx.parts.document import DocumentPart
@@ -382,6 +383,23 @@ class Document(ElementProxy):
         document.
         """
         return self._part.numbering_part.numbering
+
+    @property
+    def ink_annotations(self) -> list[InkAnnotation]:
+        """List of |InkAnnotation| objects for each ink annotation in the body.
+
+        An ink annotation is any ``w:contentPart`` element that targets an ink part
+        (content type ``application/inkml+xml``). The list is empty when no ink
+        annotations are present. Read-only — python-docx does not support creating
+        or modifying ink annotations.
+        """
+        from docx.text.paragraph import Paragraph
+
+        result: list[InkAnnotation] = []
+        for p in self._element.body.xpath(".//w:p[.//w:contentPart]"):
+            paragraph = Paragraph(p, self._body)
+            result.extend(paragraph.ink_annotations)
+        return result
 
     @property
     def inline_shapes(self):

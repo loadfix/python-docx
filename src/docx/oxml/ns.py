@@ -14,6 +14,7 @@ nsmap = {
     "dcmitype": "http://purl.org/dc/dcmitype/",
     "dcterms": "http://purl.org/dc/terms/",
     "dgm": "http://schemas.openxmlformats.org/drawingml/2006/diagram",
+    "inkml": "http://www.w3.org/2003/InkML",
     "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
     "o": "urn:schemas-microsoft-com:office:office",
     "pic": "http://schemas.openxmlformats.org/drawingml/2006/picture",

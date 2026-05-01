@@ -33,6 +33,7 @@ from docx.parts.font_table import FontTablePart
 from docx.parts.footnotes import FootnotesPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
 from docx.parts.image import ImagePart
+from docx.parts.ink import InkPart
 from docx.parts.numbering import NumberingPart
 from docx.parts.settings import SettingsPart
 from docx.parts.styles import StylesPart
@@ -56,6 +57,7 @@ PartFactory.part_type_for[CT.WML_FONT_TABLE] = FontTablePart
 PartFactory.part_type_for[CT.WML_FOOTER] = FooterPart
 PartFactory.part_type_for[CT.WML_FOOTNOTES] = FootnotesPart
 PartFactory.part_type_for[CT.WML_HEADER] = HeaderPart
+PartFactory.part_type_for[CT.INKML] = InkPart
 PartFactory.part_type_for[CT.WML_NUMBERING] = NumberingPart
 PartFactory.part_type_for[CT.WML_SETTINGS] = SettingsPart
 PartFactory.part_type_for[CT.WML_STYLES] = StylesPart
@@ -72,6 +74,7 @@ del (
     FooterPart,
     FootnotesPart,
     HeaderPart,
+    InkPart,
     NumberingPart,
     PartFactory,
     SettingsPart,

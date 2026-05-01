@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from docx.bookmarks import Bookmark
     from docx.content_controls import ContentControl, ContentControlType
     from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+    from docx.ink import InkAnnotation
     from docx.oxml.content_controls import CT_Sdt
     from docx.oxml.document import CT_Body
     from docx.oxml.text.paragraph import CT_P
@@ -360,6 +361,36 @@ class Paragraph(StoryChild):
             Drawing(cast(CT_Drawing, d), self)
             for d in self._p.xpath(".//w:drawing")
         ]
+
+    @property
+    def ink_annotations(self) -> list[InkAnnotation]:
+        """List of |InkAnnotation| objects for each ``w:contentPart`` in this paragraph.
+
+        Returns an empty list when the paragraph contains no ink annotations. Read-only
+        — python-docx does not support creating or modifying ink annotations.
+
+        A ``w:contentPart`` whose relationship cannot be resolved (for example because
+        the referenced part is missing from the package) is silently skipped rather
+        than raising.
+        """
+        from docx.ink import InkAnnotation
+        from docx.oxml.ns import qn
+        from docx.parts.ink import InkPart
+
+        result: list[InkAnnotation] = []
+        part = self.part
+        for cp in self._p.xpath(".//w:contentPart"):
+            rId = cp.get(qn("r:id"))
+            if not rId:
+                continue
+            try:
+                ink_part = part.related_parts[rId]
+            except KeyError:
+                continue
+            if not isinstance(ink_part, InkPart):
+                continue
+            result.append(InkAnnotation(self, ink_part))
+        return result
 
     @property
     def hyperlinks(self) -> list[Hyperlink]:
