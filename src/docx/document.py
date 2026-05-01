@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from docx.custom_xml import CustomXmlPart
     from docx.embedded_objects import EmbeddedObject
     from docx.endnotes import Endnotes, EndnoteProperties
+    from docx.equations import Equation
     from docx.font_table import FontTable
     from docx.footnotes import FootnoteProperties, Footnotes
     from docx.form_fields import FormField
@@ -310,6 +311,27 @@ class Document(ElementProxy):
     def endnotes(self) -> Endnotes:
         """A |Endnotes| object providing access to endnotes in the document."""
         return self._part.endnotes
+
+    @property
+    def equations(self) -> list[Equation]:
+        """List of |Equation| for each OMML expression in the document body.
+
+        Walks the body for both inline ``m:oMath`` elements and display-mode
+        ``m:oMathPara`` wrappers. Each equation is returned once — an
+        ``m:oMath`` nested inside an ``m:oMathPara`` is represented by its
+        enclosing wrapper, not separately. Equations inside headers, footers,
+        footnotes, endnotes, or comments are not included here; those stories
+        are accessible via the corresponding container objects.
+        """
+        from docx.equations import Equation
+
+        body = self._element.body
+        result: list[Equation] = []
+        for el in body.xpath(
+            ".//m:oMathPara | .//m:oMath[not(ancestor::m:oMathPara)]"
+        ):
+            result.append(Equation(el))
+        return result
 
     @property
     def form_fields(self) -> list[FormField]:

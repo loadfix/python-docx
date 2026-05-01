@@ -32,9 +32,11 @@ if TYPE_CHECKING:
     from docx.content_controls import ContentControl, ContentControlType
     from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
     from docx.embedded_objects import EmbeddedObject
+    from docx.equations import Equation
     from docx.ink import InkAnnotation
     from docx.oxml.content_controls import CT_Sdt
     from docx.oxml.document import CT_Body
+    from docx.oxml.math import CT_OMath, CT_OMathPara
     from docx.oxml.text.paragraph import CT_P
     from docx.permissions import PermissionRange
     from docx.section import Section
@@ -321,6 +323,45 @@ class Paragraph(StoryChild):
             self._p, " FORMDROPDOWN ", ffData, result_text=initial_text
         )
         return FormField(begin_run)
+
+    def add_equation(
+        self, omml_xml: str | bytes, display_mode: bool = False
+    ) -> Equation:
+        """Append an OMML equation to this paragraph and return the |Equation|.
+
+        `omml_xml` is an OMML XML string (or bytes) whose root element is
+        either ``m:oMath`` or ``m:oMathPara``. Namespace declarations for the
+        ``m`` prefix must be present on the root. When `display_mode` is
+        |True| and the root is a bare ``m:oMath``, it is wrapped in
+        ``m:oMathPara`` to render in display mode.
+
+        Raises :class:`ValueError` when the root element is neither
+        ``m:oMath`` nor ``m:oMathPara``.
+        """
+        from docx.equations import Equation, _make_equation_element
+
+        element = _make_equation_element(omml_xml, display_mode=display_mode)
+        self._p.append(element)
+        return Equation(cast("CT_OMath | CT_OMathPara", element))
+
+    @property
+    def equations(self) -> list[Equation]:
+        """List of |Equation| objects for each OMML expression in this paragraph.
+
+        Includes both paragraph-level ``m:oMathPara`` wrappers and loose
+        inline ``m:oMath`` descendants. Each ``m:oMath`` nested inside an
+        ``m:oMathPara`` is represented once — by the enclosing
+        ``m:oMathPara`` — so an equation is not counted twice.
+        """
+        from docx.equations import Equation
+
+        result: list[Equation] = []
+        # -- top-level (or oMathPara-wrapped) matches first --
+        for el in self._p.xpath(
+            ".//m:oMathPara | .//m:oMath[not(ancestor::m:oMathPara)]"
+        ):
+            result.append(Equation(cast("CT_OMath | CT_OMathPara", el)))
+        return result
 
     def add_floating_image(
         self,
