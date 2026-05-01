@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from docx.parts.document import DocumentPart
     from docx.search import SearchMatch
     from docx.settings import Settings
+    from docx.signatures import SignatureInfo
     from docx.statistics import DocumentStatistics
     from docx.styles.style import ParagraphStyle, _TableStyle
     from docx.table import Table
@@ -265,6 +266,29 @@ class Document(ElementProxy):
             return True
         except KeyError:
             return False
+
+    @property
+    def is_signed(self) -> bool:
+        """True when this document's package contains digital-signature parts.
+
+        python-docx does not verify signatures; this reports only whether a
+        ``_xmlsignatures/origin.sigs`` or signature relationship is present at the
+        package level.
+        """
+        from docx.package import Package
+
+        return cast("Package", self._part.package).is_signed
+
+    @property
+    def signatures(self) -> list[SignatureInfo]:
+        """List of |SignatureInfo| for each digital signature in the package.
+
+        Empty list when the document is unsigned. See :class:`docx.signatures.SignatureInfo`
+        for the available metadata.
+        """
+        from docx.package import Package
+
+        return cast("Package", self._part.package).signatures
 
     @property
     def font_table(self) -> FontTable | None:

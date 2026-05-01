@@ -10,6 +10,7 @@ from docx.opc.package import OpcPackage
 from docx.opc.packuri import PackURI
 from docx.parts.image import ImagePart
 from docx.shared import lazyproperty
+from docx.signatures import SignatureInfo
 
 
 class Package(OpcPackage):
@@ -34,6 +35,70 @@ class Package(OpcPackage):
     def image_parts(self) -> ImageParts:
         """|ImageParts| collection object for this package."""
         return ImageParts()
+
+    @property
+    def is_signed(self) -> bool:
+        """True when the package contains at least one digital-signature part.
+
+        Specifically, when a package-level relationship of type
+        ``.../digital-signature/origin`` or ``.../digital-signature/signature`` is
+        present. python-docx does not verify signatures; this only reports whether
+        they are present in the package.
+        """
+        for rel in self.rels.values():
+            if rel.is_external:
+                continue
+            if rel.reltype in (RT.DIGITAL_SIGNATURE_ORIGIN, RT.DIGITAL_SIGNATURE):
+                return True
+        return False
+
+    @property
+    def signatures(self) -> list[SignatureInfo]:
+        """List of |SignatureInfo| for each digital signature in the package.
+
+        Returns an empty list for unsigned packages. Signatures are discovered by
+        walking from the package-level ``digital-signature/origin`` relationship to
+        each ``digital-signature/signature`` relationship on the origin part. If no
+        origin part is present, package-level ``digital-signature/signature``
+        relationships are used directly as a fallback.
+
+        python-docx does not verify signatures; callers receive read-only metadata
+        parsed from the signature XML.
+        """
+        from docx.opc.rel import Relationships as _Relationships
+
+        signatures: list[SignatureInfo] = []
+        seen_partnames: set[str] = set()
+
+        def _collect_from(source_rels: _Relationships) -> None:
+            for rel in source_rels.values():
+                if rel.is_external:
+                    continue
+                if rel.reltype != RT.DIGITAL_SIGNATURE:
+                    continue
+                try:
+                    target_part = rel.target_part
+                except ValueError:
+                    continue
+                partname_str = str(target_part.partname)
+                if partname_str in seen_partnames:
+                    continue
+                seen_partnames.add(partname_str)
+                signatures.append(SignatureInfo(target_part))
+
+        # -- normal path: follow the origin part and enumerate its signature rels --
+        for rel in self.rels.values():
+            if rel.is_external:
+                continue
+            if rel.reltype != RT.DIGITAL_SIGNATURE_ORIGIN:
+                continue
+            origin_part = rel.target_part
+            _collect_from(origin_part.rels)
+
+        # -- fallback: packages that declare signature rels at the package level --
+        _collect_from(self.rels)
+
+        return signatures
 
     def _gather_image_parts(self):
         """Load the image part collection with all the image parts in package."""

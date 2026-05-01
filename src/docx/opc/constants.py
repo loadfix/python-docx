@@ -38,6 +38,10 @@ class CONTENT_TYPE:
     OPC_DIGITAL_SIGNATURE_XMLSIGNATURE = (
         "application/vnd.openxmlformats-package.digital-signature-xmlsignature+xml"
     )
+    DIGITAL_SIGNATURE_ORIGIN = "application/vnd.openxmlformats-package.digital-signature-origin"
+    DIGITAL_SIGNATURE_XML = (
+        "application/vnd.openxmlformats-package.digital-signature-xmlsignature+xml"
+    )
     OPC_RELATIONSHIPS = "application/vnd.openxmlformats-package.relationships+xml"
     PML_COMMENTS = "application/vnd.openxmlformats-officedocument.presentationml.comments+xml"
     PML_COMMENT_AUTHORS = (
@@ -273,6 +277,12 @@ class RELATIONSHIP_TYPE:
     )
     SHEET_METADATA = (
         "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sheetMetadata"
+    )
+    DIGITAL_SIGNATURE = (
+        "http://schemas.openxmlformats.org/package/2006/relationships/digital-signature/signature"
+    )
+    DIGITAL_SIGNATURE_ORIGIN = (
+        "http://schemas.openxmlformats.org/package/2006/relationships/digital-signature/origin"
     )
     SIGNATURE = (
         "http://schemas.openxmlformats.org/package/2006/relationships/digital-signature/signature"
