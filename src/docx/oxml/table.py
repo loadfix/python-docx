@@ -46,6 +46,13 @@ if TYPE_CHECKING:
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.oxml.shared import CT_OnOff, CT_String
     from docx.oxml.text.parfmt import CT_Jc
+    from docx.oxml.tracked_changes import (
+        CT_CellDel,
+        CT_CellIns,
+        CT_TblPrChange,
+        CT_TcPrChange,
+        CT_TrPrChange,
+    )
 
 
 class CT_Shd(BaseOxmlElement):
@@ -717,6 +724,9 @@ class CT_TblPr(BaseOxmlElement):
     tblLook: CT_TblLook | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:tblLook", successors=_tag_seq[15:]
     )
+    tblPrChange: CT_TblPrChange | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:tblPrChange", successors=()
+    )
     del _tag_seq
 
     @property
@@ -1254,6 +1264,15 @@ class CT_TcPr(BaseOxmlElement):
     vAlign: CT_VerticalJc | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:vAlign", successors=_tag_seq[12:]
     )
+    cellIns: CT_CellIns | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:cellIns", successors=_tag_seq[15:]
+    )
+    cellDel: CT_CellDel | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:cellDel", successors=_tag_seq[16:]
+    )
+    tcPrChange: CT_TcPrChange | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:tcPrChange", successors=()
+    )
     del _tag_seq
 
     @property
@@ -1385,6 +1404,9 @@ class CT_TrPr(BaseOxmlElement):
     )
     trHeight: CT_Height | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:trHeight", successors=_tag_seq[8:]
+    )
+    trPrChange: CT_TrPrChange | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:trPrChange", successors=()
     )
     del _tag_seq
 

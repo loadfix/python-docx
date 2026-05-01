@@ -10,6 +10,7 @@ from docx.shared import ElementProxy
 
 if TYPE_CHECKING:
     from docx.oxml.section import CT_SectPr
+    from docx.oxml.table import CT_TblPr, CT_TcPr, CT_TrPr
     from docx.oxml.text.font import CT_RPr
     from docx.oxml.text.parfmt import CT_PPr
     from docx.oxml.text.paragraph import CT_P
@@ -18,7 +19,10 @@ if TYPE_CHECKING:
         CT_RPrChange,
         CT_RunTrackChange,
         CT_SectPrChange,
+        CT_TblPrChange,
+        CT_TcPrChange,
         CT_TrackChange,
+        CT_TrPrChange,
     )
     from docx.oxml.xmlchemy import BaseOxmlElement
 
@@ -177,13 +181,25 @@ class FormattingChange(ElementProxy):
         return self._fc_element.date
 
     @property
-    def old_properties(self) -> CT_RPr | CT_PPr | CT_SectPr | None:
-        """The nested `w:rPr`, `w:pPr`, or `w:sectPr` holding prior formatting.
+    def old_properties(
+        self,
+    ) -> CT_RPr | CT_PPr | CT_SectPr | CT_TcPr | CT_TrPr | CT_TblPr | None:
+        """The nested properties element holding the prior formatting.
+
+        Returns the inner `w:rPr`, `w:pPr`, `w:sectPr`, `w:tcPr`, `w:trPr`, or
+        `w:tblPr` element for the corresponding change type.
 
         |None| if the change element has no inner properties element (malformed or
         "no prior formatting" case).
         """
-        from docx.oxml.tracked_changes import CT_PPrChange, CT_RPrChange, CT_SectPrChange
+        from docx.oxml.tracked_changes import (
+            CT_PPrChange,
+            CT_RPrChange,
+            CT_SectPrChange,
+            CT_TblPrChange,
+            CT_TcPrChange,
+            CT_TrPrChange,
+        )
 
         if isinstance(self._fc_element, CT_RPrChange):
             return self._fc_element.rPr
@@ -191,6 +207,12 @@ class FormattingChange(ElementProxy):
             return self._fc_element.pPr
         if isinstance(self._fc_element, CT_SectPrChange):
             return self._fc_element.sectPr
+        if isinstance(self._fc_element, CT_TcPrChange):
+            return self._fc_element.tcPr
+        if isinstance(self._fc_element, CT_TrPrChange):
+            return self._fc_element.trPr
+        if isinstance(self._fc_element, CT_TblPrChange):
+            return self._fc_element.tblPr
         return None
 
 
@@ -266,8 +288,10 @@ def _resolve_all_changes(root: BaseOxmlElement, *, accept: bool) -> int:
     """Accept or reject every tracked change beneath `root`.
 
     Processes run-level track changes (`w:ins`, `w:del`, `w:moveFrom`,
-    `w:moveTo`) and formatting track changes (`w:rPrChange`, `w:pPrChange`,
-    `w:sectPrChange`). Returns the count of change elements resolved.
+    `w:moveTo`), formatting track changes (`w:rPrChange`, `w:pPrChange`,
+    `w:sectPrChange`, `w:tcPrChange`, `w:trPrChange`, `w:tblPrChange`), and
+    cell-level revisions (`w:cellIns`, `w:cellDel`). Returns the count of
+    change elements resolved.
 
     Nested changes (e.g. a `w:ins` inside a `w:del`) are handled by processing
     innermost elements first so outer wrappers see stable children.
@@ -293,8 +317,18 @@ def _resolve_all_changes(root: BaseOxmlElement, *, accept: bool) -> int:
             elm.accept() if accept else elm.reject()
             count += 1
 
+    # -- cell-level revisions. Resolve before formatting changes so a
+    # -- `w:tcPrChange` inside a cell being deleted is only processed once (the
+    # -- enclosing `w:tc` is removed here if needed). --
+    cell_changes: list[BaseOxmlElement] = root.xpath(".//w:cellIns | .//w:cellDel")
+    for elm in cell_changes:
+        if elm.getparent() is None:
+            continue
+        count += _resolve_cell_change(elm, accept=accept)
+
     fmt_changes: list[BaseOxmlElement] = root.xpath(
         ".//w:rPrChange | .//w:pPrChange | .//w:sectPrChange"
+        " | .//w:tcPrChange | .//w:trPrChange | .//w:tblPrChange"
     )
     for elm in fmt_changes:
         if elm.getparent() is None:
@@ -306,3 +340,48 @@ def _resolve_all_changes(root: BaseOxmlElement, *, accept: bool) -> int:
         count += 1
 
     return count
+
+
+def _resolve_cell_change(elm: BaseOxmlElement, *, accept: bool) -> int:
+    """Accept or reject a `w:cellIns` or `w:cellDel` revision marker.
+
+    - Accept `w:cellIns` -> the insertion is accepted; the marker is removed but
+      the cell is kept.
+    - Reject `w:cellIns` -> the insertion is rejected; the whole enclosing cell
+      is removed.
+    - Accept `w:cellDel` -> the deletion is accepted; the whole enclosing cell
+      is removed.
+    - Reject `w:cellDel` -> the deletion is rejected; the marker is removed but
+      the cell is kept.
+
+    Returns 1 if the change was processed, 0 if the marker was orphaned or its
+    surrounding structure was unexpected.
+    """
+    from docx.oxml.tracked_changes import CT_CellDel, CT_CellIns
+
+    tcPr = elm.getparent()
+    if tcPr is None:
+        return 0
+    tc = tcPr.getparent()  # -- the enclosing `w:tc`
+    if tc is None:
+        # -- detached `w:tcPr`; just remove the marker --
+        tcPr.remove(elm)
+        return 1
+
+    is_insertion = isinstance(elm, CT_CellIns)
+    is_deletion = isinstance(elm, CT_CellDel)
+    if not (is_insertion or is_deletion):
+        # -- unexpected element class; remove marker defensively --
+        tcPr.remove(elm)
+        return 1
+
+    remove_cell = (is_deletion and accept) or (is_insertion and not accept)
+    if remove_cell:
+        row = tc.getparent()
+        if row is not None:
+            row.remove(tc)
+        return 1
+
+    # -- keep the cell, just remove the marker --
+    tcPr.remove(elm)
+    return 1

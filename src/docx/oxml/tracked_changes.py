@@ -19,6 +19,7 @@ from docx.oxml.xmlchemy import (
 
 if TYPE_CHECKING:
     from docx.oxml.section import CT_SectPr
+    from docx.oxml.table import CT_TblPr, CT_TcPr, CT_TrPr
     from docx.oxml.text.font import CT_RPr
     from docx.oxml.text.parfmt import CT_PPr
     from docx.oxml.text.run import CT_R
@@ -211,6 +212,61 @@ class CT_SectPrChange(CT_TrackChange):
     """`<w:sectPrChange>` element, recording a section-formatting revision."""
 
     sectPr: "CT_SectPr | None" = ZeroOrOne("w:sectPr")  # pyright: ignore[reportAssignmentType]
+
+
+class CT_TcPrChange(CT_TrackChange):
+    """`<w:tcPrChange>` element, recording a table-cell-properties revision.
+
+    Contained in a `w:tcPr`. The nested `w:tcPr` element holds the pre-revision
+    cell properties.
+    """
+
+    tcPr: "CT_TcPr | None" = ZeroOrOne("w:tcPr")  # pyright: ignore[reportAssignmentType]
+
+
+class CT_TrPrChange(CT_TrackChange):
+    """`<w:trPrChange>` element, recording a table-row-properties revision.
+
+    Contained in a `w:trPr`. The nested `w:trPr` element holds the pre-revision
+    row properties.
+    """
+
+    trPr: "CT_TrPr | None" = ZeroOrOne("w:trPr")  # pyright: ignore[reportAssignmentType]
+
+
+class CT_TblPrChange(CT_TrackChange):
+    """`<w:tblPrChange>` element, recording a table-properties revision.
+
+    Contained in a `w:tblPr`. The nested `w:tblPr` element holds the pre-revision
+    table properties.
+    """
+
+    tblPr: "CT_TblPr | None" = ZeroOrOne("w:tblPr")  # pyright: ignore[reportAssignmentType]
+
+
+class CT_CellMarker(BaseOxmlElement):
+    """Base for `<w:cellIns>` and `<w:cellDel>` revision markers.
+
+    These mark a table cell (`w:tc`) as inserted or deleted by a tracked-change
+    revision. They are empty elements — the revision metadata lives entirely on
+    the three attributes `w:id`, `w:author`, and `w:date`.
+    """
+
+    id: int = RequiredAttribute("w:id", ST_DecimalNumber)  # pyright: ignore[reportAssignmentType]
+    author: str = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:author", ST_String
+    )
+    date: dt.datetime | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:date", ST_DateTime
+    )
+
+
+class CT_CellIns(CT_CellMarker):
+    """`<w:cellIns>` element marking a `w:tc` as inserted by revision."""
+
+
+class CT_CellDel(CT_CellMarker):
+    """`<w:cellDel>` element marking a `w:tc` as deleted by revision."""
 
 
 def accept_formatting_change(change_elm: BaseOxmlElement) -> None:

@@ -10,11 +10,16 @@ from typing import cast
 import pytest
 
 from docx.oxml.tracked_changes import (
+    CT_CellDel,
+    CT_CellIns,
     CT_Del,
     CT_DelText,
     CT_Ins,
     CT_MoveFrom,
     CT_MoveTo,
+    CT_TblPrChange,
+    CT_TcPrChange,
+    CT_TrPrChange,
 )
 
 from ..unitutil.cxml import element
@@ -277,3 +282,105 @@ class DescribeCT_MoveTo_acceptReject:
         mt.reject()
         assert p.xpath("./w:moveTo") == []
         assert [r.text for r in p.xpath("./w:r/w:t")] == ["before "]
+
+
+class DescribeCT_CellIns:
+    """Unit-test suite for `docx.oxml.tracked_changes.CT_CellIns`."""
+
+    def it_knows_its_id(self):
+        ci = cast(CT_CellIns, element("w:cellIns{w:id=3,w:author=Alice}"))
+        assert ci.id == 3
+
+    def it_knows_its_author(self):
+        ci = cast(CT_CellIns, element("w:cellIns{w:id=3,w:author=Alice}"))
+        assert ci.author == "Alice"
+
+    def it_knows_its_date(self):
+        ci = cast(
+            CT_CellIns,
+            element("w:cellIns{w:id=3,w:author=Alice,w:date=2024-01-02T03:04:05Z}"),
+        )
+        assert ci.date == dt.datetime(2024, 1, 2, 3, 4, 5, tzinfo=dt.timezone.utc)
+
+    def it_returns_None_when_date_is_absent(self):
+        ci = cast(CT_CellIns, element("w:cellIns{w:id=3,w:author=Alice}"))
+        assert ci.date is None
+
+
+class DescribeCT_CellDel:
+    """Unit-test suite for `docx.oxml.tracked_changes.CT_CellDel`."""
+
+    def it_knows_its_id(self):
+        cd = cast(CT_CellDel, element("w:cellDel{w:id=4,w:author=Bob}"))
+        assert cd.id == 4
+
+    def it_knows_its_author(self):
+        cd = cast(CT_CellDel, element("w:cellDel{w:id=4,w:author=Bob}"))
+        assert cd.author == "Bob"
+
+    def it_knows_its_date(self):
+        cd = cast(
+            CT_CellDel,
+            element("w:cellDel{w:id=4,w:author=Bob,w:date=2024-06-07T08:09:10Z}"),
+        )
+        assert cd.date == dt.datetime(2024, 6, 7, 8, 9, 10, tzinfo=dt.timezone.utc)
+
+
+class DescribeCT_TcPrChange:
+    """Unit-test suite for `docx.oxml.tracked_changes.CT_TcPrChange`."""
+
+    def it_knows_its_id(self):
+        tpc = cast(CT_TcPrChange, element("w:tcPrChange{w:id=5,w:author=Carol}"))
+        assert tpc.id == 5
+
+    def it_knows_its_author(self):
+        tpc = cast(CT_TcPrChange, element("w:tcPrChange{w:id=5,w:author=Carol}"))
+        assert tpc.author == "Carol"
+
+    def it_exposes_its_inner_tcPr(self):
+        tpc = cast(
+            CT_TcPrChange,
+            element(
+                "w:tcPrChange{w:id=5,w:author=C}/w:tcPr/w:vAlign{w:val=center}"
+            ),
+        )
+        assert tpc.tcPr is not None
+        assert tpc.tcPr.xpath("./w:vAlign")
+
+    def it_returns_None_for_tcPr_when_absent(self):
+        tpc = cast(CT_TcPrChange, element("w:tcPrChange{w:id=5,w:author=C}"))
+        assert tpc.tcPr is None
+
+
+class DescribeCT_TrPrChange:
+    """Unit-test suite for `docx.oxml.tracked_changes.CT_TrPrChange`."""
+
+    def it_knows_its_id(self):
+        rpc = cast(CT_TrPrChange, element("w:trPrChange{w:id=6,w:author=Dave}"))
+        assert rpc.id == 6
+
+    def it_exposes_its_inner_trPr(self):
+        rpc = cast(
+            CT_TrPrChange,
+            element("w:trPrChange{w:id=6,w:author=D}/w:trPr/w:cantSplit"),
+        )
+        assert rpc.trPr is not None
+        assert rpc.trPr.xpath("./w:cantSplit")
+
+
+class DescribeCT_TblPrChange:
+    """Unit-test suite for `docx.oxml.tracked_changes.CT_TblPrChange`."""
+
+    def it_knows_its_id(self):
+        tpc = cast(CT_TblPrChange, element("w:tblPrChange{w:id=7,w:author=Eve}"))
+        assert tpc.id == 7
+
+    def it_exposes_its_inner_tblPr(self):
+        tpc = cast(
+            CT_TblPrChange,
+            element(
+                "w:tblPrChange{w:id=7,w:author=E}/w:tblPr/w:tblW{w:w=5000,w:type=dxa}"
+            ),
+        )
+        assert tpc.tblPr is not None
+        assert tpc.tblPr.xpath("./w:tblW")

@@ -622,6 +622,32 @@ class DescribeTable:
         # -- the new table sits between the original table and the trailing paragraph --
         assert list(body) == [ref_tbl, new_table._tbl, body[2]]
 
+    def it_returns_None_for_formatting_change_when_tblPrChange_absent(
+        self, document_: Mock
+    ):
+        tbl = cast(CT_Tbl, element("w:tbl/(w:tblPr,w:tblGrid)"))
+        table = Table(tbl, document_)
+        assert table.formatting_change is None
+
+    def it_exposes_its_formatting_change_when_tblPrChange_present(
+        self, document_: Mock
+    ):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/("
+                "w:tblPr/w:tblPrChange{w:id=1,w:author=A}/w:tblPr/"
+                "w:tblW{w:w=5000,w:type=dxa}"
+                ",w:tblGrid)"
+            ),
+        )
+        table = Table(tbl, document_)
+        fc = table.formatting_change
+        assert fc is not None
+        assert fc.author == "A"
+        assert fc.old_properties is not None
+        assert fc.old_properties.xpath("./w:tblW")
+
     # fixtures -------------------------------------------------------
 
     @pytest.fixture
@@ -1023,6 +1049,66 @@ class Describe_Cell:
         assert cell.grid_span == 1
         # -- grid_span==1 with no vMerge should be "not merged" --
         assert cell.is_merge_origin is None
+
+    # --- tracked-change revisions ------------------------------------
+
+    @pytest.mark.parametrize(
+        ("tc_cxml", "expected_value"),
+        [
+            ("w:tc/w:p", False),
+            ("w:tc/(w:tcPr,w:p)", False),
+            ("w:tc/(w:tcPr/w:cellIns{w:id=1,w:author=A},w:p)", True),
+        ],
+    )
+    def it_knows_whether_it_is_a_tracked_insertion(
+        self, tc_cxml: str, expected_value: bool, parent_: Mock
+    ):
+        cell = _Cell(cast(CT_Tc, element(tc_cxml)), parent_)
+        assert cell.is_tracked_insertion is expected_value
+
+    @pytest.mark.parametrize(
+        ("tc_cxml", "expected_value"),
+        [
+            ("w:tc/w:p", False),
+            ("w:tc/(w:tcPr,w:p)", False),
+            ("w:tc/(w:tcPr/w:cellDel{w:id=2,w:author=B},w:p)", True),
+        ],
+    )
+    def it_knows_whether_it_is_a_tracked_deletion(
+        self, tc_cxml: str, expected_value: bool, parent_: Mock
+    ):
+        cell = _Cell(cast(CT_Tc, element(tc_cxml)), parent_)
+        assert cell.is_tracked_deletion is expected_value
+
+    def it_returns_None_for_formatting_change_when_tcPr_absent(self, parent_: Mock):
+        cell = _Cell(cast(CT_Tc, element("w:tc/w:p")), parent_)
+        assert cell.formatting_change is None
+
+    def it_returns_None_for_formatting_change_when_tcPrChange_absent(
+        self, parent_: Mock
+    ):
+        cell = _Cell(cast(CT_Tc, element("w:tc/(w:tcPr,w:p)")), parent_)
+        assert cell.formatting_change is None
+
+    def it_exposes_its_formatting_change_when_tcPrChange_present(
+        self, parent_: Mock
+    ):
+        cell = _Cell(
+            cast(
+                CT_Tc,
+                element(
+                    "w:tc/("
+                    "w:tcPr/w:tcPrChange{w:id=1,w:author=A}/w:tcPr/w:vAlign{w:val=top}"
+                    ",w:p)"
+                ),
+            ),
+            parent_,
+        )
+        fc = cell.formatting_change
+        assert fc is not None
+        assert fc.author == "A"
+        assert fc.old_properties is not None
+        assert fc.old_properties.xpath("./w:vAlign")
 
     # fixtures -------------------------------------------------------
 
@@ -2099,6 +2185,34 @@ class Describe_Row:
         tbl = element("w:tbl/(w:tr,w:tr,w:tr)")
         row = _Row(cast(CT_Row, tbl[1]), parent_)
         assert row._index == 1
+
+    def it_returns_None_for_formatting_change_when_trPr_absent(self, parent_: Mock):
+        row = _Row(cast(CT_Row, element("w:tr")), parent_)
+        assert row.formatting_change is None
+
+    def it_returns_None_for_formatting_change_when_trPrChange_absent(
+        self, parent_: Mock
+    ):
+        row = _Row(cast(CT_Row, element("w:tr/w:trPr")), parent_)
+        assert row.formatting_change is None
+
+    def it_exposes_its_formatting_change_when_trPrChange_present(
+        self, parent_: Mock
+    ):
+        row = _Row(
+            cast(
+                CT_Row,
+                element(
+                    "w:tr/w:trPr/w:trPrChange{w:id=1,w:author=A}/w:trPr/w:cantSplit"
+                ),
+            ),
+            parent_,
+        )
+        fc = row.formatting_change
+        assert fc is not None
+        assert fc.author == "A"
+        assert fc.old_properties is not None
+        assert fc.old_properties.xpath("./w:cantSplit")
 
     # fixtures -------------------------------------------------------
 

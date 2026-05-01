@@ -17,6 +17,9 @@ from docx.oxml.tracked_changes import (
     CT_PPrChange,
     CT_RPrChange,
     CT_SectPrChange,
+    CT_TblPrChange,
+    CT_TcPrChange,
+    CT_TrPrChange,
 )
 from docx.tracked_changes import (
     FormattingChange,
@@ -157,6 +160,35 @@ class DescribeFormattingChange:
         rPrChange = cast(CT_RPrChange, element("w:rPrChange{w:id=1,w:author=A}"))
         fc = FormattingChange(rPrChange)
         assert fc.old_properties is None
+
+    def it_exposes_old_tcPr_for_tcPrChange(self):
+        tcPrChange = cast(
+            CT_TcPrChange,
+            element("w:tcPrChange{w:id=4,w:author=D}/w:tcPr/w:vAlign{w:val=top}"),
+        )
+        fc = FormattingChange(tcPrChange)
+        assert fc.old_properties is not None
+        assert fc.old_properties.xpath("./w:vAlign")
+
+    def it_exposes_old_trPr_for_trPrChange(self):
+        trPrChange = cast(
+            CT_TrPrChange,
+            element("w:trPrChange{w:id=5,w:author=E}/w:trPr/w:cantSplit"),
+        )
+        fc = FormattingChange(trPrChange)
+        assert fc.old_properties is not None
+        assert fc.old_properties.xpath("./w:cantSplit")
+
+    def it_exposes_old_tblPr_for_tblPrChange(self):
+        tblPrChange = cast(
+            CT_TblPrChange,
+            element(
+                "w:tblPrChange{w:id=6,w:author=F}/w:tblPr/w:tblW{w:w=5000,w:type=dxa}"
+            ),
+        )
+        fc = FormattingChange(tblPrChange)
+        assert fc.old_properties is not None
+        assert fc.old_properties.xpath("./w:tblW")
 
 
 class Describe_render_paragraph_marks:
