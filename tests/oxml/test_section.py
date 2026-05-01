@@ -17,6 +17,7 @@ from docx.oxml.section import (
     CT_Cols,
     CT_HdrFtr,
     CT_LineNumber,
+    CT_PaperSource,
     CT_PgBorders,
     CT_SectPr,
 )
@@ -298,6 +299,68 @@ class DescribeCT_SectPr_lnNumType:
         )
         sectPr._remove_lnNumType()  # pyright: ignore[reportPrivateUsage]
         assert sectPr.lnNumType is None
+
+
+class DescribeCT_PaperSource:
+    """Unit-test suite for `docx.oxml.section.CT_PaperSource`."""
+
+    @pytest.mark.parametrize(
+        ("paperSrc_cxml", "expected_first", "expected_other"),
+        [
+            ("w:paperSrc", None, None),
+            ("w:paperSrc{w:first=1}", 1, None),
+            ("w:paperSrc{w:other=2}", None, 2),
+            ("w:paperSrc{w:first=3,w:other=4}", 3, 4),
+        ],
+    )
+    def it_knows_its_attributes(self, paperSrc_cxml, expected_first, expected_other):
+        paperSrc = cast(CT_PaperSource, element(paperSrc_cxml))
+        assert paperSrc.first == expected_first
+        assert paperSrc.other == expected_other
+
+    def it_can_set_its_attributes(self):
+        paperSrc = cast(CT_PaperSource, element("w:paperSrc"))
+        paperSrc.first = 5
+        paperSrc.other = 6
+        assert paperSrc.xml == xml("w:paperSrc{w:first=5,w:other=6}")
+
+
+class DescribeCT_SectPr_paperSrc:
+    """Unit-test suite for CT_SectPr paper-source features."""
+
+    def it_returns_None_when_no_paperSrc_child(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        assert sectPr.paperSrc is None
+
+    def it_can_access_its_paperSrc_child(self):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:paperSrc{w:first=1,w:other=2}"),
+        )
+        paperSrc = sectPr.paperSrc
+        assert paperSrc is not None
+        assert paperSrc.first == 1
+        assert paperSrc.other == 2
+
+    def it_can_add_a_paperSrc_child(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        paperSrc = sectPr.get_or_add_paperSrc()
+        assert paperSrc is not None
+        assert sectPr.paperSrc is paperSrc
+
+    def it_inserts_paperSrc_in_the_right_position(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr/(w:pgSz,w:pgMar,w:cols)"))
+        sectPr.get_or_add_paperSrc()
+        expected = xml("w:sectPr/(w:pgSz,w:pgMar,w:paperSrc,w:cols)")
+        assert sectPr.xml == expected
+
+    def it_can_remove_its_paperSrc_child(self):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:paperSrc{w:first=1}"),
+        )
+        sectPr._remove_paperSrc()  # pyright: ignore[reportPrivateUsage]
+        assert sectPr.paperSrc is None
 
 
 class DescribeCT_HdrFtr:

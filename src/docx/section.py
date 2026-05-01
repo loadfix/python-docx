@@ -348,6 +348,62 @@ class Section:
         self._sectPr._remove_lnNumType()  # pyright: ignore[reportPrivateUsage]
 
     @property
+    def first_page_paper_source(self) -> int | None:
+        """Read/write. Printer tray bin number to use for the first page of this section.
+
+        Returns the ``w:first`` attribute of the ``w:paperSrc`` child of this
+        section's ``w:sectPr``. |None| when no ``w:paperSrc`` child is present or
+        the attribute is unset.
+
+        Setting this to |None| clears the attribute; if ``other_pages_paper_source``
+        is also unset, the ``w:paperSrc`` element is removed entirely.
+        """
+        paperSrc = self._sectPr.paperSrc
+        if paperSrc is None:
+            return None
+        return paperSrc.first
+
+    @first_page_paper_source.setter
+    def first_page_paper_source(self, value: int | None) -> None:
+        if value is None:
+            paperSrc = self._sectPr.paperSrc
+            if paperSrc is None:
+                return
+            paperSrc.first = None
+            if paperSrc.other is None:
+                self._sectPr._remove_paperSrc()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._sectPr.get_or_add_paperSrc().first = value
+
+    @property
+    def other_pages_paper_source(self) -> int | None:
+        """Read/write. Printer tray bin number for non-first pages of this section.
+
+        Returns the ``w:other`` attribute of the ``w:paperSrc`` child of this
+        section's ``w:sectPr``. |None| when no ``w:paperSrc`` child is present or
+        the attribute is unset.
+
+        Setting this to |None| clears the attribute; if ``first_page_paper_source``
+        is also unset, the ``w:paperSrc`` element is removed entirely.
+        """
+        paperSrc = self._sectPr.paperSrc
+        if paperSrc is None:
+            return None
+        return paperSrc.other
+
+    @other_pages_paper_source.setter
+    def other_pages_paper_source(self, value: int | None) -> None:
+        if value is None:
+            paperSrc = self._sectPr.paperSrc
+            if paperSrc is None:
+                return
+            paperSrc.other = None
+            if paperSrc.first is None:
+                self._sectPr._remove_paperSrc()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._sectPr.get_or_add_paperSrc().other = value
+
+    @property
     def right_margin(self) -> Length | None:
         """|Length| object representing the right margin for all pages in this section
         in English Metric Units."""
