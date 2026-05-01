@@ -576,6 +576,32 @@ class Font(ElementProxy):
         self._set_bool_prop("rtl", value)
 
     @property
+    def right_to_left(self) -> bool:
+        """|True| when the run is flagged for right-to-left (bidi) rendering.
+
+        Maps to ``w:rPr/w:rtl``. Returns |False| when the element is absent.
+        Assigning |True| inserts ``w:rtl``; assigning |False| or |None| removes
+        it. When |True|, the run is rendered right-to-left using the
+        complex-script (CS) font—appropriate for Arabic, Hebrew, or Farsi text.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return False
+        rtl = rPr.rtl
+        if rtl is None:
+            return False
+        return rtl.val
+
+    @right_to_left.setter
+    def right_to_left(self, value: bool | None) -> None:
+        rPr = self._element.get_or_add_rPr()
+        if value in (None, False):
+            rPr._remove_rtl()  # pyright: ignore[reportPrivateUsage]
+        else:
+            rtl = rPr.get_or_add_rtl()
+            rtl.val = True
+
+    @property
     def shading_color(self) -> RGBColor | None:
         """Run-level background (shading) color as an |RGBColor|, or |None| if not set.
 
