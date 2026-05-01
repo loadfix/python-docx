@@ -21,6 +21,14 @@ if TYPE_CHECKING:
     from docx.shared import Length
 
 
+class CT_View(BaseOxmlElement):
+    """`w:view` element, specifying the preferred view mode for the document."""
+
+    val: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:val", ST_String
+    )
+
+
 class CT_Zoom(BaseOxmlElement):
     """`w:zoom` element, specifying the magnification level for the document."""
 
@@ -68,6 +76,8 @@ class CT_DefaultTabStop(BaseOxmlElement):
 class CT_Settings(BaseOxmlElement):
     """`w:settings` element, root element for the settings part."""
 
+    get_or_add_view: Callable[[], CT_View]
+    _remove_view: Callable[[], None]
     get_or_add_zoom: Callable[[], CT_Zoom]
     _remove_zoom: Callable[[], None]
     get_or_add_trackRevisions: Callable[[], CT_OnOff]
@@ -185,6 +195,9 @@ class CT_Settings(BaseOxmlElement):
         "w:decimalSymbol",
         "w:listSeparator",
     )
+    view: CT_View | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:view", successors=_tag_seq[2:]
+    )
     zoom: CT_Zoom | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:zoom", successors=_tag_seq[3:]
     )
@@ -225,6 +238,21 @@ class CT_Settings(BaseOxmlElement):
             self._remove_evenAndOddHeaders()
             return
         self.get_or_add_evenAndOddHeaders().val = value
+
+    @property
+    def view_val(self) -> str | None:
+        """Value of `w:view/@w:val` or None if not present."""
+        view = self.view
+        if view is None:
+            return None
+        return view.val
+
+    @view_val.setter
+    def view_val(self, value: str | None):
+        if value is None:
+            self._remove_view()
+            return
+        self.get_or_add_view().val = value
 
     @property
     def zoom_percent(self) -> int | None:

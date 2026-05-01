@@ -5,6 +5,7 @@ from __future__ import annotations
 import warnings
 from typing import TYPE_CHECKING, cast
 
+from docx.enum.text import WD_VIEW
 from docx.shared import ElementProxy
 
 if TYPE_CHECKING:
@@ -91,6 +92,27 @@ class Settings(ElementProxy):
             stacklevel=2,
         )
         self.even_and_odd_headers = value
+
+    @property
+    def view(self) -> WD_VIEW | None:
+        """The preferred view mode for this document as a |WD_VIEW| member.
+
+        Read/write. |None| when no ``w:view`` child is present in settings.
+        Assign |None| to remove the element. Recognized OOXML values are
+        ``none``, ``print``, ``outline``, ``masterPages``, ``normal``,
+        ``web``, and ``reading``.
+        """
+        val = self._settings.view_val
+        if val is None:
+            return None
+        return WD_VIEW.from_xml(val)
+
+    @view.setter
+    def view(self, value: WD_VIEW | None):
+        if value is None:
+            self._settings.view_val = None
+            return
+        self._settings.view_val = WD_VIEW.to_xml(value)
 
     @property
     def track_revisions(self) -> bool:

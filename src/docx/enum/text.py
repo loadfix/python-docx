@@ -572,3 +572,31 @@ class WD_ENDNOTE_POSITION(BaseXmlEnum):
 
     END_OF_SECTION = (1, "sectEnd", "Endnotes appear at the end of each section.")
     """Endnotes appear at the end of each section."""
+
+
+class WD_VIEW(BaseXmlEnum):
+    """Specifies the preferred view mode for displaying the document.
+
+    Maps to the ``w:val`` attribute of the ``w:view`` child of ``w:settings``.
+    """
+
+    NONE = (0, "none", "No view mode is specified.")
+    """No view mode is specified."""
+
+    PRINT = (1, "print", "Print layout view (Word's default editing view).")
+    """Print layout view (Word's default editing view)."""
+
+    OUTLINE = (2, "outline", "Outline view, showing document headings and hierarchy.")
+    """Outline view, showing document headings and hierarchy."""
+
+    MASTER_PAGES = (3, "masterPages", "Master-pages (master document) view.")
+    """Master-pages (master document) view."""
+
+    NORMAL = (4, "normal", "Normal (draft) view, emphasizing text flow over layout.")
+    """Normal (draft) view, emphasizing text flow over layout."""
+
+    WEB = (5, "web", "Web layout view, showing the document as it would appear in a browser.")
+    """Web layout view, showing the document as it would appear in a browser."""
+
+    READING = (6, "reading", "Full-screen reading view optimized for reading.")
+    """Full-screen reading view optimized for reading."""
