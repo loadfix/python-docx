@@ -23,7 +23,8 @@ The XML shape is::
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, List, cast
+from typing import TYPE_CHECKING, cast
+from collections.abc import Callable
 
 from docx.oxml.ns import qn
 from docx.oxml.parser import OxmlElement
@@ -251,21 +252,21 @@ class CT_SdtContent(BaseOxmlElement):
     """``<w:sdtContent>`` element - the current content of a structured document tag."""
 
     p = cast(
-        "Callable[[], List[CT_P]]",
+        "Callable[[], list[CT_P]]",
         property(lambda self: self.findall(qn("w:p"))),
     )
     r = cast(
-        "Callable[[], List[CT_R]]",
+        "Callable[[], list[CT_R]]",
         property(lambda self: self.findall(qn("w:r"))),
     )
 
     @property
-    def p_lst(self) -> List["CT_P"]:
+    def p_lst(self) -> list["CT_P"]:
         """List of `w:p` children of this sdtContent element."""
         return self.findall(qn("w:p"))
 
     @property
-    def r_lst(self) -> List["CT_R"]:
+    def r_lst(self) -> list["CT_R"]:
         """List of `w:r` children of this sdtContent element."""
         return self.findall(qn("w:r"))
 
@@ -277,7 +278,7 @@ class CT_SdtContent(BaseOxmlElement):
         text from direct run children (inline case). The implementation concatenates
         child text in document order.
         """
-        parts: List[str] = []
+        parts: list[str] = []
         for child in self:
             tag = child.tag
             if tag == qn("w:p"):

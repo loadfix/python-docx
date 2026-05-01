@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import TYPE_CHECKING, Callable, Iterator, List, Sequence, cast
+from typing import TYPE_CHECKING, cast
+from collections.abc import Callable, Iterator, Sequence
 
 from lxml import etree
 from typing_extensions import TypeAlias
@@ -50,7 +51,7 @@ class CT_Col(BaseOxmlElement):
 class CT_Cols(BaseOxmlElement):
     """``<w:cols>`` element, defining column layout for a section."""
 
-    col_lst: List[CT_Col]
+    col_lst: list[CT_Col]
 
     col = ZeroOrMore("w:col", successors=())
 
@@ -69,8 +70,8 @@ class CT_HdrFtr(BaseOxmlElement):
     """`w:hdr` and `w:ftr`, the root element for header and footer part respectively."""
 
     add_p: Callable[[], CT_P]
-    p_lst: List[CT_P]
-    tbl_lst: List[CT_Tbl]
+    p_lst: list[CT_P]
+    tbl_lst: list[CT_Tbl]
 
     _insert_tbl: Callable[[CT_Tbl], CT_Tbl]
 
@@ -78,7 +79,7 @@ class CT_HdrFtr(BaseOxmlElement):
     tbl = ZeroOrMore("w:tbl", successors=())
 
     @property
-    def inner_content_elements(self) -> List[CT_P | CT_Tbl]:
+    def inner_content_elements(self) -> list[CT_P | CT_Tbl]:
         """Generate all `w:p` and `w:tbl` elements in this header or footer.
 
         Elements appear in document order. Elements shaded by nesting in a `w:ins` or

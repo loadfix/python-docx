@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Type
+
 
 from docx.enum.style import WD_STYLE_TYPE
 from docx.oxml.styles import CT_Style
@@ -14,7 +14,7 @@ from docx.text.parfmt import ParagraphFormat
 
 def StyleFactory(style_elm: CT_Style) -> BaseStyle:
     """Return `Style` object of appropriate |BaseStyle| subclass for `style_elm`."""
-    style_cls: Type[BaseStyle] = {
+    style_cls: type[BaseStyle] = {
         WD_STYLE_TYPE.PARAGRAPH: ParagraphStyle,
         WD_STYLE_TYPE.CHARACTER: CharacterStyle,
         WD_STYLE_TYPE.TABLE: _TableStyle,

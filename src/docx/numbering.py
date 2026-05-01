@@ -27,7 +27,8 @@ This module exposes three proxies:
 from __future__ import annotations
 
 from collections import namedtuple
-from typing import TYPE_CHECKING, Any, Iterator, List, Mapping, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any
+from collections.abc import Iterator, Mapping, Sequence
 
 from docx.enum.text import WD_NUMBER_FORMAT
 from docx.oxml.ns import qn
@@ -49,10 +50,7 @@ paragraph is not part of a list), and ``level`` is the integer indent level
 """
 
 
-LevelSpec = Union[
-    Mapping[str, Any],
-    Sequence[Any],
-]
+LevelSpec = Mapping[str, Any] | Sequence[Any]
 """A per-level specification. Accepts either a mapping with any of the keys
 ``format``, ``text``, ``start``, ``indent``, ``font`` or a positional tuple
 ``(format, text[, indent[, font]])``."""
@@ -75,7 +73,7 @@ def _normalize_format(value: Any) -> WD_NUMBER_FORMAT:
 
 def _normalize_level_spec(
     spec: LevelSpec,
-) -> Tuple[WD_NUMBER_FORMAT, str, int | None, str | None, int | None]:
+) -> tuple[WD_NUMBER_FORMAT, str, int | None, str | None, int | None]:
     """Return ``(format, text, indent_twips, font, start)`` from `spec`.
 
     Missing values become |None|. ``indent_twips`` is an integer count of
@@ -129,7 +127,7 @@ class Numbering:
         self._part = part
 
     @property
-    def definitions(self) -> List["NumberingDefinition"]:
+    def definitions(self) -> list["NumberingDefinition"]:
         """List of |NumberingDefinition| objects wrapping every ``w:abstractNum``."""
         return [
             NumberingDefinition(elm, self)
@@ -241,7 +239,7 @@ class NumberingDefinition:
         return self._abstractNum
 
     @property
-    def levels(self) -> List["Level"]:
+    def levels(self) -> list["Level"]:
         """List of :class:`Level` objects, one per declared ``w:lvl``."""
         return [Level(lvl, self) for lvl in self._abstractNum.lvl_lst]
 

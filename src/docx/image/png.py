@@ -36,7 +36,7 @@ class _PngParser:
     """Parses a PNG image stream to extract the image properties found in its chunks."""
 
     def __init__(self, chunks):
-        super(_PngParser, self).__init__()
+        super().__init__()
         self._chunks = chunks
 
     @classmethod
@@ -93,7 +93,7 @@ class _Chunks:
     """Collection of the chunks parsed from a PNG image stream."""
 
     def __init__(self, chunk_iterable):
-        super(_Chunks, self).__init__()
+        super().__init__()
         self._chunks = list(chunk_iterable)
 
     @classmethod
@@ -130,7 +130,7 @@ class _ChunkParser:
     """Extracts chunks from a PNG image stream."""
 
     def __init__(self, stream_rdr):
-        super(_ChunkParser, self).__init__()
+        super().__init__()
         self._stream_rdr = stream_rdr
 
     @classmethod
@@ -183,7 +183,7 @@ class _Chunk:
     """
 
     def __init__(self, chunk_type):
-        super(_Chunk, self).__init__()
+        super().__init__()
         self._chunk_type = chunk_type
 
     @classmethod
@@ -201,7 +201,7 @@ class _IHDRChunk(_Chunk):
     """IHDR chunk, contains the image dimensions."""
 
     def __init__(self, chunk_type, px_width, px_height):
-        super(_IHDRChunk, self).__init__(chunk_type)
+        super().__init__(chunk_type)
         self._px_width = px_width
         self._px_height = px_height
 
@@ -226,7 +226,7 @@ class _pHYsChunk(_Chunk):
     """PYHs chunk, contains the image dpi information."""
 
     def __init__(self, chunk_type, horz_px_per_unit, vert_px_per_unit, units_specifier):
-        super(_pHYsChunk, self).__init__(chunk_type)
+        super().__init__(chunk_type)
         self._horz_px_per_unit = horz_px_per_unit
         self._vert_px_per_unit = vert_px_per_unit
         self._units_specifier = units_specifier

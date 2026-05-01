@@ -38,7 +38,7 @@ class _DirPkgReader(PhysPkgReader):
 
     def __init__(self, path):
         """`path` is the path to a directory containing an expanded package."""
-        super(_DirPkgReader, self).__init__()
+        super().__init__()
         self._path = os.path.abspath(path)
 
     def blob_for(self, pack_uri):
@@ -79,7 +79,7 @@ class _ZipPkgReader(PhysPkgReader):
     """Implements |PhysPkgReader| interface for a zip file OPC package."""
 
     def __init__(self, pkg_file):
-        super(_ZipPkgReader, self).__init__()
+        super().__init__()
         self._zipf = ZipFile(pkg_file, "r")
 
     def blob_for(self, pack_uri):
@@ -112,7 +112,7 @@ class _ZipPkgWriter(PhysPkgWriter):
     """Implements |PhysPkgWriter| interface for a zip file OPC package."""
 
     def __init__(self, pkg_file):
-        super(_ZipPkgWriter, self).__init__()
+        super().__init__()
         self._zipf = ZipFile(pkg_file, "w", compression=ZIP_DEFLATED)
 
     def close(self):

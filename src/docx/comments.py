@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import TYPE_CHECKING, Iterator, cast
+from typing import TYPE_CHECKING, cast
+from collections.abc import Iterator
 
 from docx.blkcntnr import BlockItemContainer
 

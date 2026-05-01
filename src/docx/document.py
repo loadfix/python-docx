@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-from typing import IO, TYPE_CHECKING, Iterator, List, Sequence, cast
+from typing import IO, TYPE_CHECKING, cast
+from collections.abc import Iterator, Sequence
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_SECTION
@@ -40,7 +41,7 @@ class Document(ElementProxy):
     """
 
     def __init__(self, element: CT_Document, part: DocumentPart):
-        super(Document, self).__init__(element)
+        super().__init__(element)
         self._element = element
         self._part = part
         self.__body = None
@@ -191,7 +192,7 @@ class Document(ElementProxy):
         return self._part.comments
 
     @property
-    def content_controls(self) -> List[ContentControl]:
+    def content_controls(self) -> list[ContentControl]:
         """All block-level |ContentControl| objects in this document body, in order.
 
         Only block-level content controls (direct children of `w:body`) are returned.
@@ -310,7 +311,7 @@ class Document(ElementProxy):
         return self._body.iter_inner_content()
 
     @property
-    def paragraphs(self) -> List[Paragraph]:
+    def paragraphs(self) -> list[Paragraph]:
         """The |Paragraph| instances in the document, in document order.
 
         Note that paragraphs within revision marks such as ``<w:ins>`` or ``<w:del>`` do
@@ -360,7 +361,7 @@ class Document(ElementProxy):
         text: str,
         case_sensitive: bool = True,
         whole_word: bool = False,
-    ) -> List[SearchMatch]:
+    ) -> list[SearchMatch]:
         """Find all occurrences of `text` in the document body paragraphs.
 
         Note: Only top-level body paragraphs are searched. Text inside table cells,
@@ -392,7 +393,7 @@ class Document(ElementProxy):
         return self._part.styles
 
     @property
-    def tables(self) -> List[Table]:
+    def tables(self) -> list[Table]:
         """All |Table| instances in the document, in document order.
 
         Note that only tables appearing at the top level of the document appear in this
@@ -426,7 +427,7 @@ class _Body(BlockItemContainer):
     """
 
     def __init__(self, body_elm: CT_Body, parent: t.ProvidesStoryPart):
-        super(_Body, self).__init__(body_elm, parent)
+        super().__init__(body_elm, parent)
         self._body = body_elm
 
     def add_content_control(
@@ -456,7 +457,7 @@ class _Body(BlockItemContainer):
         return self
 
     @property
-    def content_controls(self) -> List[ContentControl]:
+    def content_controls(self) -> list[ContentControl]:
         """List of block-level |ContentControl| objects in this body, in document order."""
         from docx.content_controls import ContentControl
 

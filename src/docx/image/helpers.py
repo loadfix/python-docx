@@ -14,7 +14,7 @@ class StreamReader:
     """
 
     def __init__(self, stream, byte_order, base_offset=0):
-        super(StreamReader, self).__init__()
+        super().__init__()
         self._stream = stream
         self._byte_order = LITTLE_ENDIAN if byte_order == LITTLE_ENDIAN else BIG_ENDIAN
         self._base_offset = base_offset

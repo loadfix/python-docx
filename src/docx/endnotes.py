@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
+from collections.abc import Iterator
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.text import WD_ENDNOTE_POSITION, WD_FOOTNOTE_RESTART, WD_NUMBER_FORMAT

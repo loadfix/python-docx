@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, List, cast
+from typing import TYPE_CHECKING, cast
+from collections.abc import Callable
 
 from docx.oxml.ns import nsdecls
 from docx.oxml.parser import OxmlElement, parse_xml
@@ -121,7 +122,7 @@ class CT_AbstractNum(BaseOxmlElement):
     Holds up to nine ``<w:lvl>`` children, one per list level.
     """
 
-    lvl_lst: List[CT_Lvl]
+    lvl_lst: list[CT_Lvl]
     add_lvl: Callable[..., CT_Lvl]
 
     lvl = ZeroOrMore("w:lvl", successors=())
@@ -224,8 +225,8 @@ class CT_Numbering(BaseOxmlElement):
     """``<w:numbering>`` element, the root element of a numbering part, i.e.
     numbering.xml."""
 
-    abstractNum_lst: List[CT_AbstractNum]
-    num_lst: List[CT_Num]
+    abstractNum_lst: list[CT_AbstractNum]
+    num_lst: list[CT_Num]
 
     abstractNum = ZeroOrMore(
         "w:abstractNum",

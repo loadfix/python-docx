@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, cast
+from typing import TYPE_CHECKING, cast
+from collections.abc import Callable
 
 from docx.oxml.footnotes import CT_FtnEdnPos, CT_NumFmt, CT_NumRestart, CT_NumStart
 from docx.oxml.ns import nsdecls

@@ -6,7 +6,8 @@ OpcPackage.save().
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
+from collections.abc import Iterable
 
 from docx.opc.constants import CONTENT_TYPE as CT
 from docx.opc.oxml import CT_Types, serialize_part_xml

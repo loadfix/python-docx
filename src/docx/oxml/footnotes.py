@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, cast
+from typing import TYPE_CHECKING, cast
+from collections.abc import Callable
 
 from docx.enum.text import WD_FOOTNOTE_RESTART, WD_NUMBER_FORMAT
 from docx.oxml.ns import nsdecls

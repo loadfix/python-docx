@@ -15,7 +15,8 @@ Supported value types:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
+from collections.abc import Iterator
 
 if TYPE_CHECKING:
     from docx.oxml.custom_properties import CT_CustomProperties

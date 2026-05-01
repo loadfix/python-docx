@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 from docx.oxml.simpletypes import ST_DecimalNumber, ST_OnOff, ST_String, ST_TwipsMeasure
 from docx.oxml.xmlchemy import (
