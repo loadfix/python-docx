@@ -161,15 +161,19 @@ class CT_PPr(BaseOxmlElement):
     get_or_add_bidi: Callable[[], CT_OnOff]
     get_or_add_framePr: Callable[[], CT_FramePr]
     get_or_add_ind: Callable[[], CT_Ind]
+    get_or_add_kinsoku: Callable[[], CT_OnOff]
     get_or_add_pBdr: Callable[[], CT_PBdr]
     get_or_add_pStyle: Callable[[], CT_String]
     get_or_add_sectPr: Callable[[], CT_SectPr]
+    get_or_add_wordWrap: Callable[[], CT_OnOff]
     _insert_sectPr: Callable[[CT_SectPr], None]
     _remove_bidi: Callable[[], None]
     _remove_framePr: Callable[[], None]
+    _remove_kinsoku: Callable[[], None]
     _remove_pBdr: Callable[[], None]
     _remove_pStyle: Callable[[], None]
     _remove_sectPr: Callable[[], None]
+    _remove_wordWrap: Callable[[], None]
 
     _tag_seq = (
         "w:pStyle",
@@ -224,6 +228,12 @@ class CT_PPr(BaseOxmlElement):
         "w:pBdr", successors=_tag_seq[9:]
     )
     tabs = ZeroOrOne("w:tabs", successors=_tag_seq[11:])
+    kinsoku: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:kinsoku", successors=_tag_seq[13:]
+    )
+    wordWrap: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:wordWrap", successors=_tag_seq[14:]
+    )
     bidi: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:bidi", successors=_tag_seq[19:]
     )
@@ -253,6 +263,36 @@ class CT_PPr(BaseOxmlElement):
             self._remove_bidi()
         else:
             self.get_or_add_bidi().val = True
+
+    @property
+    def kinsoku_val(self) -> bool | None:
+        """Value of `w:kinsoku/@w:val` or |None| if the child is not present."""
+        kinsoku = self.kinsoku
+        if kinsoku is None:
+            return None
+        return kinsoku.val
+
+    @kinsoku_val.setter
+    def kinsoku_val(self, value: bool | None):
+        if value is None:
+            self._remove_kinsoku()
+        else:
+            self.get_or_add_kinsoku().val = value
+
+    @property
+    def wordWrap_val(self) -> bool | None:
+        """Value of `w:wordWrap/@w:val` or |None| if the child is not present."""
+        wordWrap = self.wordWrap
+        if wordWrap is None:
+            return None
+        return wordWrap.val
+
+    @wordWrap_val.setter
+    def wordWrap_val(self, value: bool | None):
+        if value is None:
+            self._remove_wordWrap()
+        else:
+            self.get_or_add_wordWrap().val = value
 
     @property
     def first_line_indent(self) -> Length | None:

@@ -11,6 +11,7 @@ from docx.shared import ElementProxy, Emu, RGBColor
 
 if TYPE_CHECKING:
     from docx.enum.text import WD_BORDER_STYLE, WD_COLOR_INDEX
+    from docx.oxml.text.font import CT_EastAsianLayout
     from docx.oxml.text.run import CT_R
     from docx.shared import Length
 
@@ -447,6 +448,64 @@ class Font(ElementProxy):
         rPr._remove_lang()  # pyright: ignore[reportPrivateUsage]
 
     @property
+    def east_asian_layout(self) -> EastAsianLayout | None:
+        """|EastAsianLayout| proxy for this run's ``w:eastAsianLayout``, or |None|.
+
+        Returns |None| when the run has no ``w:rPr/w:eastAsianLayout`` child.
+        Use :meth:`set_east_asian_layout` to create or update the element and
+        :meth:`remove_east_asian_layout` to drop it entirely.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        eal = rPr.eastAsianLayout
+        if eal is None:
+            return None
+        return EastAsianLayout(eal)
+
+    def set_east_asian_layout(
+        self,
+        *,
+        id: int | None = None,
+        two_lines_in_one: bool | None = None,
+        vertical_alignment: bool | None = None,
+        compressed: bool | None = None,
+    ) -> EastAsianLayout:
+        """Create or update the ``w:eastAsianLayout`` element on this run.
+
+        Any keyword argument left at its default of |None| is left unchanged
+        when the element already exists. To clear an attribute, use the
+        corresponding setter on the returned |EastAsianLayout| (e.g.
+        ``layout.two_lines_in_one = None``) or call
+        :meth:`remove_east_asian_layout` to drop the element entirely.
+        """
+        rPr = self._element.get_or_add_rPr()
+        eal = rPr.get_or_add_eastAsianLayout()
+        layout = EastAsianLayout(eal)
+        if id is not None:
+            layout.id = id
+        if two_lines_in_one is not None:
+            layout.two_lines_in_one = two_lines_in_one
+        if vertical_alignment is not None:
+            layout.vertical_alignment = vertical_alignment
+        if compressed is not None:
+            layout.compressed = compressed
+        return layout
+
+    def remove_east_asian_layout(self) -> None:
+        """Remove the ``w:rPr/w:eastAsianLayout`` element, if present.
+
+        Has no effect when no ``w:rPr`` or no ``w:eastAsianLayout`` child is
+        present.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return
+        if rPr.eastAsianLayout is None:
+            return
+        rPr._remove_eastAsianLayout()  # pyright: ignore[reportPrivateUsage]
+
+    @property
     def imprint(self) -> bool | None:
         """Read/write tri-state value.
 
@@ -825,3 +884,63 @@ class Font(ElementProxy):
         """Assign `value` to the boolean child `name` of `w:rPr`."""
         rPr = self._element.get_or_add_rPr()
         rPr._set_bool_val(name, value)  # pyright: ignore[reportPrivateUsage]
+
+
+class EastAsianLayout:
+    """Proxy for a run-level ``w:eastAsianLayout`` element.
+
+    Provides read/write access to the East Asian typography attributes
+    (``@w:id``, ``@w:combine``, ``@w:vert``, ``@w:vertCompress``). Accessed
+    via :attr:`Font.east_asian_layout`.
+    """
+
+    def __init__(self, eastAsianLayout: CT_EastAsianLayout):
+        self._element = eastAsianLayout
+
+    @property
+    def id(self) -> int | None:
+        """Unique identifier (``w:eastAsianLayout/@w:id``), or |None|."""
+        return self._element.id
+
+    @id.setter
+    def id(self, value: int | None) -> None:
+        self._element.id = value
+
+    @property
+    def two_lines_in_one(self) -> bool | None:
+        """|True| when two lines are rendered as one combined glyph.
+
+        Maps to ``w:eastAsianLayout/@w:combine``. Returns |None| when the
+        attribute is absent.
+        """
+        return self._element.combine
+
+    @two_lines_in_one.setter
+    def two_lines_in_one(self, value: bool | None) -> None:
+        self._element.combine = value
+
+    @property
+    def vertical_alignment(self) -> bool | None:
+        """|True| when the run is laid out vertically.
+
+        Maps to ``w:eastAsianLayout/@w:vert``. Returns |None| when the
+        attribute is absent.
+        """
+        return self._element.vert
+
+    @vertical_alignment.setter
+    def vertical_alignment(self, value: bool | None) -> None:
+        self._element.vert = value
+
+    @property
+    def compressed(self) -> bool | None:
+        """|True| when vertical text is compressed.
+
+        Maps to ``w:eastAsianLayout/@w:vertCompress``. Returns |None| when
+        the attribute is absent.
+        """
+        return self._element.vertCompress
+
+    @compressed.setter
+    def compressed(self, value: bool | None) -> None:
+        self._element.vertCompress = value

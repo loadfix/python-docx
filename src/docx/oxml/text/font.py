@@ -12,8 +12,10 @@ from docx.enum.text import WD_COLOR_INDEX, WD_UNDERLINE
 from docx.oxml.ns import nsdecls
 from docx.oxml.parser import parse_xml
 from docx.oxml.simpletypes import (
+    ST_DecimalNumber,
     ST_HexColor,
     ST_HpsMeasure,
+    ST_OnOff,
     ST_String,
     ST_VerticalAlignRun,
 )
@@ -69,6 +71,20 @@ class CT_Language(BaseOxmlElement):
     bidi: str | None = OptionalAttribute("w:bidi", ST_String)
 
 
+class CT_EastAsianLayout(BaseOxmlElement):
+    """`<w:eastAsianLayout>` element.
+
+    Specifies East Asian typography features such as "two lines in one"
+    (combined characters) and vertical text within a run.
+    """
+
+    id: int | None = OptionalAttribute("w:id", ST_DecimalNumber)
+    combine: bool | None = OptionalAttribute("w:combine", ST_OnOff)
+    combineBrackets: str | None = OptionalAttribute("w:combineBrackets", ST_String)
+    vert: bool | None = OptionalAttribute("w:vert", ST_OnOff)
+    vertCompress: bool | None = OptionalAttribute("w:vertCompress", ST_OnOff)
+
+
 class CT_HpsMeasure(BaseOxmlElement):
     """Used for `<w:sz>` element and others, specifying font size in half-points."""
 
@@ -80,6 +96,7 @@ class CT_RPr(BaseOxmlElement):
 
     get_or_add_bdr: Callable[[], "CT_Border"]
     get_or_add_color: Callable[[], CT_Color]
+    get_or_add_eastAsianLayout: Callable[[], "CT_EastAsianLayout"]
     get_or_add_highlight: Callable[[], CT_Highlight]
     get_or_add_kern: Callable[[], CT_HpsMeasure]
     get_or_add_lang: Callable[[], "CT_Language"]
@@ -92,6 +109,7 @@ class CT_RPr(BaseOxmlElement):
     _add_u: Callable[[], CT_Underline]
     _remove_bdr: Callable[[], None]
     _remove_color: Callable[[], None]
+    _remove_eastAsianLayout: Callable[[], None]
     _remove_highlight: Callable[[], None]
     _remove_kern: Callable[[], None]
     _remove_lang: Callable[[], None]
@@ -180,6 +198,9 @@ class CT_RPr(BaseOxmlElement):
     cs = ZeroOrOne("w:cs", successors=_tag_seq[34:])
     lang: "CT_Language | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:lang", successors=_tag_seq[35:]
+    )
+    eastAsianLayout: "CT_EastAsianLayout | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:eastAsianLayout", successors=_tag_seq[37:]
     )
     specVanish = ZeroOrOne("w:specVanish", successors=_tag_seq[38:])
     oMath = ZeroOrOne("w:oMath", successors=_tag_seq[39:])

@@ -146,6 +146,29 @@ class ParagraphFormat(ElementProxy):
         pPr.first_line_indent = value
 
     @property
+    def kinsoku(self) -> bool | None:
+        """Tri-state value controlling Japanese kinsoku line-break rules.
+
+        Maps to ``w:pPr/w:kinsoku``. Returns |True| when the element is
+        present and its ``w:val`` is truthy, |False| when present but
+        explicitly turned off, and |None| when the element is absent
+        (inherited from the style hierarchy). Kinsoku rules constrain
+        punctuation from appearing at the start or end of a line.
+
+        Assigning |True| or |False| inserts the element. Assigning |None|
+        removes it.
+        """
+        pPr = self._element.pPr
+        if pPr is None:
+            return None
+        return pPr.kinsoku_val
+
+    @kinsoku.setter
+    def kinsoku(self, value: bool | None) -> None:
+        pPr = self._element.get_or_add_pPr()
+        pPr.kinsoku_val = value
+
+    @property
     def keep_together(self):
         """|True| if the paragraph should be kept "in one piece" and not broken across a
         page boundary when the document is rendered.
@@ -354,6 +377,28 @@ class ParagraphFormat(ElementProxy):
         paragraph format."""
         pPr = self._element.get_or_add_pPr()
         return TabStops(pPr)
+
+    @property
+    def word_wrap(self) -> bool | None:
+        """Tri-state value controlling Latin-text word-wrap behaviour.
+
+        Maps to ``w:pPr/w:wordWrap``. Returns |True| when Latin text wraps
+        on word boundaries (the default behaviour), |False| when the
+        paragraph uses aggressive Asian word-wrap (allowing breaks within
+        words), and |None| when the element is absent (inherited).
+
+        Assigning |True| or |False| inserts the element. Assigning |None|
+        removes it.
+        """
+        pPr = self._element.pPr
+        if pPr is None:
+            return None
+        return pPr.wordWrap_val
+
+    @word_wrap.setter
+    def word_wrap(self, value: bool | None) -> None:
+        pPr = self._element.get_or_add_pPr()
+        pPr.wordWrap_val = value
 
     @property
     def widow_control(self):
