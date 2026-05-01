@@ -12,6 +12,7 @@ from docx.shared import ElementProxy, Parented
 if TYPE_CHECKING:
     import docx.types as t
     from docx.image.image import Image
+    from docx.smart_art import SmartArt
     from docx.text.paragraph import Paragraph
 
 
@@ -91,6 +92,33 @@ class Drawing(Parented):
     def is_group(self) -> bool:
         """True when this drawing's root DrawingML object is a `wpg:grpSp` group."""
         return bool(self._drawing.grpSp_lst)
+
+    @property
+    def is_smart_art(self) -> bool:
+        """True when this drawing contains a SmartArt (DrawingML diagram) reference.
+
+        A SmartArt reference is a ``dgm:relIds`` element nested inside the
+        drawing's ``a:graphicData``. This check is independent of whether
+        the companion data part can be resolved — it reports structural
+        presence only.
+        """
+        from docx.oxml.smart_art import dgm_relIds_from_drawing
+
+        return dgm_relIds_from_drawing(self._drawing) is not None
+
+    @property
+    def smart_art(self) -> SmartArt | None:
+        """A :class:`~docx.smart_art.SmartArt` proxy, or ``None`` when not SmartArt.
+
+        Returns ``None`` when the drawing does not contain a ``dgm:relIds``
+        reference. When the reference is present but the companion data part
+        cannot be resolved from the document's relationships, the returned
+        :class:`SmartArt` still carries the detection but reports an empty
+        node list.
+        """
+        from docx.smart_art import smart_art_for_drawing
+
+        return smart_art_for_drawing(self._drawing, self._parent.part)
 
     @property
     def group_shape(self) -> GroupShape | None:

@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from docx.search import SearchMatch
     from docx.settings import Settings
     from docx.signatures import SignatureInfo
+    from docx.smart_art import SmartArt
     from docx.statistics import DocumentStatistics
     from docx.styles.style import ParagraphStyle, _TableStyle
     from docx.table import Table
@@ -519,6 +520,26 @@ class Document(ElementProxy):
         for p in self._element.body.xpath(".//w:p[.//w:object/o:OLEObject]"):
             paragraph = Paragraph(p, self._body)
             result.extend(paragraph.embedded_objects)
+        return result
+
+    @property
+    def smart_art(self) -> list[SmartArt]:
+        """List of |SmartArt| proxies for every SmartArt diagram in the body.
+
+        Walks top-level body paragraphs (including paragraphs nested inside
+        body-level tables) and returns one entry for each ``w:drawing`` that
+        references a SmartArt diagram (i.e. contains a ``dgm:relIds``
+        element). Empty list when the document has no SmartArt. Read-only —
+        python-docx does not support creating or modifying SmartArt.
+        """
+        from docx.drawing import Drawing
+
+        result: list[SmartArt] = []
+        for d in self._element.body.xpath(".//w:drawing"):
+            drawing = Drawing(d, self._body)
+            sa = drawing.smart_art
+            if sa is not None:
+                result.append(sa)
         return result
 
     @property
