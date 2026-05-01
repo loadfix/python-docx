@@ -124,6 +124,24 @@ class Run(StoryChild):
             yield Symbol(sym)
 
     @property
+    def equations(self):
+        """List of |Equation| objects for OMML elements inside this run.
+
+        OMML is almost always a paragraph-level sibling of ``w:r`` (not a run
+        child), so this property is usually empty. It is provided for symmetry
+        with :attr:`Paragraph.equations` so callers can query any run without
+        a type check. Walks descendant ``m:oMath`` and ``m:oMathPara`` nodes.
+        """
+        from docx.equations import Equation
+
+        result: list[Equation] = []
+        for el in self._r.xpath(
+            ".//m:oMathPara | .//m:oMath[not(ancestor::m:oMathPara)]"
+        ):
+            result.append(Equation(el))
+        return result
+
+    @property
     def ruby_annotations(self) -> list["RubyAnnotation"]:
         """A |RubyAnnotation| for each ``<w:ruby>`` child, in document order.
 

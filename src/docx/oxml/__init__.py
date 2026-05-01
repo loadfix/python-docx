@@ -229,6 +229,13 @@ register_element_cls("w:numFmt", CT_NumFmt)
 register_element_cls("w:numStart", CT_NumStart)
 register_element_cls("w:numRestart", CT_NumRestart)
 
+from .math import CT_MathR, CT_MathT, CT_OMath, CT_OMathPara
+
+register_element_cls("m:oMath", CT_OMath)
+register_element_cls("m:oMathPara", CT_OMathPara)
+register_element_cls("m:r", CT_MathR)
+register_element_cls("m:t", CT_MathT)
+
 from .permissions import CT_PermEnd, CT_PermStart
 
 register_element_cls("w:permEnd", CT_PermEnd)
