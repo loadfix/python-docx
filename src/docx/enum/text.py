@@ -600,3 +600,123 @@ class WD_VIEW(BaseXmlEnum):
 
     READING = (6, "reading", "Full-screen reading view optimized for reading.")
     """Full-screen reading view optimized for reading."""
+
+
+class WD_FRAME_H_ANCHOR(BaseXmlEnum):
+    """Specifies the base from which a text frame's horizontal position is measured.
+
+    Maps to the ``w:hAnchor`` attribute of ``w:framePr``.
+    """
+
+    TEXT = (0, "text", "Horizontal position is relative to the text of the paragraph.")
+    """Horizontal position is relative to the text of the paragraph."""
+
+    MARGIN = (1, "margin", "Horizontal position is relative to the page margin.")
+    """Horizontal position is relative to the page margin."""
+
+    PAGE = (2, "page", "Horizontal position is relative to the page edge.")
+    """Horizontal position is relative to the page edge."""
+
+
+class WD_FRAME_V_ANCHOR(BaseXmlEnum):
+    """Specifies the base from which a text frame's vertical position is measured.
+
+    Maps to the ``w:vAnchor`` attribute of ``w:framePr``.
+    """
+
+    TEXT = (0, "text", "Vertical position is relative to the text of the paragraph.")
+    """Vertical position is relative to the text of the paragraph."""
+
+    MARGIN = (1, "margin", "Vertical position is relative to the page margin.")
+    """Vertical position is relative to the page margin."""
+
+    PAGE = (2, "page", "Vertical position is relative to the page edge.")
+    """Vertical position is relative to the page edge."""
+
+
+class WD_FRAME_WRAP(BaseXmlEnum):
+    """Specifies how text wraps around a text frame.
+
+    Maps to the ``w:wrap`` attribute of ``w:framePr``.
+    """
+
+    AUTO = (0, "auto", "Text wraps around the frame on all sides.")
+    """Text wraps around the frame on all sides."""
+
+    NOT_BESIDE = (1, "notBeside", "Text does not wrap beside the frame.")
+    """Text does not wrap beside the frame."""
+
+    AROUND = (2, "around", "Text wraps around the frame.")
+    """Text wraps around the frame."""
+
+    NONE = (3, "none", "Text does not wrap around the frame.")
+    """Text does not wrap around the frame."""
+
+    TIGHT = (4, "tight", "Text wraps tightly around the frame.")
+    """Text wraps tightly around the frame."""
+
+    THROUGH = (5, "through", "Text wraps through the frame.")
+    """Text wraps through the frame."""
+
+
+class WD_FRAME_DROP_CAP(BaseXmlEnum):
+    """Specifies how a drop-cap text frame is positioned relative to the paragraph.
+
+    Maps to the ``w:dropCap`` attribute of ``w:framePr``.
+    """
+
+    NONE = (0, "none", "Not a drop-cap frame.")
+    """Not a drop-cap frame."""
+
+    DROP = (1, "drop", "Drop-cap frame dropped into the paragraph text.")
+    """Drop-cap frame dropped into the paragraph text."""
+
+    MARGIN = (2, "margin", "Drop-cap frame positioned in the margin.")
+    """Drop-cap frame positioned in the margin."""
+
+
+class WD_FRAME_H_ALIGN(BaseXmlEnum):
+    """Specifies the horizontal alignment of a text frame.
+
+    Maps to the ``w:xAlign`` attribute of ``w:framePr``.
+    """
+
+    LEFT = (0, "left", "Frame is left-aligned.")
+    """Frame is left-aligned."""
+
+    CENTER = (1, "center", "Frame is center-aligned.")
+    """Frame is center-aligned."""
+
+    RIGHT = (2, "right", "Frame is right-aligned.")
+    """Frame is right-aligned."""
+
+    INSIDE = (3, "inside", "Frame is aligned to the inside of the page (for facing pages).")
+    """Frame is aligned to the inside of the page (for facing pages)."""
+
+    OUTSIDE = (4, "outside", "Frame is aligned to the outside of the page (for facing pages).")
+    """Frame is aligned to the outside of the page (for facing pages)."""
+
+
+class WD_FRAME_V_ALIGN(BaseXmlEnum):
+    """Specifies the vertical alignment of a text frame.
+
+    Maps to the ``w:yAlign`` attribute of ``w:framePr``.
+    """
+
+    INLINE = (0, "inline", "Frame is positioned inline with the surrounding text.")
+    """Frame is positioned inline with the surrounding text."""
+
+    TOP = (1, "top", "Frame is top-aligned.")
+    """Frame is top-aligned."""
+
+    CENTER = (2, "center", "Frame is center-aligned vertically.")
+    """Frame is center-aligned vertically."""
+
+    BOTTOM = (3, "bottom", "Frame is bottom-aligned.")
+    """Frame is bottom-aligned."""
+
+    INSIDE = (4, "inside", "Frame is aligned to the inside of the page (for facing pages).")
+    """Frame is aligned to the inside of the page (for facing pages)."""
+
+    OUTSIDE = (5, "outside", "Frame is aligned to the outside of the page (for facing pages).")
+    """Frame is aligned to the outside of the page (for facing pages)."""

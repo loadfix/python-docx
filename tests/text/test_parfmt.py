@@ -2,9 +2,18 @@
 
 import pytest
 
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
-from docx.shared import Pt
-from docx.text.parfmt import ParagraphFormat
+from docx.enum.text import (
+    WD_ALIGN_PARAGRAPH,
+    WD_FRAME_DROP_CAP,
+    WD_FRAME_H_ALIGN,
+    WD_FRAME_H_ANCHOR,
+    WD_FRAME_V_ALIGN,
+    WD_FRAME_V_ANCHOR,
+    WD_FRAME_WRAP,
+    WD_LINE_SPACING,
+)
+from docx.shared import Pt, Twips
+from docx.text.parfmt import ParagraphFormat, TextFrame
 from docx.text.tabstops import TabStops
 
 from ..unitutil.cxml import element, xml
@@ -484,3 +493,158 @@ class DescribeParagraphFormat:
     @pytest.fixture
     def tab_stops_(self, request):
         return instance_mock(request, TabStops)
+
+
+class DescribeParagraphFormat_Frame:
+    """Unit-test suite for the text-frame (``w:framePr``) API on ParagraphFormat."""
+
+    def it_returns_None_when_pPr_is_absent(self):
+        pf = ParagraphFormat(element("w:p"))
+        assert pf.frame is None
+
+    def it_returns_None_when_framePr_is_absent(self):
+        pf = ParagraphFormat(element("w:p/w:pPr"))
+        assert pf.frame is None
+
+    def it_returns_TextFrame_when_framePr_is_present(self):
+        pf = ParagraphFormat(element("w:p/w:pPr/w:framePr"))
+        assert isinstance(pf.frame, TextFrame)
+
+    def it_can_set_frame_creating_pPr_and_framePr(self):
+        pf = ParagraphFormat(element("w:p"))
+
+        frame = pf.set_frame(width=Twips(1440), wrap=WD_FRAME_WRAP.AROUND)
+
+        assert isinstance(frame, TextFrame)
+        expected_xml = xml(
+            "w:p/w:pPr/w:framePr{w:w=1440,w:wrap=around}"
+        )
+        assert pf._element.xml == expected_xml
+
+    def it_updates_existing_framePr_incrementally(self):
+        pf = ParagraphFormat(element("w:p/w:pPr/w:framePr{w:w=1440}"))
+
+        pf.set_frame(height=Twips(2880), horizontal_anchor=WD_FRAME_H_ANCHOR.PAGE)
+
+        expected_xml = xml(
+            "w:p/w:pPr/w:framePr{w:w=1440,w:h=2880,w:hAnchor=page}"
+        )
+        assert pf._element.xml == expected_xml
+
+    def it_sets_every_attribute(self):
+        pf = ParagraphFormat(element("w:p"))
+
+        pf.set_frame(
+            width=Twips(1440),
+            height=Twips(2880),
+            horizontal_position=Twips(720),
+            vertical_position=Twips(360),
+            horizontal_anchor=WD_FRAME_H_ANCHOR.PAGE,
+            vertical_anchor=WD_FRAME_V_ANCHOR.MARGIN,
+            wrap=WD_FRAME_WRAP.AROUND,
+            drop_cap=WD_FRAME_DROP_CAP.DROP,
+            lines=3,
+            horizontal_alignment=WD_FRAME_H_ALIGN.CENTER,
+            vertical_alignment=WD_FRAME_V_ALIGN.TOP,
+        )
+
+        frame = pf.frame
+        assert frame is not None
+        assert frame.width == Twips(1440)
+        assert frame.height == Twips(2880)
+        assert frame.horizontal_position == Twips(720)
+        assert frame.vertical_position == Twips(360)
+        assert frame.horizontal_anchor == WD_FRAME_H_ANCHOR.PAGE
+        assert frame.vertical_anchor == WD_FRAME_V_ANCHOR.MARGIN
+        assert frame.wrap == WD_FRAME_WRAP.AROUND
+        assert frame.drop_cap == WD_FRAME_DROP_CAP.DROP
+        assert frame.lines == 3
+        assert frame.horizontal_alignment == WD_FRAME_H_ALIGN.CENTER
+        assert frame.vertical_alignment == WD_FRAME_V_ALIGN.TOP
+
+    def it_can_remove_frame(self):
+        pf = ParagraphFormat(element("w:p/w:pPr/w:framePr{w:w=1440}"))
+
+        pf.remove_frame()
+
+        assert pf.frame is None
+        expected_xml = xml("w:p/w:pPr")
+        assert pf._element.xml == expected_xml
+
+    def it_remove_frame_is_noop_when_pPr_absent(self):
+        pf = ParagraphFormat(element("w:p"))
+        pf.remove_frame()  # should not raise
+        expected_xml = xml("w:p")
+        assert pf._element.xml == expected_xml
+
+    def it_remove_frame_is_noop_when_framePr_absent(self):
+        pf = ParagraphFormat(element("w:p/w:pPr"))
+        pf.remove_frame()  # should not raise
+        expected_xml = xml("w:p/w:pPr")
+        assert pf._element.xml == expected_xml
+
+
+class DescribeTextFrame:
+    """Unit-test suite for the TextFrame proxy class."""
+
+    @pytest.mark.parametrize(
+        ("cxml", "prop", "expected"),
+        [
+            ("w:framePr{w:w=1440}", "width", Twips(1440)),
+            ("w:framePr{w:h=2880}", "height", Twips(2880)),
+            ("w:framePr{w:x=720}", "horizontal_position", Twips(720)),
+            ("w:framePr{w:y=-360}", "vertical_position", Twips(-360)),
+            ("w:framePr{w:hAnchor=page}", "horizontal_anchor", WD_FRAME_H_ANCHOR.PAGE),
+            ("w:framePr{w:vAnchor=margin}", "vertical_anchor", WD_FRAME_V_ANCHOR.MARGIN),
+            ("w:framePr{w:wrap=around}", "wrap", WD_FRAME_WRAP.AROUND),
+            ("w:framePr{w:dropCap=drop}", "drop_cap", WD_FRAME_DROP_CAP.DROP),
+            ("w:framePr{w:lines=4}", "lines", 4),
+            ("w:framePr{w:xAlign=center}", "horizontal_alignment", WD_FRAME_H_ALIGN.CENTER),
+            ("w:framePr{w:yAlign=top}", "vertical_alignment", WD_FRAME_V_ALIGN.TOP),
+            ("w:framePr", "width", None),
+            ("w:framePr", "height", None),
+            ("w:framePr", "horizontal_position", None),
+            ("w:framePr", "vertical_position", None),
+            ("w:framePr", "horizontal_anchor", None),
+            ("w:framePr", "vertical_anchor", None),
+            ("w:framePr", "wrap", None),
+            ("w:framePr", "drop_cap", None),
+            ("w:framePr", "lines", None),
+            ("w:framePr", "horizontal_alignment", None),
+            ("w:framePr", "vertical_alignment", None),
+        ],
+    )
+    def it_reads_attributes(self, cxml, prop, expected):
+        framePr = element(cxml)
+        frame = TextFrame(framePr)
+        assert getattr(frame, prop) == expected
+
+    @pytest.mark.parametrize(
+        ("prop", "value", "expected_cxml"),
+        [
+            ("width", Twips(1440), "w:framePr{w:w=1440}"),
+            ("height", Twips(2880), "w:framePr{w:h=2880}"),
+            ("horizontal_position", Twips(720), "w:framePr{w:x=720}"),
+            ("vertical_position", Twips(-360), "w:framePr{w:y=-360}"),
+            ("horizontal_anchor", WD_FRAME_H_ANCHOR.PAGE, "w:framePr{w:hAnchor=page}"),
+            ("vertical_anchor", WD_FRAME_V_ANCHOR.MARGIN, "w:framePr{w:vAnchor=margin}"),
+            ("wrap", WD_FRAME_WRAP.TIGHT, "w:framePr{w:wrap=tight}"),
+            ("drop_cap", WD_FRAME_DROP_CAP.DROP, "w:framePr{w:dropCap=drop}"),
+            ("lines", 5, "w:framePr{w:lines=5}"),
+            ("horizontal_alignment", WD_FRAME_H_ALIGN.CENTER, "w:framePr{w:xAlign=center}"),
+            ("vertical_alignment", WD_FRAME_V_ALIGN.BOTTOM, "w:framePr{w:yAlign=bottom}"),
+        ],
+    )
+    def it_writes_attributes(self, prop, value, expected_cxml):
+        framePr = element("w:framePr")
+        frame = TextFrame(framePr)
+        setattr(frame, prop, value)
+        assert framePr.xml == xml(expected_cxml)
+
+    def it_clears_attribute_when_set_to_None(self):
+        framePr = element("w:framePr{w:w=1440,w:wrap=around}")
+        frame = TextFrame(framePr)
+
+        frame.width = None
+
+        assert framePr.xml == xml("w:framePr{w:wrap=around}")

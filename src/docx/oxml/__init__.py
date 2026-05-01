@@ -411,6 +411,7 @@ register_element_cls("w:sectPrChange", CT_SectPrChange)
 
 from .text.parfmt import (
     CT_Border,
+    CT_FramePr,
     CT_Ind,
     CT_Jc,
     CT_PBdr,
@@ -424,6 +425,7 @@ register_element_cls("w:bar", CT_Border)
 register_element_cls("w:bdr", CT_Border)
 register_element_cls("w:between", CT_Border)
 register_element_cls("w:bottom", CT_Border)
+register_element_cls("w:framePr", CT_FramePr)
 register_element_cls("w:ind", CT_Ind)
 register_element_cls("w:jc", CT_Jc)
 register_element_cls("w:keepLines", CT_OnOff)
