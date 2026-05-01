@@ -2304,3 +2304,115 @@ class Describe_Rows:
     @pytest.fixture
     def parent_(self, request: FixtureRequest):
         return instance_mock(request, Document)
+
+
+class DescribeTable_StableId:
+    """Unit-test suite for the `stable_id` accessor on `Table`."""
+
+    def _make_table(self, request: FixtureRequest, tbl: CT_Tbl) -> Table:
+        parent_ = instance_mock(request, Document)
+        return Table(tbl, parent_)
+
+    def it_returns_a_16_character_hex_string(self, request: FixtureRequest):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/w:gridCol,"
+                'w:tr/w:tc/w:p/w:r/w:t"alpha")'
+            ),
+        )
+        table = self._make_table(request, tbl)
+        result = table.stable_id
+
+        assert isinstance(result, str)
+        assert len(result) == 16
+        assert all(c in "0123456789abcdef" for c in result)
+
+    def it_returns_the_same_id_on_repeated_access(self, request: FixtureRequest):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/w:gridCol,"
+                'w:tr/w:tc/w:p/w:r/w:t"alpha")'
+            ),
+        )
+        table = self._make_table(request, tbl)
+        assert table.stable_id == table.stable_id
+
+    def it_returns_different_ids_for_tables_with_different_text(
+        self, request: FixtureRequest
+    ):
+        t1 = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/w:gridCol,"
+                'w:tr/w:tc/w:p/w:r/w:t"alpha")'
+            ),
+        )
+        t2 = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/w:gridCol,"
+                'w:tr/w:tc/w:p/w:r/w:t"beta")'
+            ),
+        )
+        assert (
+            self._make_table(request, t1).stable_id
+            != self._make_table(request, t2).stable_id
+        )
+
+    def it_returns_different_ids_for_sibling_tables_with_same_content(
+        self, request: FixtureRequest
+    ):
+        body = element(
+            "w:body/("
+            'w:tbl/(w:tblPr,w:tblGrid/w:gridCol,w:tr/w:tc/w:p/w:r/w:t"same"),'
+            'w:tbl/(w:tblPr,w:tblGrid/w:gridCol,w:tr/w:tc/w:p/w:r/w:t"same")'
+            ")"
+        )
+        tbl_a = self._make_table(request, cast(CT_Tbl, body[0]))
+        tbl_b = self._make_table(request, cast(CT_Tbl, body[1]))
+        assert tbl_a.stable_id != tbl_b.stable_id
+
+
+class Describe_Cell_StableId:
+    """Unit-test suite for the `stable_id` accessor on `_Cell`."""
+
+    def _make_cell(self, request: FixtureRequest, tc: CT_Tc) -> _Cell:
+        parent_ = instance_mock(request, Table)
+        return _Cell(tc, parent_)
+
+    def it_returns_a_16_character_hex_string(self, request: FixtureRequest):
+        tc = cast(CT_Tc, element('w:tc/w:p/w:r/w:t"hello"'))
+        cell = self._make_cell(request, tc)
+
+        result = cell.stable_id
+
+        assert isinstance(result, str)
+        assert len(result) == 16
+        assert all(c in "0123456789abcdef" for c in result)
+
+    def it_returns_the_same_id_on_repeated_access(self, request: FixtureRequest):
+        tc = cast(CT_Tc, element('w:tc/w:p/w:r/w:t"hello"'))
+        cell = self._make_cell(request, tc)
+        assert cell.stable_id == cell.stable_id
+
+    def it_returns_different_ids_for_cells_with_different_text(
+        self, request: FixtureRequest
+    ):
+        tc1 = cast(CT_Tc, element('w:tc/w:p/w:r/w:t"alpha"'))
+        tc2 = cast(CT_Tc, element('w:tc/w:p/w:r/w:t"beta"'))
+        assert (
+            self._make_cell(request, tc1).stable_id
+            != self._make_cell(request, tc2).stable_id
+        )
+
+    def it_returns_different_ids_for_sibling_cells_with_same_text(
+        self, request: FixtureRequest
+    ):
+        tr = element(
+            'w:tr/(w:tc/w:p/w:r/w:t"same",w:tc/w:p/w:r/w:t"same")'
+        )
+        cell_a = self._make_cell(request, cast(CT_Tc, tr[0]))
+        cell_b = self._make_cell(request, cast(CT_Tc, tr[1]))
+        assert cell_a.stable_id != cell_b.stable_id
