@@ -914,6 +914,24 @@ class Paragraph(StoryChild):
         return self._p.rsidR
 
     @property
+    def stable_id(self) -> str:
+        """A 16-character hex stable identifier for this paragraph.
+
+        The ID is derived from the paragraph's ``w:rsidR`` (when present), its
+        position within its parent, and its text content. It is stable across
+        save/reload *when the paragraph keeps the same position with the same
+        text*; it changes if the paragraph is reordered or edited. The value
+        is recomputed on each access and never persisted on the element.
+
+        This is intended for tools that need to correlate paragraphs across a
+        save/reload cycle in a single editing session. For more robust cross-
+        session tracking, compare :attr:`rsid` combined with :attr:`text`.
+        """
+        from docx.ids import compute_stable_id
+
+        return compute_stable_id(self._p, self._p.text, self._p.rsidR)
+
+    @property
     def rendered_page_breaks(self) -> list[RenderedPageBreak]:
         """All rendered page-breaks in this paragraph.
 

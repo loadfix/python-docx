@@ -677,3 +677,51 @@ class DescribeRun_Rsid:
     @pytest.fixture
     def paragraph_(self, request: FixtureRequest):
         return instance_mock(request, Paragraph)
+
+
+class DescribeRun_StableId:
+    """Unit-test suite for the `stable_id` accessor on `Run`."""
+
+    def it_returns_a_16_character_hex_string(self, paragraph_):
+        r = cast(CT_R, element("w:r/w:t\"hello\""))
+        run = Run(r, paragraph_)
+
+        result = run.stable_id
+
+        assert isinstance(result, str)
+        assert len(result) == 16
+        assert all(c in "0123456789abcdef" for c in result)
+
+    def it_returns_the_same_id_on_repeated_access(self, paragraph_):
+        r = cast(CT_R, element("w:r/w:t\"hello\""))
+        run = Run(r, paragraph_)
+        assert run.stable_id == run.stable_id
+
+    def it_returns_different_ids_for_different_text(self, paragraph_):
+        r1 = cast(CT_R, element("w:r/w:t\"alpha\""))
+        r2 = cast(CT_R, element("w:r/w:t\"beta\""))
+        assert Run(r1, paragraph_).stable_id != Run(r2, paragraph_).stable_id
+
+    def it_returns_different_ids_for_sibling_runs_with_same_text(self, paragraph_):
+        p = element("w:p/(w:r/w:t\"same\",w:r/w:t\"same\")")
+        run_a = Run(cast(CT_R, p[0]), paragraph_)
+        run_b = Run(cast(CT_R, p[1]), paragraph_)
+        assert run_a.stable_id != run_b.stable_id
+
+    def it_incorporates_rsidR_when_present(self, paragraph_):
+        r_no_rsid = cast(CT_R, element("w:r/w:t\"hello\""))
+        r_rsid = cast(CT_R, element("w:r{w:rsidR=00FA1B42}/w:t\"hello\""))
+        assert (
+            Run(r_no_rsid, paragraph_).stable_id
+            != Run(r_rsid, paragraph_).stable_id
+        )
+
+    def it_works_when_run_lacks_rsidR(self, paragraph_):
+        r = cast(CT_R, element("w:r/w:t\"hello\""))
+        run = Run(r, paragraph_)
+        assert run.rsid is None
+        assert len(run.stable_id) == 16
+
+    @pytest.fixture
+    def paragraph_(self, request: FixtureRequest):
+        return instance_mock(request, Paragraph)

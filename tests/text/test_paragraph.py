@@ -1476,3 +1476,85 @@ class DescribeParagraph_Rsid:
 
         paragraph = Paragraph(p, FakeParent())
         assert paragraph.rsid == expected_value
+
+
+class DescribeParagraph_StableId:
+    """Unit-test suite for the `stable_id` accessor on `Paragraph`."""
+
+    def _make_paragraph(
+        self, request: pytest.FixtureRequest, p_element: CT_P
+    ) -> Paragraph:
+        part_ = instance_mock(request, DocumentPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        return Paragraph(p_element, FakeParent())
+
+    def it_returns_a_16_character_hex_string(self, request: pytest.FixtureRequest):
+        p = cast(CT_P, element("w:p/w:r/w:t\"hello\""))
+        paragraph = self._make_paragraph(request, p)
+
+        result = paragraph.stable_id
+
+        assert isinstance(result, str)
+        assert len(result) == 16
+        assert all(c in "0123456789abcdef" for c in result)
+
+    def it_returns_the_same_id_on_repeated_access(
+        self, request: pytest.FixtureRequest
+    ):
+        p = cast(CT_P, element("w:p/w:r/w:t\"hello\""))
+        paragraph = self._make_paragraph(request, p)
+        assert paragraph.stable_id == paragraph.stable_id
+
+    def it_returns_same_id_for_same_position_and_text(
+        self, request: pytest.FixtureRequest
+    ):
+        body_a = element("w:body/w:p/w:r/w:t\"alpha\"")
+        body_b = element("w:body/w:p/w:r/w:t\"alpha\"")
+        para_a = self._make_paragraph(request, cast(CT_P, body_a[0]))
+        para_b = self._make_paragraph(request, cast(CT_P, body_b[0]))
+        assert para_a.stable_id == para_b.stable_id
+
+    def it_returns_different_ids_for_different_text(
+        self, request: pytest.FixtureRequest
+    ):
+        p1 = cast(CT_P, element("w:p/w:r/w:t\"alpha\""))
+        p2 = cast(CT_P, element("w:p/w:r/w:t\"beta\""))
+        para_a = self._make_paragraph(request, p1)
+        para_b = self._make_paragraph(request, p2)
+        assert para_a.stable_id != para_b.stable_id
+
+    def it_returns_different_ids_for_siblings_with_same_text(
+        self, request: pytest.FixtureRequest
+    ):
+        body = element(
+            "w:body/(w:p/w:r/w:t\"same\",w:p/w:r/w:t\"same\")"
+        )
+        para_a = self._make_paragraph(request, cast(CT_P, body[0]))
+        para_b = self._make_paragraph(request, cast(CT_P, body[1]))
+        assert para_a.stable_id != para_b.stable_id
+
+    def it_works_when_paragraph_lacks_rsidR(self, request: pytest.FixtureRequest):
+        p = cast(CT_P, element("w:p/w:r/w:t\"hello\""))
+        paragraph = self._make_paragraph(request, p)
+        # --- no rsidR and still returns a 16-char hex ---
+        assert paragraph.rsid is None
+        assert len(paragraph.stable_id) == 16
+
+    def it_incorporates_rsidR_when_present(self, request: pytest.FixtureRequest):
+        p_no_rsid = cast(CT_P, element("w:p/w:r/w:t\"hello\""))
+        p_rsid = cast(CT_P, element("w:p{w:rsidR=00FA1B42}/w:r/w:t\"hello\""))
+        para_no_rsid = self._make_paragraph(request, p_no_rsid)
+        para_rsid = self._make_paragraph(request, p_rsid)
+        assert para_no_rsid.stable_id != para_rsid.stable_id
+
+    def it_changes_when_text_is_edited(self, request: pytest.FixtureRequest):
+        p = cast(CT_P, element("w:p/w:r/w:t\"original\""))
+        paragraph = self._make_paragraph(request, p)
+        original_id = paragraph.stable_id
+        paragraph.text = "modified"
+        assert paragraph.stable_id != original_id

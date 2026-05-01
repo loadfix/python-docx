@@ -264,6 +264,23 @@ class Run(StoryChild):
         return self._r.rsidR
 
     @property
+    def stable_id(self) -> str:
+        """A 16-character hex stable identifier for this run.
+
+        The ID is derived from the run's ``w:rsidR`` (when present), its
+        position within its parent element, and its text. It is stable across
+        save/reload *when the run keeps the same position with the same text*;
+        it changes if the run is reordered or edited. The value is recomputed
+        on each access and never persisted on the element.
+
+        For more robust cross-session tracking, compare :attr:`rsid` combined
+        with :attr:`text`.
+        """
+        from docx.ids import compute_stable_id
+
+        return compute_stable_id(self._r, self._r.text, self._r.rsidR)
+
+    @property
     def style(self) -> CharacterStyle:
         """Read/write.
 

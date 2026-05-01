@@ -434,6 +434,25 @@ class Table(StoryChild):
         return FormattingChange(tblPrChange)
 
     @property
+    def stable_id(self) -> str:
+        """A 16-character hex stable identifier for this table.
+
+        The ID is derived from the table's position within its parent and the
+        concatenated text of its cells. It is stable across save/reload *when
+        the table keeps the same position with the same cell content*; it
+        changes if the table is reordered or its text is edited. The value is
+        recomputed on each access and never persisted on the element.
+
+        The ``w:tbl`` element itself has no ``@w:rsidR``, so only the
+        structural hash is used. For more robust cross-session tracking,
+        compare the table's content directly.
+        """
+        from docx.ids import compute_stable_id
+
+        text = "\n".join(cell.text for cell in self._cells)
+        return compute_stable_id(self._tbl, text)
+
+    @property
     def table_direction(self) -> WD_TABLE_DIRECTION | None:
         """Member of :ref:`WdTableDirection` indicating cell-ordering direction.
 
@@ -554,6 +573,25 @@ class _Cell(BlockItemContainer):
         more.
         """
         return self._tc.grid_span
+
+    @property
+    def stable_id(self) -> str:
+        """A 16-character hex stable identifier for this cell.
+
+        The ID is derived from the cell's position within its parent row and
+        its text content (paragraphs joined by ``"\\n"``). It is stable across
+        save/reload *when the cell keeps the same position with the same
+        text*; it changes if the row is reordered, the cell is moved within
+        its row, or its text is edited. The value is recomputed on each
+        access and never persisted on the element.
+
+        The ``w:tc`` element itself has no ``@w:rsidR``, so only the
+        structural hash is used. For more robust cross-session tracking,
+        compare the cell's content directly.
+        """
+        from docx.ids import compute_stable_id
+
+        return compute_stable_id(self._tc, self.text)
 
     @property
     def is_tracked_insertion(self) -> bool:
