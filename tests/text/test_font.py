@@ -13,7 +13,7 @@ from docx.dml.color import ColorFormat
 from docx.enum.text import WD_BORDER_STYLE, WD_COLOR, WD_UNDERLINE
 from docx.oxml.text.run import CT_R
 from docx.shared import Length, Pt, RGBColor
-from docx.text.font import Font
+from docx.text.font import EastAsianLayout, Font
 
 from ..unitutil.cxml import element, xml
 from ..unitutil.mock import Mock, class_mock, instance_mock
@@ -1181,3 +1181,179 @@ class DescribeFont:
     @pytest.fixture
     def ColorFormat_(self, request: FixtureRequest, color_: Mock):
         return class_mock(request, "docx.text.font.ColorFormat", return_value=color_)
+
+
+class DescribeFont_EastAsianLayout:
+    """Unit-test suite for `docx.text.font.Font.east_asian_layout`."""
+
+    def it_returns_None_when_rPr_is_absent(self):
+        r = cast(CT_R, element("w:r"))
+        font = Font(r)
+        assert font.east_asian_layout is None
+
+    def it_returns_None_when_eastAsianLayout_is_absent(self):
+        r = cast(CT_R, element("w:r/w:rPr"))
+        font = Font(r)
+        assert font.east_asian_layout is None
+
+    def it_returns_EastAsianLayout_when_element_is_present(self):
+        r = cast(CT_R, element("w:r/w:rPr/w:eastAsianLayout"))
+        font = Font(r)
+        layout = font.east_asian_layout
+        assert isinstance(layout, EastAsianLayout)
+
+    @pytest.mark.parametrize(
+        ("cxml", "prop", "expected"),
+        [
+            ("w:r/w:rPr/w:eastAsianLayout{w:id=1}", "id", 1),
+            ("w:r/w:rPr/w:eastAsianLayout{w:combine=1}", "two_lines_in_one", True),
+            ("w:r/w:rPr/w:eastAsianLayout{w:combine=0}", "two_lines_in_one", False),
+            ("w:r/w:rPr/w:eastAsianLayout{w:vert=on}", "vertical_alignment", True),
+            ("w:r/w:rPr/w:eastAsianLayout{w:vert=off}", "vertical_alignment", False),
+            ("w:r/w:rPr/w:eastAsianLayout{w:vertCompress=true}", "compressed", True),
+            ("w:r/w:rPr/w:eastAsianLayout{w:vertCompress=false}", "compressed", False),
+            ("w:r/w:rPr/w:eastAsianLayout", "id", None),
+            ("w:r/w:rPr/w:eastAsianLayout", "two_lines_in_one", None),
+            ("w:r/w:rPr/w:eastAsianLayout", "vertical_alignment", None),
+            ("w:r/w:rPr/w:eastAsianLayout", "compressed", None),
+        ],
+    )
+    def it_reads_all_layout_attributes(self, cxml: str, prop: str, expected):
+        r = cast(CT_R, element(cxml))
+        font = Font(r)
+        layout = font.east_asian_layout
+        assert layout is not None
+        assert getattr(layout, prop) == expected
+
+    def it_can_set_layout_attributes_creating_element(self):
+        r = cast(CT_R, element("w:r"))
+        font = Font(r)
+
+        layout = font.set_east_asian_layout(
+            id=7,
+            two_lines_in_one=True,
+            vertical_alignment=False,
+            compressed=True,
+        )
+
+        assert isinstance(layout, EastAsianLayout)
+        expected_xml = xml(
+            "w:r/w:rPr/w:eastAsianLayout"
+            "{w:id=7,w:combine=1,w:vert=0,w:vertCompress=1}"
+        )
+        assert font._element.xml == expected_xml
+
+    def it_updates_existing_element_incrementally(self):
+        r = cast(
+            CT_R, element("w:r/w:rPr/w:eastAsianLayout{w:id=2,w:combine=1}")
+        )
+        font = Font(r)
+
+        font.set_east_asian_layout(vertical_alignment=True, compressed=True)
+
+        expected_xml = xml(
+            "w:r/w:rPr/w:eastAsianLayout"
+            "{w:id=2,w:combine=1,w:vert=1,w:vertCompress=1}"
+        )
+        assert font._element.xml == expected_xml
+
+    def it_can_clear_individual_attributes_via_proxy(self):
+        r = cast(
+            CT_R,
+            element(
+                "w:r/w:rPr/w:eastAsianLayout{w:id=3,w:combine=1,w:vert=1,w:vertCompress=1}"
+            ),
+        )
+        font = Font(r)
+
+        layout = font.east_asian_layout
+        assert layout is not None
+        layout.two_lines_in_one = None
+
+        assert font._element.xml == xml(
+            "w:r/w:rPr/w:eastAsianLayout{w:id=3,w:vert=1,w:vertCompress=1}"
+        )
+
+    def it_can_remove_east_asian_layout(self):
+        r = cast(
+            CT_R, element("w:r/w:rPr/w:eastAsianLayout{w:combine=1}")
+        )
+        font = Font(r)
+
+        font.remove_east_asian_layout()
+
+        assert font.east_asian_layout is None
+        assert font._element.xml == xml("w:r/w:rPr")
+
+    def it_remove_east_asian_layout_is_noop_when_rPr_absent(self):
+        r = cast(CT_R, element("w:r"))
+        font = Font(r)
+
+        font.remove_east_asian_layout()  # should not raise
+
+        assert font._element.xml == xml("w:r")
+
+    def it_remove_east_asian_layout_is_noop_when_element_absent(self):
+        r = cast(CT_R, element("w:r/w:rPr/w:b"))
+        font = Font(r)
+
+        font.remove_east_asian_layout()  # should not raise
+
+        assert font._element.xml == xml("w:r/w:rPr/w:b")
+
+    def it_preserves_schema_order_with_later_sibling(self):
+        """w:eastAsianLayout must precede w:oMath in CT_RPr (schema order)."""
+        r = cast(CT_R, element("w:r/w:rPr/w:oMath"))
+        font = Font(r)
+
+        font.set_east_asian_layout(two_lines_in_one=True)
+
+        expected_xml = xml(
+            "w:r/w:rPr/(w:eastAsianLayout{w:combine=1},w:oMath)"
+        )
+        assert font._element.xml == expected_xml
+
+    def it_can_round_trip_all_ST_OnOff_variants(self):
+        r = cast(
+            CT_R,
+            element(
+                "w:r/w:rPr/w:eastAsianLayout"
+                "{w:combine=true,w:vert=on,w:vertCompress=false}"
+            ),
+        )
+        font = Font(r)
+        layout = font.east_asian_layout
+        assert layout is not None
+        assert layout.two_lines_in_one is True
+        assert layout.vertical_alignment is True
+        assert layout.compressed is False
+
+
+class DescribeEastAsianLayout:
+    """Unit-test suite for the EastAsianLayout proxy class."""
+
+    @pytest.mark.parametrize(
+        ("prop", "value", "expected_cxml"),
+        [
+            ("id", 5, "w:eastAsianLayout{w:id=5}"),
+            ("two_lines_in_one", True, "w:eastAsianLayout{w:combine=1}"),
+            ("two_lines_in_one", False, "w:eastAsianLayout{w:combine=0}"),
+            ("vertical_alignment", True, "w:eastAsianLayout{w:vert=1}"),
+            ("compressed", True, "w:eastAsianLayout{w:vertCompress=1}"),
+        ],
+    )
+    def it_writes_attributes(
+        self, prop: str, value, expected_cxml: str
+    ):
+        eal = element("w:eastAsianLayout")
+        layout = EastAsianLayout(eal)
+        setattr(layout, prop, value)
+        assert eal.xml == xml(expected_cxml)
+
+    def it_clears_attribute_when_set_to_None(self):
+        eal = element("w:eastAsianLayout{w:id=1,w:combine=1}")
+        layout = EastAsianLayout(eal)
+
+        layout.two_lines_in_one = None
+
+        assert eal.xml == xml("w:eastAsianLayout{w:id=1}")

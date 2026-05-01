@@ -356,6 +356,7 @@ register_element_cls("w:vMerge", CT_VMerge)
 
 from .text.font import (
     CT_Color,
+    CT_EastAsianLayout,
     CT_Fonts,
     CT_Highlight,
     CT_HpsMeasure,
@@ -371,6 +372,7 @@ register_element_cls("w:caps", CT_OnOff)
 register_element_cls("w:color", CT_Color)
 register_element_cls("w:cs", CT_OnOff)
 register_element_cls("w:dstrike", CT_OnOff)
+register_element_cls("w:eastAsianLayout", CT_EastAsianLayout)
 register_element_cls("w:emboss", CT_OnOff)
 register_element_cls("w:highlight", CT_Highlight)
 register_element_cls("w:i", CT_OnOff)
@@ -450,6 +452,7 @@ register_element_cls("w:ind", CT_Ind)
 register_element_cls("w:jc", CT_Jc)
 register_element_cls("w:keepLines", CT_OnOff)
 register_element_cls("w:keepNext", CT_OnOff)
+register_element_cls("w:kinsoku", CT_OnOff)
 register_element_cls("w:outlineLvl", CT_DecimalNumber)
 register_element_cls("w:pageBreakBefore", CT_OnOff)
 register_element_cls("w:left", CT_Border)
@@ -462,6 +465,7 @@ register_element_cls("w:tab", CT_TabStop)
 register_element_cls("w:tabs", CT_TabStops)
 register_element_cls("w:top", CT_Border)
 register_element_cls("w:widowControl", CT_OnOff)
+register_element_cls("w:wordWrap", CT_OnOff)
 
 # ---------------------------------------------------------------------------
 # Annotation reference elements — used in comments/footnotes markup but do not

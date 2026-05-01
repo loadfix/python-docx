@@ -495,6 +495,101 @@ class DescribeParagraphFormat:
         return instance_mock(request, TabStops)
 
 
+class DescribeParagraphFormat_EastAsianTypography:
+    """Unit-test suite for ``ParagraphFormat.kinsoku`` and ``.word_wrap``."""
+
+    @pytest.mark.parametrize(
+        ("p_cxml", "expected_value"),
+        [
+            ("w:p", None),
+            ("w:p/w:pPr", None),
+            ("w:p/w:pPr/w:kinsoku", True),
+            ("w:p/w:pPr/w:kinsoku{w:val=1}", True),
+            ("w:p/w:pPr/w:kinsoku{w:val=true}", True),
+            ("w:p/w:pPr/w:kinsoku{w:val=on}", True),
+            ("w:p/w:pPr/w:kinsoku{w:val=0}", False),
+            ("w:p/w:pPr/w:kinsoku{w:val=false}", False),
+            ("w:p/w:pPr/w:kinsoku{w:val=off}", False),
+        ],
+    )
+    def it_knows_its_kinsoku_value(self, p_cxml: str, expected_value: bool | None):
+        paragraph_format = ParagraphFormat(element(p_cxml))
+        assert paragraph_format.kinsoku is expected_value
+
+    @pytest.mark.parametrize(
+        ("p_cxml", "value", "expected_cxml"),
+        [
+            ("w:p", True, "w:p/w:pPr/w:kinsoku"),
+            ("w:p/w:pPr", True, "w:p/w:pPr/w:kinsoku"),
+            ("w:p", False, "w:p/w:pPr/w:kinsoku{w:val=0}"),
+            ("w:p/w:pPr/w:kinsoku", False, "w:p/w:pPr/w:kinsoku{w:val=0}"),
+            ("w:p/w:pPr/w:kinsoku{w:val=0}", True, "w:p/w:pPr/w:kinsoku"),
+            ("w:p/w:pPr/w:kinsoku", None, "w:p/w:pPr"),
+            ("w:p", None, "w:p/w:pPr"),
+        ],
+    )
+    def it_can_change_its_kinsoku_value(
+        self, p_cxml: str, value: bool | None, expected_cxml: str
+    ):
+        paragraph_format = ParagraphFormat(element(p_cxml))
+        paragraph_format.kinsoku = value
+        assert paragraph_format._element.xml == xml(expected_cxml)
+
+    def it_preserves_schema_order_when_inserting_kinsoku(self):
+        """w:kinsoku must precede w:bidi in CT_PPr (schema order)."""
+        paragraph_format = ParagraphFormat(element("w:p/w:pPr/w:bidi"))
+        paragraph_format.kinsoku = True
+        assert paragraph_format._element.xml == xml(
+            "w:p/w:pPr/(w:kinsoku,w:bidi)"
+        )
+
+    @pytest.mark.parametrize(
+        ("p_cxml", "expected_value"),
+        [
+            ("w:p", None),
+            ("w:p/w:pPr", None),
+            ("w:p/w:pPr/w:wordWrap", True),
+            ("w:p/w:pPr/w:wordWrap{w:val=1}", True),
+            ("w:p/w:pPr/w:wordWrap{w:val=true}", True),
+            ("w:p/w:pPr/w:wordWrap{w:val=on}", True),
+            ("w:p/w:pPr/w:wordWrap{w:val=0}", False),
+            ("w:p/w:pPr/w:wordWrap{w:val=false}", False),
+            ("w:p/w:pPr/w:wordWrap{w:val=off}", False),
+        ],
+    )
+    def it_knows_its_word_wrap_value(self, p_cxml: str, expected_value: bool | None):
+        paragraph_format = ParagraphFormat(element(p_cxml))
+        assert paragraph_format.word_wrap is expected_value
+
+    @pytest.mark.parametrize(
+        ("p_cxml", "value", "expected_cxml"),
+        [
+            ("w:p", True, "w:p/w:pPr/w:wordWrap"),
+            ("w:p/w:pPr", True, "w:p/w:pPr/w:wordWrap"),
+            ("w:p", False, "w:p/w:pPr/w:wordWrap{w:val=0}"),
+            ("w:p/w:pPr/w:wordWrap", False, "w:p/w:pPr/w:wordWrap{w:val=0}"),
+            ("w:p/w:pPr/w:wordWrap{w:val=0}", True, "w:p/w:pPr/w:wordWrap"),
+            ("w:p/w:pPr/w:wordWrap", None, "w:p/w:pPr"),
+            ("w:p", None, "w:p/w:pPr"),
+        ],
+    )
+    def it_can_change_its_word_wrap_value(
+        self, p_cxml: str, value: bool | None, expected_cxml: str
+    ):
+        paragraph_format = ParagraphFormat(element(p_cxml))
+        paragraph_format.word_wrap = value
+        assert paragraph_format._element.xml == xml(expected_cxml)
+
+    def it_preserves_schema_order_for_both_kinsoku_and_word_wrap(self):
+        paragraph_format = ParagraphFormat(element("w:p"))
+        paragraph_format.word_wrap = False
+        paragraph_format.kinsoku = True
+        # kinsoku precedes wordWrap in schema order
+        assert paragraph_format._element.xml == xml(
+            "w:p/w:pPr/(w:kinsoku,w:wordWrap{w:val=0})"
+        )
+
+
 class DescribeParagraphFormat_right_to_left:
     """Unit-test suite for `ParagraphFormat.right_to_left`."""
 
