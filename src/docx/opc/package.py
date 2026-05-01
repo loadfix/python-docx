@@ -29,6 +29,11 @@ class OpcPackage:
     to a package file or file-like object containing one.
     """
 
+    # -- parse warnings accumulated during `open(..., recover=True)`;
+    # -- assigned on the package instance after unmarshalling and read via
+    # -- the :attr:`recovery_warnings` property. --
+    _recovery_warnings: list[str]
+
     def after_unmarshal(self):
         """Entry point for any post-unmarshaling processing.
 
@@ -122,12 +127,38 @@ class OpcPackage:
                 return PackURI(candidate_partname)
 
     @classmethod
-    def open(cls, pkg_file: str | IO[bytes]) -> Self:
-        """Return an |OpcPackage| instance loaded with the contents of `pkg_file`."""
+    def open(cls, pkg_file: str | IO[bytes], recover: bool = False) -> Self:
+        """Return an |OpcPackage| instance loaded with the contents of `pkg_file`.
+
+        When `recover` is True, XML parsing falls back to lxml's recovering
+        parser when it encounters malformed content and any parse warnings are
+        accumulated on ``package.recovery_warnings`` instead of raising
+        :class:`lxml.etree.XMLSyntaxError`. Default behaviour (``recover=False``)
+        is unchanged.
+        """
+        from docx.oxml.parser import recovery_mode
+
+        if recover:
+            with recovery_mode() as warnings:
+                pkg_reader = PackageReader.from_file(pkg_file)
+                package = cls()
+                Unmarshaller.unmarshal(pkg_reader, package, PartFactory)
+            package._recovery_warnings = list(warnings)
+            return package
+
         pkg_reader = PackageReader.from_file(pkg_file)
         package = cls()
         Unmarshaller.unmarshal(pkg_reader, package, PartFactory)
         return package
+
+    @property
+    def recovery_warnings(self) -> list[str]:
+        """List of parse-warning strings collected while opening this package.
+
+        Empty for packages opened without ``recover=True`` or for well-formed
+        packages opened in recovery mode.
+        """
+        return list(getattr(self, "_recovery_warnings", []))
 
     def part_related_by(self, reltype: str) -> Part:
         """Return part to which this package has a relationship of `reltype`.

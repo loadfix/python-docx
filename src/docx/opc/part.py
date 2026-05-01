@@ -229,8 +229,32 @@ class XmlPart(Part):
 
     @classmethod
     def load(cls, partname: PackURI, content_type: str, blob: bytes, package: Package):
-        element = parse_xml(blob)
+        # -- `parse_xml()` may return ``None`` when invoked inside a recovery-mode
+        # -- context and lxml could not recover *anything* from `blob`. Fall back
+        # -- to a minimal stub so downstream code has a valid element to work
+        # -- with; warnings have already been collected by `parse_xml`. --
+        element = cast("BaseOxmlElement | None", parse_xml(blob))
+        if element is None:
+            element = cls._recovery_stub_element(content_type)
         return cls(partname, content_type, element, package)
+
+    @staticmethod
+    def _recovery_stub_element(content_type: str) -> BaseOxmlElement:
+        """Return a minimal valid root element for the given `content_type`.
+
+        Used as a last-resort fallback when recovery parsing cannot produce any
+        usable element. Subclasses may override to emit a more specific stub.
+        """
+        from docx.opc.constants import CONTENT_TYPE as CT
+
+        if content_type in (CT.WML_DOCUMENT_MAIN, CT.WML_DOCUMENT_MACRO):
+            stub = (
+                b'<w:document xmlns:w="http://schemas.openxmlformats.org/'
+                b'wordprocessingml/2006/main"><w:body/></w:document>'
+            )
+            return parse_xml(stub)
+        # -- Generic fallback: an empty element preserving namespace hints. --
+        return parse_xml(b"<root/>")
 
     @property
     def part(self):
