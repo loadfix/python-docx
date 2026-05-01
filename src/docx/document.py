@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from docx.comments import Comment, Comments
     from docx.content_controls import ContentControl, ContentControlType
     from docx.custom_properties import CustomProperties
+    from docx.embedded_objects import EmbeddedObject
     from docx.endnotes import Endnotes, EndnoteProperties
     from docx.font_table import FontTable
     from docx.footnotes import FootnoteProperties, Footnotes
@@ -429,6 +430,26 @@ class Document(ElementProxy):
         for p in self._element.body.xpath(".//w:p[.//w:contentPart]"):
             paragraph = Paragraph(p, self._body)
             result.extend(paragraph.ink_annotations)
+        return result
+
+    @property
+    def embedded_objects(self) -> list[EmbeddedObject]:
+        """List of |EmbeddedObject| for each embedded OLE object in the body.
+
+        An embedded object is any ``w:object`` element containing an
+        ``o:OLEObject`` descendant (content type
+        ``application/vnd.openxmlformats-officedocument.oleObject`` for the
+        related binary). The list is empty when no embedded objects are
+        present. Read-only — python-docx does not support creating or
+        modifying embedded objects, or extracting the ``w:pict`` image that
+        Word displays in place of the OLE content.
+        """
+        from docx.text.paragraph import Paragraph
+
+        result: list[EmbeddedObject] = []
+        for p in self._element.body.xpath(".//w:p[.//w:object/o:OLEObject]"):
+            paragraph = Paragraph(p, self._body)
+            result.extend(paragraph.embedded_objects)
         return result
 
     @property

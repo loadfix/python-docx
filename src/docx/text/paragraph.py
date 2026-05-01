@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from docx.bookmarks import Bookmark
     from docx.content_controls import ContentControl, ContentControlType
     from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+    from docx.embedded_objects import EmbeddedObject
     from docx.ink import InkAnnotation
     from docx.oxml.content_controls import CT_Sdt
     from docx.oxml.document import CT_Body
@@ -390,6 +391,36 @@ class Paragraph(StoryChild):
             if not isinstance(ink_part, InkPart):
                 continue
             result.append(InkAnnotation(self, ink_part))
+        return result
+
+    @property
+    def embedded_objects(self) -> list[EmbeddedObject]:
+        """List of |EmbeddedObject| for each ``w:object/o:OLEObject`` in this paragraph.
+
+        Returns an empty list when the paragraph contains no embedded OLE
+        objects. Read-only — python-docx does not support creating or
+        modifying embedded objects.
+
+        An ``o:OLEObject`` whose ``r:id`` cannot be resolved (for example when
+        the referenced part is missing from the package or is of an unexpected
+        type) still produces an |EmbeddedObject|, but its
+        :attr:`EmbeddedObject.blob` returns ``b""`` and
+        :attr:`EmbeddedObject.embedded_partname` returns |None|.
+        """
+        from docx.embedded_objects import EmbeddedObject
+        from docx.oxml.ns import qn
+        from docx.parts.embedded_object import EmbeddedObjectPart
+
+        result: list[EmbeddedObject] = []
+        part = self.part
+        for ole_elm in self._p.xpath(".//w:object/o:OLEObject"):
+            rId = ole_elm.get(qn("r:id"))
+            embedded_part: EmbeddedObjectPart | None = None
+            if rId:
+                candidate = part.related_parts.get(rId)
+                if isinstance(candidate, EmbeddedObjectPart):
+                    embedded_part = candidate
+            result.append(EmbeddedObject(self, ole_elm, embedded_part))
         return result
 
     @property
