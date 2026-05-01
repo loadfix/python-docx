@@ -147,6 +147,29 @@ from .document import CT_Body, CT_Document
 register_element_cls("w:body", CT_Body)
 register_element_cls("w:document", CT_Document)
 
+from .font_table import (
+    CT_Charset,
+    CT_Font,
+    CT_FontFamily,
+    CT_FontName,
+    CT_FontRel,
+    CT_Fonts as CT_FontTable,
+    CT_Panose,
+    CT_Pitch,
+)
+
+register_element_cls("w:fonts", CT_FontTable)
+register_element_cls("w:font", CT_Font)
+register_element_cls("w:altName", CT_FontName)
+register_element_cls("w:charset", CT_Charset)
+register_element_cls("w:family", CT_FontFamily)
+register_element_cls("w:panose1", CT_Panose)
+register_element_cls("w:pitch", CT_Pitch)
+register_element_cls("w:embedRegular", CT_FontRel)
+register_element_cls("w:embedBold", CT_FontRel)
+register_element_cls("w:embedItalic", CT_FontRel)
+register_element_cls("w:embedBoldItalic", CT_FontRel)
+
 from .footnotes import (
     CT_FtnDocProps,
     CT_FtnEdnPos,

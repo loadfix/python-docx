@@ -15,6 +15,7 @@ from docx.package import Package
 from docx.parts.comments import CommentsPart
 from docx.parts.custom_properties import CustomPropertiesPart
 from docx.parts.document import DocumentPart
+from docx.parts.font_table import FontTablePart
 from docx.parts.footnotes import FootnotesPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
 from docx.parts.numbering import NumberingPart
@@ -229,6 +230,50 @@ class DescribeDocumentPart:
 
         styles_.get_style_id.assert_called_once_with(style_, WD_STYLE_TYPE.CHARACTER)
         assert style_id == "BodyCharacter"
+
+    def it_provides_access_to_its_font_table_when_a_part_is_related(
+        self, package_: Mock, part_related_by_: Mock, font_table_part_: Mock
+    ):
+        font_table_part_.font_table = "ft-sentinel"
+        part_related_by_.return_value = font_table_part_
+        document_part = DocumentPart(
+            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
+        )
+
+        assert document_part.font_table == "ft-sentinel"
+        part_related_by_.assert_called_once_with(document_part, RT.FONT_TABLE)
+
+    def and_font_table_is_None_when_no_part_is_related(
+        self, package_: Mock, part_related_by_: Mock
+    ):
+        part_related_by_.side_effect = KeyError
+        document_part = DocumentPart(
+            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
+        )
+
+        assert document_part.font_table is None
+        part_related_by_.assert_called_once_with(document_part, RT.FONT_TABLE)
+
+    def it_provides_access_to_its_font_table_part_to_help(
+        self, package_: Mock, part_related_by_: Mock, font_table_part_: Mock
+    ):
+        part_related_by_.return_value = font_table_part_
+        document_part = DocumentPart(
+            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
+        )
+
+        assert document_part._font_table_part is font_table_part_
+        part_related_by_.assert_called_once_with(document_part, RT.FONT_TABLE)
+
+    def and_the_font_table_part_accessor_returns_None_when_not_present(
+        self, package_: Mock, part_related_by_: Mock
+    ):
+        part_related_by_.side_effect = KeyError
+        document_part = DocumentPart(
+            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
+        )
+
+        assert document_part._font_table_part is None
 
     def it_provides_access_to_its_footnotes_part_to_help(
         self, package_: Mock, part_related_by_: Mock, footnotes_part_: Mock
@@ -453,6 +498,10 @@ class DescribeDocumentPart:
     @pytest.fixture
     def drop_rel_(self, request: FixtureRequest):
         return method_mock(request, DocumentPart, "drop_rel", autospec=True)
+
+    @pytest.fixture
+    def font_table_part_(self, request: FixtureRequest):
+        return instance_mock(request, FontTablePart)
 
     @pytest.fixture
     def FootnotesPart_(self, request: FixtureRequest):

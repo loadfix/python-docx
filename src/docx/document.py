@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from docx.content_controls import ContentControl, ContentControlType
     from docx.custom_properties import CustomProperties
     from docx.endnotes import Endnotes, EndnoteProperties
+    from docx.font_table import FontTable
     from docx.footnotes import FootnoteProperties, Footnotes
     from docx.oxml.content_controls import CT_Sdt
     from docx.oxml.document import CT_Body, CT_Document
@@ -216,6 +217,17 @@ class Document(ElementProxy):
             return True
         except KeyError:
             return False
+
+    @property
+    def font_table(self) -> FontTable | None:
+        """A |FontTable| collection, or |None| if no font-table part is related.
+
+        The font-table part is owned by Word, so python-docx exposes it read-only.
+        Returns |None| when the document has no ``fontTable`` relationship — for
+        example, when the document was created via :func:`docx.Document` with no
+        template.
+        """
+        return self._part.font_table
 
     @property
     def footnotes(self) -> Footnotes:

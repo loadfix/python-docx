@@ -9,6 +9,7 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.parts.comments import CommentsPart
 from docx.parts.custom_properties import CustomPropertiesPart
 from docx.parts.endnotes import EndnotesPart
+from docx.parts.font_table import FontTablePart
 from docx.parts.footnotes import FootnotesPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
 from docx.parts.numbering import NumberingPart
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
     from docx.custom_properties import CustomProperties
     from docx.endnotes import Endnotes
     from docx.enum.style import WD_STYLE_TYPE
+    from docx.font_table import FontTable
     from docx.footnotes import Footnotes
     from docx.opc.coreprops import CoreProperties
     from docx.settings import Settings
@@ -73,6 +75,32 @@ class DocumentPart(StoryPart):
             endnotes_part = EndnotesPart.default(self.package)
             self.relate_to(endnotes_part, RT.ENDNOTES)
             return endnotes_part
+
+    @property
+    def font_table(self) -> FontTable | None:
+        """A |FontTable| for this document, or |None| if no font-table part is related.
+
+        The font-table part is managed by Word — python-docx does not create one on
+        demand, so this returns |None| when the document has no existing ``fontTable``
+        relationship.
+        """
+        font_table_part = self._font_table_part
+        if font_table_part is None:
+            return None
+        return font_table_part.font_table
+
+    @property
+    def _font_table_part(self) -> FontTablePart | None:
+        """The |FontTablePart| related to this document, or |None| if not present.
+
+        Unlike the comments or footnotes parts, a default font-table part is not
+        created on demand; the part is read-only and only available when the source
+        document already contains one.
+        """
+        try:
+            return cast(FontTablePart, self.part_related_by(RT.FONT_TABLE))
+        except KeyError:
+            return None
 
     @property
     def footnotes(self) -> Footnotes:
