@@ -590,6 +590,17 @@ register_element_cls("w:object", _Base)
 register_element_cls("o:OLEObject", _Base)
 
 # ---------------------------------------------------------------------------
+# SmartArt (DrawingML diagram) elements
+
+from .smart_art import CT_Cxn, CT_DataModel, CT_Pt, CT_PtLst, CT_RelIds
+
+register_element_cls("dgm:cxn", CT_Cxn)
+register_element_cls("dgm:dataModel", CT_DataModel)
+register_element_cls("dgm:pt", CT_Pt)
+register_element_cls("dgm:ptLst", CT_PtLst)
+register_element_cls("dgm:relIds", CT_RelIds)
+
+# ---------------------------------------------------------------------------
 # VML watermark-related elements
 
 from .watermark import CT_Pict, CT_VmlFill, CT_VmlImageData, CT_VmlShape, CT_VmlTextpath
