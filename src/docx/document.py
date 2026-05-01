@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from docx.styles.style import ParagraphStyle, _TableStyle
     from docx.table import Table
     from docx.text.paragraph import Paragraph
+    from docx.web_settings import WebSettings
 
 
 class Document(ElementProxy):
@@ -529,6 +530,17 @@ class Document(ElementProxy):
     def styles(self):
         """A |Styles| object providing access to the styles in this document."""
         return self._part.styles
+
+    @property
+    def web_settings(self) -> WebSettings | None:
+        """A |WebSettings| proxy, or |None| when no ``webSettings`` part is related.
+
+        The web-settings part is owned by Word, so python-docx exposes it
+        read-oriented. Returns |None| when the document has no ``webSettings``
+        relationship — for example, documents created via :func:`docx.Document`
+        with no template.
+        """
+        return self._part.web_settings
 
     @property
     def tables(self) -> list[Table]:

@@ -36,6 +36,7 @@ from docx.parts.image import ImagePart
 from docx.parts.numbering import NumberingPart
 from docx.parts.settings import SettingsPart
 from docx.parts.styles import StylesPart
+from docx.parts.web_settings import WebSettingsPart
 
 
 def part_class_selector(content_type: str, reltype: str) -> type[Part] | None:
@@ -58,6 +59,7 @@ PartFactory.part_type_for[CT.WML_HEADER] = HeaderPart
 PartFactory.part_type_for[CT.WML_NUMBERING] = NumberingPart
 PartFactory.part_type_for[CT.WML_SETTINGS] = SettingsPart
 PartFactory.part_type_for[CT.WML_STYLES] = StylesPart
+PartFactory.part_type_for[CT.WML_WEB_SETTINGS] = WebSettingsPart
 
 del (
     CT,
@@ -74,5 +76,6 @@ del (
     PartFactory,
     SettingsPart,
     StylesPart,
+    WebSettingsPart,
     part_class_selector,
 )

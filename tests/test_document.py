@@ -26,6 +26,7 @@ from docx.styles.styles import Styles
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 from docx.text.run import Run
+from docx.web_settings import WebSettings
 
 from .unitutil.cxml import element, xml
 from .unitutil.mock import (
@@ -240,6 +241,22 @@ class DescribeDocument:
         document = Document(cast(CT_Document, element("w:document")), document_part_)
 
         assert document.font_table is None
+
+    def it_provides_access_to_its_web_settings(
+        self, document_part_: Mock, web_settings_: Mock
+    ):
+        document_part_.web_settings = web_settings_
+        document = Document(cast(CT_Document, element("w:document")), document_part_)
+
+        assert document.web_settings is web_settings_
+
+    def and_web_settings_is_None_when_the_document_has_no_web_settings_part(
+        self, document_part_: Mock
+    ):
+        document_part_.web_settings = None
+        document = Document(cast(CT_Document, element("w:document")), document_part_)
+
+        assert document.web_settings is None
 
     def it_provides_access_to_its_inline_shapes(self, document_part_: Mock, inline_shapes_: Mock):
         document_part_.inline_shapes = inline_shapes_
@@ -683,6 +700,10 @@ class DescribeDocument:
     @pytest.fixture
     def tables_(self, request: FixtureRequest):
         return instance_mock(request, list)
+
+    @pytest.fixture
+    def web_settings_(self, request: FixtureRequest):
+        return instance_mock(request, WebSettings)
 
 
 class Describe_Body:
