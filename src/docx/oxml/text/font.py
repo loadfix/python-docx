@@ -57,6 +57,18 @@ class CT_Highlight(BaseOxmlElement):
     val: WD_COLOR_INDEX = RequiredAttribute("w:val", WD_COLOR_INDEX)
 
 
+class CT_Language(BaseOxmlElement):
+    """`<w:lang>` element, specifying the language used by the run.
+
+    Exposes the three optional BCP-47 language tag attributes for the default
+    (Latin) script, East Asian, and complex-script (bidirectional) languages.
+    """
+
+    val: str | None = OptionalAttribute("w:val", ST_String)
+    eastAsia: str | None = OptionalAttribute("w:eastAsia", ST_String)
+    bidi: str | None = OptionalAttribute("w:bidi", ST_String)
+
+
 class CT_HpsMeasure(BaseOxmlElement):
     """Used for `<w:sz>` element and others, specifying font size in half-points."""
 
@@ -70,6 +82,7 @@ class CT_RPr(BaseOxmlElement):
     get_or_add_color: Callable[[], CT_Color]
     get_or_add_highlight: Callable[[], CT_Highlight]
     get_or_add_kern: Callable[[], CT_HpsMeasure]
+    get_or_add_lang: Callable[[], "CT_Language"]
     get_or_add_rFonts: Callable[[], CT_Fonts]
     get_or_add_shd: Callable[[], "CT_Shd"]
     get_or_add_spacing: Callable[[], BaseOxmlElement]
@@ -81,6 +94,7 @@ class CT_RPr(BaseOxmlElement):
     _remove_color: Callable[[], None]
     _remove_highlight: Callable[[], None]
     _remove_kern: Callable[[], None]
+    _remove_lang: Callable[[], None]
     _remove_rFonts: Callable[[], None]
     _remove_rStyle: Callable[[], None]
     _remove_shd: Callable[[], None]
@@ -164,6 +178,9 @@ class CT_RPr(BaseOxmlElement):
     vertAlign: CT_VerticalAlignRun | None = ZeroOrOne("w:vertAlign", successors=_tag_seq[32:])
     rtl = ZeroOrOne("w:rtl", successors=_tag_seq[33:])
     cs = ZeroOrOne("w:cs", successors=_tag_seq[34:])
+    lang: "CT_Language | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:lang", successors=_tag_seq[35:]
+    )
     specVanish = ZeroOrOne("w:specVanish", successors=_tag_seq[38:])
     oMath = ZeroOrOne("w:oMath", successors=_tag_seq[39:])
     rPrChange = ZeroOrOne("w:rPrChange", successors=())
