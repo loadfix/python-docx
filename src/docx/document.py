@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from docx.font_table import FontTable
     from docx.footnotes import FootnoteProperties, Footnotes
     from docx.form_fields import FormField
+    from docx.glossary import Glossary
     from docx.ink import InkAnnotation
     from docx.oxml.content_controls import CT_Sdt
     from docx.oxml.document import CT_Body, CT_Document
@@ -826,6 +827,19 @@ class Document(ElementProxy):
     def styles(self):
         """A |Styles| object providing access to the styles in this document."""
         return self._part.styles
+
+    @property
+    def glossary(self) -> Glossary | None:
+        """A |Glossary| proxy, or |None| when no ``glossaryDocument`` part is related.
+
+        The glossary-document part carries the AutoText / Quick Parts /
+        cover-page building blocks. It is owned by Word, so python-docx
+        exposes it read-only. Returns |None| when the document has no
+        ``glossaryDocument`` relationship — which is the case for
+        documents created via :func:`docx.Document` with the default
+        template.
+        """
+        return self._part.glossary
 
     @property
     def theme(self) -> Theme | None:

@@ -151,6 +151,24 @@ register_element_cls("w:endnote", CT_Endnote)
 register_element_cls("w:endnotes", CT_Endnotes)
 register_element_cls("w:endnotePr", CT_EdnDocProps)
 
+from .glossary import (
+    CT_DocPart,
+    CT_DocPartBody,
+    CT_DocPartCategory,
+    CT_DocPartGallery,
+    CT_DocPartPr,
+    CT_DocParts,
+    CT_GlossaryDocument,
+)
+
+register_element_cls("w:docPart", CT_DocPart)
+register_element_cls("w:docPartBody", CT_DocPartBody)
+register_element_cls("w:docParts", CT_DocParts)
+register_element_cls("w:docPartPr", CT_DocPartPr)
+register_element_cls("w:category", CT_DocPartCategory)
+register_element_cls("w:gallery", CT_DocPartGallery)
+register_element_cls("w:glossaryDocument", CT_GlossaryDocument)
+
 from .fields import CT_FldChar, CT_FldSimple, CT_InstrText
 
 register_element_cls("w:fldChar", CT_FldChar)

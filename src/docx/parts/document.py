@@ -11,6 +11,7 @@ from docx.parts.custom_properties import CustomPropertiesPart
 from docx.parts.endnotes import EndnotesPart
 from docx.parts.font_table import FontTablePart
 from docx.parts.footnotes import FootnotesPart
+from docx.parts.glossary import GlossaryPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
 from docx.parts.numbering import NumberingPart
 from docx.parts.settings import SettingsPart
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     from docx.enum.style import WD_STYLE_TYPE
     from docx.font_table import FontTable
     from docx.footnotes import Footnotes
+    from docx.glossary import Glossary
     from docx.opc.coreprops import CoreProperties
     from docx.settings import Settings
     from docx.styles.style import BaseStyle
@@ -125,6 +127,32 @@ class DocumentPart(StoryPart):
             footnotes_part = FootnotesPart.default(self.package)
             self.relate_to(footnotes_part, RT.FOOTNOTES)
             return footnotes_part
+
+    @property
+    def glossary(self) -> Glossary | None:
+        """A |Glossary| proxy for this document, or |None| when no glossary part is related.
+
+        The glossary-document part is managed by Word; python-docx does not
+        create one on demand, so this returns |None| when the document has
+        no existing ``glossaryDocument`` relationship.
+        """
+        glossary_part = self._glossary_part
+        if glossary_part is None:
+            return None
+        return glossary_part.glossary
+
+    @property
+    def _glossary_part(self) -> GlossaryPart | None:
+        """The |GlossaryPart| related to this document, or |None| if not present.
+
+        A default glossary part is not created on demand; the part is
+        exposed read-only and only available when the source document
+        already contains one.
+        """
+        try:
+            return cast(GlossaryPart, self.part_related_by(RT.GLOSSARY_DOCUMENT))
+        except KeyError:
+            return None
 
     @property
     def core_properties(self) -> CoreProperties:
