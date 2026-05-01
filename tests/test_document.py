@@ -21,7 +21,7 @@ from docx.parts.document import DocumentPart
 from docx.section import Section, Sections
 from docx.settings import Settings
 from docx.shape import InlineShape, InlineShapes
-from docx.shared import Length
+from docx.shared import Length, RGBColor
 from docx.styles.styles import Styles
 from docx.table import Table
 from docx.text.paragraph import Paragraph
@@ -481,6 +481,80 @@ class DescribeDocument:
         )
 
         assert rendered == "<+x+><-y->"
+
+    def it_returns_None_background_color_when_no_background_element(
+        self, document_part_: Mock
+    ):
+        document = Document(cast(CT_Document, element("w:document/w:body")), document_part_)
+
+        assert document.background_color is None
+
+    def it_reads_background_color_from_the_background_element(
+        self, document_part_: Mock
+    ):
+        document = Document(
+            cast(
+                CT_Document,
+                element("w:document/(w:background{w:color=FF0000},w:body)"),
+            ),
+            document_part_,
+        )
+
+        assert document.background_color == RGBColor(0xFF, 0x00, 0x00)
+
+    def it_writes_a_background_element_when_color_is_set(self, document_part_: Mock):
+        document = Document(
+            cast(CT_Document, element("w:document/w:body")), document_part_
+        )
+
+        document.background_color = RGBColor(0x12, 0x34, 0x56)
+
+        assert document.element.xml == xml(
+            "w:document/(w:background{w:color=123456},w:body)"
+        )
+
+    def it_replaces_an_existing_background_color(self, document_part_: Mock):
+        document = Document(
+            cast(
+                CT_Document,
+                element("w:document/(w:background{w:color=FF0000},w:body)"),
+            ),
+            document_part_,
+        )
+
+        document.background_color = RGBColor(0x00, 0xFF, 0x00)
+
+        # -- only one w:background child, with the updated color --
+        backgrounds = document.element.xpath("w:background")
+        assert len(backgrounds) == 1
+        assert document.background_color == RGBColor(0x00, 0xFF, 0x00)
+
+    def it_removes_the_background_element_when_color_set_to_None(
+        self, document_part_: Mock
+    ):
+        document = Document(
+            cast(
+                CT_Document,
+                element("w:document/(w:background{w:color=FF0000},w:body)"),
+            ),
+            document_part_,
+        )
+
+        document.background_color = None
+
+        assert document.element.xml == xml("w:document/w:body")
+        assert document.background_color is None
+
+    def it_is_a_noop_to_set_background_color_to_None_when_absent(
+        self, document_part_: Mock
+    ):
+        document = Document(
+            cast(CT_Document, element("w:document/w:body")), document_part_
+        )
+
+        document.background_color = None
+
+        assert document.element.xml == xml("w:document/w:body")
 
     def it_determines_block_width_to_help(
         self, document: Document, sections_prop_: Mock, section_: Mock

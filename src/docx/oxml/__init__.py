@@ -142,8 +142,9 @@ register_element_cls("w:fldChar", CT_FldChar)
 register_element_cls("w:fldSimple", CT_FldSimple)
 register_element_cls("w:instrText", CT_InstrText)
 
-from .document import CT_Body, CT_Document
+from .document import CT_Background, CT_Body, CT_Document
 
+register_element_cls("w:background", CT_Background)
 register_element_cls("w:body", CT_Body)
 register_element_cls("w:document", CT_Document)
 
