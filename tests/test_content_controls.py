@@ -6,7 +6,12 @@ from __future__ import annotations
 
 from typing import cast
 
-from docx.content_controls import ContentControl, ContentControlType, new_sdt
+from docx.content_controls import (
+    ContentControl,
+    ContentControlType,
+    DataBinding,
+    new_sdt,
+)
 from docx.oxml.content_controls import CT_Sdt
 from docx.oxml.ns import qn
 
@@ -114,6 +119,133 @@ class DescribeContentControl:
         cc.checked = False
         assert cc.checked is False
 
+    # -- data binding ----------------------------------------------------
+
+    def it_returns_None_for_data_binding_when_no_dataBinding_child_present(self):
+        sdt = cast(CT_Sdt, element("w:sdt/w:sdtPr"))
+        cc = ContentControl(sdt)
+        assert cc.data_binding is None
+
+    def it_returns_None_for_data_binding_when_no_sdtPr_present(self):
+        sdt = cast(CT_Sdt, element("w:sdt"))
+        cc = ContentControl(sdt)
+        assert cc.data_binding is None
+
+    def it_exposes_data_binding_when_dataBinding_child_is_present(self):
+        from docx.oxml.parser import parse_xml
+
+        sdt = cast(
+            CT_Sdt,
+            parse_xml(
+                '<w:sdt xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                "<w:sdtPr>"
+                "<w:dataBinding"
+                " w:prefixMappings=\"xmlns:ns0='http://example.com/ns'\""
+                ' w:xpath="/ns0:root/ns0:name"'
+                ' w:storeItemID="{12345678-1234-1234-1234-1234567890AB}"/>'
+                "</w:sdtPr>"
+                "</w:sdt>"
+            ),
+        )
+        cc = ContentControl(sdt)
+
+        db = cc.data_binding
+
+        assert isinstance(db, DataBinding)
+        assert db.prefix_mappings == "xmlns:ns0='http://example.com/ns'"
+        assert db.xpath == "/ns0:root/ns0:name"
+        assert db.store_item_id == "{12345678-1234-1234-1234-1234567890AB}"
+
+    def it_can_set_data_binding_on_sdt_without_sdtPr(self):
+        sdt = cast(CT_Sdt, element("w:sdt"))
+        cc = ContentControl(sdt)
+
+        db = cc.set_data_binding(
+            xpath="/root/child",
+            prefix_mappings="xmlns:a='urn:a'",
+            store_item_id="{AAAA-BBBB}",
+        )
+
+        assert isinstance(db, DataBinding)
+        assert sdt.sdtPr is not None
+        assert sdt.sdtPr.dataBinding is not None
+        assert cc.data_binding is not None
+        assert cc.data_binding.xpath == "/root/child"
+        assert cc.data_binding.prefix_mappings == "xmlns:a='urn:a'"
+        assert cc.data_binding.store_item_id == "{AAAA-BBBB}"
+
+    def it_can_set_data_binding_with_default_prefix_mappings_and_no_store_id(self):
+        sdt = cast(CT_Sdt, element("w:sdt/w:sdtPr"))
+        cc = ContentControl(sdt)
+
+        cc.set_data_binding("/Plain")
+
+        assert cc.data_binding is not None
+        assert cc.data_binding.xpath == "/Plain"
+        assert cc.data_binding.prefix_mappings == ""
+        assert cc.data_binding.store_item_id is None
+
+    def it_overwrites_an_existing_data_binding_on_set(self):
+        from docx.oxml.parser import parse_xml
+
+        sdt = cast(
+            CT_Sdt,
+            parse_xml(
+                '<w:sdt xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                "<w:sdtPr>"
+                '<w:dataBinding w:xpath="/old" w:storeItemID="{OLD}"/>'
+                "</w:sdtPr>"
+                "</w:sdt>"
+            ),
+        )
+        cc = ContentControl(sdt)
+
+        cc.set_data_binding(xpath="/new", store_item_id="{NEW}")
+
+        assert cc.data_binding is not None
+        assert cc.data_binding.xpath == "/new"
+        assert cc.data_binding.store_item_id == "{NEW}"
+        # -- still a single dataBinding child --
+        sdtPr = sdt.sdtPr
+        assert sdtPr is not None
+        assert len(sdtPr.findall(qn("w:dataBinding"))) == 1
+
+    def it_can_remove_a_data_binding(self):
+        from docx.oxml.parser import parse_xml
+
+        sdt = cast(
+            CT_Sdt,
+            parse_xml(
+                '<w:sdt xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                "<w:sdtPr>"
+                '<w:dataBinding w:xpath="/old"/>'
+                "</w:sdtPr>"
+                "</w:sdt>"
+            ),
+        )
+        cc = ContentControl(sdt)
+        assert cc.data_binding is not None
+
+        cc.remove_data_binding()
+
+        assert cc.data_binding is None
+        sdtPr = sdt.sdtPr
+        assert sdtPr is not None
+        assert sdtPr.find(qn("w:dataBinding")) is None
+
+    def it_silently_ignores_remove_when_no_data_binding_is_present(self):
+        sdt = cast(CT_Sdt, element("w:sdt/w:sdtPr"))
+        cc = ContentControl(sdt)
+        # -- should be a no-op --
+        cc.remove_data_binding()
+        assert cc.data_binding is None
+
+    def it_silently_ignores_remove_when_no_sdtPr_is_present(self):
+        sdt = cast(CT_Sdt, element("w:sdt"))
+        cc = ContentControl(sdt)
+        cc.remove_data_binding()
+        assert cc.data_binding is None
+
     def it_concatenates_text_from_sdtContent(self):
         sdt = cast(
             CT_Sdt,
@@ -140,6 +272,88 @@ class DescribeContentControl:
         sdtContent = sdt.sdtContent
         assert sdtContent is not None
         assert sdtContent.find(qn("w:p")) is not None
+
+
+class DescribeDataBinding:
+    """Unit-test suite for `docx.content_controls.DataBinding`."""
+
+    def it_reads_attribute_values_from_the_oxml_element(self):
+        from docx.oxml.parser import parse_xml
+
+        sdt = cast(
+            CT_Sdt,
+            parse_xml(
+                '<w:sdt xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                "<w:sdtPr>"
+                '<w:dataBinding w:prefixMappings="pm" w:xpath="/x" w:storeItemID="ID"/>'
+                "</w:sdtPr>"
+                "</w:sdt>"
+            ),
+        )
+        sdtPr = sdt.sdtPr
+        assert sdtPr is not None
+        dataBinding = sdtPr.dataBinding
+        assert dataBinding is not None
+
+        db = DataBinding(dataBinding)
+
+        assert db.prefix_mappings == "pm"
+        assert db.xpath == "/x"
+        assert db.store_item_id == "ID"
+
+    def it_returns_empty_strings_for_missing_xpath_and_prefix_mappings(self):
+        sdt = cast(CT_Sdt, element("w:sdt/w:sdtPr/w:dataBinding"))
+        sdtPr = sdt.sdtPr
+        assert sdtPr is not None
+        dataBinding = sdtPr.dataBinding
+        assert dataBinding is not None
+
+        db = DataBinding(dataBinding)
+
+        assert db.prefix_mappings == ""
+        assert db.xpath == ""
+        assert db.store_item_id is None
+
+    def it_can_round_trip_attribute_values(self):
+        sdt = cast(CT_Sdt, element("w:sdt/w:sdtPr/w:dataBinding"))
+        sdtPr = sdt.sdtPr
+        assert sdtPr is not None
+        dataBinding = sdtPr.dataBinding
+        assert dataBinding is not None
+        db = DataBinding(dataBinding)
+
+        db.prefix_mappings = "xmlns:n='urn:n'"
+        db.xpath = "/n:root"
+        db.store_item_id = "{GUID}"
+
+        assert db.prefix_mappings == "xmlns:n='urn:n'"
+        assert db.xpath == "/n:root"
+        assert db.store_item_id == "{GUID}"
+
+    def it_clears_empty_string_attributes_when_set_to_empty(self):
+        from docx.oxml.parser import parse_xml
+
+        sdt = cast(
+            CT_Sdt,
+            parse_xml(
+                '<w:sdt xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                "<w:sdtPr>"
+                '<w:dataBinding w:prefixMappings="foo" w:xpath="/x"/>'
+                "</w:sdtPr>"
+                "</w:sdt>"
+            ),
+        )
+        sdtPr = sdt.sdtPr
+        assert sdtPr is not None
+        dataBinding = sdtPr.dataBinding
+        assert dataBinding is not None
+        db = DataBinding(dataBinding)
+
+        db.prefix_mappings = ""
+        db.xpath = ""
+
+        assert dataBinding.prefixMappings is None
+        assert dataBinding.xpath_val is None
 
 
 class DescribeContentControlType:

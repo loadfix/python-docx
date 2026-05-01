@@ -28,7 +28,8 @@ from collections.abc import Callable
 
 from docx.oxml.ns import qn
 from docx.oxml.parser import OxmlElement
-from docx.oxml.xmlchemy import BaseOxmlElement, ZeroOrOne
+from docx.oxml.simpletypes import ST_String
+from docx.oxml.xmlchemy import BaseOxmlElement, OptionalAttribute, ZeroOrOne
 
 if TYPE_CHECKING:
     from docx.oxml.text.paragraph import CT_P
@@ -246,6 +247,58 @@ class CT_SdtPr(BaseOxmlElement):
             id_elm = OxmlElement("w:id")
             self.append(id_elm)
         id_elm.set(qn("w:val"), str(value))
+
+    @property
+    def dataBinding(self) -> "CT_DataBinding | None":
+        """The `w:dataBinding` child element, or |None| when not present."""
+        return cast("CT_DataBinding | None", self.find(qn("w:dataBinding")))
+
+    def get_or_add_dataBinding(self) -> "CT_DataBinding":
+        """Return the `w:dataBinding` child, creating it if not already present."""
+        dataBinding = self.dataBinding
+        if dataBinding is None:
+            dataBinding = cast("CT_DataBinding", OxmlElement("w:dataBinding"))
+            # -- append: place after other sdtPr children. Word tolerates
+            #    w:dataBinding anywhere in sdtPr, though the XSD places it
+            #    near the end (before any type marker). --
+            self.append(dataBinding)
+        return dataBinding
+
+    def _remove_dataBinding(self) -> None:
+        """Remove the `w:dataBinding` child element, if present."""
+        dataBinding = self.dataBinding
+        if dataBinding is not None:
+            self.remove(dataBinding)
+
+
+class CT_DataBinding(BaseOxmlElement):
+    """``<w:dataBinding>`` element — ties an SDT to an XPath over a custom XML part.
+
+    The attributes are defined by ECMA-376 as:
+
+    - ``@w:prefixMappings`` — a whitespace-separated list of namespace declarations used
+      to resolve prefixes in ``@w:xpath``.
+    - ``@w:xpath`` — the XPath expression (required by the schema but we treat it as
+      optional here for read resiliency).
+    - ``@w:storeItemID`` — the ``{GUID}``-formatted identifier of the target custom XML
+      data part.
+
+    Live evaluation of ``@w:xpath`` against the referenced data part is **not** in
+    scope for this class; it carries the metadata verbatim.
+
+    NOTE: The Python attribute exposing ``@w:xpath`` is named ``xpath_val`` to avoid
+    shadowing :meth:`BaseOxmlElement.xpath`, which is lxml's XPath query method.
+    """
+
+    prefixMappings: "str | None" = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:prefixMappings", ST_String
+    )
+    xpath_val: "str | None" = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:xpath", ST_String
+    )
+    storeItemID: "str | None" = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:storeItemID", ST_String
+    )
 
 
 class CT_SdtContent(BaseOxmlElement):

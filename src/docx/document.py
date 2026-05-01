@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from docx.comments import Comment, Comments
     from docx.content_controls import ContentControl, ContentControlType
     from docx.custom_properties import CustomProperties
+    from docx.custom_xml import CustomXmlPart
     from docx.embedded_objects import EmbeddedObject
     from docx.endnotes import Endnotes, EndnoteProperties
     from docx.font_table import FontTable
@@ -405,6 +406,18 @@ class Document(ElementProxy):
         "core" Dublin-Core properties available via :attr:`core_properties`.
         """
         return self._part.custom_properties
+
+    @property
+    def custom_xml_parts(self) -> list[CustomXmlPart]:
+        """List of |CustomXmlPart| proxies for the custom XML data parts in the package.
+
+        Empty when the document has no ``customXml`` relationships. Each entry
+        exposes the data part's :attr:`~docx.custom_xml.CustomXmlPart.item_id`,
+        :attr:`~docx.custom_xml.CustomXmlPart.schema_refs`,
+        :attr:`~docx.custom_xml.CustomXmlPart.root_element`, and
+        :attr:`~docx.custom_xml.CustomXmlPart.blob` read-only.
+        """
+        return self._part.custom_xml_parts
 
     @property
     def numbering(self):
