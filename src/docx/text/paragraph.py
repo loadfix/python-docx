@@ -429,6 +429,44 @@ class Paragraph(StoryChild):
             paragraph.style = style
         return paragraph
 
+    def add_caption_before(
+        self,
+        text: str,
+        label: str = "Figure",
+        style: str = "Caption",
+    ) -> Paragraph:
+        """Insert a caption paragraph directly before this paragraph and return it.
+
+        This is the common shape for a caption that sits *above* a figure
+        or table. The inserted paragraph has the standard caption structure:
+        ``"{label} N: {text}"`` where ``N`` is produced by a
+        ``SEQ {label} \\* ARABIC`` field. See
+        :meth:`docx.document.Document.add_caption` for details.
+        """
+        from docx.captions import new_caption_paragraph
+
+        paragraph = self.insert_paragraph_before()
+        return new_caption_paragraph(paragraph, text, label=label, style=style)
+
+    def add_caption_after(
+        self,
+        text: str,
+        label: str = "Figure",
+        style: str = "Caption",
+    ) -> Paragraph:
+        """Insert a caption paragraph directly after this paragraph and return it.
+
+        This is the common shape for a caption that sits *below* a figure
+        or table. The inserted paragraph has the standard caption structure:
+        ``"{label} N: {text}"`` where ``N`` is produced by a
+        ``SEQ {label} \\* ARABIC`` field. See
+        :meth:`docx.document.Document.add_caption` for details.
+        """
+        from docx.captions import new_caption_paragraph
+
+        paragraph = self.insert_paragraph_after()
+        return new_caption_paragraph(paragraph, text, label=label, style=style)
+
     def insert_table_before(
         self,
         rows: int,

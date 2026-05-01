@@ -100,6 +100,29 @@ class Document(ElementProxy):
 
         return comment
 
+    def add_caption(
+        self,
+        text: str,
+        label: str = "Figure",
+        style: str = "Caption",
+    ) -> Paragraph:
+        """Return a new caption |Paragraph| appended to the end of the document body.
+
+        A Word caption is a paragraph styled with the ``Caption`` style that
+        auto-numbers itself via a ``SEQ`` field. The resulting paragraph has
+        the shape ``"{label} N: {text}"`` where ``N`` is produced by a
+        ``SEQ {label} \\* ARABIC`` field; Word updates the number when the
+        document is opened or fields are refreshed.
+
+        `label` groups captions into a named sequence (e.g. ``"Figure"`` or
+        ``"Table"``). `style` selects the paragraph style applied to the
+        caption paragraph and defaults to the built-in ``"Caption"`` style.
+        """
+        from docx.captions import new_caption_paragraph
+
+        paragraph = self.add_paragraph()
+        return new_caption_paragraph(paragraph, text, label=label, style=style)
+
     def add_heading(self, text: str = "", level: int = 1):
         """Return a heading paragraph newly added to the end of the document.
 
