@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from docx.enum.section import (
         WD_BORDER_DISPLAY,
         WD_BORDER_OFFSET_FROM,
+        WD_DOC_GRID_TYPE,
         WD_LINE_NUMBERING_RESTART,
         WD_ORIENTATION,
         WD_SECTION_START,
@@ -28,7 +29,14 @@ if TYPE_CHECKING:
     from docx.enum.text import WD_BORDER_STYLE
     from docx.footnotes import FootnoteProperties
     from docx.oxml.document import CT_Document
-    from docx.oxml.section import CT_Col, CT_Cols, CT_LineNumber, CT_PgBorders, CT_SectPr
+    from docx.oxml.section import (
+        CT_Col,
+        CT_Cols,
+        CT_DocGrid,
+        CT_LineNumber,
+        CT_PgBorders,
+        CT_SectPr,
+    )
     from docx.oxml.text.parfmt import CT_Border
     from docx.oxml.watermark import CT_VmlShape
     from docx.parts.document import DocumentPart
@@ -402,6 +410,47 @@ class Section:
                 self._sectPr._remove_paperSrc()  # pyright: ignore[reportPrivateUsage]
             return
         self._sectPr.get_or_add_paperSrc().other = value
+
+    @property
+    def document_grid(self) -> DocumentGrid | None:
+        """|DocumentGrid| proxy or |None| when no ``w:docGrid`` child is present.
+
+        The document grid controls the East Asian character grid for this section.
+        Use :meth:`set_document_grid` to create or update the ``w:docGrid`` element
+        and :meth:`remove_document_grid` to remove it.
+        """
+        docGrid = self._sectPr.docGrid
+        if docGrid is None:
+            return None
+        return DocumentGrid(docGrid)
+
+    def set_document_grid(
+        self,
+        type: "WD_DOC_GRID_TYPE | None" = None,
+        line_pitch: int | None = None,
+        char_space: int | None = None,
+    ) -> DocumentGrid:
+        """Create or update this section's ``w:docGrid`` with provided values.
+
+        Any argument left as |None| leaves the corresponding attribute on an
+        existing ``w:docGrid`` element unchanged. Returns the |DocumentGrid|
+        proxy for the resulting element.
+        """
+        docGrid = self._sectPr.get_or_add_docGrid()
+        if type is not None:
+            docGrid.type = type
+        if line_pitch is not None:
+            docGrid.linePitch = line_pitch
+        if char_space is not None:
+            docGrid.charSpace = char_space
+        return DocumentGrid(docGrid)
+
+    def remove_document_grid(self) -> None:
+        """Remove any ``w:docGrid`` element from this section's ``w:sectPr``.
+
+        Does nothing when no ``w:docGrid`` child is present.
+        """
+        self._sectPr._remove_docGrid()  # pyright: ignore[reportPrivateUsage]
 
     @property
     def right_margin(self) -> Length | None:
@@ -1074,6 +1123,57 @@ class LineNumbering:
     @restart.setter
     def restart(self, value: "WD_LINE_NUMBERING_RESTART | None") -> None:
         self._lnNumType.restart = value
+
+
+class DocumentGrid:
+    """Proxy for a ``<w:docGrid>`` element on a section's ``w:sectPr``.
+
+    Accessed via :attr:`Section.document_grid`. Provides read/write access to the
+    ``type``, ``linePitch`` and ``charSpace`` attributes, which control the East
+    Asian character grid for the section.
+    """
+
+    def __init__(self, docGrid: "CT_DocGrid"):
+        self._docGrid = docGrid
+
+    @property
+    def type(self) -> "WD_DOC_GRID_TYPE | None":
+        """Read/write. |WD_DOC_GRID_TYPE| member or |None|.
+
+        Controls the document grid type: ``DEFAULT``, ``LINES``, ``LINES_AND_CHARS``,
+        or ``SNAP_TO_CHARS``. |None| when the ``w:type`` attribute is not specified.
+        """
+        return self._docGrid.type
+
+    @type.setter
+    def type(self, value: "WD_DOC_GRID_TYPE | None") -> None:
+        self._docGrid.type = value
+
+    @property
+    def line_pitch(self) -> int | None:
+        """Read/write. Line pitch (lines per page height unit) as an integer.
+
+        Maps to the ``w:linePitch`` attribute. |None| when the attribute is not
+        specified.
+        """
+        return self._docGrid.linePitch
+
+    @line_pitch.setter
+    def line_pitch(self, value: int | None) -> None:
+        self._docGrid.linePitch = value
+
+    @property
+    def char_space(self) -> int | None:
+        """Read/write. Additional character spacing in 1/1024pt units, as an integer.
+
+        Maps to the ``w:charSpace`` attribute. |None| when the attribute is not
+        specified.
+        """
+        return self._docGrid.charSpace
+
+    @char_space.setter
+    def char_space(self, value: int | None) -> None:
+        self._docGrid.charSpace = value
 
 
 class _BaseHeaderFooter(BlockItemContainer):

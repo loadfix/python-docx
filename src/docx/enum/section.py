@@ -71,6 +71,40 @@ class WD_LINE_NUMBERING_RESTART(BaseXmlEnum):
     """Line numbering restarts at the beginning of each page."""
 
 
+class WD_DOC_GRID_TYPE(BaseXmlEnum):
+    """Specifies the type of East Asian document character grid for a section.
+
+    Maps to the ``w:type`` attribute of the ``w:docGrid`` element.
+
+    Example::
+
+        from docx.enum.section import WD_DOC_GRID_TYPE
+
+        section = document.sections[0]
+        section.set_document_grid(type=WD_DOC_GRID_TYPE.LINES_AND_CHARS)
+    """
+
+    DEFAULT = (0, "default", "No document grid is applied.")
+    """No document grid is applied."""
+
+    LINES = (1, "lines", "Grid specifies lines per page only.")
+    """Grid specifies lines per page only."""
+
+    LINES_AND_CHARS = (
+        2,
+        "linesAndChars",
+        "Grid specifies both lines per page and characters per line.",
+    )
+    """Grid specifies both lines per page and characters per line."""
+
+    SNAP_TO_CHARS = (
+        3,
+        "snapToChars",
+        "Characters snap to the grid; used when fixed character positions are required.",
+    )
+    """Characters snap to the grid; used when fixed character positions are required."""
+
+
 class WD_HEADER_FOOTER_INDEX(BaseXmlEnum):
     """Alias: **WD_HEADER_FOOTER**
 
