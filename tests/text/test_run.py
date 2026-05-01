@@ -497,3 +497,25 @@ class DescribeRun:
     @pytest.fixture
     def Text_(self, request: FixtureRequest):
         return class_mock(request, "docx.text.run._Text")
+
+
+class DescribeRun_Rsid:
+    """Unit-test suite for the RSID accessor on `Run`."""
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r{w:rsidR=00FA1B42}", "00FA1B42"),
+            ("w:r{w:rsidR=001234AB,w:rsidRPr=005678CD}", "001234AB"),
+        ],
+    )
+    def it_reads_rsid_from_rsidR_attribute(
+        self, cxml: str, expected_value: str | None, paragraph_
+    ):
+        run = Run(cast(CT_R, element(cxml)), paragraph_)
+        assert run.rsid == expected_value
+
+    @pytest.fixture
+    def paragraph_(self, request: FixtureRequest):
+        return instance_mock(request, Paragraph)

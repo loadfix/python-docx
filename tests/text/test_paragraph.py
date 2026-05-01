@@ -1303,3 +1303,29 @@ class DescribeParagraph_ListFeatures:
                 return part_
 
         return Paragraph(p, FakeParent())
+
+
+class DescribeParagraph_Rsid:
+    """Unit-test suite for the RSID accessor on `Paragraph`."""
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:p", None),
+            ("w:p{w:rsidR=00FA1B42}", "00FA1B42"),
+            ("w:p{w:rsidR=001234AB,w:rsidRPr=005678CD}", "001234AB"),
+        ],
+    )
+    def it_reads_rsid_from_rsidR_attribute(
+        self, request: pytest.FixtureRequest, cxml: str, expected_value: str | None
+    ):
+        p = cast(CT_P, element(cxml))
+        part_ = instance_mock(request, DocumentPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        paragraph = Paragraph(p, FakeParent())
+        assert paragraph.rsid == expected_value

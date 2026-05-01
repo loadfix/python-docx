@@ -228,6 +228,16 @@ class Run(StoryChild):
         return FormattingChange(rPrChange)
 
     @property
+    def rsid(self) -> str | None:
+        """The run's revision-save ID (``w:r/@w:rsidR``) or |None|.
+
+        Read-only. Returns the 8-character hex string Word assigns to mark the
+        editing session in which this run was last modified, or |None| when
+        the ``@w:rsidR`` attribute is not present.
+        """
+        return self._r.rsidR
+
+    @property
     def style(self) -> CharacterStyle:
         """Read/write.
 

@@ -171,6 +171,49 @@ class CT_DefaultTabStop(BaseOxmlElement):
     )
 
 
+class CT_LongHexNumber(BaseOxmlElement):
+    """`w:rsidRoot` or `w:rsid` element, carrying an 8-char hex RSID in ``@w:val``.
+
+    Both elements share the same content-type in the schema -- a single
+    ``@w:val`` attribute holding the 8-digit uppercase hex string identifying a
+    Word editing session.
+    """
+
+    val: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:val", ST_String
+    )
+
+
+class CT_Rsids(BaseOxmlElement):
+    """`w:rsids` element, containing the set of revision-save IDs for the document.
+
+    Contains at most one ``w:rsidRoot`` (the first RSID ever assigned) and zero
+    or more ``w:rsid`` children (every RSID used across editing sessions).
+    """
+
+    rsidRoot: CT_LongHexNumber | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:rsidRoot", successors=("w:rsid",)
+    )
+    rsid = ZeroOrMore("w:rsid", successors=())
+    rsid_lst: list[CT_LongHexNumber]
+
+    @property
+    def rsidRoot_val(self) -> str | None:
+        """Value of `w:rsidRoot/@w:val` or |None| if absent."""
+        rsidRoot = self.rsidRoot
+        if rsidRoot is None:
+            return None
+        return rsidRoot.val
+
+    @property
+    def rsid_vals(self) -> list[str]:
+        """``@w:val`` of each `w:rsid` child in document order.
+
+        Children whose ``@w:val`` attribute is missing are skipped.
+        """
+        return [rsid.val for rsid in self.rsid_lst if rsid.val is not None]
+
+
 class CT_Settings(BaseOxmlElement):
     """`w:settings` element, root element for the settings part."""
 
@@ -319,6 +362,9 @@ class CT_Settings(BaseOxmlElement):
     )
     compat: CT_Compat | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:compat", successors=_tag_seq[81:]
+    )
+    rsids: "CT_Rsids | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:rsids", successors=_tag_seq[83:]
     )
     del _tag_seq
 

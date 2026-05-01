@@ -9,7 +9,8 @@ from collections.abc import Callable
 
 from docx.oxml.ns import qn
 from docx.oxml.parser import OxmlElement
-from docx.oxml.xmlchemy import BaseOxmlElement, ZeroOrMore, ZeroOrOne
+from docx.oxml.simpletypes import ST_String
+from docx.oxml.xmlchemy import BaseOxmlElement, OptionalAttribute, ZeroOrMore, ZeroOrOne
 
 if TYPE_CHECKING:
     from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
@@ -37,6 +38,10 @@ class CT_P(BaseOxmlElement):
     r = ZeroOrMore("w:r")
     fldSimple = ZeroOrMore("w:fldSimple")
     sdt = ZeroOrMore("w:sdt")
+
+    rsidR: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:rsidR", ST_String
+    )
 
     def add_hyperlink(
         self, rId: str | None, anchor: str | None, text: str, rPr: CT_RPr | None
