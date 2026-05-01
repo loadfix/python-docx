@@ -14,7 +14,7 @@ class TabStops(ElementProxy):
     """
 
     def __init__(self, element):
-        super(TabStops, self).__init__(element, None)
+        super().__init__(element, None)
         self._pPr = element
 
     def __delitem__(self, idx):
@@ -76,7 +76,7 @@ class TabStop(ElementProxy):
     """
 
     def __init__(self, element):
-        super(TabStop, self).__init__(element, None)
+        super().__init__(element, None)
         self._tab = element
 
     @property

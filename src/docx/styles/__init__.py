@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict
+
 
 
 class BabelFish:
@@ -24,7 +24,7 @@ class BabelFish:
         ("Heading 9", "heading 9"),
     )
 
-    internal_style_names: Dict[str, str] = dict(style_aliases)
+    internal_style_names: dict[str, str] = dict(style_aliases)
     ui_style_names = {item[1]: item[0] for item in style_aliases}
 
     @classmethod

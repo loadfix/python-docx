@@ -23,7 +23,7 @@ class ColorFormat(ElementProxy):
     """Provides access to color settings like RGB color, theme color, and luminance adjustments."""
 
     def __init__(self, rPr_parent: RPrParent):
-        super(ColorFormat, self).__init__(rPr_parent)
+        super().__init__(rPr_parent)
         self._element = rPr_parent
 
     @property

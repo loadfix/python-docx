@@ -22,7 +22,7 @@ class InlineShapes(Parented):
     """Sequence of |InlineShape| instances, supporting len(), iteration, and indexed access."""
 
     def __init__(self, body_elm: CT_Body, parent: StoryPart):
-        super(InlineShapes, self).__init__(parent)
+        super().__init__(parent)
         self._body = body_elm
 
     def __getitem__(self, idx: int):
@@ -53,7 +53,7 @@ class InlineShape:
     graphical object."""
 
     def __init__(self, inline: CT_Inline):
-        super(InlineShape, self).__init__()
+        super().__init__()
         self._inline = inline
 
     @property

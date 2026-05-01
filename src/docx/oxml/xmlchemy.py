@@ -5,7 +5,8 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any, Callable, Sequence, Type, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+from collections.abc import Callable, Sequence
 
 from lxml import etree
 from lxml.etree import ElementBase, _Element  # pyright: ignore[reportPrivateUsage]
@@ -114,8 +115,8 @@ class BaseAttribute:
     Provides common methods.
     """
 
-    def __init__(self, attr_name: str, simple_type: Type[BaseXmlEnum] | Type[BaseSimpleType]):
-        super(BaseAttribute, self).__init__()
+    def __init__(self, attr_name: str, simple_type: type[BaseXmlEnum] | type[BaseSimpleType]):
+        super().__init__()
         self._attr_name = attr_name
         self._simple_type = simple_type
 
@@ -162,10 +163,10 @@ class OptionalAttribute(BaseAttribute):
     def __init__(
         self,
         attr_name: str,
-        simple_type: Type[BaseXmlEnum] | Type[BaseSimpleType],
+        simple_type: type[BaseXmlEnum] | type[BaseSimpleType],
         default: BaseXmlEnum | BaseSimpleType | str | bool | None = None,
     ):
-        super(OptionalAttribute, self).__init__(attr_name, simple_type)
+        super().__init__(attr_name, simple_type)
         self._default = default
 
     @property
@@ -269,7 +270,7 @@ class _BaseChildElement:
     """
 
     def __init__(self, nsptagname: str, successors: tuple[str, ...] = ()):
-        super(_BaseChildElement, self).__init__()
+        super().__init__()
         self._nsptagname = nsptagname
         self._successors = successors
 
@@ -484,11 +485,11 @@ class OneAndOnlyOne(_BaseChildElement):
     """Defines a required child element for MetaOxmlElement."""
 
     def __init__(self, nsptagname: str):
-        super(OneAndOnlyOne, self).__init__(nsptagname, ())
+        super().__init__(nsptagname, ())
 
     def populate_class_members(self, element_cls: MetaOxmlElement, prop_name: str) -> None:
         """Add the appropriate methods to `element_cls`."""
-        super(OneAndOnlyOne, self).populate_class_members(element_cls, prop_name)
+        super().populate_class_members(element_cls, prop_name)
         self._add_getter()
 
     @property
@@ -514,7 +515,7 @@ class OneOrMore(_BaseChildElement):
 
     def populate_class_members(self, element_cls: MetaOxmlElement, prop_name: str) -> None:
         """Add the appropriate methods to `element_cls`."""
-        super(OneOrMore, self).populate_class_members(element_cls, prop_name)
+        super().populate_class_members(element_cls, prop_name)
         self._add_list_getter()
         self._add_creator()
         self._add_inserter()
@@ -528,7 +529,7 @@ class ZeroOrMore(_BaseChildElement):
 
     def populate_class_members(self, element_cls: MetaOxmlElement, prop_name: str) -> None:
         """Add the appropriate methods to `element_cls`."""
-        super(ZeroOrMore, self).populate_class_members(element_cls, prop_name)
+        super().populate_class_members(element_cls, prop_name)
         self._add_list_getter()
         self._add_creator()
         self._add_inserter()
@@ -542,7 +543,7 @@ class ZeroOrOne(_BaseChildElement):
 
     def populate_class_members(self, element_cls: MetaOxmlElement, prop_name: str) -> None:
         """Add the appropriate methods to `element_cls`."""
-        super(ZeroOrOne, self).populate_class_members(element_cls, prop_name)
+        super().populate_class_members(element_cls, prop_name)
         self._add_getter()
         self._add_creator()
         self._add_inserter()
@@ -590,7 +591,7 @@ class ZeroOrOneChoice(_BaseChildElement):
 
     def populate_class_members(self, element_cls: MetaOxmlElement, prop_name: str) -> None:
         """Add the appropriate methods to `element_cls`."""
-        super(ZeroOrOneChoice, self).populate_class_members(element_cls, prop_name)
+        super().populate_class_members(element_cls, prop_name)
         self._add_choice_getter()
         for choice in self._choices:
             choice.populate_class_members(element_cls, self._prop_name, self._successors)

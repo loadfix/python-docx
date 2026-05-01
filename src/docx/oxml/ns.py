@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict
+
 
 nsmap = {
     "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
@@ -64,7 +64,7 @@ class NamespacePrefixedTag(str):
         return self._local_part
 
     @property
-    def nsmap(self) -> Dict[str, str]:
+    def nsmap(self) -> dict[str, str]:
         """Single-member dict mapping prefix of this tag to it's namespace name.
 
         Example: `{"f": "http://foo/bar"}`. This is handy for passing to xpath calls
@@ -98,7 +98,7 @@ def nsdecls(*prefixes: str) -> str:
     return " ".join(['xmlns:%s="%s"' % (pfx, nsmap[pfx]) for pfx in prefixes])
 
 
-def nspfxmap(*nspfxs: str) -> Dict[str, str]:
+def nspfxmap(*nspfxs: str) -> dict[str, str]:
     """Subset namespace-prefix mappings specified by *nspfxs*.
 
     Any number of namespace prefixes can be supplied, e.g. namespaces("a", "r", "p").

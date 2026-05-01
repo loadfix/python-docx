@@ -74,7 +74,7 @@ class _NumberingDefinitions:
     elements in a numbering part."""
 
     def __init__(self, numbering_elm):
-        super(_NumberingDefinitions, self).__init__()
+        super().__init__()
         self._numbering = numbering_elm
 
     def __len__(self):

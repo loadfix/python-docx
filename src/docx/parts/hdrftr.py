@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from docx.opc.constants import CONTENT_TYPE as CT
@@ -27,10 +27,7 @@ class FooterPart(StoryPart):
     @classmethod
     def _default_footer_xml(cls):
         """Return bytes containing XML for a default footer part."""
-        path = os.path.join(os.path.split(__file__)[0], "..", "templates", "default-footer.xml")
-        with open(path, "rb") as f:
-            xml_bytes = f.read()
-        return xml_bytes
+        return (Path(__file__).parent.parent / "templates" / "default-footer.xml").read_bytes()
 
 
 class HeaderPart(StoryPart):
@@ -47,7 +44,4 @@ class HeaderPart(StoryPart):
     @classmethod
     def _default_header_xml(cls):
         """Return bytes containing XML for a default header part."""
-        path = os.path.join(os.path.split(__file__)[0], "..", "templates", "default-header.xml")
-        with open(path, "rb") as f:
-            xml_bytes = f.read()
-        return xml_bytes
+        return (Path(__file__).parent.parent / "templates" / "default-header.xml").read_bytes()

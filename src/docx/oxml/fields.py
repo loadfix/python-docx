@@ -14,7 +14,8 @@ Both forms surface through the same :class:`docx.fields.Field` proxy.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, List
+from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 from docx.oxml.simpletypes import XsdString
 from docx.oxml.xmlchemy import (
@@ -49,7 +50,7 @@ class CT_FldSimple(BaseOxmlElement):
     """
 
     add_r: Callable[[], "CT_R"]
-    r_lst: List["CT_R"]
+    r_lst: list["CT_R"]
 
     instr: str = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
         "w:instr", XsdString

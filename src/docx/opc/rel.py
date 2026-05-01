@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from docx.opc.oxml import CT_Relationships
 
@@ -10,11 +10,11 @@ if TYPE_CHECKING:
     from docx.opc.part import Part
 
 
-class Relationships(Dict[str, "_Relationship"]):
+class Relationships(dict[str, "_Relationship"]):
     """Collection object for |_Relationship| instances, having list semantics."""
 
     def __init__(self, baseURI: str):
-        super(Relationships, self).__init__()
+        super().__init__()
         self._baseURI = baseURI
         self._target_parts_by_rId: dict[str, Any] = {}
 
@@ -117,7 +117,7 @@ class _Relationship:
     def __init__(
         self, rId: str, reltype: str, target: Part | str, baseURI: str, external: bool = False
     ):
-        super(_Relationship, self).__init__()
+        super().__init__()
         self._rId = rId
         self._reltype = reltype
         self._target = target

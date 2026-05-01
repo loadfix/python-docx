@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import IO, TYPE_CHECKING, Iterator, cast
+from typing import IO, TYPE_CHECKING, cast
+from collections.abc import Iterator
 
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.opc.packuri import PACKAGE_URI, PackURI

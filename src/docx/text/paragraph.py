@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import IO, TYPE_CHECKING, Iterator, List, cast
+from typing import IO, TYPE_CHECKING, cast
+from collections.abc import Iterator
 
 from docx.drawing import Drawing
 from docx.enum.section import WD_SECTION_START
@@ -43,7 +44,7 @@ class Paragraph(StoryChild):
     """Proxy object wrapping a `<w:p>` element."""
 
     def __init__(self, p: CT_P, parent: t.ProvidesStoryPart):
-        super(Paragraph, self).__init__(parent)
+        super().__init__(parent)
         self._p = self._element = p
 
     def add_bookmark(
@@ -253,13 +254,13 @@ class Paragraph(StoryChild):
         return FloatingImage(anchor)
 
     @property
-    def fields(self) -> List[Field]:
+    def fields(self) -> list[Field]:
         """List of |Field| objects for each field in this paragraph.
 
         Includes both simple (``w:fldSimple``) and complex (``w:fldChar``)
         fields, in document order.
         """
-        result: List[Field] = []
+        result: list[Field] = []
         for kind, el in self._p.iter_field_elements():
             if kind == "simple":
                 result.append(Field.for_simple(el))
@@ -268,7 +269,7 @@ class Paragraph(StoryChild):
         return result
 
     @property
-    def floating_images(self) -> List[FloatingImage]:
+    def floating_images(self) -> list[FloatingImage]:
         """A |FloatingImage| instance for each `wp:anchor` in this paragraph."""
         return [
             FloatingImage(cast(CT_Anchor, a))
@@ -276,7 +277,7 @@ class Paragraph(StoryChild):
         ]
 
     @property
-    def content_controls(self) -> List[ContentControl]:
+    def content_controls(self) -> list[ContentControl]:
         """List of inline |ContentControl| objects in this paragraph, in document order."""
         from docx.content_controls import ContentControl
 
@@ -353,7 +354,7 @@ class Paragraph(StoryChild):
         return bool(self._p.xpath('.//w:br[@w:type="page"]'))
 
     @property
-    def drawings(self) -> List[Drawing]:
+    def drawings(self) -> list[Drawing]:
         """A |Drawing| instance for each `<w:drawing>` element in this paragraph."""
         return [
             Drawing(cast(CT_Drawing, d), self)
@@ -361,7 +362,7 @@ class Paragraph(StoryChild):
         ]
 
     @property
-    def hyperlinks(self) -> List[Hyperlink]:
+    def hyperlinks(self) -> list[Hyperlink]:
         """A |Hyperlink| instance for each hyperlink in this paragraph."""
         return [Hyperlink(hyperlink, self) for hyperlink in self._p.hyperlink_lst]
 
@@ -630,7 +631,7 @@ class Paragraph(StoryChild):
         numPr.numId_val = new_num.numId
 
     @property
-    def rendered_page_breaks(self) -> List[RenderedPageBreak]:
+    def rendered_page_breaks(self) -> list[RenderedPageBreak]:
         """All rendered page-breaks in this paragraph.
 
         Most often an empty list, sometimes contains one page-break, but can contain
@@ -639,7 +640,7 @@ class Paragraph(StoryChild):
         return [RenderedPageBreak(lrpb, self) for lrpb in self._p.lastRenderedPageBreaks]
 
     @property
-    def runs(self) -> List[Run]:
+    def runs(self) -> list[Run]:
         """Sequence of |Run| instances corresponding to the <w:r> elements in this
         paragraph."""
         return [Run(r, self) for r in self._p.r_lst]
@@ -682,7 +683,7 @@ class Paragraph(StoryChild):
         return FormattingChange(pPrChange)
 
     @property
-    def tracked_changes(self) -> List[TrackedChange]:
+    def tracked_changes(self) -> list[TrackedChange]:
         """A list of |TrackedChange| objects for each insertion or deletion in this
         paragraph."""
         return [TrackedChange(tc) for tc in self._p.tracked_change_elements]

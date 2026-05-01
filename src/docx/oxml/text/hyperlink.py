@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, List
+from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 from docx.oxml.simpletypes import ST_OnOff, ST_String, XsdString
 from docx.oxml.text.run import CT_R
@@ -20,7 +21,7 @@ class CT_Hyperlink(BaseOxmlElement):
     """`<w:hyperlink>` element, containing the text and address for a hyperlink."""
 
     add_r: Callable[[], CT_R]
-    r_lst: List[CT_R]
+    r_lst: list[CT_R]
 
     rId: str | None = OptionalAttribute("r:id", XsdString)  # pyright: ignore[reportAssignmentType]
     anchor: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
@@ -33,7 +34,7 @@ class CT_Hyperlink(BaseOxmlElement):
     r = ZeroOrMore("w:r")
 
     @property
-    def lastRenderedPageBreaks(self) -> List[CT_LastRenderedPageBreak]:
+    def lastRenderedPageBreaks(self) -> list[CT_LastRenderedPageBreak]:
         """All `w:lastRenderedPageBreak` descendants of this hyperlink."""
         return self.xpath("./w:r/w:lastRenderedPageBreak")
 

@@ -4,7 +4,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 from docx.enum.dml import MSO_THEME_COLOR
 from docx.enum.text import WD_COLOR_INDEX, WD_UNDERLINE

@@ -39,7 +39,7 @@ class _TiffParser:
     image file directory (IFD)"""
 
     def __init__(self, ifd_entries):
-        super(_TiffParser, self).__init__()
+        super().__init__()
         self._ifd_entries = ifd_entries
 
     @classmethod
@@ -120,7 +120,7 @@ class _IfdEntries:
     "tag" values to be retrieved by tag code."""
 
     def __init__(self, entries):
-        super(_IfdEntries, self).__init__()
+        super().__init__()
         self._entries = entries
 
     def __contains__(self, key):
@@ -150,7 +150,7 @@ class _IfdParser:
     Directory (IFD)"""
 
     def __init__(self, stream_rdr, offset):
-        super(_IfdParser, self).__init__()
+        super().__init__()
         self._stream_rdr = stream_rdr
         self._offset = offset
 
@@ -189,7 +189,7 @@ class _IfdEntry:
     """
 
     def __init__(self, tag_code, value):
-        super(_IfdEntry, self).__init__()
+        super().__init__()
         self._tag_code = tag_code
         self._value = value
 

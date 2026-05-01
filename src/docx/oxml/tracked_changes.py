@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from lxml import etree  # noqa: F401  -- used for QName
 
@@ -30,7 +30,7 @@ class CT_RunTrackChange(BaseOxmlElement):
     Both share the same attribute set: `w:id`, `w:author`, and `w:date`.
     """
 
-    r_lst: List[CT_R]
+    r_lst: list[CT_R]
 
     r = ZeroOrMore("w:r", successors=())
 

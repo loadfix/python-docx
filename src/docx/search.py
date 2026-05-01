@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from docx.text.paragraph import Paragraph
@@ -21,7 +21,7 @@ class SearchMatch:
         self,
         paragraph: Paragraph,
         paragraph_index: int,
-        run_indices: List[int],
+        run_indices: list[int],
         start: int,
         end: int,
     ):
@@ -42,7 +42,7 @@ class SearchMatch:
         return self._paragraph_index
 
     @property
-    def run_indices(self) -> List[int]:
+    def run_indices(self) -> list[int]:
         """Indices of runs that span this match."""
         return self._run_indices
 
@@ -57,14 +57,14 @@ class SearchMatch:
         return self._end
 
 
-def _build_char_map(runs: List[Run]) -> Tuple[str, List[Tuple[int, int]]]:
+def _build_char_map(runs: list[Run]) -> tuple[str, list[tuple[int, int]]]:
     """Build full text from runs and a map from character position to (run_index, offset).
 
     Returns a tuple of (full_text, char_map) where char_map[i] is (run_index,
     char_offset_within_run) for the i-th character in full_text.
     """
     full_text = ""
-    char_map: List[Tuple[int, int]] = []
+    char_map: list[tuple[int, int]] = []
     for run_idx, run in enumerate(runs):
         run_text = run.text
         for char_offset in range(len(run_text)):
@@ -83,11 +83,11 @@ def _compile_pattern(text: str, case_sensitive: bool, whole_word: bool) -> re.Pa
 
 
 def search_paragraphs(
-    paragraphs: List[Paragraph],
+    paragraphs: list[Paragraph],
     text: str,
     case_sensitive: bool = True,
     whole_word: bool = False,
-) -> List[SearchMatch]:
+) -> list[SearchMatch]:
     """Find all occurrences of `text` across `paragraphs`.
 
     Returns a list of |SearchMatch| objects, one for each occurrence found.
@@ -96,7 +96,7 @@ def search_paragraphs(
         return []
 
     pattern = _compile_pattern(text, case_sensitive, whole_word)
-    matches: List[SearchMatch] = []
+    matches: list[SearchMatch] = []
 
     for para_idx, paragraph in enumerate(paragraphs):
         full_text, char_map = _build_char_map(paragraph.runs)
@@ -117,7 +117,7 @@ def search_paragraphs(
 
 
 def replace_in_paragraphs(
-    paragraphs: List[Paragraph],
+    paragraphs: list[Paragraph],
     old_text: str,
     new_text: str,
     case_sensitive: bool = True,
@@ -165,8 +165,8 @@ def _replace_in_paragraph(
 
 
 def _apply_replacement(
-    runs: List[Run],
-    char_map: List[Tuple[int, int]],
+    runs: list[Run],
+    char_map: list[tuple[int, int]],
     match_start: int,
     match_end: int,
     new_text: str,

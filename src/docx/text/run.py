@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import IO, TYPE_CHECKING, Iterator, cast
+from typing import IO, TYPE_CHECKING, cast
+from collections.abc import Iterator
 
 from docx.drawing import Drawing
 from docx.enum.style import WD_STYLE_TYPE
@@ -294,5 +295,5 @@ class _Text:
     """Proxy object wrapping `<w:t>` element."""
 
     def __init__(self, t_elm: CT_Text):
-        super(_Text, self).__init__()
+        super().__init__()
         self._t = t_elm

@@ -12,7 +12,7 @@ class PackageReader:
     :attr:`serialized_parts` and :attr:`pkg_srels` attributes."""
 
     def __init__(self, content_types, pkg_srels, sparts):
-        super(PackageReader, self).__init__()
+        super().__init__()
         self._pkg_srels = pkg_srels
         self._sparts = sparts
 
@@ -88,7 +88,7 @@ class _ContentTypeMap:
     name, e.g. ``content_type = cti['/ppt/presentation.xml']``."""
 
     def __init__(self):
-        super(_ContentTypeMap, self).__init__()
+        super().__init__()
         self._overrides = CaseInsensitiveDict()
         self._defaults = CaseInsensitiveDict()
 
@@ -135,7 +135,7 @@ class _SerializedPart:
     """
 
     def __init__(self, partname, content_type, reltype, blob, srels):
-        super(_SerializedPart, self).__init__()
+        super().__init__()
         self._partname = partname
         self._content_type = content_type
         self._reltype = reltype
@@ -172,7 +172,7 @@ class _SerializedRelationship:
     """
 
     def __init__(self, baseURI, rel_elm):
-        super(_SerializedRelationship, self).__init__()
+        super().__init__()
         self._baseURI = baseURI
         self._rId = rel_elm.rId
         self._reltype = rel_elm.reltype
@@ -232,7 +232,7 @@ class _SerializedRelationships:
     relationships item XML passed to constructor."""
 
     def __init__(self):
-        super(_SerializedRelationships, self).__init__()
+        super().__init__()
         self._srels = []
 
     def __iter__(self):

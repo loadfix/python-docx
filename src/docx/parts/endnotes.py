@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from typing_extensions import Self
@@ -48,7 +48,4 @@ class EndnotesPart(StoryPart):
     @classmethod
     def _default_endnotes_xml(cls) -> bytes:
         """A byte-string containing XML for a default endnotes part."""
-        path = os.path.join(os.path.split(__file__)[0], "..", "templates", "default-endnotes.xml")
-        with open(path, "rb") as f:
-            xml_bytes = f.read()
-        return xml_bytes
+        return (Path(__file__).parent.parent / "templates" / "default-endnotes.xml").read_bytes()

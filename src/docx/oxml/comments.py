@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import datetime as dt
 import secrets
-from typing import TYPE_CHECKING, Callable, cast
+from typing import TYPE_CHECKING, cast
+from collections.abc import Callable
 
 from docx.oxml.ns import nsdecls, qn
 from docx.oxml.parser import parse_xml

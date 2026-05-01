@@ -8,7 +8,8 @@ specialized ones like structured document tags.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
+from collections.abc import Iterator
 
 from typing_extensions import TypeAlias
 
@@ -41,7 +42,7 @@ class BlockItemContainer(StoryChild):
     """
 
     def __init__(self, element: BlockItemElement, parent: t.ProvidesStoryPart):
-        super(BlockItemContainer, self).__init__(parent)
+        super().__init__(parent)
         self._element = element
 
     def add_paragraph(self, text: str = "", style: str | ParagraphStyle | None = None) -> Paragraph:

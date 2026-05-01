@@ -3,18 +3,8 @@
 from __future__ import annotations
 
 import functools
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Generic,
-    Iterator,
-    List,
-    Tuple,
-    TypeVar,
-    cast,
-)
-
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
+from collections.abc import Callable, Iterator
 if TYPE_CHECKING:
     import docx.types as t
     from docx.opc.part import XmlPart
@@ -121,7 +111,7 @@ class Twips(Length):
         return Length.__new__(cls, emu)
 
 
-class RGBColor(Tuple[int, int, int]):
+class RGBColor(tuple[int, int, int]):
     """Immutable value object defining a particular RGB color."""
 
     def __new__(cls, r: int, g: int, b: int):
@@ -363,7 +353,7 @@ class TextAccumulator:
 
     def __init__(self, separator: str = ""):
         self._separator = separator
-        self._texts: List[str] = []
+        self._texts: list[str] = []
 
     def push(self, text: str) -> None:
         """Add a text fragment to the accumulator."""

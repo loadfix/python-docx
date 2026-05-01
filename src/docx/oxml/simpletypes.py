@@ -10,7 +10,7 @@ schema.
 from __future__ import annotations
 
 import datetime as dt
-from typing import TYPE_CHECKING, Any, Tuple
+from typing import TYPE_CHECKING, Any
 
 from docx.exceptions import InvalidXmlError
 from docx.shared import Emu, Pt, RGBColor, Twips
@@ -92,7 +92,7 @@ class BaseStringType(BaseSimpleType):
 
 
 class BaseStringEnumerationType(BaseStringType):
-    _members: Tuple[str, ...]
+    _members: tuple[str, ...]
 
     @classmethod
     def validate(cls, value: Any) -> None:
