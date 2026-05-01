@@ -127,6 +127,84 @@ class DescribeDocument:
         run_.add_picture.assert_called_once_with(path, width, height)
         assert picture is picture_
 
+    def it_returns_empty_charts_for_a_chartless_document(self):
+        from docx import Document as OpenDocument
+
+        document = OpenDocument()
+        assert document.charts == []
+
+    def it_can_add_and_read_back_a_bar_chart(self):
+        from docx import Document as OpenDocument
+        from docx.chart import Chart as ChartProxy
+        from docx.chart import WD_CHART_TYPE
+
+        document = OpenDocument()
+        chart = document.add_chart(
+            WD_CHART_TYPE.BAR, ["a", "b", "c"], {"Series 1": [1.0, 2.0, 3.0]}
+        )
+        assert isinstance(chart, ChartProxy)
+        assert chart.chart_type is WD_CHART_TYPE.BAR
+        assert [s.name for s in chart.series] == ["Series 1"]
+        assert chart.series[0].values == [1.0, 2.0, 3.0]
+        assert chart.categories == ["a", "b", "c"]
+
+        charts = document.charts
+        assert len(charts) == 1
+        assert charts[0].chart_type is WD_CHART_TYPE.BAR
+
+    @pytest.mark.parametrize(
+        ("chart_type",),
+        [
+            ("BAR",),
+            ("COLUMN",),
+            ("LINE",),
+            ("PIE",),
+        ],
+    )
+    def it_roundtrips_each_supported_chart_type(self, chart_type: str):
+        import io
+
+        from docx import Document as OpenDocument
+        from docx.chart import WD_CHART_TYPE
+
+        ct = WD_CHART_TYPE[chart_type]
+        document = OpenDocument()
+        document.add_chart(ct, ["x", "y"], {"S": [11.0, 22.0]})
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        reopened = OpenDocument(buf)
+
+        charts = reopened.charts
+        assert len(charts) == 1
+        assert charts[0].chart_type is ct
+        assert charts[0].categories == ["x", "y"]
+        assert charts[0].series[0].name == "S"
+        assert charts[0].series[0].values == [11.0, 22.0]
+
+    def it_can_add_multiple_charts_to_one_document(self):
+        import io
+
+        from docx import Document as OpenDocument
+        from docx.chart import WD_CHART_TYPE
+
+        document = OpenDocument()
+        document.add_chart(
+            WD_CHART_TYPE.BAR, ["a", "b"], {"S1": [1.0, 2.0]}
+        )
+        document.add_chart(
+            WD_CHART_TYPE.PIE, ["a", "b"], {"S2": [3.0, 4.0]}
+        )
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        reopened = OpenDocument(buf)
+
+        kinds = [c.chart_type for c in reopened.charts]
+        assert kinds == [WD_CHART_TYPE.BAR, WD_CHART_TYPE.PIE]
+
     @pytest.mark.parametrize(
         ("sentinel_cxml", "start_type", "new_sentinel_cxml"),
         [

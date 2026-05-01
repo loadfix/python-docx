@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.accessibility import HeadingIssue
     from docx.bookmarks import Bookmarks
+    from docx.chart import Chart, WD_CHART_TYPE
     from docx.comments import Comment, Comments
     from docx.content_controls import ContentControl, ContentControlType
     from docx.custom_properties import CustomProperties
@@ -178,6 +179,56 @@ class Document(ElementProxy):
         """
         return self._body.add_content_control(type, tag=tag, title=title)
 
+    def add_chart(
+        self,
+        chart_type: WD_CHART_TYPE,
+        categories: list[str],
+        series_data: dict[str, list[float]],
+        width: Length | None = None,
+        height: Length | None = None,
+    ) -> Chart:
+        """Append a new chart to the end of the document and return it.
+
+        `chart_type` selects the kind of chart (see :class:`docx.chart.WD_CHART_TYPE`).
+        Only ``BAR``, ``BAR_STACKED``, ``COLUMN``, ``COLUMN_STACKED``, ``LINE``,
+        and ``PIE`` are supported for creation.
+
+        `categories` is a list of category labels (for example x-axis labels).
+        `series_data` maps each series name to its list of numeric values; every
+        value list must be the same length as `categories`.
+
+        `width` and `height` are |Length| instances controlling the display size
+        of the inline chart. When omitted a 6" x 3" default is used (similar to
+        Word's default inline chart size).
+        """
+        from docx.chart import Chart
+        from docx.opc.constants import RELATIONSHIP_TYPE as _RT
+        from docx.oxml.shape import CT_Inline
+        from docx.parts.chart import ChartPart
+        from docx.shared import Emu, Inches
+
+        cx = width if width is not None else Inches(6)
+        cy = height if height is not None else Inches(3)
+        cx = Emu(int(cx))
+        cy = Emu(int(cy))
+
+        # -- create the chart part and relate it to the document part --
+        package = self._part.package
+        assert package is not None
+        chart_part = ChartPart.new(package, chart_type, categories, series_data)
+        rId = self._part.relate_to(chart_part, _RT.CHART)
+
+        # -- build the wp:inline drawing pointing at the chart part --
+        shape_id = self._part.next_id
+        inline = CT_Inline.new_chart_inline(shape_id, rId, cx, cy)
+
+        # -- append a new paragraph and drawing to the body --
+        paragraph = self.add_paragraph()
+        run = paragraph.add_run()
+        run._r.add_drawing(inline)
+
+        return Chart(chart_part)
+
     def add_picture(
         self,
         image_path_or_stream: str | IO[bytes],
@@ -277,6 +328,37 @@ class Document(ElementProxy):
         from docx.bookmarks import Bookmarks
 
         return Bookmarks(self._element.body)
+
+    @property
+    def charts(self) -> list[Chart]:
+        """List of |Chart| for each chart referenced from the document body.
+
+        A chart is any ``c:chart`` reference element inside a drawing in the
+        body (inline or floating). Each reference is resolved to its
+        :class:`docx.parts.chart.ChartPart` via the document's relationship
+        graph. References whose target part is missing or of the wrong type
+        are skipped. Empty list when no charts are present.
+        """
+        from docx.chart import Chart
+        from docx.parts.chart import ChartPart
+
+        result: list[Chart] = []
+        rIds = self._element.body.xpath(
+            ".//w:drawing/wp:inline/a:graphic/a:graphicData/c:chart/@r:id"
+            " | .//w:drawing/wp:anchor/a:graphic/a:graphicData/c:chart/@r:id"
+        )
+        seen: set[str] = set()
+        for rId in rIds:
+            if rId in seen:
+                continue
+            seen.add(rId)
+            try:
+                chart_part = self._part.related_parts[rId]
+            except KeyError:
+                continue
+            if isinstance(chart_part, ChartPart):
+                result.append(Chart(chart_part))
+        return result
 
     @property
     def comments(self) -> Comments:
