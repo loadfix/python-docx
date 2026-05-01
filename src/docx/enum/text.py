@@ -747,3 +747,151 @@ class WD_FRAME_V_ALIGN(BaseXmlEnum):
 
     OUTSIDE = (5, "outside", "Frame is aligned to the outside of the page (for facing pages).")
     """Frame is aligned to the outside of the page (for facing pages)."""
+
+
+class WD_BUILDING_BLOCK_GALLERY(BaseXmlEnum):
+    """Specifies the Word building-block gallery a ``w:docPart`` belongs to.
+
+    Maps to the ``w:val`` attribute of ``w:docPart/w:docPartPr/w:category/
+    w:gallery``. The enumeration covers the galleries Word ships with plus a
+    handful of "custom" buckets; uncommon or vendor-specific values land on
+    :attr:`OTHER`. Use :meth:`from_xml_safe` to round-trip a value, returning
+    |None| rather than raising when the string is not recognized.
+
+    Example::
+
+        from docx.enum.text import WD_BUILDING_BLOCK_GALLERY
+
+        gallery = WD_BUILDING_BLOCK_GALLERY.from_xml_safe("quickParts")
+        assert gallery is WD_BUILDING_BLOCK_GALLERY.QUICK_PARTS
+    """
+
+    PLACEHOLDER = (0, "placeholder", "Placeholder gallery.")
+    """Placeholder gallery."""
+
+    ANY = (1, "any", "Matches any gallery.")
+    """Matches any gallery."""
+
+    DEFAULT = (2, "default", "Default gallery.")
+    """Default gallery."""
+
+    DOC_PARTS = (3, "docParts", "Generic document-parts gallery.")
+    """Generic document-parts gallery."""
+
+    COVER_PAGES = (4, "coverPg", "Cover-page gallery.")
+    """Cover-page gallery."""
+
+    EQUATIONS = (5, "eq", "Equation gallery.")
+    """Equation gallery."""
+
+    FOOTERS = (6, "ftrs", "Footer gallery.")
+    """Footer gallery."""
+
+    HEADERS = (7, "hdrs", "Header gallery.")
+    """Header gallery."""
+
+    PAGE_NUMBERS = (8, "pgNum", "Page-number gallery.")
+    """Page-number gallery."""
+
+    TABLES = (9, "tbls", "Table gallery.")
+    """Table gallery."""
+
+    WATERMARKS = (10, "watermarks", "Watermark gallery.")
+    """Watermark gallery."""
+
+    AUTO_TEXT = (11, "autoTxt", "AutoText gallery.")
+    """AutoText gallery."""
+
+    TEXT_BOXES = (12, "txtBox", "Text-box gallery.")
+    """Text-box gallery."""
+
+    PAGE_NUMBERS_BOTTOM = (13, "pgNumB", "Page-number (bottom of page) gallery.")
+    """Page-number (bottom of page) gallery."""
+
+    PAGE_NUMBERS_TOP = (14, "pgNumT", "Page-number (top of page) gallery.")
+    """Page-number (top of page) gallery."""
+
+    BIBLIOGRAPHIES = (15, "bib", "Bibliography gallery.")
+    """Bibliography gallery."""
+
+    QUICK_PARTS = (16, "quickParts", "Quick Parts gallery.")
+    """Quick Parts gallery."""
+
+    CUSTOM_QUICK_PARTS = (17, "custQuickParts", "Custom Quick Parts gallery.")
+    """Custom Quick Parts gallery."""
+
+    CUSTOM_COVER_PAGES = (18, "custCoverPg", "Custom cover-page gallery.")
+    """Custom cover-page gallery."""
+
+    CUSTOM_EQUATIONS = (19, "custEq", "Custom equation gallery.")
+    """Custom equation gallery."""
+
+    CUSTOM_FOOTERS = (20, "custFtrs", "Custom footer gallery.")
+    """Custom footer gallery."""
+
+    CUSTOM_HEADERS = (21, "custHdrs", "Custom header gallery.")
+    """Custom header gallery."""
+
+    CUSTOM_PAGE_NUMBERS = (22, "custPgNum", "Custom page-number gallery.")
+    """Custom page-number gallery."""
+
+    CUSTOM_TABLES = (23, "custTbls", "Custom table gallery.")
+    """Custom table gallery."""
+
+    CUSTOM_WATERMARKS = (24, "custWatermarks", "Custom watermark gallery.")
+    """Custom watermark gallery."""
+
+    CUSTOM_AUTO_TEXT = (25, "custAutoTxt", "Custom AutoText gallery.")
+    """Custom AutoText gallery."""
+
+    CUSTOM_TEXT_BOXES = (26, "custTxtBox", "Custom text-box gallery.")
+    """Custom text-box gallery."""
+
+    CUSTOM_PAGE_NUMBERS_BOTTOM = (
+        27,
+        "custPgNumB",
+        "Custom page-number (bottom of page) gallery.",
+    )
+    """Custom page-number (bottom of page) gallery."""
+
+    CUSTOM_PAGE_NUMBERS_TOP = (
+        28,
+        "custPgNumT",
+        "Custom page-number (top of page) gallery.",
+    )
+    """Custom page-number (top of page) gallery."""
+
+    CUSTOM_BIBLIOGRAPHIES = (29, "custBib", "Custom bibliography gallery.")
+    """Custom bibliography gallery."""
+
+    CUSTOM_1 = (30, "custom1", "Generic custom gallery 1.")
+    """Generic custom gallery 1."""
+
+    CUSTOM_2 = (31, "custom2", "Generic custom gallery 2.")
+    """Generic custom gallery 2."""
+
+    CUSTOM_3 = (32, "custom3", "Generic custom gallery 3.")
+    """Generic custom gallery 3."""
+
+    CUSTOM_4 = (33, "custom4", "Generic custom gallery 4.")
+    """Generic custom gallery 4."""
+
+    CUSTOM_5 = (34, "custom5", "Generic custom gallery 5.")
+    """Generic custom gallery 5."""
+
+    @classmethod
+    def from_xml_safe(
+        cls, xml_value: str | None
+    ) -> WD_BUILDING_BLOCK_GALLERY | None:
+        """Return the enum member for `xml_value`, or |None| when unknown.
+
+        Mirrors :meth:`BaseXmlEnum.from_xml` but never raises — callers that
+        want permissive decoding of building-block galleries should use this
+        entry point rather than the strict one.
+        """
+        if xml_value is None:
+            return None
+        for member in cls:
+            if member.xml_value == xml_value:
+                return member
+        return None

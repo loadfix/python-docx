@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from collections.abc import Iterator
 
 from docx.blkcntnr import BlockItemContainer
+from docx.enum.text import WD_BUILDING_BLOCK_GALLERY
 from docx.shared import ElementProxy
 
 if TYPE_CHECKING:
@@ -76,6 +77,78 @@ class Glossary(ElementProxy):
             BuildingBlock(doc_part, self._glossary_part)
             for doc_part in self._glossary_elm.docPart_lst
         ]
+
+    def by_category(
+        self,
+        gallery: WD_BUILDING_BLOCK_GALLERY | str | None = None,
+        category_name: str | None = None,
+    ) -> list[BuildingBlock]:
+        """Return building blocks filtered by gallery and/or `category_name`.
+
+        Either argument may be omitted; when both are provided, results
+        intersect. `gallery` may be a :class:`WD_BUILDING_BLOCK_GALLERY`
+        member or a raw XML string (e.g. ``"quickParts"``); raw strings are
+        compared as-is to the underlying gallery value. When both arguments
+        are |None|, every building block is returned (equivalent to
+        :attr:`building_blocks`). Comparison for `category_name` is exact
+        and case-sensitive.
+        """
+        if isinstance(gallery, WD_BUILDING_BLOCK_GALLERY):
+            gallery_xml: str | None = gallery.xml_value
+        else:
+            gallery_xml = gallery
+
+        result: list[BuildingBlock] = []
+        for block in self.building_blocks:
+            cat = block.category
+            if gallery_xml is not None and cat.gallery != gallery_xml:
+                continue
+            if category_name is not None and cat.category_name != category_name:
+                continue
+            result.append(block)
+        return result
+
+    @property
+    def categories(self) -> list[BuildingBlockCategory]:
+        """Unique |BuildingBlockCategory| objects across all building blocks.
+
+        Deduplication is by the ``(gallery, category_name)`` pair — two
+        categories with the same gallery value and same name count as one,
+        regardless of which underlying ``w:category`` element they came
+        from. Order preserves first-seen order in document traversal.
+        Categories where both gallery and name are |None| are dropped.
+        """
+        seen: set[tuple[str | None, str | None]] = set()
+        result: list[BuildingBlockCategory] = []
+        for block in self.building_blocks:
+            cat = block.category
+            if cat.gallery is None and cat.category_name is None:
+                continue
+            key = (cat.gallery, cat.category_name)
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(cat)
+        return result
+
+    @property
+    def galleries(self) -> list[str]:
+        """Unique gallery XML strings across all building blocks.
+
+        Returns the raw ``w:val`` strings (e.g. ``"quickParts"``,
+        ``"coverPg"``) in first-seen order. Use
+        :meth:`WD_BUILDING_BLOCK_GALLERY.from_xml_safe` to decode individual
+        values. Building blocks with no gallery are skipped.
+        """
+        seen: set[str] = set()
+        result: list[str] = []
+        for block in self.building_blocks:
+            gallery = block.category.gallery
+            if gallery is None or gallery in seen:
+                continue
+            seen.add(gallery)
+            result.append(gallery)
+        return result
 
 
 class BuildingBlock(BlockItemContainer):
@@ -172,11 +245,30 @@ class BuildingBlockCategory:
 
     Exposes the category name (``w:category/w:name/@w:val``) and gallery
     (``w:category/w:gallery/@w:val``). Both return |None| when the
-    underlying element or attribute is missing.
+    underlying element or attribute is missing. Equality is by
+    ``(gallery, category_name)`` so categories with identical slots are
+    interchangeable — convenient for set-based deduplication.
     """
 
     def __init__(self, category_elm: CT_DocPartCategory | None):
         self._category_elm = category_elm
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, BuildingBlockCategory):
+            return NotImplemented
+        return (
+            self.gallery == other.gallery
+            and self.category_name == other.category_name
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.gallery, self.category_name))
+
+    def __repr__(self) -> str:
+        return (
+            f"BuildingBlockCategory(gallery={self.gallery!r}, "
+            f"category_name={self.category_name!r})"
+        )
 
     @property
     def category_name(self) -> str | None:
@@ -191,3 +283,13 @@ class BuildingBlockCategory:
         if self._category_elm is None or self._category_elm.gallery is None:
             return None
         return self._category_elm.gallery.val
+
+    @property
+    def gallery_value(self) -> WD_BUILDING_BLOCK_GALLERY | None:
+        """The gallery as a |WD_BUILDING_BLOCK_GALLERY| member, or |None|.
+
+        |None| when the gallery slot is missing, or when its value is not
+        one of the well-known Word galleries modelled by the enum. Use
+        :attr:`gallery` to get the raw string for unknown values.
+        """
+        return WD_BUILDING_BLOCK_GALLERY.from_xml_safe(self.gallery)

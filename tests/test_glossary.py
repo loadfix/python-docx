@@ -6,6 +6,7 @@ from typing import cast
 
 import pytest
 
+from docx.enum.text import WD_BUILDING_BLOCK_GALLERY
 from docx.glossary import BuildingBlock, BuildingBlockCategory, Glossary
 from docx.oxml.glossary import CT_DocPart, CT_GlossaryDocument
 
@@ -170,3 +171,148 @@ class DescribeBuildingBlockCategory:
         cat = BuildingBlockCategory(None)
         assert cat.category_name is None
         assert cat.gallery is None
+
+    def it_round_trips_a_known_gallery_through_the_enum(self):
+        cat_elm = element("w:category/w:gallery{w:val=quickParts}")
+        cat = BuildingBlockCategory(cat_elm)  # type: ignore[arg-type]
+        assert cat.gallery_value is WD_BUILDING_BLOCK_GALLERY.QUICK_PARTS
+
+    @pytest.mark.parametrize(
+        ("xml_val", "expected"),
+        [
+            ("coverPg", WD_BUILDING_BLOCK_GALLERY.COVER_PAGES),
+            ("hdrs", WD_BUILDING_BLOCK_GALLERY.HEADERS),
+            ("ftrs", WD_BUILDING_BLOCK_GALLERY.FOOTERS),
+            ("txtBox", WD_BUILDING_BLOCK_GALLERY.TEXT_BOXES),
+            ("custom1", WD_BUILDING_BLOCK_GALLERY.CUSTOM_1),
+        ],
+    )
+    def it_maps_common_galleries_to_enum_members(self, xml_val, expected):
+        cat_elm = element(f"w:category/w:gallery{{w:val={xml_val}}}")
+        cat = BuildingBlockCategory(cat_elm)  # type: ignore[arg-type]
+        assert cat.gallery_value is expected
+
+    def it_returns_None_for_gallery_value_when_unknown(self):
+        cat_elm = element("w:category/w:gallery{w:val=notARealGallery}")
+        cat = BuildingBlockCategory(cat_elm)  # type: ignore[arg-type]
+        assert cat.gallery_value is None
+        # -- but raw `gallery` still round-trips the literal
+        assert cat.gallery == "notARealGallery"
+
+    def it_returns_None_for_gallery_value_when_gallery_is_absent(self):
+        cat_elm = element("w:category/w:name{w:val=General}")
+        cat = BuildingBlockCategory(cat_elm)  # type: ignore[arg-type]
+        assert cat.gallery_value is None
+
+    def it_compares_equal_by_gallery_and_name(self):
+        cat_elm_a = element(
+            "w:category/(w:name{w:val=General},w:gallery{w:val=quickParts})"
+        )
+        cat_elm_b = element(
+            "w:category/(w:name{w:val=General},w:gallery{w:val=quickParts})"
+        )
+        a = BuildingBlockCategory(cat_elm_a)  # type: ignore[arg-type]
+        b = BuildingBlockCategory(cat_elm_b)  # type: ignore[arg-type]
+        assert a == b
+        assert hash(a) == hash(b)
+
+    def it_compares_unequal_when_slots_differ(self):
+        a_elm = element(
+            "w:category/(w:name{w:val=General},w:gallery{w:val=quickParts})"
+        )
+        b_elm = element(
+            "w:category/(w:name{w:val=Other},w:gallery{w:val=quickParts})"
+        )
+        a = BuildingBlockCategory(a_elm)  # type: ignore[arg-type]
+        b = BuildingBlockCategory(b_elm)  # type: ignore[arg-type]
+        assert a != b
+
+
+# -- a mixed-category glossary used for the filter tests below --
+_MIXED_GLOSSARY = (
+    "w:glossaryDocument/w:docParts/("
+    "w:docPart/w:docPartPr/("
+    "w:name{w:val=Alpha},"
+    "w:category/(w:name{w:val=General},w:gallery{w:val=quickParts})"
+    "),"
+    "w:docPart/w:docPartPr/("
+    "w:name{w:val=Beta},"
+    "w:category/(w:name{w:val=General},w:gallery{w:val=quickParts})"
+    "),"
+    "w:docPart/w:docPartPr/("
+    "w:name{w:val=Gamma},"
+    "w:category/(w:name{w:val=Built-In},w:gallery{w:val=coverPg})"
+    "),"
+    "w:docPart/w:docPartPr/("
+    "w:name{w:val=Delta},"
+    "w:category/(w:name{w:val=Built-In},w:gallery{w:val=hdrs})"
+    "),"
+    "w:docPart/w:docPartPr/w:name{w:val=Epsilon}"
+    ")"
+)
+
+
+class DescribeGlossaryFiltering:
+    """Unit-test suite for filter/aggregation methods on `Glossary`."""
+
+    def it_filters_by_gallery_enum(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element(_MIXED_GLOSSARY)))
+        blocks = glossary.by_category(
+            gallery=WD_BUILDING_BLOCK_GALLERY.QUICK_PARTS
+        )
+        assert [b.name for b in blocks] == ["Alpha", "Beta"]
+
+    def it_filters_by_gallery_xml_string(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element(_MIXED_GLOSSARY)))
+        blocks = glossary.by_category(gallery="coverPg")
+        assert [b.name for b in blocks] == ["Gamma"]
+
+    def it_filters_by_category_name(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element(_MIXED_GLOSSARY)))
+        blocks = glossary.by_category(category_name="Built-In")
+        assert [b.name for b in blocks] == ["Gamma", "Delta"]
+
+    def it_intersects_gallery_and_category_name_filters(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element(_MIXED_GLOSSARY)))
+        blocks = glossary.by_category(
+            gallery=WD_BUILDING_BLOCK_GALLERY.QUICK_PARTS,
+            category_name="General",
+        )
+        assert [b.name for b in blocks] == ["Alpha", "Beta"]
+
+    def and_an_empty_intersection_returns_an_empty_list(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element(_MIXED_GLOSSARY)))
+        blocks = glossary.by_category(
+            gallery=WD_BUILDING_BLOCK_GALLERY.QUICK_PARTS,
+            category_name="Built-In",
+        )
+        assert blocks == []
+
+    def it_returns_all_blocks_when_called_with_no_args(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element(_MIXED_GLOSSARY)))
+        assert len(glossary.by_category()) == 5
+
+    def it_dedupes_categories(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element(_MIXED_GLOSSARY)))
+        cats = glossary.categories
+        # -- Alpha + Beta share (General, quickParts); Gamma + Delta have
+        # -- distinct categories; Epsilon has no category and is dropped.
+        assert len(cats) == 3
+        keys = [(c.gallery, c.category_name) for c in cats]
+        assert keys == [
+            ("quickParts", "General"),
+            ("coverPg", "Built-In"),
+            ("hdrs", "Built-In"),
+        ]
+
+    def it_dedupes_galleries(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element(_MIXED_GLOSSARY)))
+        assert glossary.galleries == ["quickParts", "coverPg", "hdrs"]
+
+    def it_returns_empty_aggregates_for_an_empty_glossary(self):
+        glossary = Glossary(
+            cast(CT_GlossaryDocument, element("w:glossaryDocument"))
+        )
+        assert glossary.categories == []
+        assert glossary.galleries == []
+        assert glossary.by_category(category_name="General") == []
