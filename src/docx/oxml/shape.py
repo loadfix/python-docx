@@ -449,6 +449,12 @@ class CT_NonVisualDrawingProps(BaseOxmlElement):
 
     id = RequiredAttribute("id", ST_DrawingElementId)
     name = RequiredAttribute("name", XsdString)
+    descr: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "descr", XsdString
+    )
+    title: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "title", XsdString
+    )
 
 
 class CT_NonVisualPictureProperties(BaseOxmlElement):
