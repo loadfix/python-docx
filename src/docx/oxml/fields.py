@@ -22,9 +22,11 @@ from docx.oxml.xmlchemy import (
     BaseOxmlElement,
     RequiredAttribute,
     ZeroOrMore,
+    ZeroOrOne,
 )
 
 if TYPE_CHECKING:
+    from docx.oxml.form_fields import CT_FFData
     from docx.oxml.text.run import CT_R
 
 
@@ -72,12 +74,19 @@ class CT_FldChar(BaseOxmlElement):
     """`<w:fldChar>` element, a complex field begin/separate/end marker.
 
     Occurs as a child of `<w:r>`. The `w:fldCharType` attribute indicates which
-    of the three roles it plays.
+    of the three roles it plays. A ``begin`` marker may additionally carry a
+    ``w:ffData`` child describing legacy form-field metadata.
     """
 
     fldCharType: str = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
         "w:fldCharType", ST_FldCharType
     )
+
+    ffData: "CT_FFData | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:ffData", successors=()
+    )
+
+    get_or_add_ffData: Callable[[], "CT_FFData"]
 
 
 class CT_InstrText(BaseOxmlElement):
