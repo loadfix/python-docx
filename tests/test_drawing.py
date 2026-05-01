@@ -8,10 +8,10 @@ from typing import cast
 
 import pytest
 
-from docx.drawing import Drawing
+from docx.drawing import Drawing, GroupShape, Picture, WordprocessingShape
 from docx.enum.shape import WD_DRAWING_TYPE
 from docx.image.image import Image
-from docx.oxml.drawing import CT_Drawing
+from docx.oxml.drawing import CT_Drawing, CT_GroupShape
 from docx.parts.document import DocumentPart
 from docx.parts.image import ImagePart
 from docx.text.paragraph import Paragraph
@@ -141,6 +141,46 @@ class DescribeDrawing:
 
         assert drawing.type == expected_type
 
+    def it_knows_it_is_not_a_group_when_it_wraps_a_picture(self, document_part_: Mock):
+        drawing = Drawing(
+            cast(CT_Drawing, element("w:drawing/wp:inline/a:graphic/a:graphicData/pic:pic")),
+            document_part_,
+        )
+
+        assert drawing.is_group is False
+        assert drawing.group_shape is None
+        assert drawing.group_shapes == []
+
+    def it_knows_it_is_a_group_when_root_is_grpSp(self, document_part_: Mock):
+        cxml = (
+            "w:drawing/wp:inline/a:graphic/a:graphicData"
+            "/wpg:grpSp/(wpg:nvGrpSpPr/wpg:cNvPr{id=1,name=Group 1},wps:wsp,wps:wsp)"
+        )
+        drawing = Drawing(cast(CT_Drawing, element(cxml)), document_part_)
+
+        assert drawing.is_group is True
+
+        group_shape = drawing.group_shape
+        assert group_shape is not None
+        assert isinstance(group_shape, GroupShape)
+        assert group_shape.name == "Group 1"
+
+        group_shapes = drawing.group_shapes
+        assert len(group_shapes) == 1
+        assert isinstance(group_shapes[0], GroupShape)
+
+    def it_recognizes_legacy_wgp_as_a_group(self, document_part_: Mock):
+        drawing = Drawing(
+            cast(
+                CT_Drawing,
+                element("w:drawing/wp:inline/a:graphic/a:graphicData/wpg:wgp"),
+            ),
+            document_part_,
+        )
+
+        assert drawing.is_group is True
+        assert drawing.group_shape is not None
+
     # -- fixtures --------------------------------------------------------------------------------
 
     @pytest.fixture
@@ -154,3 +194,83 @@ class DescribeDrawing:
     @pytest.fixture
     def image_part_(self, request: FixtureRequest):
         return instance_mock(request, ImagePart)
+
+
+class DescribeGroupShape:
+    """Unit-test suite for `docx.drawing.GroupShape` proxy."""
+
+    def it_reads_name_from_the_grpSp_element(self, document_part_: Mock):
+        grpSp = cast(
+            CT_GroupShape,
+            element("wpg:grpSp/wpg:nvGrpSpPr/wpg:cNvPr{id=1,name=My Group}"),
+        )
+        group = GroupShape(grpSp, document_part_)
+
+        assert group.name == "My Group"
+
+    def its_name_is_None_when_absent(self, document_part_: Mock):
+        grpSp = cast(CT_GroupShape, element("wpg:grpSp"))
+        group = GroupShape(grpSp, document_part_)
+
+        assert group.name is None
+
+    def it_provides_nested_shapes_in_document_order(self, document_part_: Mock):
+        cxml = (
+            "wpg:grpSp"
+            "/(wpg:nvGrpSpPr/wpg:cNvPr{id=1,name=g},wps:wsp,pic:pic,wps:wsp)"
+        )
+        group = GroupShape(cast(CT_GroupShape, element(cxml)), document_part_)
+
+        shapes = group.shapes
+
+        assert len(shapes) == 3
+        assert isinstance(shapes[0], WordprocessingShape)
+        assert isinstance(shapes[1], Picture)
+        assert isinstance(shapes[2], WordprocessingShape)
+
+    def it_returns_nested_groups_as_GroupShape(self, document_part_: Mock):
+        cxml = (
+            "wpg:grpSp"
+            "/(wpg:nvGrpSpPr/wpg:cNvPr{id=1,name=outer}"
+            ",wpg:grpSp"
+            "/(wpg:nvGrpSpPr/wpg:cNvPr{id=2,name=inner},wps:wsp)"
+            ")"
+        )
+        group = GroupShape(cast(CT_GroupShape, element(cxml)), document_part_)
+
+        shapes = group.shapes
+        assert len(shapes) == 1
+        inner = shapes[0]
+        assert isinstance(inner, GroupShape)
+        assert inner.name == "inner"
+
+        inner_shapes = inner.shapes
+        assert len(inner_shapes) == 1
+        assert isinstance(inner_shapes[0], WordprocessingShape)
+
+    def it_returns_empty_shapes_when_group_has_no_children(self, document_part_: Mock):
+        grpSp = cast(
+            CT_GroupShape,
+            element("wpg:grpSp/wpg:nvGrpSpPr/wpg:cNvPr{id=1,name=g}"),
+        )
+        group = GroupShape(grpSp, document_part_)
+
+        assert group.shapes == []
+
+    def it_exposes_shape_text_for_textbox_shapes(self, document_part_: Mock):
+        cxml = (
+            "wpg:grpSp"
+            "/(wpg:nvGrpSpPr/wpg:cNvPr{id=1,name=g}"
+            ',wps:wsp/wps:txbx/w:txbxContent/(w:p/w:r/w:t"Hi",w:p/w:r/w:t"There"))'
+        )
+        group = GroupShape(cast(CT_GroupShape, element(cxml)), document_part_)
+
+        shape = group.shapes[0]
+        assert isinstance(shape, WordprocessingShape)
+        assert shape.text == "Hi\nThere"
+
+    # -- fixtures --------------------------------------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)

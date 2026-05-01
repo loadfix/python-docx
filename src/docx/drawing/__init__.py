@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from docx.enum.shape import WD_DRAWING_TYPE
-from docx.oxml.drawing import CT_Drawing
-from docx.shared import Parented
+from docx.oxml.drawing import CT_Drawing, CT_GroupShape, CT_WordprocessingShape
+from docx.oxml.shape import CT_Picture
+from docx.shared import ElementProxy, Parented
 
 if TYPE_CHECKING:
     import docx.types as t
@@ -87,6 +88,34 @@ class Drawing(Parented):
         return paragraphs
 
     @property
+    def is_group(self) -> bool:
+        """True when this drawing's root DrawingML object is a `wpg:grpSp` group."""
+        return bool(self._drawing.grpSp_lst)
+
+    @property
+    def group_shape(self) -> GroupShape | None:
+        """The top-level `GroupShape` for this drawing, or None if not a group.
+
+        Returns the first top-level group shape when the drawing wraps a `wpg:grpSp`
+        (or its legacy `wpg:wgp` alias). Returns None for drawings that contain a
+        picture, chart, or other non-group content at the root.
+        """
+        grpSp_lst = self._drawing.grpSp_lst
+        if not grpSp_lst:
+            return None
+        return GroupShape(grpSp_lst[0], self._parent)
+
+    @property
+    def group_shapes(self) -> list[GroupShape]:
+        """All top-level group shapes in this drawing.
+
+        Returns an empty list when the drawing doesn't wrap a `wpg:grpSp` at its
+        root. A single drawing normally contains at most one top-level group shape,
+        but the return type is a list to mirror existing `*_lst` accessors.
+        """
+        return [GroupShape(grpSp, self._parent) for grpSp in self._drawing.grpSp_lst]
+
+    @property
     def type(self) -> WD_DRAWING_TYPE:
         """The type of content in this drawing.
 
@@ -128,3 +157,75 @@ class Drawing(Parented):
             return WD_DRAWING_TYPE.TEXT_BOX
 
         return WD_DRAWING_TYPE.SHAPE
+
+
+class GroupShape(ElementProxy):
+    """Proxy for a `<wpg:grpSp>` grouped-shapes element inside a `<w:drawing>`.
+
+    A group shape contains a collection of nested child shapes which may themselves
+    be shapes (`WordprocessingShape`), pictures (`Picture`), or nested groups
+    (`GroupShape`).
+    """
+
+    def __init__(self, grpSp: CT_GroupShape, parent: t.ProvidesXmlPart):
+        super().__init__(grpSp, parent)
+        self._grpSp = grpSp
+        self._parent_: t.ProvidesXmlPart = parent
+
+    @property
+    def name(self) -> str | None:
+        """Value of the group's `wpg:cNvPr/@name`, or None when not set.
+
+        This is the name Word assigns to the group in the document outline
+        (e.g. "Group 1").
+        """
+        return self._grpSp.name
+
+    @property
+    def shapes(self) -> list[GroupShape | WordprocessingShape | Picture]:
+        """Flat list of nested child shapes in document order.
+
+        Each entry is a proxy matching the child element type:
+
+        * `wps:wsp` -> `WordprocessingShape`
+        * `wpg:grpSp` -> `GroupShape` (recursive)
+        * `pic:pic` -> `Picture`
+
+        Other child element types (e.g. `wpg:graphicFrame`) are omitted.
+        """
+        result: list[GroupShape | WordprocessingShape | Picture] = []
+        for child in self._grpSp.shape_children:
+            if isinstance(child, CT_WordprocessingShape):
+                result.append(WordprocessingShape(child, self._parent_))
+            elif isinstance(child, CT_GroupShape):
+                result.append(GroupShape(child, self._parent_))
+            elif isinstance(child, CT_Picture):
+                result.append(Picture(child, self._parent_))
+        return result
+
+
+class WordprocessingShape(ElementProxy):
+    """Proxy for a `<wps:wsp>` shape element inside a group shape or drawing.
+
+    Provides read-only access to the shape's text content when it wraps a text box.
+    """
+
+    def __init__(self, wsp: CT_WordprocessingShape, parent: t.ProvidesXmlPart):
+        super().__init__(wsp, parent)
+        self._wsp = wsp
+
+    @property
+    def text(self) -> str:
+        """Concatenated text from this shape's text frame, or '' when it has none."""
+        txbx = self._wsp.txbx
+        if txbx is None or txbx.txbxContent is None:
+            return ""
+        return txbx.txbxContent.text
+
+
+class Picture(ElementProxy):
+    """Proxy for a `<pic:pic>` picture element inside a group shape."""
+
+    def __init__(self, pic: CT_Picture, parent: t.ProvidesXmlPart):
+        super().__init__(pic, parent)
+        self._pic = pic

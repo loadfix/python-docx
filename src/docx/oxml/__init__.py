@@ -7,7 +7,14 @@ This including registering custom element classes corresponding to Open XML elem
 
 from __future__ import annotations
 
-from docx.oxml.drawing import CT_Drawing, CT_TextBox, CT_TxbxContent, CT_WordprocessingShape
+from docx.oxml.drawing import (
+    CT_Drawing,
+    CT_GroupShape,
+    CT_NonVisualGroupShapeProperties,
+    CT_TextBox,
+    CT_TxbxContent,
+    CT_WordprocessingShape,
+)
 from docx.oxml.parser import OxmlElement, parse_xml, register_element_cls
 from docx.oxml.shape import (
     CT_Anchor,
@@ -77,6 +84,10 @@ register_element_cls("wp:wrapSquare", CT_WrapSquare)
 register_element_cls("wp:wrapThrough", CT_WrapThrough)
 register_element_cls("wp:wrapTight", CT_WrapTight)
 register_element_cls("wp:wrapTopAndBottom", CT_WrapTopBottom)
+register_element_cls("wpg:grpSp", CT_GroupShape)
+register_element_cls("wpg:wgp", CT_GroupShape)
+register_element_cls("wpg:nvGrpSpPr", CT_NonVisualGroupShapeProperties)
+register_element_cls("wpg:cNvPr", CT_NonVisualDrawingProps)
 register_element_cls("wps:txbx", CT_TextBox)
 register_element_cls("wps:wsp", CT_WordprocessingShape)
 
