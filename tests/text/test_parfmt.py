@@ -495,6 +495,48 @@ class DescribeParagraphFormat:
         return instance_mock(request, TabStops)
 
 
+class DescribeParagraphFormat_right_to_left:
+    """Unit-test suite for `ParagraphFormat.right_to_left`."""
+
+    @pytest.mark.parametrize(
+        ("p_cxml", "expected_value"),
+        [
+            ("w:p", False),
+            ("w:p/w:pPr", False),
+            ("w:p/w:pPr/w:bidi", True),
+            ("w:p/w:pPr/w:bidi{w:val=1}", True),
+            ("w:p/w:pPr/w:bidi{w:val=true}", True),
+            ("w:p/w:pPr/w:bidi{w:val=on}", True),
+            ("w:p/w:pPr/w:bidi{w:val=0}", False),
+            ("w:p/w:pPr/w:bidi{w:val=false}", False),
+            ("w:p/w:pPr/w:bidi{w:val=off}", False),
+        ],
+    )
+    def it_knows_whether_it_is_right_to_left(
+        self, p_cxml: str, expected_value: bool
+    ):
+        paragraph_format = ParagraphFormat(element(p_cxml))
+        assert paragraph_format.right_to_left is expected_value
+
+    @pytest.mark.parametrize(
+        ("p_cxml", "value", "expected_cxml"),
+        [
+            ("w:p", True, "w:p/w:pPr/w:bidi"),
+            ("w:p/w:pPr", True, "w:p/w:pPr/w:bidi"),
+            ("w:p/w:pPr/w:bidi", False, "w:p/w:pPr"),
+            ("w:p/w:pPr/w:bidi", None, "w:p/w:pPr"),
+            ("w:p/w:pPr/w:bidi{w:val=off}", True, "w:p/w:pPr/w:bidi"),
+            ("w:p", False, "w:p/w:pPr"),
+        ],
+    )
+    def it_can_change_whether_it_is_right_to_left(
+        self, p_cxml: str, value: bool | None, expected_cxml: str
+    ):
+        paragraph_format = ParagraphFormat(element(p_cxml))
+        paragraph_format.right_to_left = value
+        assert paragraph_format._element.xml == xml(expected_cxml)
+
+
 class DescribeParagraphFormat_Frame:
     """Unit-test suite for the text-frame (``w:framePr``) API on ParagraphFormat."""
 

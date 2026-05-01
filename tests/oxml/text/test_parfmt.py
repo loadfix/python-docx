@@ -15,7 +15,7 @@ from docx.enum.text import (
 from docx.oxml.text.parfmt import CT_FramePr, CT_PPr
 from docx.shared import Twips
 
-from ...unitutil.cxml import element
+from ...unitutil.cxml import element, xml
 
 
 class DescribeCT_PPr:
@@ -50,6 +50,57 @@ class DescribeCT_PPr:
             "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}framePr",
             "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}widowControl",
         ]
+
+
+class DescribeCT_PPr_bidi:
+    """Unit-test suite for `CT_PPr.bidi_val`."""
+
+    def it_returns_False_when_no_bidi_child(self):
+        pPr = cast(CT_PPr, element("w:pPr"))
+        assert pPr.bidi_val is False
+
+    @pytest.mark.parametrize(
+        ("pPr_cxml", "expected_value"),
+        [
+            ("w:pPr/w:bidi", True),
+            ("w:pPr/w:bidi{w:val=1}", True),
+            ("w:pPr/w:bidi{w:val=true}", True),
+            ("w:pPr/w:bidi{w:val=on}", True),
+            ("w:pPr/w:bidi{w:val=0}", False),
+            ("w:pPr/w:bidi{w:val=false}", False),
+            ("w:pPr/w:bidi{w:val=off}", False),
+        ],
+    )
+    def it_knows_its_bidi_val(self, pPr_cxml: str, expected_value: bool):
+        pPr = cast(CT_PPr, element(pPr_cxml))
+        assert pPr.bidi_val is expected_value
+
+    @pytest.mark.parametrize(
+        ("pPr_cxml", "value", "expected_cxml"),
+        [
+            ("w:pPr", True, "w:pPr/w:bidi"),
+            ("w:pPr/w:bidi", False, "w:pPr"),
+            ("w:pPr/w:bidi", None, "w:pPr"),
+            ("w:pPr/w:bidi{w:val=off}", True, "w:pPr/w:bidi"),
+            ("w:pPr", False, "w:pPr"),
+        ],
+    )
+    def it_can_change_its_bidi_val(
+        self, pPr_cxml: str, value: bool | None, expected_cxml: str
+    ):
+        pPr = cast(CT_PPr, element(pPr_cxml))
+        pPr.bidi_val = value
+        assert pPr.xml == xml(expected_cxml)
+
+    def it_inserts_bidi_in_the_right_position(self):
+        # w:bidi must come after w:autoSpaceDN and before w:spacing/w:ind/w:jc
+        pPr = cast(
+            CT_PPr,
+            element("w:pPr/(w:pStyle{w:val=Foo},w:spacing,w:ind,w:jc{w:val=center})"),
+        )
+        pPr.get_or_add_bidi()
+        tags = [child.tag.rsplit("}", 1)[-1] for child in pPr.iterchildren()]
+        assert tags == ["pStyle", "bidi", "spacing", "ind", "jc"]
 
 
 class DescribeCT_FramePr:

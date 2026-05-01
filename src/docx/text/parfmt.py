@@ -294,6 +294,25 @@ class ParagraphFormat(ElementProxy):
         pPr.ind_right = value
 
     @property
+    def right_to_left(self) -> bool:
+        """|True| if paragraph uses right-to-left (bidirectional) layout.
+
+        Maps to the ``w:pPr/w:bidi`` element. Returns |False| when the element is
+        absent. Assigning |True| inserts ``w:bidi``; assigning |False| or |None|
+        removes it. When |True|, paragraph-level runs are laid out right-to-left
+        (e.g. for Arabic, Hebrew, or Farsi text).
+        """
+        pPr = self._element.pPr
+        if pPr is None:
+            return False
+        return pPr.bidi_val
+
+    @right_to_left.setter
+    def right_to_left(self, value: bool | None):
+        pPr = self._element.get_or_add_pPr()
+        pPr.bidi_val = value
+
+    @property
     def space_after(self):
         """|Length| value specifying the spacing to appear between this paragraph and
         the subsequent paragraph.

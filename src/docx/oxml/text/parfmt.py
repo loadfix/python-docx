@@ -18,7 +18,7 @@ from docx.enum.text import (
     WD_TAB_ALIGNMENT,
     WD_TAB_LEADER,
 )
-from docx.oxml.shared import CT_DecimalNumber
+from docx.oxml.shared import CT_DecimalNumber, CT_OnOff
 from docx.oxml.simpletypes import (
     ST_DecimalNumber,
     ST_EighthPointMeasure,
@@ -158,12 +158,14 @@ class CT_Jc(BaseOxmlElement):
 class CT_PPr(BaseOxmlElement):
     """``<w:pPr>`` element, containing the properties for a paragraph."""
 
+    get_or_add_bidi: Callable[[], CT_OnOff]
     get_or_add_framePr: Callable[[], CT_FramePr]
     get_or_add_ind: Callable[[], CT_Ind]
     get_or_add_pBdr: Callable[[], CT_PBdr]
     get_or_add_pStyle: Callable[[], CT_String]
     get_or_add_sectPr: Callable[[], CT_SectPr]
     _insert_sectPr: Callable[[CT_SectPr], None]
+    _remove_bidi: Callable[[], None]
     _remove_framePr: Callable[[], None]
     _remove_pBdr: Callable[[], None]
     _remove_pStyle: Callable[[], None]
@@ -222,6 +224,9 @@ class CT_PPr(BaseOxmlElement):
         "w:pBdr", successors=_tag_seq[9:]
     )
     tabs = ZeroOrOne("w:tabs", successors=_tag_seq[11:])
+    bidi: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:bidi", successors=_tag_seq[19:]
+    )
     spacing = ZeroOrOne("w:spacing", successors=_tag_seq[22:])
     ind: CT_Ind | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:ind", successors=_tag_seq[23:]
@@ -233,6 +238,21 @@ class CT_PPr(BaseOxmlElement):
     sectPr = ZeroOrOne("w:sectPr", successors=_tag_seq[35:])
     pPrChange = ZeroOrOne("w:pPrChange", successors=())
     del _tag_seq
+
+    @property
+    def bidi_val(self) -> bool:
+        """Value of `w:bidi/@val` or |False| if `./w:bidi` is not present."""
+        bidi = self.bidi
+        if bidi is None:
+            return False
+        return bidi.val
+
+    @bidi_val.setter
+    def bidi_val(self, value: bool | None):
+        if value in [None, False]:
+            self._remove_bidi()
+        else:
+            self.get_or_add_bidi().val = True
 
     @property
     def first_line_indent(self) -> Length | None:

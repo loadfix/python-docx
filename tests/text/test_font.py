@@ -373,6 +373,46 @@ class DescribeFont:
     @pytest.mark.parametrize(
         ("r_cxml", "expected_value"),
         [
+            ("w:r", False),
+            ("w:r/w:rPr", False),
+            ("w:r/w:rPr/w:rtl", True),
+            ("w:r/w:rPr/w:rtl{w:val=1}", True),
+            ("w:r/w:rPr/w:rtl{w:val=true}", True),
+            ("w:r/w:rPr/w:rtl{w:val=on}", True),
+            ("w:r/w:rPr/w:rtl{w:val=0}", False),
+            ("w:r/w:rPr/w:rtl{w:val=false}", False),
+            ("w:r/w:rPr/w:rtl{w:val=off}", False),
+        ],
+    )
+    def it_knows_whether_it_is_right_to_left(
+        self, r_cxml: str, expected_value: bool
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        assert font.right_to_left is expected_value
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "value", "expected_cxml"),
+        [
+            ("w:r", True, "w:r/w:rPr/w:rtl"),
+            ("w:r/w:rPr", True, "w:r/w:rPr/w:rtl"),
+            ("w:r/w:rPr/w:rtl", False, "w:r/w:rPr"),
+            ("w:r/w:rPr/w:rtl", None, "w:r/w:rPr"),
+            ("w:r/w:rPr/w:rtl{w:val=off}", True, "w:r/w:rPr/w:rtl"),
+            ("w:r", False, "w:r/w:rPr"),
+        ],
+    )
+    def it_can_change_whether_it_is_right_to_left(
+        self, r_cxml: str, value: bool | None, expected_cxml: str
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        font.right_to_left = value
+        assert font._element.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
             ("w:r", None),
             ("w:r/w:rPr", None),
             ("w:r/w:rPr/w:vertAlign{w:val=baseline}", False),
