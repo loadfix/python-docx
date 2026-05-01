@@ -46,6 +46,7 @@ if TYPE_CHECKING:
         ParagraphStyle,
         _TableStyle,  # pyright: ignore[reportPrivateUsage]
     )
+    from docx.tracked_changes import FormattingChange
 
 TableParent: TypeAlias = "Table | _Columns | _Rows"
 
@@ -417,6 +418,22 @@ class Table(StoryChild):
         return self
 
     @property
+    def formatting_change(self) -> FormattingChange | None:
+        """|FormattingChange| proxy for this table's `w:tblPrChange`, or |None|.
+
+        Returns a read-only :class:`~docx.tracked_changes.FormattingChange`
+        exposing the prior table properties (`w:tblPr`) when this table carries
+        a `w:tblPr/w:tblPrChange` tracked-revision marker. Returns |None| when
+        the table has no `w:tblPrChange` child.
+        """
+        from docx.tracked_changes import FormattingChange
+
+        tblPrChange = self._tblPr.tblPrChange
+        if tblPrChange is None:
+            return None
+        return FormattingChange(tblPrChange)
+
+    @property
     def table_direction(self) -> WD_TABLE_DIRECTION | None:
         """Member of :ref:`WdTableDirection` indicating cell-ordering direction.
 
@@ -511,6 +528,25 @@ class _Cell(BlockItemContainer):
         return table
 
     @property
+    def formatting_change(self) -> FormattingChange | None:
+        """|FormattingChange| proxy for this cell's `w:tcPrChange`, or |None|.
+
+        Returns a read-only :class:`~docx.tracked_changes.FormattingChange`
+        exposing the prior cell properties (`w:tcPr`) when this cell carries
+        a `w:tcPr/w:tcPrChange` tracked-revision marker. Returns |None| when
+        the cell has no `w:tcPr` or no `w:tcPrChange` child.
+        """
+        from docx.tracked_changes import FormattingChange
+
+        tcPr = self._tc.tcPr
+        if tcPr is None:
+            return None
+        tcPrChange = tcPr.tcPrChange
+        if tcPrChange is None:
+            return None
+        return FormattingChange(tcPrChange)
+
+    @property
     def grid_span(self) -> int:
         """Number of layout-grid cells this cell spans horizontally.
 
@@ -518,6 +554,32 @@ class _Cell(BlockItemContainer):
         more.
         """
         return self._tc.grid_span
+
+    @property
+    def is_tracked_insertion(self) -> bool:
+        """|True| when this cell carries a `w:tcPr/w:cellIns` revision marker.
+
+        A `w:cellIns` element indicates the cell was inserted by a tracked
+        change. Returns |False| when the cell has no `w:tcPr` or no `w:cellIns`
+        child.
+        """
+        tcPr = self._tc.tcPr
+        if tcPr is None:
+            return False
+        return tcPr.cellIns is not None
+
+    @property
+    def is_tracked_deletion(self) -> bool:
+        """|True| when this cell carries a `w:tcPr/w:cellDel` revision marker.
+
+        A `w:cellDel` element indicates the cell was deleted by a tracked
+        change. Returns |False| when the cell has no `w:tcPr` or no `w:cellDel`
+        child.
+        """
+        tcPr = self._tc.tcPr
+        if tcPr is None:
+            return False
+        return tcPr.cellDel is not None
 
     @property
     def is_merge_origin(self) -> bool | None:
@@ -1367,6 +1429,25 @@ class _Row(Parented):
                 yield from iter_tc_cells(tc)
 
         return tuple(_iter_row_cells())
+
+    @property
+    def formatting_change(self) -> FormattingChange | None:
+        """|FormattingChange| proxy for this row's `w:trPrChange`, or |None|.
+
+        Returns a read-only :class:`~docx.tracked_changes.FormattingChange`
+        exposing the prior row properties (`w:trPr`) when this row carries a
+        `w:trPr/w:trPrChange` tracked-revision marker. Returns |None| when
+        the row has no `w:trPr` or no `w:trPrChange` child.
+        """
+        from docx.tracked_changes import FormattingChange
+
+        trPr = self._tr.trPr
+        if trPr is None:
+            return None
+        trPrChange = trPr.trPrChange
+        if trPrChange is None:
+            return None
+        return FormattingChange(trPrChange)
 
     @property
     def grid_cols_after(self) -> int:

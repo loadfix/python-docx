@@ -456,6 +456,8 @@ register_element_cls("a:hlink", CT_ColorChoice)
 register_element_cls("a:folHlink", CT_ColorChoice)
 
 from .tracked_changes import (
+    CT_CellDel,
+    CT_CellIns,
     CT_Del,
     CT_DelText,
     CT_Ins,
@@ -464,8 +466,13 @@ from .tracked_changes import (
     CT_PPrChange,
     CT_RPrChange,
     CT_SectPrChange,
+    CT_TblPrChange,
+    CT_TcPrChange,
+    CT_TrPrChange,
 )
 
+register_element_cls("w:cellDel", CT_CellDel)
+register_element_cls("w:cellIns", CT_CellIns)
 register_element_cls("w:del", CT_Del)
 register_element_cls("w:delText", CT_DelText)
 register_element_cls("w:ins", CT_Ins)
@@ -474,6 +481,9 @@ register_element_cls("w:moveTo", CT_MoveTo)
 register_element_cls("w:pPrChange", CT_PPrChange)
 register_element_cls("w:rPrChange", CT_RPrChange)
 register_element_cls("w:sectPrChange", CT_SectPrChange)
+register_element_cls("w:tblPrChange", CT_TblPrChange)
+register_element_cls("w:tcPrChange", CT_TcPrChange)
+register_element_cls("w:trPrChange", CT_TrPrChange)
 
 from .text.parfmt import (
     CT_Border,

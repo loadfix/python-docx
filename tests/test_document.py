@@ -557,6 +557,111 @@ class DescribeDocument:
         assert "".join(t.text for t in paragraphs[0].xpath(".//w:t")) == "before moved"
         assert "".join(t.text for t in paragraphs[1].xpath(".//w:t")) == "dest: "
 
+    def it_can_accept_a_cellIns_revision_keeping_the_cell(self, document_part_: Mock):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/w:tbl/("
+                "w:tblPr,w:tblGrid/w:gridCol,"
+                "w:tr/("
+                "w:tc/(w:tcPr/w:cellIns{w:id=1,w:author=A},w:p),"
+                "w:tc/w:p)"
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.accept_all_changes()
+
+        assert count == 1
+        assert document_elm.xpath(".//w:cellIns") == []
+        # -- both cells survive --
+        assert len(document_elm.xpath(".//w:tc")) == 2
+
+    def it_can_reject_a_cellIns_revision_removing_the_cell(self, document_part_: Mock):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/w:tbl/("
+                "w:tblPr,w:tblGrid/(w:gridCol,w:gridCol),"
+                "w:tr/("
+                "w:tc/(w:tcPr/w:cellIns{w:id=1,w:author=A},w:p),"
+                "w:tc/w:p)"
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.reject_all_changes()
+
+        assert count == 1
+        assert document_elm.xpath(".//w:cellIns") == []
+        # -- the inserted cell is removed, the sibling cell survives --
+        assert len(document_elm.xpath(".//w:tc")) == 1
+
+    def it_can_accept_a_cellDel_revision_removing_the_cell(self, document_part_: Mock):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/w:tbl/("
+                "w:tblPr,w:tblGrid/(w:gridCol,w:gridCol),"
+                "w:tr/("
+                "w:tc/(w:tcPr/w:cellDel{w:id=1,w:author=A},w:p),"
+                "w:tc/w:p)"
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.accept_all_changes()
+
+        assert count == 1
+        assert document_elm.xpath(".//w:cellDel") == []
+        assert len(document_elm.xpath(".//w:tc")) == 1
+
+    def it_can_reject_a_cellDel_revision_keeping_the_cell(self, document_part_: Mock):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/w:tbl/("
+                "w:tblPr,w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/(w:tcPr/w:cellDel{w:id=1,w:author=A},w:p)"
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.reject_all_changes()
+
+        assert count == 1
+        assert document_elm.xpath(".//w:cellDel") == []
+        assert len(document_elm.xpath(".//w:tc")) == 1
+
+    def it_resolves_tcPrChange_trPrChange_and_tblPrChange(
+        self, document_part_: Mock
+    ):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/w:tbl/("
+                "w:tblPr/w:tblPrChange{w:id=1,w:author=A}/w:tblPr,"
+                "w:tblGrid/w:gridCol,"
+                "w:tr/("
+                "w:trPr/w:trPrChange{w:id=2,w:author=A}/w:trPr,"
+                "w:tc/(w:tcPr/w:tcPrChange{w:id=3,w:author=A}/w:tcPr,w:p)"
+                ")"
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.accept_all_changes()
+
+        assert count == 3
+        assert document_elm.xpath(".//w:tblPrChange") == []
+        assert document_elm.xpath(".//w:trPrChange") == []
+        assert document_elm.xpath(".//w:tcPrChange") == []
+
     def it_renders_revision_marks_text_joined_by_blank_lines(self, document_part_: Mock):
         document_elm = cast(
             CT_Document,
