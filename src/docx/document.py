@@ -553,6 +553,43 @@ class Document(ElementProxy):
 
         return replace_in_all_paragraphs_regex(self, pattern, replacement, flags)
 
+    def resolve_cross_references(self) -> int:
+        """Resolve ``REF`` and ``PAGEREF`` fields in the document body.
+
+        For each ``REF`` field whose bookmark exists, replaces the field's
+        rendered :attr:`~docx.fields.Field.result_text` with the concatenated
+        text of the referenced bookmark range. For each ``PAGEREF`` field
+        whose cached result is empty, replaces it with ``"?"``; python-docx
+        cannot compute real page numbers because it has no layout engine.
+
+        Other field types (``PAGE``, ``DATE``, ``SEQ``, etc.) are ignored.
+        Fields whose bookmark cannot be found are left unchanged. Returns the
+        number of fields whose ``result_text`` was updated in place.
+
+        Walks every field element in the body — including those inside
+        tables, hyperlinks, and other containers — by descending all
+        ``w:fldSimple`` elements and every run that opens a complex field.
+        """
+        from docx.fields import Field
+
+        body = self._element.body
+        updated = 0
+        for el in body.xpath(
+            ".//w:fldSimple | .//w:r[w:fldChar[@w:fldCharType='begin']]"
+        ):
+            tag = el.tag.rsplit("}", 1)[-1]
+            field = (
+                Field.for_simple(el) if tag == "fldSimple" else Field.for_complex(el)
+            )
+            if field.type not in ("REF", "PAGEREF"):
+                continue
+            resolved = field.resolve(self)
+            if resolved == field.result_text:
+                continue
+            field.update_result_text(resolved)
+            updated += 1
+        return updated
+
     def revision_marks_text(
         self,
         open_ins: str = "[+",

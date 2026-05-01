@@ -8,6 +8,7 @@ import pytest
 
 from docx.fields import Field, WD_FIELD_TYPE
 from docx.oxml.fields import CT_FldSimple
+from docx.oxml.ns import qn
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.text.run import CT_R
 
@@ -192,3 +193,302 @@ class DescribeField_Complex:
         field = Field.for_complex(r_begin)
         assert field.instruction == "REF bookmark1"
         assert field.type == "REF"
+
+
+class DescribeField_resolve:
+    """Unit-test suite for `Field.resolve()` cross-reference resolution."""
+
+    def _doc_with_bookmark(
+        self, bookmark_name: str, bookmark_text: str
+    ):
+        """Return a `Document` whose body contains a bookmark wrapping `bookmark_text`.
+
+        The bookmark uses id=0 and sits in a single paragraph alongside a
+        ``w:r/w:t`` run containing `bookmark_text`.
+        """
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        # -- build: <w:body><w:p><w:bookmarkStart .../><w:r><w:t>...</w:t></w:r>
+        #    <w:bookmarkEnd .../></w:p></w:body> --
+        doc_elm = cast(
+            CT_Document,
+            element(
+                f"w:document/w:body/w:p/("
+                f"w:bookmarkStart{{w:id=0,w:name={bookmark_name}}}"
+                f",w:r/w:t\"{bookmark_text}\""
+                f",w:bookmarkEnd{{w:id=0}}"
+                f")"
+            ),
+        )
+        return Document(doc_elm, None)  # type: ignore[arg-type]
+
+    def it_resolves_REF_to_bookmark_text_for_simple_field(self):
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import OxmlElement
+
+        doc = self._doc_with_bookmark("Ref1", "Hello")
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), "REF Ref1 \\h")
+        field = Field.for_simple(fldSimple)
+
+        assert field.resolve(doc) == "Hello"
+
+    def it_resolves_REF_to_bookmark_text_for_complex_field(self):
+        doc = self._doc_with_bookmark("Ref1", "Hello")
+        p = cast(CT_P, element("w:p"))
+        begin_run = p.add_complex_field("REF Ref1 \\h", "stale")
+        field = Field.for_complex(begin_run)
+
+        assert field.resolve(doc) == "Hello"
+
+    def it_resolves_heading_style_REF_referencing_a_heading_bookmark(self):
+        # -- Word uses names like "_Ref12345" or "_Toc12345" for auto-generated
+        #    cross-references; treat them like any other bookmark. --
+        doc = self._doc_with_bookmark("_Ref12345", "Chapter 2")
+        p = cast(CT_P, element("w:p"))
+        begin_run = p.add_complex_field("REF _Ref12345 \\h", "")
+        field = Field.for_complex(begin_run)
+
+        assert field.resolve(doc) == "Chapter 2"
+
+    def it_returns_cached_result_for_PAGEREF_when_present(self):
+        doc = self._doc_with_bookmark("Ref1", "ignored")
+        p = cast(CT_P, element("w:p"))
+        begin_run = p.add_complex_field("PAGEREF Ref1 \\h", "42")
+        field = Field.for_complex(begin_run)
+
+        assert field.resolve(doc) == "42"
+
+    def it_returns_question_mark_for_PAGEREF_when_no_cached_result(self):
+        doc = self._doc_with_bookmark("Ref1", "ignored")
+        p = cast(CT_P, element("w:p"))
+        begin_run = p.add_complex_field("PAGEREF Ref1 \\h")
+        field = Field.for_complex(begin_run)
+
+        assert field.resolve(doc) == "?"
+
+    def it_returns_cached_result_for_unrelated_field_types(self):
+        doc = self._doc_with_bookmark("Ref1", "ignored")
+        p = cast(CT_P, element("w:p"))
+        begin_run = p.add_complex_field("PAGE", "7")
+        field = Field.for_complex(begin_run)
+
+        assert field.resolve(doc) == "7"
+
+    def it_returns_cached_result_when_REF_bookmark_not_found(self):
+        doc = self._doc_with_bookmark("Ref1", "Hello")
+        p = cast(CT_P, element("w:p"))
+        begin_run = p.add_complex_field("REF Missing \\h", "stale")
+        field = Field.for_complex(begin_run)
+
+        # -- unresolvable references leave the cached result untouched --
+        assert field.resolve(doc) == "stale"
+
+    def it_returns_cached_result_when_REF_has_no_bookmark_name(self):
+        doc = self._doc_with_bookmark("Ref1", "Hello")
+        p = cast(CT_P, element("w:p"))
+        begin_run = p.add_complex_field("REF", "stale")
+        field = Field.for_complex(begin_run)
+
+        assert field.resolve(doc) == "stale"
+
+    def it_strips_switches_before_looking_up_the_bookmark_name(self):
+        # -- verify backslash switches are skipped --
+        doc = self._doc_with_bookmark("Ref1", "Hello")
+        p = cast(CT_P, element("w:p"))
+        begin_run = p.add_complex_field('REF \\h Ref1 \\* MERGEFORMAT', "")
+        field = Field.for_complex(begin_run)
+
+        assert field.resolve(doc) == "Hello"
+
+    def it_updates_result_text_in_place_for_simple_field(self):
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), "REF Ref1")
+        r = fldSimple.add_r()
+        r.add_t("old")
+        field = Field.for_simple(fldSimple)
+
+        field.update_result_text("new value")
+
+        assert field.result_text == "new value"
+
+    def it_updates_result_text_in_place_for_complex_field(self):
+        p = cast(CT_P, element("w:p"))
+        begin_run = p.add_complex_field("REF Ref1", "old")
+        field = Field.for_complex(begin_run)
+
+        field.update_result_text("new value")
+
+        assert field.result_text == "new value"
+
+    def it_preserves_whitespace_when_updated_text_has_leading_or_trailing_spaces(self):
+        p = cast(CT_P, element("w:p"))
+        begin_run = p.add_complex_field("REF Ref1", "old")
+        field = Field.for_complex(begin_run)
+
+        field.update_result_text(" padded ")
+
+        assert field.result_text == " padded "
+
+    def it_walks_bookmark_text_across_multiple_runs(self):
+        # -- bookmark range spans two runs; concatenate their text --
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        doc_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/w:p/("
+                "w:bookmarkStart{w:id=0,w:name=Ref1}"
+                ',w:r/w:t"Hello "'
+                ',w:r/w:t"World"'
+                ",w:bookmarkEnd{w:id=0}"
+                ")"
+            ),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+        p = cast(CT_P, element("w:p"))
+        begin_run = p.add_complex_field("REF Ref1", "")
+        field = Field.for_complex(begin_run)
+
+        assert field.resolve(doc) == "Hello World"
+
+
+class DescribeDocument_resolve_cross_references:
+    """Unit-test suite for `Document.resolve_cross_references()`."""
+
+    def it_resolves_REF_and_updates_result_text_in_place(self):
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        # -- body contains: a paragraph with bookmark "Ref1" wrapping "Hello",
+        #    then a second paragraph with a REF simple field. --
+        doc_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/("
+                "w:p/("
+                "w:bookmarkStart{w:id=0,w:name=Ref1}"
+                ',w:r/w:t"Hello"'
+                ",w:bookmarkEnd{w:id=0}"
+                "),"
+                "w:p/w:fldSimple{w:instr=REF Ref1}/w:r/w:t\"stale\""
+                ")"
+            ),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+
+        count = doc.resolve_cross_references()
+
+        assert count == 1
+        # -- find the fldSimple and confirm its text is now "Hello" --
+        fldSimples = doc._element.body.xpath(".//w:fldSimple")  # pyright: ignore[reportPrivateUsage]
+        assert len(fldSimples) == 1
+        assert Field.for_simple(fldSimples[0]).result_text == "Hello"
+
+    def it_updates_multiple_fields_and_returns_the_count(self):
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        doc_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/("
+                "w:p/("
+                "w:bookmarkStart{w:id=0,w:name=A}"
+                ',w:r/w:t"AAA"'
+                ",w:bookmarkEnd{w:id=0}"
+                "),"
+                "w:p/("
+                "w:bookmarkStart{w:id=1,w:name=B}"
+                ',w:r/w:t"BBB"'
+                ",w:bookmarkEnd{w:id=1}"
+                "),"
+                'w:p/w:fldSimple{w:instr=REF A}/w:r/w:t"stale"'
+                ','
+                'w:p/w:fldSimple{w:instr=REF B}/w:r/w:t"stale"'
+                ")"
+            ),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+
+        count = doc.resolve_cross_references()
+
+        assert count == 2
+        results = [
+            Field.for_simple(fs).result_text
+            for fs in doc._element.body.xpath(".//w:fldSimple")  # pyright: ignore[reportPrivateUsage]
+        ]
+        assert results == ["AAA", "BBB"]
+
+    def it_leaves_unresolvable_fields_untouched(self):
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        doc_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/"
+                'w:p/w:fldSimple{w:instr=REF NoSuchBookmark}/w:r/w:t"stale"'
+            ),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+
+        count = doc.resolve_cross_references()
+
+        assert count == 0
+        fs = doc._element.body.xpath(".//w:fldSimple")[0]  # pyright: ignore[reportPrivateUsage]
+        assert Field.for_simple(fs).result_text == "stale"
+
+    def it_ignores_non_crossreference_fields(self):
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        doc_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/"
+                'w:p/w:fldSimple{w:instr=PAGE}/w:r/w:t"3"'
+            ),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+
+        count = doc.resolve_cross_references()
+
+        assert count == 0
+        fs = doc._element.body.xpath(".//w:fldSimple")[0]  # pyright: ignore[reportPrivateUsage]
+        assert Field.for_simple(fs).result_text == "3"
+
+    def it_resolves_PAGEREF_with_empty_cached_result_to_question_mark(self):
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        # -- PAGEREF with no cached result_text; expect "?" after resolve --
+        doc_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/("
+                "w:p/("
+                "w:bookmarkStart{w:id=0,w:name=Ref1}"
+                ',w:r/w:t"X"'
+                ",w:bookmarkEnd{w:id=0}"
+                "),"
+                "w:p/w:fldSimple{w:instr=PAGEREF Ref1}"
+                ")"
+            ),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+
+        count = doc.resolve_cross_references()
+
+        assert count == 1
+        fs = [
+            fs
+            for fs in doc._element.body.xpath(".//w:fldSimple")  # pyright: ignore[reportPrivateUsage]
+            if fs.get(qn("w:instr")) == "PAGEREF Ref1"
+        ][0]
+        assert Field.for_simple(fs).result_text == "?"
