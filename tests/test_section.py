@@ -1708,3 +1708,96 @@ class DescribeSection_line_numbering:
     @pytest.fixture
     def document_part_(self, request: FixtureRequest):
         return instance_mock(request, DocumentPart)
+
+
+class DescribeSection_paper_source:
+    """Unit-test suite for `Section.first_page_paper_source` / `other_pages_paper_source`."""
+
+    def it_returns_None_for_both_when_no_paperSrc(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        assert section.first_page_paper_source is None
+        assert section.other_pages_paper_source is None
+
+    def it_reads_first_when_only_first_set(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr/w:paperSrc{w:first=3}"))
+        section = Section(sectPr, document_part_)
+        assert section.first_page_paper_source == 3
+        assert section.other_pages_paper_source is None
+
+    def it_reads_other_when_only_other_set(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr/w:paperSrc{w:other=4}"))
+        section = Section(sectPr, document_part_)
+        assert section.first_page_paper_source is None
+        assert section.other_pages_paper_source == 4
+
+    def it_reads_both_when_both_set(self, document_part_: Mock):
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:paperSrc{w:first=1,w:other=2}")
+        )
+        section = Section(sectPr, document_part_)
+        assert section.first_page_paper_source == 1
+        assert section.other_pages_paper_source == 2
+
+    def it_can_round_trip_first_page_paper_source(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        section.first_page_paper_source = 7
+        assert sectPr.xml == xml("w:sectPr/w:paperSrc{w:first=7}")
+        assert section.first_page_paper_source == 7
+
+    def it_can_round_trip_other_pages_paper_source(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        section.other_pages_paper_source = 9
+        assert sectPr.xml == xml("w:sectPr/w:paperSrc{w:other=9}")
+        assert section.other_pages_paper_source == 9
+
+    def it_keeps_both_when_set_sequentially(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        section.first_page_paper_source = 1
+        section.other_pages_paper_source = 2
+        assert sectPr.xml == xml("w:sectPr/w:paperSrc{w:first=1,w:other=2}")
+        assert section.first_page_paper_source == 1
+        assert section.other_pages_paper_source == 2
+
+    def it_removes_paperSrc_when_both_set_to_None(self, document_part_: Mock):
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:paperSrc{w:first=1,w:other=2}")
+        )
+        section = Section(sectPr, document_part_)
+        section.first_page_paper_source = None
+        section.other_pages_paper_source = None
+        assert sectPr.xml == xml("w:sectPr")
+
+    def it_keeps_paperSrc_when_only_one_set_to_None(self, document_part_: Mock):
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:paperSrc{w:first=1,w:other=2}")
+        )
+        section = Section(sectPr, document_part_)
+        section.first_page_paper_source = None
+        assert sectPr.xml == xml("w:sectPr/w:paperSrc{w:other=2}")
+        assert section.first_page_paper_source is None
+        assert section.other_pages_paper_source == 2
+
+    def it_is_noop_to_set_None_when_no_paperSrc(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        section.first_page_paper_source = None
+        section.other_pages_paper_source = None
+        assert sectPr.xml == xml("w:sectPr")
+
+    def it_inserts_paperSrc_in_correct_position(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr/(w:pgSz,w:pgMar,w:cols)"))
+        section = Section(sectPr, document_part_)
+        section.first_page_paper_source = 1
+        assert sectPr.xml == xml(
+            "w:sectPr/(w:pgSz,w:pgMar,w:paperSrc{w:first=1},w:cols)"
+        )
+
+    # -- fixtures ---------------------------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)

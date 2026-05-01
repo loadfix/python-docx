@@ -201,11 +201,27 @@ class CT_PageSz(BaseOxmlElement):
     )
 
 
+class CT_PaperSource(BaseOxmlElement):
+    """``<w:paperSrc>`` element, specifying printer-tray hints for a section.
+
+    Contains the ``w:first`` and ``w:other`` attributes, each of which is a
+    printer-specific integer tray bin number.
+    """
+
+    first: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:first", ST_DecimalNumber
+    )
+    other: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:other", ST_DecimalNumber
+    )
+
+
 class CT_SectPr(BaseOxmlElement):
     """`w:sectPr` element, the container element for section properties."""
 
     get_or_add_cols: Callable[[], CT_Cols]
     get_or_add_lnNumType: Callable[[], CT_LineNumber]
+    get_or_add_paperSrc: Callable[[], CT_PaperSource]
     get_or_add_pgBorders: Callable[[], CT_PgBorders]
     get_or_add_pgMar: Callable[[], CT_PageMar]
     get_or_add_pgSz: Callable[[], CT_PageSz]
@@ -218,6 +234,7 @@ class CT_SectPr(BaseOxmlElement):
     _remove_footnotePr: Callable[[], None]
     _remove_endnotePr: Callable[[], None]
     _remove_lnNumType: Callable[[], None]
+    _remove_paperSrc: Callable[[], None]
     _remove_pgBorders: Callable[[], None]
     _remove_titlePg: Callable[[], None]
     _remove_type: Callable[[], None]
@@ -260,6 +277,9 @@ class CT_SectPr(BaseOxmlElement):
     )
     pgMar: CT_PageMar | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:pgMar", successors=_tag_seq[5:]
+    )
+    paperSrc: CT_PaperSource | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:paperSrc", successors=_tag_seq[6:]
     )
     pgBorders: CT_PgBorders | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:pgBorders", successors=_tag_seq[7:]
