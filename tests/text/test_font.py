@@ -922,6 +922,216 @@ class DescribeFont:
         )
         assert font._element.xml == expected_xml
 
+    # -- language (w:lang) -------------------------------------------
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r/w:rPr", None),
+            ("w:r/w:rPr/w:lang", None),
+            ("w:r/w:rPr/w:lang{w:val=en-US}", "en-US"),
+            ("w:r/w:rPr/w:lang{w:val=fr-FR,w:eastAsia=ja-JP}", "fr-FR"),
+        ],
+    )
+    def it_knows_its_language(self, r_cxml: str, expected_value: str | None):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        assert font.language == expected_value
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "value", "expected_r_cxml"),
+        [
+            ("w:r", "en-US", "w:r/w:rPr/w:lang{w:val=en-US}"),
+            ("w:r/w:rPr", "fr-FR", "w:r/w:rPr/w:lang{w:val=fr-FR}"),
+            (
+                "w:r/w:rPr/w:lang{w:val=en-US}",
+                "fr-FR",
+                "w:r/w:rPr/w:lang{w:val=fr-FR}",
+            ),
+            (
+                "w:r/w:rPr/w:lang{w:val=en-US,w:eastAsia=ja-JP}",
+                None,
+                "w:r/w:rPr/w:lang{w:eastAsia=ja-JP}",
+            ),
+            ("w:r/w:rPr/w:lang{w:val=en-US}", None, "w:r/w:rPr/w:lang"),
+            ("w:r/w:rPr", None, "w:r/w:rPr"),
+            ("w:r", None, "w:r"),
+        ],
+    )
+    def it_can_change_its_language(
+        self, r_cxml: str, value: str | None, expected_r_cxml: str
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        expected_xml = xml(expected_r_cxml)
+
+        font.language = value
+
+        assert font._element.xml == expected_xml
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r/w:rPr", None),
+            ("w:r/w:rPr/w:lang", None),
+            ("w:r/w:rPr/w:lang{w:eastAsia=ja-JP}", "ja-JP"),
+            ("w:r/w:rPr/w:lang{w:val=en-US,w:eastAsia=zh-CN}", "zh-CN"),
+        ],
+    )
+    def it_knows_its_east_asian_language(
+        self, r_cxml: str, expected_value: str | None
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        assert font.east_asian_language == expected_value
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "value", "expected_r_cxml"),
+        [
+            ("w:r", "ja-JP", "w:r/w:rPr/w:lang{w:eastAsia=ja-JP}"),
+            ("w:r/w:rPr", "zh-CN", "w:r/w:rPr/w:lang{w:eastAsia=zh-CN}"),
+            (
+                "w:r/w:rPr/w:lang{w:eastAsia=ja-JP}",
+                "zh-CN",
+                "w:r/w:rPr/w:lang{w:eastAsia=zh-CN}",
+            ),
+            (
+                "w:r/w:rPr/w:lang{w:val=en-US,w:eastAsia=ja-JP}",
+                None,
+                "w:r/w:rPr/w:lang{w:val=en-US}",
+            ),
+            ("w:r/w:rPr/w:lang{w:eastAsia=ja-JP}", None, "w:r/w:rPr/w:lang"),
+            ("w:r/w:rPr", None, "w:r/w:rPr"),
+            ("w:r", None, "w:r"),
+        ],
+    )
+    def it_can_change_its_east_asian_language(
+        self, r_cxml: str, value: str | None, expected_r_cxml: str
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        expected_xml = xml(expected_r_cxml)
+
+        font.east_asian_language = value
+
+        assert font._element.xml == expected_xml
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r/w:rPr", None),
+            ("w:r/w:rPr/w:lang", None),
+            ("w:r/w:rPr/w:lang{w:bidi=ar-SA}", "ar-SA"),
+            ("w:r/w:rPr/w:lang{w:val=en-US,w:bidi=he-IL}", "he-IL"),
+        ],
+    )
+    def it_knows_its_bidi_language(self, r_cxml: str, expected_value: str | None):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        assert font.bidi_language == expected_value
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "value", "expected_r_cxml"),
+        [
+            ("w:r", "ar-SA", "w:r/w:rPr/w:lang{w:bidi=ar-SA}"),
+            ("w:r/w:rPr", "he-IL", "w:r/w:rPr/w:lang{w:bidi=he-IL}"),
+            (
+                "w:r/w:rPr/w:lang{w:bidi=ar-SA}",
+                "he-IL",
+                "w:r/w:rPr/w:lang{w:bidi=he-IL}",
+            ),
+            (
+                "w:r/w:rPr/w:lang{w:val=en-US,w:bidi=ar-SA}",
+                None,
+                "w:r/w:rPr/w:lang{w:val=en-US}",
+            ),
+            ("w:r/w:rPr/w:lang{w:bidi=ar-SA}", None, "w:r/w:rPr/w:lang"),
+            ("w:r/w:rPr", None, "w:r/w:rPr"),
+            ("w:r", None, "w:r"),
+        ],
+    )
+    def it_can_change_its_bidi_language(
+        self, r_cxml: str, value: str | None, expected_r_cxml: str
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        expected_xml = xml(expected_r_cxml)
+
+        font.bidi_language = value
+
+        assert font._element.xml == expected_xml
+
+    def it_can_set_all_language_tags_at_once(self):
+        r = cast(CT_R, element("w:r"))
+        font = Font(r)
+
+        font.language = "en-US"
+        font.east_asian_language = "ja-JP"
+        font.bidi_language = "ar-SA"
+
+        expected_xml = xml(
+            "w:r/w:rPr/w:lang{w:val=en-US,w:eastAsia=ja-JP,w:bidi=ar-SA}"
+        )
+        assert font._element.xml == expected_xml
+
+    def it_can_remove_the_language_element(self):
+        r = cast(
+            CT_R,
+            element("w:r/w:rPr/w:lang{w:val=en-US,w:eastAsia=ja-JP,w:bidi=ar-SA}"),
+        )
+        font = Font(r)
+
+        font.remove_language()
+
+        assert font._element.xml == xml("w:r/w:rPr")
+        assert font.language is None
+        assert font.east_asian_language is None
+        assert font.bidi_language is None
+
+    def it_does_not_raise_when_removing_language_that_is_absent(self):
+        r = cast(CT_R, element("w:r"))
+        font = Font(r)
+
+        font.remove_language()  # no-op
+
+        assert font._element.xml == xml("w:r")
+
+    def it_does_not_raise_when_removing_language_when_rPr_has_no_lang(self):
+        r = cast(CT_R, element("w:r/w:rPr/w:b"))
+        font = Font(r)
+
+        font.remove_language()
+
+        assert font._element.xml == xml("w:r/w:rPr/w:b")
+
+    def it_preserves_sibling_rPr_children_when_setting_language(self):
+        r = cast(
+            CT_R,
+            element("w:r/w:rPr/(w:b,w:color{w:val=FF0000},w:u{w:val=single})"),
+        )
+        font = Font(r)
+
+        font.language = "en-US"
+
+        expected_xml = xml(
+            "w:r/w:rPr/(w:b,w:color{w:val=FF0000},w:u{w:val=single},"
+            "w:lang{w:val=en-US})"
+        )
+        assert font._element.xml == expected_xml
+
+    def it_preserves_correct_schema_order_when_lang_has_later_sibling(self):
+        """w:lang must precede w:oMath in CT_RPr (schema order)."""
+        r = cast(CT_R, element("w:r/w:rPr/w:oMath"))
+        font = Font(r)
+
+        font.language = "en-US"
+
+        expected_xml = xml("w:r/w:rPr/(w:lang{w:val=en-US},w:oMath)")
+        assert font._element.xml == expected_xml
+
     # -- fixtures ----------------------------------------------------
 
     @pytest.fixture

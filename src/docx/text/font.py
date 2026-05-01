@@ -337,6 +337,116 @@ class Font(ElementProxy):
         rPr.kern_val = None if value is None else Emu(value)
 
     @property
+    def language(self) -> str | None:
+        """Primary (Latin-script) language tag for this run.
+
+        BCP-47 language tag (e.g. ``"en-US"``) or |None| when unset. Maps to
+        ``w:rPr/w:lang/@w:val``. Assigning a string creates the ``w:lang``
+        child if necessary. Assigning |None| clears only the ``w:val``
+        attribute — use :meth:`remove_language` to remove the entire
+        ``w:lang`` element.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        lang = rPr.lang
+        if lang is None:
+            return None
+        return lang.val
+
+    @language.setter
+    def language(self, value: str | None) -> None:
+        if value is None:
+            rPr = self._element.rPr
+            if rPr is None:
+                return
+            lang = rPr.lang
+            if lang is None:
+                return
+            lang.val = None
+            return
+        rPr = self._element.get_or_add_rPr()
+        lang = rPr.get_or_add_lang()
+        lang.val = value
+
+    @property
+    def east_asian_language(self) -> str | None:
+        """East Asian language tag for this run.
+
+        BCP-47 language tag or |None| when unset. Maps to
+        ``w:rPr/w:lang/@w:eastAsia``. Assigning a string creates the
+        ``w:lang`` child if necessary. Assigning |None| clears only the
+        ``w:eastAsia`` attribute — use :meth:`remove_language` to remove the
+        entire ``w:lang`` element.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        lang = rPr.lang
+        if lang is None:
+            return None
+        return lang.eastAsia
+
+    @east_asian_language.setter
+    def east_asian_language(self, value: str | None) -> None:
+        if value is None:
+            rPr = self._element.rPr
+            if rPr is None:
+                return
+            lang = rPr.lang
+            if lang is None:
+                return
+            lang.eastAsia = None
+            return
+        rPr = self._element.get_or_add_rPr()
+        lang = rPr.get_or_add_lang()
+        lang.eastAsia = value
+
+    @property
+    def bidi_language(self) -> str | None:
+        """Complex-script (bidirectional) language tag for this run.
+
+        BCP-47 language tag or |None| when unset. Maps to
+        ``w:rPr/w:lang/@w:bidi``. Assigning a string creates the ``w:lang``
+        child if necessary. Assigning |None| clears only the ``w:bidi``
+        attribute — use :meth:`remove_language` to remove the entire
+        ``w:lang`` element.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        lang = rPr.lang
+        if lang is None:
+            return None
+        return lang.bidi
+
+    @bidi_language.setter
+    def bidi_language(self, value: str | None) -> None:
+        if value is None:
+            rPr = self._element.rPr
+            if rPr is None:
+                return
+            lang = rPr.lang
+            if lang is None:
+                return
+            lang.bidi = None
+            return
+        rPr = self._element.get_or_add_rPr()
+        lang = rPr.get_or_add_lang()
+        lang.bidi = value
+
+    def remove_language(self) -> None:
+        """Remove the entire ``w:rPr/w:lang`` child element, if present.
+
+        Clears all language-tag state in a single call. Has no effect when no
+        ``w:lang`` element is present.
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return
+        rPr._remove_lang()  # pyright: ignore[reportPrivateUsage]
+
+    @property
     def imprint(self) -> bool | None:
         """Read/write tri-state value.
 
