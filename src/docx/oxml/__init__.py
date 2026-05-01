@@ -477,6 +477,8 @@ register_element_cls("w:commentReference", _Base)
 register_element_cls("w:contentPart", _Base)
 register_element_cls("w:footnoteRef", _Base)
 register_element_cls("w:footnoteReference", _Base)
+register_element_cls("w:object", _Base)
+register_element_cls("o:OLEObject", _Base)
 
 # ---------------------------------------------------------------------------
 # VML watermark-related elements

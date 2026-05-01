@@ -28,6 +28,7 @@ from docx.opc.parts.coreprops import CorePropertiesPart
 from docx.parts.comments import CommentsPart
 from docx.parts.custom_properties import CustomPropertiesPart
 from docx.parts.document import DocumentPart
+from docx.parts.embedded_object import EmbeddedObjectPart
 from docx.parts.endnotes import EndnotesPart
 from docx.parts.font_table import FontTablePart
 from docx.parts.footnotes import FootnotesPart
@@ -58,6 +59,7 @@ PartFactory.part_type_for[CT.WML_FOOTER] = FooterPart
 PartFactory.part_type_for[CT.WML_FOOTNOTES] = FootnotesPart
 PartFactory.part_type_for[CT.WML_HEADER] = HeaderPart
 PartFactory.part_type_for[CT.INKML] = InkPart
+PartFactory.part_type_for[CT.OFC_OLE_OBJECT] = EmbeddedObjectPart
 PartFactory.part_type_for[CT.WML_NUMBERING] = NumberingPart
 PartFactory.part_type_for[CT.WML_SETTINGS] = SettingsPart
 PartFactory.part_type_for[CT.WML_STYLES] = StylesPart
@@ -69,6 +71,7 @@ del (
     CommentsPart,
     CustomPropertiesPart,
     DocumentPart,
+    EmbeddedObjectPart,
     EndnotesPart,
     FontTablePart,
     FooterPart,
