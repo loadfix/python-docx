@@ -498,6 +498,44 @@ class Paragraph(StoryChild):
         paragraph = self.insert_paragraph_after()
         return new_caption_paragraph(paragraph, text, label=label, style=style)
 
+    def insert_table_of_contents_before(
+        self, levels: tuple[int, int] = (1, 3)
+    ) -> Paragraph:
+        """Insert a TOC paragraph directly before this paragraph and return it.
+
+        `levels` is a ``(min_level, max_level)`` tuple (default ``(1, 3)``)
+        controlling which ``"Heading N"`` paragraphs contribute to the cached
+        preview text. See
+        :meth:`docx.document.Document.add_table_of_contents` for the full
+        contract — this method uses the same helper and the same semantics,
+        just placed before this paragraph rather than appended.
+
+        The preview scans the document body for headings; the headings that
+        appear *before* or *after* this paragraph are both included, since
+        Word will rebuild the real TOC on open.
+        """
+        from docx.toc import populate_toc_paragraph
+
+        body = self._get_body()
+        source_paragraphs = [Paragraph(p, self._parent) for p in body.xpath(".//w:p")]
+        paragraph = self.insert_paragraph_before()
+        return populate_toc_paragraph(paragraph, source_paragraphs, levels)
+
+    def insert_table_of_contents_after(
+        self, levels: tuple[int, int] = (1, 3)
+    ) -> Paragraph:
+        """Insert a TOC paragraph directly after this paragraph and return it.
+
+        See :meth:`insert_table_of_contents_before` for the full contract;
+        this variant places the TOC paragraph immediately after this one.
+        """
+        from docx.toc import populate_toc_paragraph
+
+        body = self._get_body()
+        source_paragraphs = [Paragraph(p, self._parent) for p in body.xpath(".//w:p")]
+        paragraph = self.insert_paragraph_after()
+        return populate_toc_paragraph(paragraph, source_paragraphs, levels)
+
     def insert_table_before(
         self,
         rows: int,
