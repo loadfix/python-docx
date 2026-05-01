@@ -23,6 +23,7 @@ from docx.oxml.table import (
     CT_Shd,
     CT_Tbl,
     CT_TblBorders,
+    CT_TblLook,
     CT_TblPr,
     CT_TblWidth,
     CT_Tc,
@@ -160,6 +161,93 @@ class DescribeCT_TblPr_borders:
         tblPr.get_or_add_tblBorders()
         expected = xml("w:tblPr/(w:tblStyle,w:tblBorders,w:tblLayout)")
         assert tblPr.xml == expected
+
+
+class DescribeCT_TblPr_tblLook:
+    """Unit-test suite for `w:tblLook` access via CT_TblPr."""
+
+    def it_is_None_when_no_tblLook_child_is_present(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        assert tblPr.tblLook is None
+
+    def it_can_add_tblLook(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        tblLook = tblPr.get_or_add_tblLook()
+        assert isinstance(tblLook, CT_TblLook)
+        assert tblPr.tblLook is tblLook
+
+    def it_inserts_tblLook_after_tblCellMar(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr/(w:tblStyle,w:tblLayout)"))
+        tblPr.get_or_add_tblLook()
+        expected = xml("w:tblPr/(w:tblStyle,w:tblLayout,w:tblLook)")
+        assert tblPr.xml == expected
+
+
+class DescribeCT_TblLook:
+    """Unit-test suite for `docx.oxml.table.CT_TblLook` objects."""
+
+    @pytest.mark.parametrize(
+        ("name", "cxml", "expected"),
+        [
+            ("firstRow", "w:tblLook", False),
+            ("firstRow", 'w:tblLook{w:firstRow=1}', True),
+            ("firstRow", 'w:tblLook{w:firstRow=0}', False),
+            ("firstRow", 'w:tblLook{w:firstRow=true}', True),
+            ("lastRow", 'w:tblLook{w:lastRow=1}', True),
+            ("firstColumn", 'w:tblLook{w:firstColumn=1}', True),
+            ("lastColumn", 'w:tblLook{w:lastColumn=1}', True),
+            ("noHBand", 'w:tblLook{w:noHBand=1}', True),
+            ("noVBand", 'w:tblLook{w:noVBand=1}', True),
+        ],
+    )
+    def it_reads_individual_flag_attrs(self, name: str, cxml: str, expected: bool):
+        tblLook = cast(CT_TblLook, element(cxml))
+        assert tblLook.get_flag(name) is expected
+
+    def it_falls_back_to_the_legacy_val_bitmask_when_flag_attr_absent(self):
+        # 0x04A0 = firstRow(0x0020) | firstColumn(0x0080) | noVBand(0x0400)
+        tblLook = cast(CT_TblLook, element("w:tblLook{w:val=04A0}"))
+        assert tblLook.get_flag("firstRow") is True
+        assert tblLook.get_flag("firstColumn") is True
+        assert tblLook.get_flag("noVBand") is True
+        assert tblLook.get_flag("lastRow") is False
+        assert tblLook.get_flag("lastColumn") is False
+        assert tblLook.get_flag("noHBand") is False
+
+    def it_prefers_individual_flag_attr_over_legacy_val(self):
+        # val bitmask says firstRow=1, but explicit attr says 0
+        tblLook = cast(
+            CT_TblLook, element("w:tblLook{w:val=04A0,w:firstRow=0}")
+        )
+        assert tblLook.get_flag("firstRow") is False
+
+    def it_ignores_malformed_val_bitmask(self):
+        tblLook = cast(CT_TblLook, element("w:tblLook{w:val=notahex}"))
+        assert tblLook.get_flag("firstRow") is False
+
+    def it_writes_True_as_1(self):
+        tblLook = cast(CT_TblLook, element("w:tblLook"))
+        tblLook.set_flag("firstRow", True)
+        assert tblLook.xml == xml('w:tblLook{w:firstRow=1}')
+
+    def it_writes_False_as_0(self):
+        tblLook = cast(CT_TblLook, element("w:tblLook"))
+        tblLook.set_flag("firstRow", False)
+        assert tblLook.xml == xml('w:tblLook{w:firstRow=0}')
+
+    def it_overwrites_an_existing_flag(self):
+        tblLook = cast(CT_TblLook, element('w:tblLook{w:firstRow=1}'))
+        tblLook.set_flag("firstRow", False)
+        assert tblLook.get_flag("firstRow") is False
+
+    def it_round_trips_each_flag(self):
+        tblLook = cast(CT_TblLook, element("w:tblLook"))
+        names = ("firstRow", "lastRow", "firstColumn", "lastColumn", "noHBand", "noVBand")
+        for name in names:
+            tblLook.set_flag(name, True)
+            assert tblLook.get_flag(name) is True
+            tblLook.set_flag(name, False)
+            assert tblLook.get_flag(name) is False
 
 
 class DescribeCT_TblPr_width:
