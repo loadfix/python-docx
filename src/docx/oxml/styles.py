@@ -119,6 +119,8 @@ class CT_Style(BaseOxmlElement):
     name = ZeroOrOne("w:name", successors=_tag_seq[1:])
     basedOn = ZeroOrOne("w:basedOn", successors=_tag_seq[3:])
     next = ZeroOrOne("w:next", successors=_tag_seq[4:])
+    link = ZeroOrOne("w:link", successors=_tag_seq[5:])
+    autoRedefine = ZeroOrOne("w:autoRedefine", successors=_tag_seq[6:])
     uiPriority = ZeroOrOne("w:uiPriority", successors=_tag_seq[8:])
     semiHidden = ZeroOrOne("w:semiHidden", successors=_tag_seq[9:])
     unhideWhenUsed = ZeroOrOne("w:unhideWhenUsed", successors=_tag_seq[10:])
@@ -153,6 +155,21 @@ class CT_Style(BaseOxmlElement):
             self.get_or_add_basedOn().val = value
 
     @property
+    def autoRedefine_val(self):
+        """Value of `w:autoRedefine/@w:val` or |False| if not present."""
+        autoRedefine = self.autoRedefine
+        if autoRedefine is None:
+            return False
+        return autoRedefine.val
+
+    @autoRedefine_val.setter
+    def autoRedefine_val(self, value):
+        self._remove_autoRedefine()
+        if bool(value) is True:
+            autoRedefine = self._add_autoRedefine()
+            autoRedefine.val = value
+
+    @property
     def base_style(self):
         """Sibling CT_Style element this style is based on or |None| if no base style or
         base style not found."""
@@ -168,6 +185,36 @@ class CT_Style(BaseOxmlElement):
     def delete(self):
         """Remove this `w:style` element from its parent `w:styles` element."""
         self.getparent().remove(self)
+
+    @property
+    def link_val(self):
+        """Value of `w:link/@w:val` or |None| if not present."""
+        link = self.link
+        if link is None:
+            return None
+        return link.val
+
+    @link_val.setter
+    def link_val(self, value):
+        if value is None:
+            self._remove_link()
+        else:
+            self.get_or_add_link().val = value
+
+    @property
+    def linked_style(self):
+        """Sibling CT_Style element identified by `w:link/@w:val`, or |None|.
+
+        |None| is returned if no `w:link` child is present, the value is empty, or no
+        sibling style with that `w:styleId` exists.
+        """
+        link = self.link
+        if link is None:
+            return None
+        styles = self.getparent()
+        if styles is None:
+            return None
+        return styles.get_by_id(link.val)
 
     @property
     def locked_val(self):
@@ -207,7 +254,24 @@ class CT_Style(BaseOxmlElement):
         if next is None:
             return None
         styles = self.getparent()
+        if styles is None:
+            return None
         return styles.get_by_id(next.val)  # None if not found
+
+    @property
+    def next_val(self):
+        """Value of `w:next/@w:val` or |None| if not present."""
+        next = self.next
+        if next is None:
+            return None
+        return next.val
+
+    @next_val.setter
+    def next_val(self, value):
+        if value is None:
+            self._remove_next()
+        else:
+            self.get_or_add_next().val = value
 
     @property
     def qFormat_val(self):
