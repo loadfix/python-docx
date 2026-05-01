@@ -12,12 +12,13 @@ from docx import types as t
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK, WD_UNDERLINE
 from docx.oxml.text.paragraph import CT_P
-from docx.oxml.text.run import CT_R
+from docx.oxml.text.run import CT_R, CT_Sym
 from docx.parts.document import DocumentPart
 from docx.shape import InlineShape
 from docx.text.font import Font
 from docx.text.paragraph import Paragraph
 from docx.text.run import Run
+from docx.text.symbol import Symbol
 
 from ..unitutil.cxml import element, xml
 from ..unitutil.mock import FixtureRequest, Mock, class_mock, instance_mock, property_mock
@@ -497,6 +498,163 @@ class DescribeRun:
     @pytest.fixture
     def Text_(self, request: FixtureRequest):
         return class_mock(request, "docx.text.run._Text")
+
+
+class DescribeRun_Symbol:
+    """Unit-test suite for `Run.add_symbol` and `Run.symbols`."""
+
+    @pytest.mark.parametrize(
+        ("char_code", "font", "expected_char_hex", "expected_cxml"),
+        [
+            # -- integer code ----------------------------------------------
+            (0xF0E0, "Wingdings", "F0E0", "w:r/w:sym{w:font=Wingdings,w:char=F0E0}"),
+            # -- integer code padded to 4 hex chars ------------------------
+            (0x41, "Symbol", "0041", "w:r/w:sym{w:font=Symbol,w:char=0041}"),
+            # -- 4-char hex string -----------------------------------------
+            ("F0E0", "Wingdings", "F0E0", "w:r/w:sym{w:font=Wingdings,w:char=F0E0}"),
+            # -- lowercase hex normalised to uppercase ---------------------
+            ("f0e0", "Wingdings", "F0E0", "w:r/w:sym{w:font=Wingdings,w:char=F0E0}"),
+            # -- 0x-prefixed hex string ------------------------------------
+            ("0xF0E0", "Wingdings", "F0E0", "w:r/w:sym{w:font=Wingdings,w:char=F0E0}"),
+        ],
+    )
+    def it_can_add_a_symbol(
+        self,
+        char_code: int | str,
+        font: str,
+        expected_char_hex: str,
+        expected_cxml: str,
+        paragraph_: Mock,
+    ):
+        run = Run(cast(CT_R, element("w:r")), paragraph_)
+
+        symbol = run.add_symbol(char_code, font)
+
+        assert run._r.xml == xml(expected_cxml)
+        assert isinstance(symbol, Symbol)
+        assert symbol.font == font
+        assert symbol.char_hex == expected_char_hex
+
+    def it_iterates_symbols_in_document_order(self, paragraph_: Mock):
+        r_cxml = (
+            "w:r/(w:sym{w:font=Wingdings,w:char=F0E0},"
+            'w:t"x",'
+            "w:sym{w:font=Symbol,w:char=0041})"
+        )
+        run = Run(cast(CT_R, element(r_cxml)), paragraph_)
+
+        symbols = list(run.symbols)
+
+        assert len(symbols) == 2
+        assert [s.char_hex for s in symbols] == ["F0E0", "0041"]
+        assert [s.font for s in symbols] == ["Wingdings", "Symbol"]
+
+    def it_yields_no_symbols_when_none_present(self, paragraph_: Mock):
+        run = Run(cast(CT_R, element('w:r/w:t"no symbols here"')), paragraph_)
+        assert list(run.symbols) == []
+
+    def its_symbols_report_int_char_code(self, paragraph_: Mock):
+        run = Run(
+            cast(CT_R, element("w:r/w:sym{w:font=Wingdings,w:char=F0E0}")),
+            paragraph_,
+        )
+
+        (symbol,) = list(run.symbols)
+
+        assert symbol.char_code == 0xF0E0
+        assert symbol.char_hex == "F0E0"
+        assert symbol.font == "Wingdings"
+
+    def its_symbols_can_be_deleted(self, paragraph_: Mock):
+        r = cast(
+            CT_R,
+            element(
+                "w:r/(w:sym{w:font=Wingdings,w:char=F0E0},"
+                'w:t"x",'
+                "w:sym{w:font=Symbol,w:char=0041})"
+            ),
+        )
+        run = Run(r, paragraph_)
+        first_symbol = next(iter(run.symbols))
+
+        first_symbol.delete()
+
+        remaining = list(run.symbols)
+        assert len(remaining) == 1
+        assert remaining[0].char_hex == "0041"
+        # -- `w:t` is preserved --
+        assert run.text == "x"
+
+    def it_preserves_symbols_when_paragraph_text_is_read(self, paragraph_: Mock):
+        """`Run.text` skips symbol elements but leaves them in the XML."""
+        r = cast(
+            CT_R,
+            element(
+                'w:r/(w:t"before",'
+                "w:sym{w:font=Wingdings,w:char=F0E0},"
+                'w:t"after")'
+            ),
+        )
+        run = Run(r, paragraph_)
+
+        # -- symbol is not part of the text string (non-textual) --
+        assert run.text == "beforeafter"
+        # -- but the w:sym element is still present in the XML --
+        assert len(list(run.symbols)) == 1
+
+    @pytest.fixture
+    def paragraph_(self, request: FixtureRequest):
+        return instance_mock(request, Paragraph)
+
+
+class DescribeSymbol:
+    """Unit-test suite for `docx.text.symbol.Symbol`."""
+
+    def it_reports_its_font_char_hex_and_char_code(self):
+        sym = cast(
+            CT_Sym,
+            element("w:sym{w:font=Wingdings,w:char=F0E0}"),
+        )
+
+        symbol = Symbol(sym)
+
+        assert symbol.font == "Wingdings"
+        assert symbol.char_hex == "F0E0"
+        assert symbol.char_code == 0xF0E0
+
+    def its_char_hex_is_uppercase_and_padded(self):
+        # -- even if the XML stored the value in lowercase or without padding,
+        # -- the computed char_hex is normalised --
+        sym = cast(CT_Sym, element("w:sym{w:font=Symbol,w:char=41}"))
+
+        symbol = Symbol(sym)
+
+        assert symbol.char_code == 0x41
+        assert symbol.char_hex == "0041"
+
+    def it_can_delete_itself(self):
+        r = cast(
+            CT_R,
+            element(
+                "w:r/(w:sym{w:font=Wingdings,w:char=F0E0},"
+                "w:sym{w:font=Symbol,w:char=0041})"
+            ),
+        )
+        first_sym = r.sym_lst[0]
+        symbol = Symbol(first_sym)
+
+        symbol.delete()
+
+        assert len(r.sym_lst) == 1
+        assert r.sym_lst[0].char == "0041"
+
+    def delete_is_a_noop_when_element_is_orphan(self):
+        sym = cast(CT_Sym, element("w:sym{w:font=Wingdings,w:char=F0E0}"))
+        # -- `element()` returns an orphan (no parent) --
+        symbol = Symbol(sym)
+
+        # -- should not raise --
+        symbol.delete()
 
 
 class DescribeRun_Rsid:
