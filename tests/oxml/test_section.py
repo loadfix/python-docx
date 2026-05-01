@@ -6,10 +6,12 @@ from typing import cast
 
 import pytest
 
-from docx.oxml.section import CT_Col, CT_Cols, CT_HdrFtr, CT_SectPr
+from docx.enum.section import WD_BORDER_DISPLAY, WD_BORDER_OFFSET_FROM
+from docx.enum.text import WD_BORDER_STYLE
+from docx.oxml.section import CT_Col, CT_Cols, CT_HdrFtr, CT_PgBorders, CT_SectPr
 from docx.oxml.table import CT_Tbl
 from docx.oxml.text.paragraph import CT_P
-from docx.shared import Inches, Twips
+from docx.shared import Emu, Inches, Length, RGBColor, Twips
 
 from ..unitutil.cxml import element, xml
 
@@ -85,6 +87,119 @@ class DescribeCT_SectPr_cols:
         assert cols is not None
         expected = xml("w:sectPr/(w:pgMar,w:cols)")
         assert sectPr.xml == expected
+
+
+class DescribeCT_PgBorders:
+    """Unit-test suite for `docx.oxml.section.CT_PgBorders`."""
+
+    @pytest.mark.parametrize(
+        ("pgBorders_cxml", "expected_display", "expected_offset"),
+        [
+            ("w:pgBorders", None, None),
+            (
+                "w:pgBorders{w:display=allPages,w:offsetFrom=page}",
+                WD_BORDER_DISPLAY.ALL_PAGES,
+                WD_BORDER_OFFSET_FROM.PAGE,
+            ),
+            (
+                "w:pgBorders{w:display=firstPage,w:offsetFrom=text}",
+                WD_BORDER_DISPLAY.FIRST_PAGE,
+                WD_BORDER_OFFSET_FROM.TEXT,
+            ),
+            (
+                "w:pgBorders{w:display=notFirstPage}",
+                WD_BORDER_DISPLAY.NOT_FIRST_PAGE,
+                None,
+            ),
+        ],
+    )
+    def it_knows_its_attributes(
+        self, pgBorders_cxml, expected_display, expected_offset
+    ):
+        pgBorders = cast(CT_PgBorders, element(pgBorders_cxml))
+        assert pgBorders.display == expected_display
+        assert pgBorders.offsetFrom == expected_offset
+
+    def it_can_access_each_edge_child(self):
+        from docx.shared import Pt
+
+        pgBorders = cast(
+            CT_PgBorders,
+            element(
+                "w:pgBorders/(w:top{w:val=single,w:sz=24,w:space=24,w:color=FF0000},"
+                "w:left{w:val=dashed,w:sz=8,w:space=12,w:color=00FF00},"
+                "w:bottom{w:val=double,w:sz=4,w:space=6,w:color=0000FF},"
+                "w:right{w:val=dotted,w:sz=16,w:space=18,w:color=AABBCC})"
+            ),
+        )
+        assert pgBorders.top is not None
+        assert pgBorders.top.val == WD_BORDER_STYLE.SINGLE
+        assert pgBorders.top.sz == Pt(24 / 8.0)
+        assert pgBorders.top.space == Pt(24)
+        assert pgBorders.top.color == RGBColor(0xFF, 0x00, 0x00)
+        assert pgBorders.left is not None
+        assert pgBorders.left.val == WD_BORDER_STYLE.DASHED
+        assert pgBorders.bottom is not None
+        assert pgBorders.bottom.val == WD_BORDER_STYLE.DOUBLE
+        assert pgBorders.right is not None
+        assert pgBorders.right.val == WD_BORDER_STYLE.DOTTED
+
+    def it_returns_None_for_missing_edge_children(self):
+        pgBorders = cast(CT_PgBorders, element("w:pgBorders"))
+        assert pgBorders.top is None
+        assert pgBorders.bottom is None
+        assert pgBorders.left is None
+        assert pgBorders.right is None
+
+    def it_can_add_each_edge(self):
+        pgBorders = cast(CT_PgBorders, element("w:pgBorders"))
+        top = pgBorders.get_or_add_top()
+        left = pgBorders.get_or_add_left()
+        bottom = pgBorders.get_or_add_bottom()
+        right = pgBorders.get_or_add_right()
+        assert pgBorders.top is top
+        assert pgBorders.left is left
+        assert pgBorders.bottom is bottom
+        assert pgBorders.right is right
+        expected = xml("w:pgBorders/(w:top,w:left,w:bottom,w:right)")
+        assert pgBorders.xml == expected
+
+
+class DescribeCT_SectPr_pgBorders:
+    """Unit-test suite for CT_SectPr page-border features."""
+
+    def it_returns_None_when_no_pgBorders_child(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        assert sectPr.pgBorders is None
+
+    def it_can_access_its_pgBorders_child(self):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:pgBorders{w:display=allPages}"),
+        )
+        pgBorders = sectPr.pgBorders
+        assert pgBorders is not None
+        assert pgBorders.display == WD_BORDER_DISPLAY.ALL_PAGES
+
+    def it_can_add_a_pgBorders_child(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        pgBorders = sectPr.get_or_add_pgBorders()
+        assert pgBorders is not None
+        assert sectPr.pgBorders is pgBorders
+
+    def it_inserts_pgBorders_in_the_right_position(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr/(w:pgSz,w:pgMar,w:cols)"))
+        sectPr.get_or_add_pgBorders()
+        expected = xml("w:sectPr/(w:pgSz,w:pgMar,w:pgBorders,w:cols)")
+        assert sectPr.xml == expected
+
+    def it_can_remove_its_pgBorders_child(self):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:pgBorders/(w:top{w:val=single})"),
+        )
+        sectPr._remove_pgBorders()  # pyright: ignore[reportPrivateUsage]
+        assert sectPr.pgBorders is None
 
 
 class DescribeCT_HdrFtr:

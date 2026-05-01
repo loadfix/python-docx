@@ -18,10 +18,17 @@ from docx.watermark import Watermark
 
 if TYPE_CHECKING:
     from docx.endnotes import EndnoteProperties
-    from docx.enum.section import WD_ORIENTATION, WD_SECTION_START
+    from docx.enum.section import (
+        WD_BORDER_DISPLAY,
+        WD_BORDER_OFFSET_FROM,
+        WD_ORIENTATION,
+        WD_SECTION_START,
+    )
+    from docx.enum.text import WD_BORDER_STYLE
     from docx.footnotes import FootnoteProperties
     from docx.oxml.document import CT_Document
-    from docx.oxml.section import CT_Col, CT_Cols, CT_SectPr
+    from docx.oxml.section import CT_Col, CT_Cols, CT_PgBorders, CT_SectPr
+    from docx.oxml.text.parfmt import CT_Border
     from docx.oxml.watermark import CT_VmlShape
     from docx.parts.document import DocumentPart
     from docx.parts.story import StoryPart
@@ -245,6 +252,55 @@ class Section:
     @property
     def part(self) -> StoryPart:
         return self._document_part
+
+    @property
+    def page_borders(self) -> PageBorders:
+        """|PageBorders| proxy providing access to this section's page borders.
+
+        The returned object lazily creates the underlying ``w:pgBorders`` element only
+        when a border edge or attribute is actually assigned. When no
+        ``w:pgBorders`` child is present, reads of ``.top``/``.bottom``/``.left``/
+        ``.right`` return |PageBorder| proxies whose ``.style``, ``.width``,
+        ``.color`` and ``.space`` are ``None``.
+        """
+        return PageBorders(self._sectPr)
+
+    def set_page_border(
+        self,
+        side: str,
+        style: "WD_BORDER_STYLE | None" = None,
+        width: "Length | None" = None,
+        color: "RGBColor | None" = None,
+        space: "Length | None" = None,
+    ) -> PageBorder:
+        """Set properties of a single page-border edge in one call.
+
+        `side` must be one of ``"top"``, ``"bottom"``, ``"left"``, or ``"right"``.
+        Any of `style`, `width`, `color`, `space` may be |None| (their existing value
+        is left unchanged when already present; any argument explicitly set is
+        applied to the edge). Returns the updated |PageBorder| proxy.
+        """
+        if side not in ("top", "bottom", "left", "right"):
+            raise ValueError(
+                "side must be one of 'top', 'bottom', 'left', 'right'; got %r" % side
+            )
+        border = getattr(self.page_borders, side)
+        if style is not None:
+            border.style = style
+        if width is not None:
+            border.width = width
+        if color is not None:
+            border.color = color
+        if space is not None:
+            border.space = space
+        return border
+
+    def remove_page_borders(self) -> None:
+        """Remove any ``w:pgBorders`` element from this section's ``w:sectPr``.
+
+        Does nothing when no ``w:pgBorders`` child is present.
+        """
+        self._sectPr._remove_pgBorders()  # pyright: ignore[reportPrivateUsage]
 
     @property
     def right_margin(self) -> Length | None:
@@ -670,6 +726,191 @@ class SectionColumns(Sequence[Column]):
     def space(self, value: Length | None):
         cols = self._sectPr.get_or_add_cols()
         cols.space = value
+
+
+class PageBorder:
+    """Proxy for a single page-border edge on a ``w:pgBorders`` element.
+
+    Accessed via |PageBorders| side properties, e.g. ``section.page_borders.top``.
+    """
+
+    def __init__(self, sectPr: CT_SectPr, side: str):
+        self._sectPr = sectPr
+        self._side = side
+
+    @property
+    def _border_elm(self) -> "CT_Border | None":
+        pgBorders = self._sectPr.pgBorders
+        if pgBorders is None:
+            return None
+        return getattr(pgBorders, self._side)
+
+    def _get_or_add_border_elm(self) -> "CT_Border":
+        pgBorders = self._sectPr.get_or_add_pgBorders()
+        return getattr(pgBorders, f"get_or_add_{self._side}")()
+
+    @property
+    def style(self) -> "WD_BORDER_STYLE | None":
+        """Read/write. Border style as a :ref:`WdBorderStyle` member.
+
+        |None| when the edge element is not present or has no ``w:val`` attribute.
+        """
+        border = self._border_elm
+        if border is None:
+            return None
+        return border.val
+
+    @style.setter
+    def style(self, value: "WD_BORDER_STYLE | None") -> None:
+        if value is None:
+            border = self._border_elm
+            if border is not None:
+                border.val = None
+            return
+        self._get_or_add_border_elm().val = value
+
+    @property
+    def width(self) -> "Length | None":
+        """Read/write. Border width as a |Length|, stored in eighths of a point.
+
+        |None| when not present.
+        """
+        border = self._border_elm
+        if border is None:
+            return None
+        return border.sz
+
+    @width.setter
+    def width(self, value: "Length | None") -> None:
+        if value is None:
+            border = self._border_elm
+            if border is not None:
+                border.sz = None
+            return
+        self._get_or_add_border_elm().sz = value
+
+    @property
+    def color(self) -> RGBColor | None:
+        """Read/write. Border color as an |RGBColor|.
+
+        An ``"auto"`` value in the XML is returned as |None|. |None| when no color is
+        specified on the edge element.
+        """
+        border = self._border_elm
+        if border is None:
+            return None
+        color = border.color
+        if isinstance(color, str):
+            return None
+        return color
+
+    @color.setter
+    def color(self, value: RGBColor | None) -> None:
+        if value is None:
+            border = self._border_elm
+            if border is not None:
+                border.color = None
+            return
+        self._get_or_add_border_elm().color = value
+
+    @property
+    def space(self) -> "Length | None":
+        """Read/write. Distance from page/text edge to border, as |Length| (points).
+
+        |None| when not specified on the edge element.
+        """
+        border = self._border_elm
+        if border is None:
+            return None
+        return border.space
+
+    @space.setter
+    def space(self, value: "Length | None") -> None:
+        if value is None:
+            border = self._border_elm
+            if border is not None:
+                border.space = None
+            return
+        self._get_or_add_border_elm().space = value
+
+
+class PageBorders:
+    """Proxy for the ``<w:pgBorders>`` element of a section.
+
+    Accessed via :attr:`Section.page_borders`. Provides read/write access to each
+    of the four edge borders plus the ``display`` and ``offset_from`` attributes.
+    The underlying ``w:pgBorders`` element is created lazily on first write.
+    """
+
+    def __init__(self, sectPr: CT_SectPr):
+        self._sectPr = sectPr
+
+    @property
+    def _pgBorders(self) -> "CT_PgBorders | None":
+        return self._sectPr.pgBorders
+
+    @property
+    def top(self) -> PageBorder:
+        """The |PageBorder| for the top edge of the page."""
+        return PageBorder(self._sectPr, "top")
+
+    @property
+    def bottom(self) -> PageBorder:
+        """The |PageBorder| for the bottom edge of the page."""
+        return PageBorder(self._sectPr, "bottom")
+
+    @property
+    def left(self) -> PageBorder:
+        """The |PageBorder| for the left edge of the page."""
+        return PageBorder(self._sectPr, "left")
+
+    @property
+    def right(self) -> PageBorder:
+        """The |PageBorder| for the right edge of the page."""
+        return PageBorder(self._sectPr, "right")
+
+    @property
+    def display(self) -> "WD_BORDER_DISPLAY | None":
+        """Read/write. Member of :class:`WD_BORDER_DISPLAY` or |None|.
+
+        Reads the ``w:display`` attribute of the ``w:pgBorders`` element. |None|
+        when no ``w:pgBorders`` element is present or the attribute is unset.
+        """
+        pgBorders = self._pgBorders
+        if pgBorders is None:
+            return None
+        return pgBorders.display
+
+    @display.setter
+    def display(self, value: "WD_BORDER_DISPLAY | None") -> None:
+        if value is None:
+            pgBorders = self._pgBorders
+            if pgBorders is not None:
+                pgBorders.display = None
+            return
+        self._sectPr.get_or_add_pgBorders().display = value
+
+    @property
+    def offset_from(self) -> "WD_BORDER_OFFSET_FROM | None":
+        """Read/write. Member of :class:`WD_BORDER_OFFSET_FROM` or |None|.
+
+        Reads the ``w:offsetFrom`` attribute of the ``w:pgBorders`` element.
+        |None| when no ``w:pgBorders`` element is present or the attribute is
+        unset.
+        """
+        pgBorders = self._pgBorders
+        if pgBorders is None:
+            return None
+        return pgBorders.offsetFrom
+
+    @offset_from.setter
+    def offset_from(self, value: "WD_BORDER_OFFSET_FROM | None") -> None:
+        if value is None:
+            pgBorders = self._pgBorders
+            if pgBorders is not None:
+                pgBorders.offsetFrom = None
+            return
+        self._sectPr.get_or_add_pgBorders().offsetFrom = value
 
 
 class _BaseHeaderFooter(BlockItemContainer):

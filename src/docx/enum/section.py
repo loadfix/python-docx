@@ -3,6 +3,49 @@
 from .base import BaseXmlEnum
 
 
+class WD_BORDER_DISPLAY(BaseXmlEnum):
+    """Specifies on which pages a page-border is displayed.
+
+    Maps to the ``w:display`` attribute of the ``w:pgBorders`` element.
+
+    Example::
+
+        from docx.enum.section import WD_BORDER_DISPLAY
+
+        section = document.sections[0]
+        section.page_borders.display = WD_BORDER_DISPLAY.FIRST_PAGE
+    """
+
+    ALL_PAGES = (0, "allPages", "Border is displayed on every page.")
+    """Border is displayed on every page."""
+
+    FIRST_PAGE = (1, "firstPage", "Border is displayed only on the first page.")
+    """Border is displayed only on the first page."""
+
+    NOT_FIRST_PAGE = (2, "notFirstPage", "Border is displayed on every page except the first.")
+    """Border is displayed on every page except the first."""
+
+
+class WD_BORDER_OFFSET_FROM(BaseXmlEnum):
+    """Specifies the reference point used to position a page-border.
+
+    Maps to the ``w:offsetFrom`` attribute of the ``w:pgBorders`` element.
+
+    Example::
+
+        from docx.enum.section import WD_BORDER_OFFSET_FROM
+
+        section = document.sections[0]
+        section.page_borders.offset_from = WD_BORDER_OFFSET_FROM.PAGE
+    """
+
+    TEXT = (0, "text", "Border is positioned relative to the text extents.")
+    """Border is positioned relative to the text extents."""
+
+    PAGE = (1, "page", "Border is positioned relative to the page edge.")
+    """Border is positioned relative to the page edge."""
+
+
 class WD_HEADER_FOOTER_INDEX(BaseXmlEnum):
     """Alias: **WD_HEADER_FOOTER**
 
