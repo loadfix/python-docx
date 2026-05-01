@@ -394,6 +394,196 @@ class DescribeBaseStyle:
         return style, value, expected_xml
 
 
+    def it_knows_its_link_style(self, link_get_fixture):
+        style, expected_style_id = link_get_fixture
+        link_style = style.link_style
+        if expected_style_id is None:
+            assert link_style is None
+        else:
+            assert link_style is not None
+            assert link_style.style_id == expected_style_id
+            # -- referenced style is of type=character, so proxy is CharacterStyle --
+            assert isinstance(link_style, CharacterStyle)
+
+    def it_can_change_its_link_style_with_a_style(self, link_set_style_fixture):
+        style, value, expected_xml = link_set_style_fixture
+        style.link_style = value
+        assert style._element.xml == expected_xml
+
+    def it_can_change_its_link_style_with_a_style_id(self, link_set_id_fixture):
+        style, style_id, expected_xml = link_set_id_fixture
+        style.link_style = style_id
+        assert style._element.xml == expected_xml
+
+    def it_can_remove_its_link_style(self, link_remove_fixture):
+        style, expected_xml = link_remove_fixture
+        style.link_style = None
+        assert style._element.xml == expected_xml
+
+    def it_knows_its_next_style(self, next_style_get_fixture):
+        style, expected_style_id = next_style_get_fixture
+        next_style = style.next_style
+        if expected_style_id is None:
+            assert next_style is None
+        else:
+            assert next_style is not None
+            assert next_style.style_id == expected_style_id
+
+    def it_can_change_its_next_style_with_a_style(self, next_style_set_fixture):
+        style, value, expected_xml = next_style_set_fixture
+        style.next_style = value
+        assert style._element.xml == expected_xml
+
+    def it_can_change_its_next_style_with_a_style_id(self, next_style_set_id_fixture):
+        style, style_id, expected_xml = next_style_set_id_fixture
+        style.next_style = style_id
+        assert style._element.xml == expected_xml
+
+    def it_can_remove_its_next_style(self, next_style_remove_fixture):
+        style, expected_xml = next_style_remove_fixture
+        style.next_style = None
+        assert style._element.xml == expected_xml
+
+    def it_knows_whether_its_redefined(self, redefined_get_fixture):
+        style, expected_value = redefined_get_fixture
+        assert style.is_redefined is expected_value
+
+    # fixtures for link_style / next_style / is_redefined -----------
+
+    @pytest.fixture(
+        params=[
+            # -- no w:link present -> None --
+            (0, None),
+            # -- w:link points at valid sibling -> its styleId --
+            (1, "Char"),
+            # -- w:link points at missing sibling -> None --
+            (2, None),
+        ]
+    )
+    def link_get_fixture(self, request):
+        style_idx, expected_style_id = request.param
+        styles = element(
+            "w:styles/("
+            "w:style{w:type=paragraph,w:styleId=Body},"
+            "w:style{w:type=paragraph,w:styleId=H1}/w:link{w:val=Char},"
+            "w:style{w:type=paragraph,w:styleId=Broken}/w:link{w:val=DoesNotExist},"
+            "w:style{w:type=character,w:styleId=Char})"
+        )
+        style = BaseStyle(styles[style_idx])
+        return style, expected_style_id
+
+    @pytest.fixture(
+        params=[
+            ("w:style", "w:style/w:link{w:val=Char}"),
+            ("w:style/w:link{w:val=Old}", "w:style/w:link{w:val=Char}"),
+        ]
+    )
+    def link_set_style_fixture(self, request, link_style_):
+        style_cxml, expected_cxml = request.param
+        style = BaseStyle(element(style_cxml))
+        link_style_.style_id = "Char"
+        return style, link_style_, xml(expected_cxml)
+
+    @pytest.fixture(
+        params=[
+            ("w:style", "Char", "w:style/w:link{w:val=Char}"),
+            ("w:style/w:link{w:val=Old}", "Char", "w:style/w:link{w:val=Char}"),
+        ]
+    )
+    def link_set_id_fixture(self, request):
+        style_cxml, style_id, expected_cxml = request.param
+        style = BaseStyle(element(style_cxml))
+        return style, style_id, xml(expected_cxml)
+
+    @pytest.fixture(
+        params=[
+            ("w:style", "w:style"),
+            ("w:style/w:link{w:val=Old}", "w:style"),
+        ]
+    )
+    def link_remove_fixture(self, request):
+        style_cxml, expected_cxml = request.param
+        style = BaseStyle(element(style_cxml))
+        return style, xml(expected_cxml)
+
+    @pytest.fixture
+    def link_style_(self, request):
+        return instance_mock(request, BaseStyle)
+
+    @pytest.fixture(
+        params=[
+            # -- no w:next present -> None --
+            (0, None),
+            # -- w:next refers to valid sibling -> its styleId --
+            (1, "Body"),
+            # -- w:next refers to missing sibling -> None --
+            (2, None),
+        ]
+    )
+    def next_style_get_fixture(self, request):
+        style_idx, expected_style_id = request.param
+        styles = element(
+            "w:styles/("
+            "w:style{w:type=paragraph,w:styleId=Plain},"
+            "w:style{w:type=paragraph,w:styleId=H1}/w:next{w:val=Body},"
+            "w:style{w:type=paragraph,w:styleId=Broken}/w:next{w:val=DoesNotExist},"
+            "w:style{w:type=paragraph,w:styleId=Body})"
+        )
+        style = BaseStyle(styles[style_idx])
+        return style, expected_style_id
+
+    @pytest.fixture(
+        params=[
+            ("w:style", "w:style/w:next{w:val=Body}"),
+            ("w:style/w:next{w:val=Old}", "w:style/w:next{w:val=Body}"),
+        ]
+    )
+    def next_style_set_fixture(self, request, next_style_):
+        style_cxml, expected_cxml = request.param
+        style = BaseStyle(element(style_cxml))
+        next_style_.style_id = "Body"
+        return style, next_style_, xml(expected_cxml)
+
+    @pytest.fixture(
+        params=[
+            ("w:style", "Body", "w:style/w:next{w:val=Body}"),
+            ("w:style/w:next{w:val=Old}", "Body", "w:style/w:next{w:val=Body}"),
+        ]
+    )
+    def next_style_set_id_fixture(self, request):
+        style_cxml, style_id, expected_cxml = request.param
+        style = BaseStyle(element(style_cxml))
+        return style, style_id, xml(expected_cxml)
+
+    @pytest.fixture(
+        params=[
+            ("w:style", "w:style"),
+            ("w:style/w:next{w:val=Old}", "w:style"),
+        ]
+    )
+    def next_style_remove_fixture(self, request):
+        style_cxml, expected_cxml = request.param
+        style = BaseStyle(element(style_cxml))
+        return style, xml(expected_cxml)
+
+    @pytest.fixture
+    def next_style_(self, request):
+        return instance_mock(request, BaseStyle)
+
+    @pytest.fixture(
+        params=[
+            ("w:style", False),
+            ("w:style/w:autoRedefine", True),
+            ("w:style/w:autoRedefine{w:val=0}", False),
+            ("w:style/w:autoRedefine{w:val=1}", True),
+        ]
+    )
+    def redefined_get_fixture(self, request):
+        style_cxml, expected_value = request.param
+        style = BaseStyle(element(style_cxml))
+        return style, expected_value
+
+
 class DescribeCharacterStyle:
     def it_knows_which_style_it_is_based_on(self, base_get_fixture):
         style, StyleFactory_, StyleFactory_calls, base_style_ = base_get_fixture

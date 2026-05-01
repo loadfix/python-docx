@@ -57,6 +57,60 @@ class BaseStyle(ElementProxy):
         self._element = None
 
     @property
+    def is_redefined(self):
+        """|True| if the `w:autoRedefine` flag is set on this style, |False| otherwise.
+
+        When |True|, Word updates the style definition to match any direct formatting
+        applied to a paragraph using this style. Read-only.
+        """
+        return bool(self._element.autoRedefine_val)
+
+    @property
+    def link_style(self) -> BaseStyle | None:
+        """Style object this style is linked to, or |None| if no link is defined.
+
+        A paragraph style may be linked to a character style (and vice-versa) via
+        `w:link`. Returns |None| when no `w:link` element is present or the referenced
+        style cannot be found in the styles collection.
+        """
+        link_style_elm = self._element.linked_style
+        if link_style_elm is None:
+            return None
+        return StyleFactory(link_style_elm)
+
+    @link_style.setter
+    def link_style(self, value: BaseStyle | str | None) -> None:
+        if value is None:
+            style_id = None
+        elif isinstance(value, str):
+            style_id = value
+        else:
+            style_id = value.style_id
+        self._element.link_val = style_id
+
+    @property
+    def next_style(self) -> BaseStyle | None:
+        """Style applied to the paragraph following one that uses this style.
+
+        Returns |None| if no `w:next` element is present or the referenced style is not
+        found. Typically used on paragraph styles.
+        """
+        next_style_elm = self._element.next_style
+        if next_style_elm is None:
+            return None
+        return StyleFactory(next_style_elm)
+
+    @next_style.setter
+    def next_style(self, value: BaseStyle | str | None) -> None:
+        if value is None:
+            style_id = None
+        elif isinstance(value, str):
+            style_id = value
+        else:
+            style_id = value.style_id
+        self._element.next_val = style_id
+
+    @property
     def hidden(self):
         """|True| if display of this style in the style gallery and list of recommended
         styles is suppressed.

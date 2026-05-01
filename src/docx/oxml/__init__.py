@@ -268,8 +268,10 @@ register_element_cls("w:zoom", CT_Zoom)
 
 from .styles import CT_LatentStyles, CT_LsdException, CT_Style, CT_Styles
 
+register_element_cls("w:autoRedefine", CT_OnOff)
 register_element_cls("w:basedOn", CT_String)
 register_element_cls("w:latentStyles", CT_LatentStyles)
+register_element_cls("w:link", CT_String)
 register_element_cls("w:locked", CT_OnOff)
 register_element_cls("w:lsdException", CT_LsdException)
 register_element_cls("w:name", CT_String)
