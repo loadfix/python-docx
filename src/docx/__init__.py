@@ -33,6 +33,7 @@ from docx.parts.embedded_object import EmbeddedObjectPart
 from docx.parts.endnotes import EndnotesPart
 from docx.parts.font_table import FontTablePart
 from docx.parts.footnotes import FootnotesPart
+from docx.parts.glossary import GlossaryPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
 from docx.parts.image import ImagePart
 from docx.parts.ink import InkPart
@@ -60,6 +61,7 @@ PartFactory.part_type_for[CT.WML_ENDNOTES] = EndnotesPart
 PartFactory.part_type_for[CT.WML_FONT_TABLE] = FontTablePart
 PartFactory.part_type_for[CT.WML_FOOTER] = FooterPart
 PartFactory.part_type_for[CT.WML_FOOTNOTES] = FootnotesPart
+PartFactory.part_type_for[CT.WML_DOCUMENT_GLOSSARY] = GlossaryPart
 PartFactory.part_type_for[CT.WML_HEADER] = HeaderPart
 PartFactory.part_type_for[CT.INKML] = InkPart
 PartFactory.part_type_for[CT.OFC_OLE_OBJECT] = EmbeddedObjectPart
@@ -81,6 +83,7 @@ del (
     FontTablePart,
     FooterPart,
     FootnotesPart,
+    GlossaryPart,
     HeaderPart,
     InkPart,
     NumberingPart,

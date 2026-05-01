@@ -14,6 +14,7 @@ from docx.custom_properties import CustomProperties
 from docx.document import Document, _Body
 from docx.enum.section import WD_SECTION
 from docx.font_table import FontTable
+from docx.glossary import Glossary
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.opc.coreprops import CoreProperties
 from docx.oxml.document import CT_Body, CT_Document
@@ -300,6 +301,22 @@ class DescribeDocument:
         document = Document(cast(CT_Document, element("w:document")), document_part_)
 
         assert document.theme is None
+
+    def it_provides_access_to_its_glossary(
+        self, document_part_: Mock, glossary_: Mock
+    ):
+        document_part_.glossary = glossary_
+        document = Document(cast(CT_Document, element("w:document")), document_part_)
+
+        assert document.glossary is glossary_
+
+    def and_glossary_is_None_when_the_document_has_no_glossary_part(
+        self, document_part_: Mock
+    ):
+        document_part_.glossary = None
+        document = Document(cast(CT_Document, element("w:document")), document_part_)
+
+        assert document.glossary is None
 
     def it_provides_access_to_its_inline_shapes(self, document_part_: Mock, inline_shapes_: Mock):
         document_part_.inline_shapes = inline_shapes_
@@ -907,6 +924,10 @@ class DescribeDocument:
     @pytest.fixture
     def theme_(self, request: FixtureRequest):
         return instance_mock(request, Theme)
+
+    @pytest.fixture
+    def glossary_(self, request: FixtureRequest):
+        return instance_mock(request, Glossary)
 
 
 class Describe_Body:

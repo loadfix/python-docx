@@ -17,6 +17,7 @@ from docx.parts.custom_properties import CustomPropertiesPart
 from docx.parts.document import DocumentPart
 from docx.parts.font_table import FontTablePart
 from docx.parts.footnotes import FootnotesPart
+from docx.parts.glossary import GlossaryPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
 from docx.parts.numbering import NumberingPart
 from docx.parts.settings import SettingsPart
@@ -320,6 +321,50 @@ class DescribeDocumentPart:
 
         assert document_part._theme_part is None
 
+    def it_provides_access_to_its_glossary_when_a_part_is_related(
+        self, package_: Mock, part_related_by_: Mock, glossary_part_: Mock
+    ):
+        glossary_part_.glossary = "glossary-sentinel"
+        part_related_by_.return_value = glossary_part_
+        document_part = DocumentPart(
+            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
+        )
+
+        assert document_part.glossary == "glossary-sentinel"
+        part_related_by_.assert_called_once_with(document_part, RT.GLOSSARY_DOCUMENT)
+
+    def and_glossary_is_None_when_no_glossary_part_is_related(
+        self, package_: Mock, part_related_by_: Mock
+    ):
+        part_related_by_.side_effect = KeyError
+        document_part = DocumentPart(
+            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
+        )
+
+        assert document_part.glossary is None
+        part_related_by_.assert_called_once_with(document_part, RT.GLOSSARY_DOCUMENT)
+
+    def it_provides_access_to_its_glossary_part_to_help(
+        self, package_: Mock, part_related_by_: Mock, glossary_part_: Mock
+    ):
+        part_related_by_.return_value = glossary_part_
+        document_part = DocumentPart(
+            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
+        )
+
+        assert document_part._glossary_part is glossary_part_
+        part_related_by_.assert_called_once_with(document_part, RT.GLOSSARY_DOCUMENT)
+
+    def and_the_glossary_part_accessor_returns_None_when_not_present(
+        self, package_: Mock, part_related_by_: Mock
+    ):
+        part_related_by_.side_effect = KeyError
+        document_part = DocumentPart(
+            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
+        )
+
+        assert document_part._glossary_part is None
+
     def it_provides_access_to_its_footnotes_part_to_help(
         self, package_: Mock, part_related_by_: Mock, footnotes_part_: Mock
     ):
@@ -551,6 +596,10 @@ class DescribeDocumentPart:
     @pytest.fixture
     def theme_part_(self, request: FixtureRequest):
         return instance_mock(request, ThemePart)
+
+    @pytest.fixture
+    def glossary_part_(self, request: FixtureRequest):
+        return instance_mock(request, GlossaryPart)
 
     @pytest.fixture
     def FootnotesPart_(self, request: FixtureRequest):
