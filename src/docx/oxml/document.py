@@ -6,17 +6,46 @@ from typing import TYPE_CHECKING
 from collections.abc import Callable
 
 from docx.oxml.section import CT_SectPr
-from docx.oxml.xmlchemy import BaseOxmlElement, ZeroOrMore, ZeroOrOne
+from docx.oxml.simpletypes import ST_HexColor
+from docx.oxml.xmlchemy import (
+    BaseOxmlElement,
+    OptionalAttribute,
+    ZeroOrMore,
+    ZeroOrOne,
+)
 
 if TYPE_CHECKING:
     from docx.oxml.table import CT_Tbl
     from docx.oxml.text.paragraph import CT_P
+    from docx.shared import RGBColor
+
+
+class CT_Background(BaseOxmlElement):
+    """``<w:background>`` element, the document-wide page background.
+
+    Appears as the first child of `w:document`. Holds the document background
+    color in its ``w:color`` attribute (hex RGB).
+    """
+
+    color: RGBColor | str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:color", ST_HexColor
+    )
 
 
 class CT_Document(BaseOxmlElement):
     """``<w:document>`` element, the root element of a document.xml file."""
 
-    body: CT_Body = ZeroOrOne("w:body")  # pyright: ignore[reportAssignmentType]
+    get_or_add_background: Callable[[], CT_Background]
+    _remove_background: Callable[[], None]
+
+    _tag_seq = ("w:background", "w:body")
+    background: CT_Background | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:background", successors=("w:body",)
+    )
+    body: CT_Body = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:body", successors=()
+    )
+    del _tag_seq
 
     @property
     def sectPr_lst(self) -> list[CT_SectPr]:

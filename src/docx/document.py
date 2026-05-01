@@ -13,7 +13,7 @@ from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_SECTION
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.section import Section, Sections
-from docx.shared import ElementProxy, Emu, Inches, Length
+from docx.shared import ElementProxy, Emu, Inches, Length, RGBColor
 from docx.text.run import Run
 
 if TYPE_CHECKING:
@@ -182,6 +182,30 @@ class Document(ElementProxy):
         table = self._body.add_table(rows, cols, self._block_width)
         table.style = style
         return table
+
+    @property
+    def background_color(self) -> RGBColor | None:
+        """Document-wide page background color, or |None| if not set.
+
+        Maps to the ``w:color`` attribute on the ``w:background`` child of the
+        ``w:document`` root element. Assigning an |RGBColor| writes (or updates)
+        the ``w:background`` element. Assigning |None| removes the element.
+        """
+        background = self._element.background
+        if background is None:
+            return None
+        color = background.color
+        if not isinstance(color, RGBColor):
+            return None
+        return color
+
+    @background_color.setter
+    def background_color(self, value: RGBColor | None) -> None:
+        if value is None:
+            self._element._remove_background()
+            return
+        background = self._element.get_or_add_background()
+        background.color = value
 
     @property
     def bookmarks(self) -> Bookmarks:
