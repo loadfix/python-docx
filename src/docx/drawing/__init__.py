@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from docx.enum.shape import WD_DRAWING_TYPE
+from docx.enum.shape import WD_DRAWING_TYPE, WD_SHAPE
 from docx.oxml.drawing import CT_Drawing, CT_GroupShape, CT_WordprocessingShape
 from docx.oxml.shape import CT_Picture
 from docx.shared import ElementProxy, Parented
@@ -235,12 +235,33 @@ class GroupShape(ElementProxy):
 class WordprocessingShape(ElementProxy):
     """Proxy for a `<wps:wsp>` shape element inside a group shape or drawing.
 
-    Provides read-only access to the shape's text content when it wraps a text box.
+    Provides read access to the shape's preset type, name, and text, and allows
+    replacing the text-frame contents.
     """
 
     def __init__(self, wsp: CT_WordprocessingShape, parent: t.ProvidesXmlPart):
         super().__init__(wsp, parent)
         self._wsp = wsp
+
+    @property
+    def name(self) -> str | None:
+        """Value of this shape's `wps:cNvPr/@name`, or |None| when not set."""
+        return self._wsp.name
+
+    @property
+    def shape_type(self) -> WD_SHAPE | None:
+        """The :class:`WD_SHAPE` member for this shape's preset geometry.
+
+        Returns |None| when no preset-geometry element is present, or when the
+        preset value doesn't correspond to a known :class:`WD_SHAPE` member.
+        """
+        prst = self._wsp.prst
+        if prst is None:
+            return None
+        try:
+            return WD_SHAPE(prst)
+        except ValueError:
+            return None
 
     @property
     def text(self) -> str:
@@ -249,6 +270,10 @@ class WordprocessingShape(ElementProxy):
         if txbx is None or txbx.txbxContent is None:
             return ""
         return txbx.txbxContent.text
+
+    @text.setter
+    def text(self, value: str) -> None:
+        self._wsp.set_text(value)
 
 
 class Picture(ElementProxy):
