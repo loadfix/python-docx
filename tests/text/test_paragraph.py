@@ -695,6 +695,44 @@ class DescribeParagraph:
         paragraph = Paragraph(cast(CT_P, element("w:p/w:pPr/w:jc{w:val=left}")), None)
         assert paragraph.formatting_change is None
 
+    def it_returns_plain_text_for_revision_marks_when_no_changes(self):
+        paragraph = Paragraph(cast(CT_P, element('w:p/w:r/w:t"hello"')), None)
+        assert paragraph.revision_marks_text() == paragraph.text == "hello"
+
+    def it_renders_tracked_changes_with_default_markers(self):
+        paragraph = Paragraph(
+            cast(
+                CT_P,
+                element(
+                    'w:p/(w:r/w:t"a ",'
+                    'w:ins{w:id=1,w:author=A}/w:r/w:t"B",'
+                    'w:del{w:id=2,w:author=B}/w:r/w:delText"c",'
+                    'w:r/w:t" d")'
+                ),
+            ),
+            None,
+        )
+
+        assert paragraph.revision_marks_text() == "a [+B+][-c-] d"
+
+    def it_honors_custom_revision_markers(self):
+        paragraph = Paragraph(
+            cast(
+                CT_P,
+                element(
+                    'w:p/(w:ins{w:id=1,w:author=A}/w:r/w:t"new",'
+                    'w:del{w:id=2,w:author=B}/w:r/w:delText"old")'
+                ),
+            ),
+            None,
+        )
+
+        rendered = paragraph.revision_marks_text(
+            open_ins="<I>", close_ins="</I>", open_del="<D>", close_del="</D>"
+        )
+
+        assert rendered == "<I>new</I><D>old</D>"
+
     def it_can_replace_the_text_it_contains(self, text_set_fixture):
         paragraph, text, expected_text = text_set_fixture
         paragraph.text = text
