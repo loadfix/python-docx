@@ -10,7 +10,7 @@ import pytest
 from _pytest.fixtures import FixtureRequest
 
 from docx.dml.color import ColorFormat
-from docx.enum.text import WD_COLOR, WD_UNDERLINE
+from docx.enum.text import WD_BORDER_STYLE, WD_COLOR, WD_UNDERLINE
 from docx.oxml.text.run import CT_R
 from docx.shared import Length, Pt, RGBColor
 from docx.text.font import Font
@@ -647,6 +647,278 @@ class DescribeFont:
         expected_xml = xml(
             "w:r/w:rPr/(w:b,w:color{w:val=FF0000},w:u{w:val=single},"
             "w:shd{w:val=clear,w:fill=AABBCC})"
+        )
+        assert font._element.xml == expected_xml
+
+    # -- run border (w:bdr) ------------------------------------------
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r/w:rPr", None),
+            ("w:r/w:rPr/w:bdr", None),
+            ("w:r/w:rPr/w:bdr{w:val=single}", WD_BORDER_STYLE.SINGLE),
+            ("w:r/w:rPr/w:bdr{w:val=double}", WD_BORDER_STYLE.DOUBLE),
+        ],
+    )
+    def it_knows_its_border_style(
+        self, r_cxml: str, expected_value: WD_BORDER_STYLE | None
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        assert font.border_style == expected_value
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "value", "expected_r_cxml"),
+        [
+            ("w:r", WD_BORDER_STYLE.SINGLE, "w:r/w:rPr/w:bdr{w:val=single}"),
+            ("w:r/w:rPr", WD_BORDER_STYLE.DOUBLE, "w:r/w:rPr/w:bdr{w:val=double}"),
+            (
+                "w:r/w:rPr/w:bdr{w:val=single}",
+                WD_BORDER_STYLE.DOUBLE,
+                "w:r/w:rPr/w:bdr{w:val=double}",
+            ),
+            ("w:r/w:rPr/w:bdr{w:val=single}", None, "w:r/w:rPr/w:bdr"),
+            (
+                "w:r/w:rPr/w:bdr{w:val=single,w:sz=8}",
+                None,
+                "w:r/w:rPr/w:bdr{w:sz=8}",
+            ),
+            ("w:r/w:rPr", None, "w:r/w:rPr"),
+            ("w:r", None, "w:r"),
+        ],
+    )
+    def it_can_change_its_border_style(
+        self,
+        r_cxml: str,
+        value: WD_BORDER_STYLE | None,
+        expected_r_cxml: str,
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        expected_xml = xml(expected_r_cxml)
+
+        font.border_style = value
+
+        assert font._element.xml == expected_xml
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r/w:rPr", None),
+            ("w:r/w:rPr/w:bdr", None),
+            ("w:r/w:rPr/w:bdr{w:val=single,w:sz=8}", Pt(1)),
+            ("w:r/w:rPr/w:bdr{w:val=single,w:sz=24}", Pt(3)),
+        ],
+    )
+    def it_knows_its_border_width(self, r_cxml: str, expected_value: Length | None):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        assert font.border_width == expected_value
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "value", "expected_r_cxml"),
+        [
+            ("w:r", Pt(1), "w:r/w:rPr/w:bdr{w:sz=8}"),
+            ("w:r/w:rPr", Pt(2), "w:r/w:rPr/w:bdr{w:sz=16}"),
+            (
+                "w:r/w:rPr/w:bdr{w:val=single,w:sz=8}",
+                Pt(3),
+                "w:r/w:rPr/w:bdr{w:val=single,w:sz=24}",
+            ),
+            (
+                "w:r/w:rPr/w:bdr{w:val=single,w:sz=8}",
+                None,
+                "w:r/w:rPr/w:bdr{w:val=single}",
+            ),
+            ("w:r/w:rPr", None, "w:r/w:rPr"),
+            ("w:r", None, "w:r"),
+        ],
+    )
+    def it_can_change_its_border_width(
+        self, r_cxml: str, value: Length | None, expected_r_cxml: str
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        expected_xml = xml(expected_r_cxml)
+
+        font.border_width = value
+
+        assert font._element.xml == expected_xml
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r/w:rPr", None),
+            ("w:r/w:rPr/w:bdr", None),
+            ("w:r/w:rPr/w:bdr{w:val=single,w:color=FF0000}", RGBColor(0xFF, 0, 0)),
+            ("w:r/w:rPr/w:bdr{w:val=single,w:color=auto}", None),
+        ],
+    )
+    def it_knows_its_border_color(
+        self, r_cxml: str, expected_value: RGBColor | None
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        assert font.border_color == expected_value
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "value", "expected_r_cxml"),
+        [
+            ("w:r", RGBColor(0xFF, 0, 0), "w:r/w:rPr/w:bdr{w:color=FF0000}"),
+            (
+                "w:r/w:rPr",
+                RGBColor(0, 0, 0xFF),
+                "w:r/w:rPr/w:bdr{w:color=0000FF}",
+            ),
+            (
+                "w:r/w:rPr/w:bdr{w:val=single,w:color=FF0000}",
+                RGBColor(0, 0xFF, 0),
+                "w:r/w:rPr/w:bdr{w:val=single,w:color=00FF00}",
+            ),
+            (
+                "w:r/w:rPr/w:bdr{w:val=single,w:color=FF0000}",
+                None,
+                "w:r/w:rPr/w:bdr{w:val=single}",
+            ),
+            ("w:r/w:rPr", None, "w:r/w:rPr"),
+            ("w:r", None, "w:r"),
+        ],
+    )
+    def it_can_change_its_border_color(
+        self, r_cxml: str, value: RGBColor | None, expected_r_cxml: str
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        expected_xml = xml(expected_r_cxml)
+
+        font.border_color = value
+
+        assert font._element.xml == expected_xml
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r/w:rPr", None),
+            ("w:r/w:rPr/w:bdr", None),
+            ("w:r/w:rPr/w:bdr{w:val=single,w:space=4}", Pt(4)),
+        ],
+    )
+    def it_knows_its_border_space(self, r_cxml: str, expected_value: Length | None):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        assert font.border_space == expected_value
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "value", "expected_r_cxml"),
+        [
+            ("w:r", Pt(4), "w:r/w:rPr/w:bdr{w:space=4}"),
+            ("w:r/w:rPr", Pt(8), "w:r/w:rPr/w:bdr{w:space=8}"),
+            (
+                "w:r/w:rPr/w:bdr{w:val=single,w:space=4}",
+                Pt(8),
+                "w:r/w:rPr/w:bdr{w:val=single,w:space=8}",
+            ),
+            (
+                "w:r/w:rPr/w:bdr{w:val=single,w:space=4}",
+                None,
+                "w:r/w:rPr/w:bdr{w:val=single}",
+            ),
+            ("w:r/w:rPr", None, "w:r/w:rPr"),
+            ("w:r", None, "w:r"),
+        ],
+    )
+    def it_can_change_its_border_space(
+        self, r_cxml: str, value: Length | None, expected_r_cxml: str
+    ):
+        r = cast(CT_R, element(r_cxml))
+        font = Font(r)
+        expected_xml = xml(expected_r_cxml)
+
+        font.border_space = value
+
+        assert font._element.xml == expected_xml
+
+    def it_can_set_all_run_border_properties_at_once(self):
+        r = cast(CT_R, element("w:r"))
+        font = Font(r)
+
+        font.border_style = WD_BORDER_STYLE.SINGLE
+        font.border_width = Pt(1)
+        font.border_space = Pt(4)
+        font.border_color = RGBColor(0x4F, 0x81, 0xBD)
+
+        expected_xml = xml(
+            "w:r/w:rPr/w:bdr{w:val=single,w:sz=8,w:space=4,w:color=4F81BD}"
+        )
+        assert font._element.xml == expected_xml
+
+    def it_can_remove_the_run_border(self):
+        r = cast(
+            CT_R,
+            element(
+                "w:r/w:rPr/w:bdr{w:val=single,w:sz=8,w:space=4,w:color=4F81BD}"
+            ),
+        )
+        font = Font(r)
+
+        font.remove_border()
+
+        assert font._element.xml == xml("w:r/w:rPr")
+        assert font.border_style is None
+        assert font.border_width is None
+        assert font.border_color is None
+        assert font.border_space is None
+
+    def it_does_not_raise_when_removing_border_that_is_absent(self):
+        r = cast(CT_R, element("w:r"))
+        font = Font(r)
+
+        font.remove_border()  # should be a no-op
+
+        assert font._element.xml == xml("w:r")
+
+    def it_does_not_raise_when_removing_border_when_rPr_has_no_bdr(self):
+        r = cast(CT_R, element("w:r/w:rPr/w:b"))
+        font = Font(r)
+
+        font.remove_border()
+
+        assert font._element.xml == xml("w:r/w:rPr/w:b")
+
+    def it_preserves_sibling_rPr_children_when_setting_border(self):
+        r = cast(
+            CT_R,
+            element("w:r/w:rPr/(w:b,w:color{w:val=FF0000},w:u{w:val=single})"),
+        )
+        font = Font(r)
+
+        font.border_style = WD_BORDER_STYLE.SINGLE
+        font.border_width = Pt(1)
+        font.border_color = RGBColor(0xAA, 0xBB, 0xCC)
+
+        expected_xml = xml(
+            "w:r/w:rPr/(w:b,w:color{w:val=FF0000},w:u{w:val=single},"
+            "w:bdr{w:val=single,w:sz=8,w:color=AABBCC})"
+        )
+        assert font._element.xml == expected_xml
+
+    def it_preserves_correct_schema_order_when_bdr_has_later_sibling(self):
+        """w:bdr must precede w:shd in CT_RPr (schema order)."""
+        r = cast(
+            CT_R,
+            element("w:r/w:rPr/w:shd{w:val=clear,w:fill=AABBCC}"),
+        )
+        font = Font(r)
+
+        font.border_style = WD_BORDER_STYLE.SINGLE
+
+        expected_xml = xml(
+            "w:r/w:rPr/(w:bdr{w:val=single},w:shd{w:val=clear,w:fill=AABBCC})"
         )
         assert font._element.xml == expected_xml
 

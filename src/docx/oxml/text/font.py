@@ -28,6 +28,7 @@ from docx.shared import RGBColor
 if TYPE_CHECKING:
     from docx.oxml.shared import CT_OnOff, CT_String
     from docx.oxml.table import CT_Shd
+    from docx.oxml.text.parfmt import CT_Border
     from docx.shared import Length
 
 
@@ -65,6 +66,7 @@ class CT_HpsMeasure(BaseOxmlElement):
 class CT_RPr(BaseOxmlElement):
     """`<w:rPr>` element, containing the properties for a run."""
 
+    get_or_add_bdr: Callable[[], "CT_Border"]
     get_or_add_color: Callable[[], CT_Color]
     get_or_add_highlight: Callable[[], CT_Highlight]
     get_or_add_kern: Callable[[], CT_HpsMeasure]
@@ -75,6 +77,7 @@ class CT_RPr(BaseOxmlElement):
     get_or_add_vertAlign: Callable[[], CT_VerticalAlignRun]
     _add_rStyle: Callable[..., CT_String]
     _add_u: Callable[[], CT_Underline]
+    _remove_bdr: Callable[[], None]
     _remove_color: Callable[[], None]
     _remove_highlight: Callable[[], None]
     _remove_kern: Callable[[], None]
@@ -152,6 +155,9 @@ class CT_RPr(BaseOxmlElement):
     sz: CT_HpsMeasure | None = ZeroOrOne("w:sz", successors=_tag_seq[24:])
     highlight: CT_Highlight | None = ZeroOrOne("w:highlight", successors=_tag_seq[26:])
     u: CT_Underline | None = ZeroOrOne("w:u", successors=_tag_seq[27:])
+    bdr: "CT_Border | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:bdr", successors=_tag_seq[29:]
+    )
     shd: "CT_Shd | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:shd", successors=_tag_seq[30:]
     )
