@@ -1,12 +1,17 @@
 """Test suite for the docx.api module."""
 
+import io
+
 import pytest
 
 from docx.api import Document as DocumentFactoryFn
 from docx.document import Document as DocumentCls
+from docx.exceptions import EncryptedDocumentError
 from docx.opc.constants import CONTENT_TYPE as CT
 
 from .unitutil.mock import FixtureRequest, Mock, class_mock, function_mock, instance_mock
+
+_OLE_SIGNATURE = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
 
 class DescribeDocument:
@@ -50,6 +55,19 @@ class DescribeDocument:
 
         with pytest.raises(ValueError, match="file 'foobar.xlsx' is not a Word file,"):
             DocumentFactoryFn("foobar.xlsx")
+
+    def it_raises_EncryptedDocumentError_on_password_protected_path(self, tmp_path):
+        encrypted_path = tmp_path / "encrypted.docx"
+        encrypted_path.write_bytes(_OLE_SIGNATURE + b"\x00" * 512)
+
+        with pytest.raises(EncryptedDocumentError, match="msoffcrypto-tool"):
+            DocumentFactoryFn(str(encrypted_path))
+
+    def it_raises_EncryptedDocumentError_on_password_protected_stream(self):
+        stream = io.BytesIO(_OLE_SIGNATURE + b"\x00" * 512)
+
+        with pytest.raises(EncryptedDocumentError, match="password-protected"):
+            DocumentFactoryFn(stream)
 
     # -- fixtures --------------------------------------------------------------------------------
 
