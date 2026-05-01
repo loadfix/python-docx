@@ -6,6 +6,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 
+from docx.exceptions import EncryptedDocumentError
 from docx.opc.exceptions import PackageNotFoundError
 from docx.opc.packuri import PACKAGE_URI, PackURI
 from docx.opc.phys_pkg import (
@@ -15,6 +16,8 @@ from docx.opc.phys_pkg import (
     _ZipPkgReader,
     _ZipPkgWriter,
 )
+
+_OLE_SIGNATURE = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
 from ..unitutil.file import absjoin, test_file_dir
 from ..unitutil.mock import Mock, class_mock, loose_mock
@@ -72,6 +75,34 @@ class DescribePhysPkgReader:
     def it_raises_when_pkg_path_is_not_a_package(self):
         with pytest.raises(PackageNotFoundError):
             PhysPkgReader("foobar")
+
+    def it_raises_EncryptedDocumentError_for_OLE_path(self, tmp_path):
+        encrypted_path = tmp_path / "encrypted.docx"
+        # -- OLE signature + some trailing bytes; enough to look like an OLE file --
+        encrypted_path.write_bytes(_OLE_SIGNATURE + b"\x00" * 512)
+
+        with pytest.raises(EncryptedDocumentError, match="msoffcrypto-tool"):
+            PhysPkgReader(str(encrypted_path))
+
+    def it_raises_EncryptedDocumentError_for_OLE_stream(self):
+        stream = io.BytesIO(_OLE_SIGNATURE + b"\x00" * 512)
+
+        with pytest.raises(EncryptedDocumentError, match="password-protected"):
+            PhysPkgReader(stream)
+
+    def it_restores_stream_position_when_detecting_encryption(self):
+        stream = io.BytesIO(_OLE_SIGNATURE + b"\x00" * 512)
+        stream.seek(0)
+
+        with pytest.raises(EncryptedDocumentError):
+            PhysPkgReader(stream)
+
+        assert stream.tell() == 0
+
+    def it_opens_a_normal_zip_stream_without_raising(self):
+        with open(zip_pkg_path, "rb") as stream:
+            phys_reader = PhysPkgReader(stream)
+        assert isinstance(phys_reader, _ZipPkgReader)
 
 
 class DescribeZipPkgReader:

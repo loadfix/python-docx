@@ -1,10 +1,58 @@
 """Provides a general interface to a `physical` OPC package, such as a zip file."""
 
+from __future__ import annotations
+
 import os
+from typing import IO
 from zipfile import ZIP_DEFLATED, ZipFile, is_zipfile
 
+from docx.exceptions import EncryptedDocumentError
 from docx.opc.exceptions import PackageNotFoundError
 from docx.opc.packuri import CONTENT_TYPES_URI
+
+#: OLE compound file (CFBF) binary signature. Encrypted Office documents are wrapped
+#: in this container rather than the usual ZIP package.
+_OLE_COMPOUND_FILE_SIGNATURE = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+
+_ENCRYPTED_DOCUMENT_MESSAGE = (
+    "Document is password-protected (encrypted .docx detected). "
+    "Install msoffcrypto-tool to decrypt it first: "
+    "https://github.com/nolze/msoffcrypto-tool"
+)
+
+
+def _raise_if_encrypted_path(path: str) -> None:
+    """Raise |EncryptedDocumentError| if file at `path` has the OLE signature."""
+    try:
+        with open(path, "rb") as f:
+            header = f.read(len(_OLE_COMPOUND_FILE_SIGNATURE))
+    except OSError:
+        return
+    if header == _OLE_COMPOUND_FILE_SIGNATURE:
+        raise EncryptedDocumentError(_ENCRYPTED_DOCUMENT_MESSAGE)
+
+
+def _raise_if_encrypted_stream(stream: IO[bytes]) -> None:
+    """Raise |EncryptedDocumentError| if `stream` begins with the OLE signature.
+
+    The stream position is restored after the peek.
+    """
+    if not hasattr(stream, "read"):
+        return
+    try:
+        pos = stream.tell()
+    except (OSError, AttributeError):
+        # Not seekable — we can't safely peek without consuming bytes.
+        return
+    try:
+        header = stream.read(len(_OLE_COMPOUND_FILE_SIGNATURE))
+    finally:
+        try:
+            stream.seek(pos)
+        except (OSError, AttributeError):
+            pass
+    if header == _OLE_COMPOUND_FILE_SIGNATURE:
+        raise EncryptedDocumentError(_ENCRYPTED_DOCUMENT_MESSAGE)
 
 
 class PhysPkgReader:
@@ -18,8 +66,12 @@ class PhysPkgReader:
             elif is_zipfile(pkg_file):
                 reader_cls = _ZipPkgReader
             else:
+                # -- check for password-encrypted .docx (OLE compound file) before
+                # -- reporting "not found", so users get an actionable error message.
+                _raise_if_encrypted_path(pkg_file)
                 raise PackageNotFoundError("Package not found at '%s'" % pkg_file)
         else:  # assume it's a stream and pass it to Zip reader to sort out
+            _raise_if_encrypted_stream(pkg_file)
             reader_cls = _ZipPkgReader
 
         return super(PhysPkgReader, cls).__new__(reader_cls)
