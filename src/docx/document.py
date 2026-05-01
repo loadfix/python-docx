@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import IO, TYPE_CHECKING, cast
 from collections.abc import Iterator, Sequence
 
@@ -350,6 +351,31 @@ class Document(ElementProxy):
             self.paragraphs, old_text, new_text, case_sensitive, whole_word
         )
 
+    def replace_regex(
+        self,
+        pattern: str | re.Pattern[str],
+        replacement: str,
+        flags: int = 0,
+    ) -> int:
+        """Replace all regex matches of `pattern` with `replacement` in body paragraphs.
+
+        `pattern` may be a string or a compiled `re.Pattern`. When `pattern` is a string,
+        `flags` (e.g. `re.IGNORECASE`) is applied during compilation; when `pattern` is
+        already compiled, `flags` is ignored. `replacement` follows `re.sub` semantics —
+        backreferences such as ``\\1`` and ``\\g<name>`` are expanded per match.
+
+        Note: Only top-level body paragraphs are processed. Text inside table cells,
+        headers, footers, footnotes, and endnotes is not affected.
+
+        Preserves the run formatting of the first character's run for each replacement.
+        Returns the number of replacements made.
+        """
+        from docx.search import replace_in_paragraphs_regex
+
+        return replace_in_paragraphs_regex(
+            self.paragraphs, pattern, replacement, flags
+        )
+
     def save(self, path_or_stream: str | IO[bytes]):
         """Save this document to `path_or_stream`.
 
@@ -378,6 +404,27 @@ class Document(ElementProxy):
         from docx.search import search_paragraphs
 
         return search_paragraphs(self.paragraphs, text, case_sensitive, whole_word)
+
+    def search_regex(
+        self,
+        pattern: str | re.Pattern[str],
+        flags: int = 0,
+    ) -> list[SearchMatch]:
+        """Find all regex matches of `pattern` in the document body paragraphs.
+
+        `pattern` may be a string or a compiled `re.Pattern`. When `pattern` is a string,
+        `flags` (e.g. `re.IGNORECASE`) is applied during compilation; when `pattern` is
+        already compiled, `flags` is ignored.
+
+        Note: Only top-level body paragraphs are searched. Text inside table cells,
+        headers, footers, footnotes, and endnotes is not included.
+
+        Returns a list of |SearchMatch| objects, one for each match found. Each match
+        provides access to the paragraph, run indices, and character offsets.
+        """
+        from docx.search import search_paragraphs_regex
+
+        return search_paragraphs_regex(self.paragraphs, pattern, flags)
 
     @property
     def sections(self) -> Sections:
