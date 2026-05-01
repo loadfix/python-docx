@@ -376,6 +376,29 @@ class Document(ElementProxy):
             self.paragraphs, pattern, replacement, flags
         )
 
+    def revision_marks_text(
+        self,
+        open_ins: str = "[+",
+        close_ins: str = "+]",
+        open_del: str = "[-",
+        close_del: str = "-]",
+    ) -> str:
+        """Return the document body's text with tracked-change markers applied.
+
+        Each top-level paragraph is rendered via
+        :meth:`Paragraph.revision_marks_text` and the results are joined with a
+        blank line separator (``"\\n\\n"``). Tables in the body are skipped; this
+        helper is intended as a quick CLI preview of inline insertions and
+        deletions in the running prose.
+
+        Pass ANSI escape sequences in place of the default square-bracket markers
+        if you want styled terminal output.
+        """
+        return "\n\n".join(
+            p.revision_marks_text(open_ins, close_ins, open_del, close_del)
+            for p in self.paragraphs
+        )
+
     def save(self, path_or_stream: str | IO[bytes]):
         """Save this document to `path_or_stream`.
 

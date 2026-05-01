@@ -688,6 +688,30 @@ class Paragraph(StoryChild):
         paragraph."""
         return [TrackedChange(tc) for tc in self._p.tracked_change_elements]
 
+    def revision_marks_text(
+        self,
+        open_ins: str = "[+",
+        close_ins: str = "+]",
+        open_del: str = "[-",
+        close_del: str = "-]",
+    ) -> str:
+        """Return this paragraph's text with tracked-change markers applied.
+
+        Inserted runs (inside ``<w:ins>``) are wrapped with `open_ins`/`close_ins`
+        and deleted runs (inside ``<w:del>``) with `open_del`/`close_del`. Runs
+        outside of any track-change wrapper are rendered as plain text.
+
+        When the paragraph contains no tracked changes, the return value matches
+        :attr:`text`. The defaults are CLI-friendly square-bracket markers; callers
+        can pass ANSI escape sequences (e.g. ``"\\033[4m"`` / ``"\\033[0m"``) to
+        style terminal output instead.
+        """
+        from docx.tracked_changes import _render_paragraph_marks
+
+        return _render_paragraph_marks(
+            self._p, open_ins, close_ins, open_del, close_del
+        )
+
     @property
     def text(self) -> str:
         """The textual content of this paragraph.

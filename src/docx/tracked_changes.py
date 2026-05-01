@@ -5,12 +5,14 @@ from __future__ import annotations
 import datetime as dt
 from typing import TYPE_CHECKING, cast
 
+from docx.oxml.ns import qn
 from docx.shared import ElementProxy
 
 if TYPE_CHECKING:
     from docx.oxml.section import CT_SectPr
     from docx.oxml.text.font import CT_RPr
     from docx.oxml.text.parfmt import CT_PPr
+    from docx.oxml.text.paragraph import CT_P
     from docx.oxml.tracked_changes import (
         CT_PPrChange,
         CT_RPrChange,
@@ -111,6 +113,74 @@ class FormattingChange(ElementProxy):
         if isinstance(self._fc_element, CT_SectPrChange):
             return self._fc_element.sectPr
         return None
+
+
+def _render_paragraph_marks(
+    p_elm: CT_P,
+    open_ins: str = "[+",
+    close_ins: str = "+]",
+    open_del: str = "[-",
+    close_del: str = "-]",
+) -> str:
+    """Render `p_elm` as text with insertion/deletion revision markers.
+
+    Walks the paragraph's children in document order. Plain runs contribute their
+    text; `w:ins` and `w:del` wrappers contribute their inner text wrapped with the
+    corresponding open/close markers. `w:hyperlink` elements are recursed into so
+    track-change wrappers inside them are rendered in place. Other inner-content
+    elements (`w:fldSimple`, `w:sdt`) contribute their plain text.
+
+    When the paragraph has no tracked changes the returned string matches
+    `paragraph.text`.
+    """
+    parts: list[str] = []
+    _append_container_text(
+        p_elm, parts, open_ins, close_ins, open_del, close_del
+    )
+    return "".join(parts)
+
+
+def _append_container_text(
+    container: BaseOxmlElement,
+    parts: list[str],
+    open_ins: str,
+    close_ins: str,
+    open_del: str,
+    close_del: str,
+) -> None:
+    """Walk direct children of `container` and append rendered text into `parts`."""
+    ins_tag = qn("w:ins")
+    del_tag = qn("w:del")
+    r_tag = qn("w:r")
+    hyperlink_tag = qn("w:hyperlink")
+    fldSimple_tag = qn("w:fldSimple")
+    sdt_tag = qn("w:sdt")
+
+    for child in container:
+        tag = child.tag
+        if tag == r_tag:
+            parts.append(child.text or "")  # CT_R.text
+        elif tag == ins_tag:
+            parts.append(open_ins)
+            _append_container_text(
+                cast("BaseOxmlElement", child),
+                parts, open_ins, close_ins, open_del, close_del,
+            )
+            parts.append(close_ins)
+        elif tag == del_tag:
+            parts.append(open_del)
+            # -- `w:del` contains `w:r` children whose text sits in `w:delText` --
+            for delText in child.xpath(".//w:delText"):
+                parts.append(delText.text or "")
+            parts.append(close_del)
+        elif tag == hyperlink_tag:
+            _append_container_text(
+                cast("BaseOxmlElement", child),
+                parts, open_ins, close_ins, open_del, close_del,
+            )
+        elif tag == fldSimple_tag or tag == sdt_tag:
+            # -- defer to the element's own `.text` for fields and SDTs --
+            parts.append(child.text or "")
 
 
 def _resolve_all_changes(root: BaseOxmlElement, *, accept: bool) -> int:

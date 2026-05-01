@@ -429,6 +429,42 @@ class DescribeDocument:
             "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val"
         ) == "left"
 
+    def it_renders_revision_marks_text_joined_by_blank_lines(self, document_part_: Mock):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/("
+                'w:p/(w:r/w:t"first ",w:ins{w:id=1,w:author=A}/w:r/w:t"added"),'
+                'w:p/(w:del{w:id=2,w:author=B}/w:r/w:delText"removed",w:r/w:t" end"),'
+                'w:p/w:r/w:t"plain"'
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        rendered = document.revision_marks_text()
+
+        assert rendered == "first [+added+]\n\n[-removed-] end\n\nplain"
+
+    def it_supports_custom_markers_in_document_revision_marks(
+        self, document_part_: Mock
+    ):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/"
+                'w:p/(w:ins{w:id=1,w:author=A}/w:r/w:t"x",'
+                'w:del{w:id=2,w:author=B}/w:r/w:delText"y")'
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        rendered = document.revision_marks_text(
+            open_ins="<+", close_ins="+>", open_del="<-", close_del="->"
+        )
+
+        assert rendered == "<+x+><-y->"
+
     def it_determines_block_width_to_help(
         self, document: Document, sections_prop_: Mock, section_: Mock
     ):
