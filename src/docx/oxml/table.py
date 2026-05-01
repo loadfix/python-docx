@@ -11,6 +11,7 @@ from docx.enum.table import (
     WD_ROW_HEIGHT_RULE,
     WD_SHADING_PATTERN,
     WD_TABLE_DIRECTION,
+    WD_TEXT_DIRECTION,
 )
 from docx.exceptions import InvalidSpanError
 from docx.oxml.ns import nsdecls, qn
@@ -992,11 +993,13 @@ class CT_TcPr(BaseOxmlElement):
     get_or_add_shd: Callable[[], CT_Shd]
     get_or_add_tcBorders: Callable[[], CT_TcBorders]
     get_or_add_tcW: Callable[[], CT_TblWidth]
+    get_or_add_textDirection: Callable[[], CT_TextDirection]
     get_or_add_vAlign: Callable[[], CT_VerticalJc]
     _add_vMerge: Callable[[], CT_VMerge]
     _remove_gridSpan: Callable[[], None]
     _remove_shd: Callable[[], None]
     _remove_tcBorders: Callable[[], None]
+    _remove_textDirection: Callable[[], None]
     _remove_vAlign: Callable[[], None]
     _remove_vMerge: Callable[[], None]
 
@@ -1035,6 +1038,9 @@ class CT_TcPr(BaseOxmlElement):
     shd: CT_Shd | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:shd", successors=_tag_seq[7:]
     )
+    textDirection: CT_TextDirection | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:textDirection", successors=_tag_seq[10:]
+    )
     vAlign: CT_VerticalJc | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:vAlign", successors=_tag_seq[12:]
     )
@@ -1054,6 +1060,25 @@ class CT_TcPr(BaseOxmlElement):
         self._remove_gridSpan()
         if value > 1:
             self.get_or_add_gridSpan().val = value
+
+    @property
+    def text_direction(self) -> WD_TEXT_DIRECTION | None:
+        """Value of `w:val` attribute on `w:textDirection` child.
+
+        Value is |None| if `w:textDirection` child is not present. The `w:val`
+        attribute on `w:textDirection` is required.
+        """
+        textDirection = self.textDirection
+        if textDirection is None:
+            return None
+        return textDirection.val
+
+    @text_direction.setter
+    def text_direction(self, value: WD_TEXT_DIRECTION | None):
+        if value is None:
+            self._remove_textDirection()
+            return
+        self.get_or_add_textDirection().val = value
 
     @property
     def vAlign_val(self):
@@ -1218,6 +1243,19 @@ class CT_TrPr(BaseOxmlElement):
             return
         trHeight = self.get_or_add_trHeight()
         trHeight.val = value
+
+
+class CT_TextDirection(BaseOxmlElement):
+    """`w:textDirection` element, specifying text-flow direction within a cell.
+
+    Also used at the section level (child of `w:sectPr`) and the paragraph level
+    (child of `w:pPr`); those usages share the same schema but are not surfaced
+    through this class at this time.
+    """
+
+    val: WD_TEXT_DIRECTION = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:val", WD_TEXT_DIRECTION
+    )
 
 
 class CT_VerticalJc(BaseOxmlElement):

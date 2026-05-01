@@ -284,6 +284,7 @@ from .table import (
     CT_Tc,
     CT_TcBorders,
     CT_TcPr,
+    CT_TextDirection,
     CT_TrPr,
     CT_VMerge,
     CT_VerticalJc,
@@ -315,6 +316,7 @@ register_element_cls("w:tblW", CT_TblWidth)
 register_element_cls("w:tc", CT_Tc)
 register_element_cls("w:tcPr", CT_TcPr)
 register_element_cls("w:tcW", CT_TblWidth)
+register_element_cls("w:textDirection", CT_TextDirection)
 register_element_cls("w:tr", CT_Row)
 register_element_cls("w:trHeight", CT_Height)
 register_element_cls("w:trPr", CT_TrPr)

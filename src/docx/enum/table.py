@@ -382,6 +382,67 @@ class WD_TABLE_AUTOFIT(BaseEnum):
     """Column widths are fixed regardless of cell contents."""
 
 
+class WD_TEXT_DIRECTION(BaseXmlEnum):
+    """Specifies the direction in which text flows within a table cell.
+
+    The common cell-rotation cases are :attr:`TB_RL` (rotate 90 degrees clockwise) and
+    :attr:`BT_LR` (rotate 90 degrees counter-clockwise).
+
+    Example::
+
+        from docx.enum.table import WD_TEXT_DIRECTION
+
+        table = document.add_table(3, 3)
+        table.cell(0, 0).text_direction = WD_TEXT_DIRECTION.TB_RL
+
+    Based on the ``ST_TextDirection`` simple type in the Open XML spec.
+    """
+
+    LR_TB = (
+        0,
+        "lrTb",
+        "Left-to-right, top-to-bottom (default horizontal orientation).",
+    )
+    """Left-to-right, top-to-bottom (default horizontal orientation)."""
+
+    TB_RL = (
+        1,
+        "tbRl",
+        "Top-to-bottom, right-to-left. Rotates text 90 degrees clockwise so it reads"
+        " top-to-bottom along the right edge of the cell.",
+    )
+    """Top-to-bottom, right-to-left (rotate 90 degrees clockwise)."""
+
+    BT_LR = (
+        2,
+        "btLr",
+        "Bottom-to-top, left-to-right. Rotates text 90 degrees counter-clockwise so it"
+        " reads bottom-to-top along the left edge of the cell.",
+    )
+    """Bottom-to-top, left-to-right (rotate 90 degrees counter-clockwise)."""
+
+    LR_TB_V = (
+        3,
+        "lrTbV",
+        "Left-to-right horizontal flow with vertical glyph layout.",
+    )
+    """Left-to-right horizontal flow with vertical glyph layout."""
+
+    TB_RL_V = (
+        4,
+        "tbRlV",
+        "Top-to-bottom, right-to-left vertical flow with vertical glyph layout.",
+    )
+    """Top-to-bottom, right-to-left vertical flow with vertical glyph layout."""
+
+    TB_LR_V = (
+        5,
+        "tbLrV",
+        "Top-to-bottom, left-to-right vertical flow with vertical glyph layout.",
+    )
+    """Top-to-bottom, left-to-right vertical flow with vertical glyph layout."""
+
+
 class WD_TABLE_DIRECTION(BaseEnum):
     """Specifies the direction in which an application orders cells in the specified
     table or row.
