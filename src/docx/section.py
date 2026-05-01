@@ -26,6 +26,7 @@ if TYPE_CHECKING:
         WD_ORIENTATION,
         WD_SECTION_START,
     )
+    from docx.enum.table import WD_TEXT_DIRECTION
     from docx.enum.text import WD_BORDER_STYLE
     from docx.footnotes import FootnoteProperties
     from docx.oxml.document import CT_Document
@@ -461,6 +462,37 @@ class Section:
     @right_margin.setter
     def right_margin(self, value: Length | None):
         self._sectPr.right_margin = value
+
+    @property
+    def right_to_left(self) -> bool:
+        """Read/write. ``True`` when this section uses right-to-left text flow.
+
+        Reflects the presence of the ``w:bidi`` child of this section's
+        ``w:sectPr``. Returns ``False`` when no ``w:bidi`` element is present or
+        its ``w:val`` attribute evaluates to false.
+
+        Assigning ``True`` inserts a ``w:bidi`` element; assigning ``False`` (or
+        |None|) removes any existing ``w:bidi`` child.
+        """
+        return self._sectPr.bidi_val
+
+    @right_to_left.setter
+    def right_to_left(self, value: bool | None):
+        self._sectPr.bidi_val = value
+
+    @property
+    def text_direction(self) -> "WD_TEXT_DIRECTION | None":
+        """Read/write. Text-flow direction for this section, as a :ref:`WdTextDirection`.
+
+        Maps to the ``w:val`` attribute of the ``w:textDirection`` child of this
+        section's ``w:sectPr``. |None| when no ``w:textDirection`` child is
+        present. Assigning |None| removes the ``w:textDirection`` element.
+        """
+        return self._sectPr.text_direction
+
+    @text_direction.setter
+    def text_direction(self, value: "WD_TEXT_DIRECTION | None"):
+        self._sectPr.text_direction = value
 
     @property
     def start_type(self) -> WD_SECTION_START:
