@@ -456,6 +456,7 @@ register_element_cls("w:annotationRef", _Base)
 register_element_cls("w:commentRangeEnd", _Base)
 register_element_cls("w:commentRangeStart", _Base)
 register_element_cls("w:commentReference", _Base)
+register_element_cls("w:contentPart", _Base)
 register_element_cls("w:footnoteRef", _Base)
 register_element_cls("w:footnoteReference", _Base)
 
