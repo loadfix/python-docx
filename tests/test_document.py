@@ -180,6 +180,32 @@ class DescribeDocument:
         assert table == table_
         assert table.style == style
 
+    def it_can_add_a_table_of_contents(self):
+        # -- integration test: the TOC helper is thin enough that mocking
+        #    every collaborator would just re-exercise plumbing; a full
+        #    round-trip is a better signal. --
+        from docx import Document as new_document
+
+        document = new_document()
+        document.add_heading("Chapter One", level=1)
+        document.add_heading("Section 1.1", level=2)
+        document.add_heading("Skipped detail", level=4)
+        document.add_heading("Chapter Two", level=1)
+
+        paragraph = document.add_table_of_contents(levels=(1, 3))
+
+        assert isinstance(paragraph, Paragraph)
+        assert document.paragraphs[-1]._p is paragraph._p
+        assert len(paragraph.fields) == 1
+        field = paragraph.fields[0]
+        assert field.type == "TOC"
+        assert field.instruction.strip() == 'TOC \\o "1-3" \\h \\z \\u'
+        result = field.result_text
+        assert "Chapter One" in result
+        assert "Section 1.1" in result
+        assert "Chapter Two" in result
+        assert "Skipped detail" not in result
+
     def it_can_save_the_document_to_a_file(self, document_part_: Mock):
         document = Document(cast(CT_Document, element("w:document")), document_part_)
 

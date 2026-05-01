@@ -199,6 +199,36 @@ class Document(ElementProxy):
         new_sectPr.start_type = start_type
         return Section(new_sectPr, self._part)
 
+    def add_table_of_contents(
+        self, levels: tuple[int, int] = (1, 3)
+    ) -> Paragraph:
+        """Append a table-of-contents paragraph at the end of the document body.
+
+        Creates a new paragraph containing a ``TOC`` complex field whose
+        cached *result text* is a preview built from the document's existing
+        heading paragraphs. ``levels`` is a ``(min_level, max_level)`` tuple
+        (default ``(1, 3)``) that selects which ``"Heading N"`` paragraphs
+        contribute to the preview; headings outside the range are skipped.
+
+        The preview lists one heading per line in the form
+        ``"{text}\\t{index}"`` — the tab-separated trailing integer is a
+        1-based position in the filtered heading list, not a page number
+        (python-docx has no layout engine). Word rebuilds the TOC the next
+        time the document is opened or when fields are refreshed, so the
+        cached preview is purely a convenience for raw-XML consumers and
+        non-Word viewers.
+
+        Returns the newly-appended |Paragraph|.
+        """
+        from docx.toc import populate_toc_paragraph
+
+        # -- snapshot the current headings before appending the new paragraph
+        #    so the empty TOC paragraph doesn't self-include if its style
+        #    ever matched the heading regex. --
+        source_paragraphs = list(self.paragraphs)
+        paragraph = self.add_paragraph()
+        return populate_toc_paragraph(paragraph, source_paragraphs, levels)
+
     def add_table(self, rows: int, cols: int, style: str | _TableStyle | None = None):
         """Add a table having row and column counts of `rows` and `cols` respectively.
 
