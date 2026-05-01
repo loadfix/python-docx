@@ -6,9 +6,20 @@ from typing import cast
 
 import pytest
 
-from docx.enum.section import WD_BORDER_DISPLAY, WD_BORDER_OFFSET_FROM
+from docx.enum.section import (
+    WD_BORDER_DISPLAY,
+    WD_BORDER_OFFSET_FROM,
+    WD_LINE_NUMBERING_RESTART,
+)
 from docx.enum.text import WD_BORDER_STYLE
-from docx.oxml.section import CT_Col, CT_Cols, CT_HdrFtr, CT_PgBorders, CT_SectPr
+from docx.oxml.section import (
+    CT_Col,
+    CT_Cols,
+    CT_HdrFtr,
+    CT_LineNumber,
+    CT_PgBorders,
+    CT_SectPr,
+)
 from docx.oxml.table import CT_Tbl
 from docx.oxml.text.paragraph import CT_P
 from docx.shared import Emu, Inches, Length, RGBColor, Twips
@@ -200,6 +211,93 @@ class DescribeCT_SectPr_pgBorders:
         )
         sectPr._remove_pgBorders()  # pyright: ignore[reportPrivateUsage]
         assert sectPr.pgBorders is None
+
+
+class DescribeCT_LineNumber:
+    """Unit-test suite for `docx.oxml.section.CT_LineNumber`."""
+
+    @pytest.mark.parametrize(
+        ("lnNumType_cxml", "count_by", "start", "distance", "restart"),
+        [
+            ("w:lnNumType", None, None, None, None),
+            (
+                "w:lnNumType{w:countBy=1,w:start=1,w:distance=360,w:restart=continuous}",
+                1,
+                1,
+                Twips(360),
+                WD_LINE_NUMBERING_RESTART.CONTINUOUS,
+            ),
+            (
+                "w:lnNumType{w:countBy=5,w:start=10,w:distance=720,w:restart=newSection}",
+                5,
+                10,
+                Twips(720),
+                WD_LINE_NUMBERING_RESTART.NEW_SECTION,
+            ),
+            (
+                "w:lnNumType{w:restart=newPage}",
+                None,
+                None,
+                None,
+                WD_LINE_NUMBERING_RESTART.NEW_PAGE,
+            ),
+        ],
+    )
+    def it_knows_its_attributes(
+        self, lnNumType_cxml, count_by, start, distance, restart
+    ):
+        lnNumType = cast(CT_LineNumber, element(lnNumType_cxml))
+        assert lnNumType.countBy == count_by
+        assert lnNumType.start == start
+        assert lnNumType.distance == distance
+        assert lnNumType.restart == restart
+
+    def it_can_set_its_attributes(self):
+        lnNumType = cast(CT_LineNumber, element("w:lnNumType"))
+        lnNumType.countBy = 3
+        lnNumType.start = 2
+        lnNumType.distance = Twips(720)
+        lnNumType.restart = WD_LINE_NUMBERING_RESTART.NEW_PAGE
+        assert lnNumType.xml == xml(
+            "w:lnNumType{w:countBy=3,w:start=2,w:distance=720,w:restart=newPage}"
+        )
+
+
+class DescribeCT_SectPr_lnNumType:
+    """Unit-test suite for CT_SectPr line-numbering features."""
+
+    def it_returns_None_when_no_lnNumType_child(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        assert sectPr.lnNumType is None
+
+    def it_can_access_its_lnNumType_child(self):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:lnNumType{w:countBy=1}"),
+        )
+        lnNumType = sectPr.lnNumType
+        assert lnNumType is not None
+        assert lnNumType.countBy == 1
+
+    def it_can_add_a_lnNumType_child(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        lnNumType = sectPr.get_or_add_lnNumType()
+        assert lnNumType is not None
+        assert sectPr.lnNumType is lnNumType
+
+    def it_inserts_lnNumType_in_the_right_position(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr/(w:pgSz,w:pgMar,w:cols)"))
+        sectPr.get_or_add_lnNumType()
+        expected = xml("w:sectPr/(w:pgSz,w:pgMar,w:lnNumType,w:cols)")
+        assert sectPr.xml == expected
+
+    def it_can_remove_its_lnNumType_child(self):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:lnNumType{w:countBy=1}"),
+        )
+        sectPr._remove_lnNumType()  # pyright: ignore[reportPrivateUsage]
+        assert sectPr.lnNumType is None
 
 
 class DescribeCT_HdrFtr:

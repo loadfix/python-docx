@@ -21,13 +21,14 @@ if TYPE_CHECKING:
     from docx.enum.section import (
         WD_BORDER_DISPLAY,
         WD_BORDER_OFFSET_FROM,
+        WD_LINE_NUMBERING_RESTART,
         WD_ORIENTATION,
         WD_SECTION_START,
     )
     from docx.enum.text import WD_BORDER_STYLE
     from docx.footnotes import FootnoteProperties
     from docx.oxml.document import CT_Document
-    from docx.oxml.section import CT_Col, CT_Cols, CT_PgBorders, CT_SectPr
+    from docx.oxml.section import CT_Col, CT_Cols, CT_LineNumber, CT_PgBorders, CT_SectPr
     from docx.oxml.text.parfmt import CT_Border
     from docx.oxml.watermark import CT_VmlShape
     from docx.parts.document import DocumentPart
@@ -301,6 +302,50 @@ class Section:
         Does nothing when no ``w:pgBorders`` child is present.
         """
         self._sectPr._remove_pgBorders()  # pyright: ignore[reportPrivateUsage]
+
+    @property
+    def line_numbering(self) -> LineNumbering | None:
+        """|LineNumbering| proxy or |None| when no ``w:lnNumType`` child is present.
+
+        Line numbering is displayed in the margin alongside each numbered line.
+        Use :meth:`set_line_numbering` to create or update the ``w:lnNumType``
+        element and :meth:`remove_line_numbering` to remove it.
+        """
+        lnNumType = self._sectPr.lnNumType
+        if lnNumType is None:
+            return None
+        return LineNumbering(lnNumType)
+
+    def set_line_numbering(
+        self,
+        count_by: int | None = None,
+        start: int | None = None,
+        distance: "Length | None" = None,
+        restart: "WD_LINE_NUMBERING_RESTART | None" = None,
+    ) -> LineNumbering:
+        """Create or update this section's ``w:lnNumType`` with provided values.
+
+        Any argument left as |None| leaves the corresponding attribute on an
+        existing ``w:lnNumType`` element unchanged. Returns the |LineNumbering|
+        proxy for the resulting element.
+        """
+        lnNumType = self._sectPr.get_or_add_lnNumType()
+        if count_by is not None:
+            lnNumType.countBy = count_by
+        if start is not None:
+            lnNumType.start = start
+        if distance is not None:
+            lnNumType.distance = distance
+        if restart is not None:
+            lnNumType.restart = restart
+        return LineNumbering(lnNumType)
+
+    def remove_line_numbering(self) -> None:
+        """Remove any ``w:lnNumType`` element from this section's ``w:sectPr``.
+
+        Does nothing when no ``w:lnNumType`` child is present.
+        """
+        self._sectPr._remove_lnNumType()  # pyright: ignore[reportPrivateUsage]
 
     @property
     def right_margin(self) -> Length | None:
@@ -911,6 +956,68 @@ class PageBorders:
                 pgBorders.offsetFrom = None
             return
         self._sectPr.get_or_add_pgBorders().offsetFrom = value
+
+
+class LineNumbering:
+    """Proxy for a ``<w:lnNumType>`` element on a section's ``w:sectPr``.
+
+    Accessed via :attr:`Section.line_numbering`. Provides read/write access to
+    the ``countBy``, ``start``, ``distance`` and ``restart`` attributes.
+    """
+
+    def __init__(self, lnNumType: "CT_LineNumber"):
+        self._lnNumType = lnNumType
+
+    @property
+    def count_by(self) -> int | None:
+        """Read/write. Interval between displayed line numbers.
+
+        A value of ``N`` means only every ``Nth`` line is numbered. |None| when
+        the ``w:countBy`` attribute is not specified on the element.
+        """
+        return self._lnNumType.countBy
+
+    @count_by.setter
+    def count_by(self, value: int | None) -> None:
+        self._lnNumType.countBy = value
+
+    @property
+    def start(self) -> int | None:
+        """Read/write. Starting line number for this section.
+
+        |None| when the ``w:start`` attribute is not specified.
+        """
+        return self._lnNumType.start
+
+    @start.setter
+    def start(self, value: int | None) -> None:
+        self._lnNumType.start = value
+
+    @property
+    def distance(self) -> "Length | None":
+        """Read/write. Distance from the text to the line numbers as |Length|.
+
+        |None| when the ``w:distance`` attribute is not specified.
+        """
+        return self._lnNumType.distance
+
+    @distance.setter
+    def distance(self, value: "Length | None") -> None:
+        self._lnNumType.distance = value
+
+    @property
+    def restart(self) -> "WD_LINE_NUMBERING_RESTART | None":
+        """Read/write. |WD_LINE_NUMBERING_RESTART| member or |None|.
+
+        Controls when the line-number counter restarts: ``CONTINUOUS``,
+        ``NEW_SECTION``, or ``NEW_PAGE``. |None| when the ``w:restart`` attribute
+        is not specified.
+        """
+        return self._lnNumType.restart
+
+    @restart.setter
+    def restart(self, value: "WD_LINE_NUMBERING_RESTART | None") -> None:
+        self._lnNumType.restart = value
 
 
 class _BaseHeaderFooter(BlockItemContainer):
