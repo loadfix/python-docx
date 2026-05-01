@@ -8,12 +8,19 @@ from collections.abc import Callable
 from docx.enum.text import (
     WD_ALIGN_PARAGRAPH,
     WD_BORDER_STYLE,
+    WD_FRAME_DROP_CAP,
+    WD_FRAME_H_ALIGN,
+    WD_FRAME_H_ANCHOR,
+    WD_FRAME_V_ALIGN,
+    WD_FRAME_V_ANCHOR,
+    WD_FRAME_WRAP,
     WD_LINE_SPACING,
     WD_TAB_ALIGNMENT,
     WD_TAB_LEADER,
 )
 from docx.oxml.shared import CT_DecimalNumber
 from docx.oxml.simpletypes import (
+    ST_DecimalNumber,
     ST_EighthPointMeasure,
     ST_HexColor,
     ST_PointMeasure,
@@ -81,6 +88,48 @@ class CT_PBdr(BaseOxmlElement):
     del _tag_seq
 
 
+class CT_FramePr(BaseOxmlElement):
+    """``<w:framePr>`` element, specifying text-frame properties for a paragraph.
+
+    A text frame is an absolutely-positioned text container, the legacy predecessor
+    to text boxes. All attributes are optional.
+    """
+
+    w: Length | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:w", ST_TwipsMeasure
+    )
+    h: Length | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:h", ST_TwipsMeasure
+    )
+    x: Length | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:x", ST_SignedTwipsMeasure
+    )
+    y: Length | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:y", ST_SignedTwipsMeasure
+    )
+    hAnchor: WD_FRAME_H_ANCHOR | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:hAnchor", WD_FRAME_H_ANCHOR
+    )
+    vAnchor: WD_FRAME_V_ANCHOR | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:vAnchor", WD_FRAME_V_ANCHOR
+    )
+    wrap: WD_FRAME_WRAP | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:wrap", WD_FRAME_WRAP
+    )
+    dropCap: WD_FRAME_DROP_CAP | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:dropCap", WD_FRAME_DROP_CAP
+    )
+    lines: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:lines", ST_DecimalNumber
+    )
+    xAlign: WD_FRAME_H_ALIGN | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:xAlign", WD_FRAME_H_ALIGN
+    )
+    yAlign: WD_FRAME_V_ALIGN | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:yAlign", WD_FRAME_V_ALIGN
+    )
+
+
 class CT_Ind(BaseOxmlElement):
     """``<w:ind>`` element, specifying paragraph indentation."""
 
@@ -109,11 +158,13 @@ class CT_Jc(BaseOxmlElement):
 class CT_PPr(BaseOxmlElement):
     """``<w:pPr>`` element, containing the properties for a paragraph."""
 
+    get_or_add_framePr: Callable[[], CT_FramePr]
     get_or_add_ind: Callable[[], CT_Ind]
     get_or_add_pBdr: Callable[[], CT_PBdr]
     get_or_add_pStyle: Callable[[], CT_String]
     get_or_add_sectPr: Callable[[], CT_SectPr]
     _insert_sectPr: Callable[[CT_SectPr], None]
+    _remove_framePr: Callable[[], None]
     _remove_pBdr: Callable[[], None]
     _remove_pStyle: Callable[[], None]
     _remove_sectPr: Callable[[], None]
@@ -162,6 +213,9 @@ class CT_PPr(BaseOxmlElement):
     keepNext = ZeroOrOne("w:keepNext", successors=_tag_seq[2:])
     keepLines = ZeroOrOne("w:keepLines", successors=_tag_seq[3:])
     pageBreakBefore = ZeroOrOne("w:pageBreakBefore", successors=_tag_seq[4:])
+    framePr: CT_FramePr | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:framePr", successors=_tag_seq[5:]
+    )
     widowControl = ZeroOrOne("w:widowControl", successors=_tag_seq[6:])
     numPr = ZeroOrOne("w:numPr", successors=_tag_seq[7:])
     pBdr: CT_PBdr | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]

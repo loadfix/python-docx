@@ -9,8 +9,16 @@ from docx.shared import ElementProxy, Emu, Length, Pt, RGBColor, Twips, lazyprop
 from docx.text.tabstops import TabStops
 
 if TYPE_CHECKING:
-    from docx.enum.text import WD_BORDER_STYLE
-    from docx.oxml.text.parfmt import CT_Border
+    from docx.enum.text import (
+        WD_BORDER_STYLE,
+        WD_FRAME_DROP_CAP,
+        WD_FRAME_H_ALIGN,
+        WD_FRAME_H_ANCHOR,
+        WD_FRAME_V_ALIGN,
+        WD_FRAME_V_ANCHOR,
+        WD_FRAME_WRAP,
+    )
+    from docx.oxml.text.parfmt import CT_Border, CT_FramePr
 
 
 class ParagraphFormat(ElementProxy):
@@ -22,6 +30,83 @@ class ParagraphFormat(ElementProxy):
         """|ParagraphBorders| object providing access to the border settings for this
         paragraph."""
         return ParagraphBorders(self._element)
+
+    @property
+    def frame(self) -> TextFrame | None:
+        """|TextFrame| proxy for this paragraph's ``w:framePr`` element, or |None|.
+
+        Returns |None| when the paragraph has no ``w:pPr/w:framePr`` child. A text
+        frame is an absolutely-positioned text container, the legacy predecessor
+        to text boxes.
+        """
+        pPr = self._element.pPr
+        if pPr is None:
+            return None
+        framePr = pPr.framePr
+        if framePr is None:
+            return None
+        return TextFrame(framePr)
+
+    def set_frame(
+        self,
+        *,
+        width: Length | None = None,
+        height: Length | None = None,
+        horizontal_position: Length | None = None,
+        vertical_position: Length | None = None,
+        horizontal_anchor: WD_FRAME_H_ANCHOR | None = None,
+        vertical_anchor: WD_FRAME_V_ANCHOR | None = None,
+        wrap: WD_FRAME_WRAP | None = None,
+        drop_cap: WD_FRAME_DROP_CAP | None = None,
+        lines: int | None = None,
+        horizontal_alignment: WD_FRAME_H_ALIGN | None = None,
+        vertical_alignment: WD_FRAME_V_ALIGN | None = None,
+    ) -> TextFrame:
+        """Create or update the ``w:framePr`` element on this paragraph.
+
+        Any keyword argument left at its default of |None| is left unchanged when the
+        frame already exists. To clear an attribute, use the corresponding setter on
+        the returned |TextFrame| (e.g. ``frame.width = None``) or call
+        :meth:`remove_frame` to drop the frame entirely.
+        """
+        pPr = self._element.get_or_add_pPr()
+        framePr = pPr.get_or_add_framePr()
+        frame = TextFrame(framePr)
+        if width is not None:
+            frame.width = width
+        if height is not None:
+            frame.height = height
+        if horizontal_position is not None:
+            frame.horizontal_position = horizontal_position
+        if vertical_position is not None:
+            frame.vertical_position = vertical_position
+        if horizontal_anchor is not None:
+            frame.horizontal_anchor = horizontal_anchor
+        if vertical_anchor is not None:
+            frame.vertical_anchor = vertical_anchor
+        if wrap is not None:
+            frame.wrap = wrap
+        if drop_cap is not None:
+            frame.drop_cap = drop_cap
+        if lines is not None:
+            frame.lines = lines
+        if horizontal_alignment is not None:
+            frame.horizontal_alignment = horizontal_alignment
+        if vertical_alignment is not None:
+            frame.vertical_alignment = vertical_alignment
+        return frame
+
+    def remove_frame(self) -> None:
+        """Remove the ``w:framePr`` element, if present.
+
+        No-op when no ``w:pPr`` or no ``w:framePr`` child is present.
+        """
+        pPr = self._element.pPr
+        if pPr is None:
+            return
+        if pPr.framePr is None:
+            return
+        pPr._remove_framePr()
 
     @property
     def alignment(self):
@@ -448,3 +533,114 @@ class Border:
                 border.space = None
             return
         self._get_or_add_border_elm().space = value
+
+
+class TextFrame:
+    """Proxy object for a paragraph-level text frame (``w:framePr``).
+
+    Provides read/write access to the attributes of the ``w:framePr`` element. A
+    text frame is an absolutely-positioned text container, the legacy predecessor
+    to text boxes.
+    """
+
+    def __init__(self, framePr: CT_FramePr):
+        self._framePr = framePr
+
+    @property
+    def width(self) -> Length | None:
+        """Frame width (``w:framePr/@w:w``) as a |Length|, or |None| if not set."""
+        return self._framePr.w
+
+    @width.setter
+    def width(self, value: Length | None) -> None:
+        self._framePr.w = value
+
+    @property
+    def height(self) -> Length | None:
+        """Frame height (``w:framePr/@w:h``) as a |Length|, or |None| if not set."""
+        return self._framePr.h
+
+    @height.setter
+    def height(self, value: Length | None) -> None:
+        self._framePr.h = value
+
+    @property
+    def horizontal_position(self) -> Length | None:
+        """Horizontal position (``w:framePr/@w:x``) as a |Length|, or |None| if not set."""
+        return self._framePr.x
+
+    @horizontal_position.setter
+    def horizontal_position(self, value: Length | None) -> None:
+        self._framePr.x = value
+
+    @property
+    def vertical_position(self) -> Length | None:
+        """Vertical position (``w:framePr/@w:y``) as a |Length|, or |None| if not set."""
+        return self._framePr.y
+
+    @vertical_position.setter
+    def vertical_position(self, value: Length | None) -> None:
+        self._framePr.y = value
+
+    @property
+    def horizontal_anchor(self) -> WD_FRAME_H_ANCHOR | None:
+        """Horizontal anchor (``w:framePr/@w:hAnchor``), or |None| if not set."""
+        return self._framePr.hAnchor
+
+    @horizontal_anchor.setter
+    def horizontal_anchor(self, value: WD_FRAME_H_ANCHOR | None) -> None:
+        self._framePr.hAnchor = value
+
+    @property
+    def vertical_anchor(self) -> WD_FRAME_V_ANCHOR | None:
+        """Vertical anchor (``w:framePr/@w:vAnchor``), or |None| if not set."""
+        return self._framePr.vAnchor
+
+    @vertical_anchor.setter
+    def vertical_anchor(self, value: WD_FRAME_V_ANCHOR | None) -> None:
+        self._framePr.vAnchor = value
+
+    @property
+    def wrap(self) -> WD_FRAME_WRAP | None:
+        """Text-wrap behaviour (``w:framePr/@w:wrap``), or |None| if not set."""
+        return self._framePr.wrap
+
+    @wrap.setter
+    def wrap(self, value: WD_FRAME_WRAP | None) -> None:
+        self._framePr.wrap = value
+
+    @property
+    def drop_cap(self) -> WD_FRAME_DROP_CAP | None:
+        """Drop-cap positioning (``w:framePr/@w:dropCap``), or |None| if not set."""
+        return self._framePr.dropCap
+
+    @drop_cap.setter
+    def drop_cap(self, value: WD_FRAME_DROP_CAP | None) -> None:
+        self._framePr.dropCap = value
+
+    @property
+    def lines(self) -> int | None:
+        """Number of lines for a drop-cap frame (``w:framePr/@w:lines``), or |None|."""
+        return self._framePr.lines
+
+    @lines.setter
+    def lines(self, value: int | None) -> None:
+        self._framePr.lines = value
+
+    @property
+    def horizontal_alignment(self) -> WD_FRAME_H_ALIGN | None:
+        """Horizontal alignment (``w:framePr/@w:xAlign``), or |None| if not set."""
+        return self._framePr.xAlign
+
+    @horizontal_alignment.setter
+    def horizontal_alignment(self, value: WD_FRAME_H_ALIGN | None) -> None:
+        self._framePr.xAlign = value
+
+    @property
+    def vertical_alignment(self) -> WD_FRAME_V_ALIGN | None:
+        """Vertical alignment (``w:framePr/@w:yAlign``), or |None| if not set."""
+        return self._framePr.yAlign
+
+    @vertical_alignment.setter
+    def vertical_alignment(self, value: WD_FRAME_V_ALIGN | None) -> None:
+        self._framePr.yAlign = value
