@@ -257,6 +257,25 @@ register_element_cls("w:numbering", CT_Numbering)
 register_element_cls("w:start", CT_DecimalNumber)
 register_element_cls("w:startOverride", CT_DecimalNumber)
 
+from .ruby import (
+    CT_Ruby,
+    CT_RubyAlign,
+    CT_RubyContent,
+    CT_RubyHps,
+    CT_RubyLang,
+    CT_RubyPr,
+)
+
+register_element_cls("w:ruby", CT_Ruby)
+register_element_cls("w:rubyPr", CT_RubyPr)
+register_element_cls("w:rt", CT_RubyContent)
+register_element_cls("w:rubyBase", CT_RubyContent)
+register_element_cls("w:rubyAlign", CT_RubyAlign)
+register_element_cls("w:hps", CT_RubyHps)
+register_element_cls("w:hpsRaise", CT_RubyHps)
+register_element_cls("w:hpsBaseText", CT_RubyHps)
+register_element_cls("w:lid", CT_RubyLang)
+
 from .section import (
     CT_Col,
     CT_Cols,

@@ -21,6 +21,7 @@ from docx.oxml.xmlchemy import (
 from docx.shared import TextAccumulator
 
 if TYPE_CHECKING:
+    from docx.oxml.ruby import CT_Ruby
     from docx.oxml.shape import CT_Anchor, CT_Inline
     from docx.oxml.text.pagebreak import CT_LastRenderedPageBreak
     from docx.oxml.text.parfmt import CT_TabStop
@@ -36,6 +37,7 @@ class CT_R(BaseOxmlElement):
     add_tab: Callable[[], CT_TabStop]
     get_or_add_rPr: Callable[[], CT_RPr]
     sym_lst: list["CT_Sym"]
+    ruby_lst: list["CT_Ruby"]
     _add_drawing: Callable[[], CT_Drawing]
     _add_sym: Callable[[], "CT_Sym"]
     _add_t: Callable[..., CT_Text]
@@ -46,6 +48,7 @@ class CT_R(BaseOxmlElement):
     drawing = ZeroOrMore("w:drawing")
     fldChar = ZeroOrMore("w:fldChar")
     instrText = ZeroOrMore("w:instrText")
+    ruby = ZeroOrMore("w:ruby")
     sym = ZeroOrMore("w:sym")
     t = ZeroOrMore("w:t")
     tab = ZeroOrMore("w:tab")
@@ -176,7 +179,10 @@ class CT_R(BaseOxmlElement):
         equivalent.
         """
         return "".join(
-            str(e) for e in self.xpath("w:br | w:cr | w:noBreakHyphen | w:ptab | w:t | w:tab")
+            str(e)
+            for e in self.xpath(
+                "w:br | w:cr | w:noBreakHyphen | w:ptab | w:ruby | w:t | w:tab"
+            )
         )
 
     @text.setter

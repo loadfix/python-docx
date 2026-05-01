@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.enum.text import WD_UNDERLINE
     from docx.oxml.text.run import CT_R, CT_Text
+    from docx.ruby import RubyAnnotation
     from docx.shared import Length
 
 
@@ -121,6 +122,17 @@ class Run(StoryChild):
         order."""
         for sym in self._r.sym_lst:
             yield Symbol(sym)
+
+    @property
+    def ruby_annotations(self) -> list["RubyAnnotation"]:
+        """A |RubyAnnotation| for each ``<w:ruby>`` child, in document order.
+
+        Read-only. Ruby is used for phonetic annotation (Japanese furigana etc.)
+        pairing base text with an above-the-line reading.
+        """
+        from docx.ruby import RubyAnnotation
+
+        return [RubyAnnotation(r) for r in self._r.ruby_lst]
 
     @property
     def bold(self) -> bool | None:
