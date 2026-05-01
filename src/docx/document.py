@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from docx.parts.document import DocumentPart
     from docx.search import SearchMatch
     from docx.settings import Settings
+    from docx.statistics import DocumentStatistics
     from docx.styles.style import ParagraphStyle, _TableStyle
     from docx.table import Table
     from docx.text.paragraph import Paragraph
@@ -399,6 +400,24 @@ class Document(ElementProxy):
     def settings(self) -> Settings:
         """A |Settings| object providing access to the document-level settings."""
         return self._part.settings
+
+    @property
+    def statistics(self) -> DocumentStatistics:
+        """A |DocumentStatistics| summarizing the document body's text.
+
+        Provides counts of non-empty paragraphs, words, characters (including
+        spaces), and characters excluding spaces for the main document story
+        (the ``w:body``). Text in headers, footers, footnotes, endnotes, and
+        comments is not included, mirroring Word's default "Word Count"
+        behavior.
+
+        A "word" is a whitespace-delimited token, matching ``str.split()``
+        semantics. Paragraphs nested inside tables or block-level content
+        controls are included because they are part of the body story.
+        """
+        from docx.statistics import compute_statistics
+
+        return compute_statistics(self._element.body)
 
     @property
     def styles(self):
