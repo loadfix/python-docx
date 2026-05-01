@@ -13,6 +13,7 @@ from docx.comments import Comment, Comments
 from docx.custom_properties import CustomProperties
 from docx.document import Document, _Body
 from docx.enum.section import WD_SECTION
+from docx.font_table import FontTable
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.opc.coreprops import CoreProperties
 from docx.oxml.document import CT_Body, CT_Document
@@ -223,6 +224,22 @@ class DescribeDocument:
         custom_properties = document.custom_properties
 
         assert custom_properties is custom_properties_
+
+    def it_provides_access_to_its_font_table(
+        self, document_part_: Mock, font_table_: Mock
+    ):
+        document_part_.font_table = font_table_
+        document = Document(cast(CT_Document, element("w:document")), document_part_)
+
+        assert document.font_table is font_table_
+
+    def and_font_table_is_None_when_the_document_has_no_font_table_part(
+        self, document_part_: Mock
+    ):
+        document_part_.font_table = None
+        document = Document(cast(CT_Document, element("w:document")), document_part_)
+
+        assert document.font_table is None
 
     def it_provides_access_to_its_inline_shapes(self, document_part_: Mock, inline_shapes_: Mock):
         document_part_.inline_shapes = inline_shapes_
@@ -528,6 +545,10 @@ class DescribeDocument:
     @pytest.fixture
     def document_part_(self, request: FixtureRequest):
         return instance_mock(request, DocumentPart)
+
+    @pytest.fixture
+    def font_table_(self, request: FixtureRequest):
+        return instance_mock(request, FontTable)
 
     @pytest.fixture
     def inline_shapes_(self, request: FixtureRequest):

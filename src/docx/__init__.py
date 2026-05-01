@@ -29,6 +29,7 @@ from docx.parts.comments import CommentsPart
 from docx.parts.custom_properties import CustomPropertiesPart
 from docx.parts.document import DocumentPart
 from docx.parts.endnotes import EndnotesPart
+from docx.parts.font_table import FontTablePart
 from docx.parts.footnotes import FootnotesPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
 from docx.parts.image import ImagePart
@@ -50,6 +51,7 @@ PartFactory.part_type_for[CT.WML_COMMENTS] = CommentsPart
 PartFactory.part_type_for[CT.WML_DOCUMENT_MAIN] = DocumentPart
 PartFactory.part_type_for[CT.WML_DOCUMENT_MACRO] = DocumentPart
 PartFactory.part_type_for[CT.WML_ENDNOTES] = EndnotesPart
+PartFactory.part_type_for[CT.WML_FONT_TABLE] = FontTablePart
 PartFactory.part_type_for[CT.WML_FOOTER] = FooterPart
 PartFactory.part_type_for[CT.WML_FOOTNOTES] = FootnotesPart
 PartFactory.part_type_for[CT.WML_HEADER] = HeaderPart
@@ -64,6 +66,7 @@ del (
     CustomPropertiesPart,
     DocumentPart,
     EndnotesPart,
+    FontTablePart,
     FooterPart,
     FootnotesPart,
     HeaderPart,
