@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from docx.text.paragraph import Paragraph
     from docx.text.run import Run
+
+RegexPattern = Union[str, re.Pattern[str]]
 
 
 class SearchMatch:
@@ -202,3 +204,101 @@ def _apply_replacement(
         # Trim the matched prefix from the last run.
         last_run = runs[last_run_idx]
         last_run.text = last_run.text[last_char_offset + 1 :]
+
+
+def _coerce_regex(pattern: RegexPattern, flags: int = 0) -> re.Pattern[str]:
+    """Return a compiled regex pattern.
+
+    If `pattern` is already a compiled `re.Pattern`, it is returned unchanged and
+    `flags` is ignored. Otherwise `pattern` is compiled with `flags`.
+    """
+    if isinstance(pattern, re.Pattern):
+        return pattern
+    return re.compile(pattern, flags)
+
+
+def search_paragraphs_regex(
+    paragraphs: list[Paragraph],
+    pattern: RegexPattern,
+    flags: int = 0,
+) -> list[SearchMatch]:
+    """Find all regex matches of `pattern` across `paragraphs`.
+
+    `pattern` may be a string or a compiled `re.Pattern`. When `pattern` is a string,
+    `flags` (e.g. `re.IGNORECASE`) is applied when compiling. When `pattern` is already
+    compiled, `flags` is ignored. Returns a list of |SearchMatch| objects, one for each
+    match found.
+    """
+    compiled = _coerce_regex(pattern, flags)
+    matches: list[SearchMatch] = []
+
+    for para_idx, paragraph in enumerate(paragraphs):
+        full_text, char_map = _build_char_map(paragraph.runs)
+        for m in compiled.finditer(full_text):
+            start, end = m.start(), m.end()
+            # For zero-width matches, run_indices is empty since no characters are
+            # spanned. Otherwise, collect unique run indices covering [start, end).
+            run_indices = sorted({char_map[i][0] for i in range(start, end)})
+            matches.append(
+                SearchMatch(
+                    paragraph=paragraph,
+                    paragraph_index=para_idx,
+                    run_indices=run_indices,
+                    start=start,
+                    end=end,
+                )
+            )
+
+    return matches
+
+
+def replace_in_paragraphs_regex(
+    paragraphs: list[Paragraph],
+    pattern: RegexPattern,
+    replacement: str,
+    flags: int = 0,
+) -> int:
+    """Replace all regex matches of `pattern` with `replacement` in `paragraphs`.
+
+    `pattern` may be a string or a compiled `re.Pattern`. When `pattern` is a string,
+    `flags` (e.g. `re.IGNORECASE`) is applied when compiling. `replacement` follows
+    `re.sub` semantics — backreferences such as ``\\1`` and ``\\g<name>`` are expanded
+    per match. Preserves the formatting of the first character's run for each
+    replacement. Returns the number of replacements made.
+    """
+    compiled = _coerce_regex(pattern, flags)
+    total_replacements = 0
+
+    for paragraph in paragraphs:
+        total_replacements += _replace_in_paragraph_regex(
+            paragraph, compiled, replacement
+        )
+
+    return total_replacements
+
+
+def _replace_in_paragraph_regex(
+    paragraph: Paragraph, pattern: re.Pattern[str], replacement: str
+) -> int:
+    """Replace all regex matches of `pattern` with `replacement` in one paragraph.
+
+    Each match's replacement text is produced via `Match.expand()` so that backreferences
+    are resolved. Matches are applied right-to-left so earlier character positions remain
+    valid as the text is modified.
+    """
+    runs = paragraph.runs
+    if not runs:
+        return 0
+
+    full_text, char_map = _build_char_map(runs)
+    # Skip zero-width matches — they have no characters to replace and can't be
+    # positioned within runs unambiguously.
+    matches = [m for m in pattern.finditer(full_text) if m.end() > m.start()]
+    if not matches:
+        return 0
+
+    for m in reversed(matches):
+        expanded = m.expand(replacement)
+        _apply_replacement(runs, char_map, m.start(), m.end(), expanded)
+
+    return len(matches)

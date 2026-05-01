@@ -14,12 +14,16 @@ from docx.search import (
     SearchMatch,
     _build_char_map,
     replace_in_paragraphs,
+    replace_in_paragraphs_regex,
     search_paragraphs,
+    search_paragraphs_regex,
 )
 from docx.text.paragraph import Paragraph
 
 from .unitutil.cxml import element
 from .unitutil.mock import Mock
+
+import re
 
 
 class DescribeSearchMatch:
@@ -403,3 +407,336 @@ class DescribeDocumentSearchAndReplace:
 
         assert count == 1
         assert doc.paragraphs[0].text == "dog concatenate"
+
+
+class DescribeSearchRegex:
+    """Unit-test suite for `docx.search.search_paragraphs_regex`."""
+
+    def it_finds_a_simple_regex_match(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"order 12345 shipped"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        matches = search_paragraphs_regex(doc.paragraphs, r"\d+")
+
+        assert len(matches) == 1
+        assert matches[0].start == 6
+        assert matches[0].end == 11
+        assert matches[0].run_indices == [0]
+
+    def it_supports_case_insensitive_flag(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"Hello HELLO hello"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        matches = search_paragraphs_regex(doc.paragraphs, r"hello", re.IGNORECASE)
+
+        assert len(matches) == 3
+
+    def it_accepts_a_compiled_pattern(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"Hello HELLO"'),
+        )
+        doc = Document(document_elm, Mock())
+        compiled = re.compile(r"hello", re.IGNORECASE)
+
+        matches = search_paragraphs_regex(doc.paragraphs, compiled)
+
+        assert len(matches) == 2
+
+    def it_finds_multiple_matches_in_one_paragraph(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"a1 b2 c3 d4"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        matches = search_paragraphs_regex(doc.paragraphs, r"[a-z]\d")
+
+        assert len(matches) == 4
+        assert [m.start for m in matches] == [0, 3, 6, 9]
+
+    def it_finds_matches_across_run_boundaries(self):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/w:p/"
+                '(w:r/w:t"foo",w:r/w:t"BAR",w:r/w:t"baz")'
+            ),
+        )
+        doc = Document(document_elm, Mock())
+
+        matches = search_paragraphs_regex(doc.paragraphs, r"ooBARba")
+
+        assert len(matches) == 1
+        assert matches[0].start == 1
+        assert matches[0].end == 8
+        assert matches[0].run_indices == [0, 1, 2]
+
+    def it_returns_correct_match_offsets_across_paragraphs(self):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/"
+                '(w:p/w:r/w:t"hello 42"'
+                ',w:p/w:r/w:t"world 99")'
+            ),
+        )
+        doc = Document(document_elm, Mock())
+
+        matches = search_paragraphs_regex(doc.paragraphs, r"\d+")
+
+        assert len(matches) == 2
+        assert matches[0].paragraph_index == 0
+        assert matches[0].start == 6
+        assert matches[0].end == 8
+        assert matches[1].paragraph_index == 1
+        assert matches[1].start == 6
+        assert matches[1].end == 8
+
+    def it_returns_empty_list_when_no_match(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"hello"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        matches = search_paragraphs_regex(doc.paragraphs, r"\d+")
+
+        assert matches == []
+
+
+class DescribeReplaceRegex:
+    """Unit-test suite for `docx.search.replace_in_paragraphs_regex`."""
+
+    def it_replaces_a_simple_regex_match(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"order 12345 shipped"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        count = replace_in_paragraphs_regex(doc.paragraphs, r"\d+", "N/A")
+
+        assert count == 1
+        assert doc.paragraphs[0].text == "order N/A shipped"
+
+    def it_supports_case_insensitive_flag(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"Hello HELLO hello"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        count = replace_in_paragraphs_regex(
+            doc.paragraphs, r"hello", "hi", re.IGNORECASE
+        )
+
+        assert count == 3
+        assert doc.paragraphs[0].text == "hi hi hi"
+
+    def it_expands_backreferences(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"foobar"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        count = replace_in_paragraphs_regex(doc.paragraphs, r"(foo)bar", r"\1baz")
+
+        assert count == 1
+        assert doc.paragraphs[0].text == "foobaz"
+
+    def it_expands_named_backreferences(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"Mr. Smith"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        count = replace_in_paragraphs_regex(
+            doc.paragraphs, r"Mr\. (?P<name>\w+)", r"Dr. \g<name>"
+        )
+
+        assert count == 1
+        assert doc.paragraphs[0].text == "Dr. Smith"
+
+    def it_accepts_a_compiled_pattern(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"Hello HELLO"'),
+        )
+        doc = Document(document_elm, Mock())
+        compiled = re.compile(r"hello", re.IGNORECASE)
+
+        count = replace_in_paragraphs_regex(doc.paragraphs, compiled, "hi")
+
+        assert count == 2
+        assert doc.paragraphs[0].text == "hi hi"
+
+    def it_replaces_multiple_matches_in_one_paragraph(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"a1 b2 c3"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        count = replace_in_paragraphs_regex(doc.paragraphs, r"[a-z]\d", "X")
+
+        assert count == 3
+        assert doc.paragraphs[0].text == "X X X"
+
+    def it_replaces_match_spanning_three_runs(self):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/w:p/"
+                '(w:r/w:t"ab",w:r/w:t"cd",w:r/w:t"ef")'
+            ),
+        )
+        doc = Document(document_elm, Mock())
+
+        # Regex matches part of each of the three runs.
+        count = replace_in_paragraphs_regex(doc.paragraphs, r"b.de", "X")
+
+        assert count == 1
+        assert doc.paragraphs[0].runs[0].text == "aX"
+        assert doc.paragraphs[0].runs[1].text == ""
+        assert doc.paragraphs[0].runs[2].text == "f"
+
+    def it_preserves_first_run_formatting_on_cross_run_match(self):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/w:p/"
+                "(w:r/(w:rPr/w:b,w:t\"hel\")"
+                ",w:r/(w:rPr/w:i,w:t\"lo world\"))"
+            ),
+        )
+        doc = Document(document_elm, Mock())
+
+        count = replace_in_paragraphs_regex(doc.paragraphs, r"h\w+o", "hi")
+
+        assert count == 1
+        assert doc.paragraphs[0].runs[0].bold is True
+        assert doc.paragraphs[0].runs[0].text == "hi"
+        assert doc.paragraphs[0].runs[1].italic is True
+        assert doc.paragraphs[0].runs[1].text == " world"
+
+    def it_returns_zero_when_no_match(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"hello"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        count = replace_in_paragraphs_regex(doc.paragraphs, r"\d+", "N/A")
+
+        assert count == 0
+        assert doc.paragraphs[0].text == "hello"
+
+    def it_handles_paragraph_with_no_runs(self):
+        document_elm = cast(
+            CT_Document,
+            element("w:document/w:body/w:p"),
+        )
+        doc = Document(document_elm, Mock())
+
+        count = replace_in_paragraphs_regex(doc.paragraphs, r"\d+", "N/A")
+
+        assert count == 0
+
+    def it_skips_zero_width_matches(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"abc"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        # ``\b`` is a zero-width assertion. Nothing should be replaced.
+        count = replace_in_paragraphs_regex(doc.paragraphs, r"\b", "X")
+
+        assert count == 0
+        assert doc.paragraphs[0].text == "abc"
+
+
+class DescribeDocumentRegex:
+    """Unit-test suite for Document.search_regex() and Document.replace_regex()."""
+
+    def it_exposes_search_regex_on_document(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"order 12345 shipped"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        matches = doc.search_regex(r"\d+")
+
+        assert len(matches) == 1
+        assert matches[0].start == 6
+        assert matches[0].end == 11
+
+    def it_exposes_replace_regex_on_document(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"foobar"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        count = doc.replace_regex(r"(foo)bar", r"\1baz")
+
+        assert count == 1
+        assert doc.paragraphs[0].text == "foobaz"
+
+    def it_passes_flags_through_to_search_regex(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"Hello HELLO"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        matches = doc.search_regex(r"hello", re.IGNORECASE)
+
+        assert len(matches) == 2
+
+    def it_passes_flags_through_to_replace_regex(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"Hello HELLO"'),
+        )
+        doc = Document(document_elm, Mock())
+
+        count = doc.replace_regex(r"hello", "hi", re.IGNORECASE)
+
+        assert count == 2
+        assert doc.paragraphs[0].text == "hi hi"
+
+    def it_accepts_a_compiled_pattern_on_search_regex(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"Hello HELLO"'),
+        )
+        doc = Document(document_elm, Mock())
+        compiled = re.compile(r"hello", re.IGNORECASE)
+
+        matches = doc.search_regex(compiled)
+
+        assert len(matches) == 2
+
+    def it_accepts_a_compiled_pattern_on_replace_regex(self):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"Hello HELLO"'),
+        )
+        doc = Document(document_elm, Mock())
+        compiled = re.compile(r"hello", re.IGNORECASE)
+
+        count = doc.replace_regex(compiled, "hi")
+
+        assert count == 2
+        assert doc.paragraphs[0].text == "hi hi"
