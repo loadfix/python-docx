@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import os
 import warnings
 from typing import TYPE_CHECKING, Iterator, cast
 
-from docx.enum.text import WD_VIEW
+from docx.enum.text import WD_PROTECTION, WD_VIEW
 from docx.shared import ElementProxy
 
 if TYPE_CHECKING:
@@ -146,12 +149,51 @@ class Settings(ElementProxy):
         self._settings.defaultTabStop_val = value
 
     @property
-    def document_protection(self) -> _DocumentProtection:
-        """Read-only access to document protection settings.
+    def document_protection(self) -> DocumentProtection:
+        """Access to document protection settings.
 
-        Provides `.type` (str or None) and `.enabled` (bool) properties.
+        Provides read/write access to the ``w:documentProtection`` element and its
+        attributes. Use :meth:`enable_protection` and :meth:`disable_protection` for
+        common high-level operations.
         """
-        return _DocumentProtection(self._settings)
+        return DocumentProtection(self._settings)
+
+    def enable_protection(
+        self,
+        mode: WD_PROTECTION = WD_PROTECTION.READ_ONLY,
+        enforce: bool = True,
+        password: str | None = None,
+    ) -> DocumentProtection:
+        """Enable document protection with the given `mode`.
+
+        Equivalent to populating ``w:documentProtection`` with ``@w:edit=<mode>``
+        and ``@w:enforcement=enforce``. If `password` is given, compute Word's
+        password hash (SHA-1 based) with a fresh 16-byte random salt and populate
+        the ``@w:hash``/``@w:salt`` and associated ``@w:crypt*`` attributes; if
+        `password` is |None|, no password is set.
+
+        Returns the :class:`DocumentProtection` proxy so callers can chain further
+        attribute assignments (e.g. ``settings.enable_protection(...).formatting_locked = True``).
+        """
+        protection = self.document_protection
+        protection.mode = mode
+        protection.enforce = bool(enforce)
+        if password is None:
+            # -- clear any stale hash/salt/crypto metadata --
+            protection.password_hash = None
+            protection.password_salt = None
+            protection.crypto_provider_type = None
+            protection.crypto_algorithm_class = None
+            protection.crypto_algorithm_type = None
+            protection.crypto_algorithm_sid = None
+            protection.spin_count = None
+        else:
+            protection.set_password(password)
+        return protection
+
+    def disable_protection(self) -> None:
+        """Remove the ``w:documentProtection`` element entirely."""
+        self._settings._remove_documentProtection()  # pyright: ignore[reportPrivateUsage]
 
     @property
     def even_and_odd_headers(self) -> bool:
@@ -318,22 +360,259 @@ class Settings(ElementProxy):
         self._settings._remove_endnotePr()  # pyright: ignore[reportPrivateUsage]
 
 
-class _DocumentProtection:
-    """Read-only access to document-protection settings."""
+# -- default algorithm metadata matching Word's rsaAES/SHA-1 password scheme --
+_DEFAULT_CRYPT_PROVIDER_TYPE = "rsaAES"
+_DEFAULT_CRYPT_ALGORITHM_CLASS = "hash"
+_DEFAULT_CRYPT_ALGORITHM_TYPE = "typeAny"
+_DEFAULT_CRYPT_ALGORITHM_SID = 4  # -- 4 == SHA-1 in Office's algorithm-id table --
+_DEFAULT_SPIN_COUNT = 100000
+
+
+def _hash_password(password: str, salt: bytes, spin_count: int) -> str:
+    """Compute Word-compatible SHA-1 password hash.
+
+    Word's algorithm (ISO/IEC 29500-1 §17.15.1.28) hashes the UTF-16LE encoding
+    of the password prefixed by the salt, then re-hashes the previous digest
+    concatenated with a 4-byte little-endian iteration counter `spin_count`
+    times. Returns the base64-encoded final 20-byte digest.
+
+    Note: Word's implementation has historically had subtle variations; callers
+    for whom Word must accept the password at open time should verify against
+    their target Word version. For detection-only uses this implementation is
+    sufficient.
+    """
+    digest = hashlib.sha1(salt + password.encode("utf-16-le")).digest()
+    for iteration in range(spin_count):
+        digest = hashlib.sha1(digest + iteration.to_bytes(4, "little")).digest()
+    return base64.b64encode(digest).decode("ascii")
+
+
+class DocumentProtection:
+    """Read/write access to document-protection settings.
+
+    Wraps the ``w:documentProtection`` child of ``w:settings``. All attributes
+    are live — writes are persisted to the underlying XML immediately and the
+    ``w:documentProtection`` element is created on demand. Setting an attribute
+    to |None| (or |False| for bools) clears the corresponding XML attribute.
+    """
 
     def __init__(self, settings: CT_Settings):
         self._settings = settings
 
+    # -- internal helpers ---------------------------------------------------
+
+    def _dp_or_none(self):
+        return self._settings.documentProtection
+
+    def _dp_or_add(self):
+        return self._settings.get_or_add_documentProtection()
+
+    # -- mode / enforcement / formatting ------------------------------------
+
+    @property
+    def enforce(self) -> bool:
+        """True when document protection is enforced (``@w:enforcement``)."""
+        return self._settings.documentProtection_enforcement
+
+    @enforce.setter
+    def enforce(self, value: bool) -> None:
+        self._settings.documentProtection_enforcement = bool(value)
+
+    @property
+    def mode(self) -> WD_PROTECTION | None:
+        """The protection mode as a |WD_PROTECTION| member, or |None|.
+
+        Corresponds to the ``@w:edit`` attribute. Assigning |None| clears the
+        attribute; assigning a :class:`WD_PROTECTION` member maps to the
+        corresponding XML string (e.g. ``WD_PROTECTION.COMMENTS`` → ``comments``).
+        """
+        edit = self._settings.documentProtection_edit
+        if edit is None:
+            return None
+        return WD_PROTECTION.from_xml(edit)
+
+    @mode.setter
+    def mode(self, value: WD_PROTECTION | None) -> None:
+        if value is None:
+            self._settings.documentProtection_edit = None
+            return
+        self._settings.documentProtection_edit = WD_PROTECTION.to_xml(value)
+
+    @property
+    def formatting_locked(self) -> bool:
+        """True when formatting restrictions are enabled (``@w:formatting``)."""
+        dp = self._dp_or_none()
+        if dp is None:
+            return False
+        return dp.formatting
+
+    @formatting_locked.setter
+    def formatting_locked(self, value: bool) -> None:
+        self._dp_or_add().formatting = bool(value)
+
+    # -- password hash / salt -----------------------------------------------
+
+    @property
+    def password_hash(self) -> str | None:
+        """Base64-encoded password hash (``@w:hash``) or |None|."""
+        dp = self._dp_or_none()
+        if dp is None:
+            return None
+        return dp.hash
+
+    @password_hash.setter
+    def password_hash(self, value: str | None) -> None:
+        dp = self._dp_or_none()
+        if value is None:
+            if dp is not None:
+                dp.hash = None
+            return
+        self._dp_or_add().hash = value
+
+    @property
+    def password_salt(self) -> str | None:
+        """Base64-encoded salt (``@w:salt``) used with the password hash, or |None|."""
+        dp = self._dp_or_none()
+        if dp is None:
+            return None
+        return dp.salt
+
+    @password_salt.setter
+    def password_salt(self, value: str | None) -> None:
+        dp = self._dp_or_none()
+        if value is None:
+            if dp is not None:
+                dp.salt = None
+            return
+        self._dp_or_add().salt = value
+
+    # -- algorithm metadata -------------------------------------------------
+
+    @property
+    def crypto_provider_type(self) -> str | None:
+        """Value of ``@w:cryptProviderType`` (e.g. ``"rsaAES"``) or |None|."""
+        dp = self._dp_or_none()
+        if dp is None:
+            return None
+        return dp.cryptProviderType
+
+    @crypto_provider_type.setter
+    def crypto_provider_type(self, value: str | None) -> None:
+        dp = self._dp_or_none()
+        if value is None:
+            if dp is not None:
+                dp.cryptProviderType = None
+            return
+        self._dp_or_add().cryptProviderType = value
+
+    @property
+    def crypto_algorithm_class(self) -> str | None:
+        """Value of ``@w:cryptAlgorithmClass`` (e.g. ``"hash"``) or |None|."""
+        dp = self._dp_or_none()
+        if dp is None:
+            return None
+        return dp.cryptAlgorithmClass
+
+    @crypto_algorithm_class.setter
+    def crypto_algorithm_class(self, value: str | None) -> None:
+        dp = self._dp_or_none()
+        if value is None:
+            if dp is not None:
+                dp.cryptAlgorithmClass = None
+            return
+        self._dp_or_add().cryptAlgorithmClass = value
+
+    @property
+    def crypto_algorithm_type(self) -> str | None:
+        """Value of ``@w:cryptAlgorithmType`` (e.g. ``"typeAny"``) or |None|."""
+        dp = self._dp_or_none()
+        if dp is None:
+            return None
+        return dp.cryptAlgorithmType
+
+    @crypto_algorithm_type.setter
+    def crypto_algorithm_type(self, value: str | None) -> None:
+        dp = self._dp_or_none()
+        if value is None:
+            if dp is not None:
+                dp.cryptAlgorithmType = None
+            return
+        self._dp_or_add().cryptAlgorithmType = value
+
+    @property
+    def crypto_algorithm_sid(self) -> int | None:
+        """Value of ``@w:cryptAlgorithmSid`` (algorithm-id integer) or |None|."""
+        dp = self._dp_or_none()
+        if dp is None:
+            return None
+        return dp.cryptAlgorithmSid
+
+    @crypto_algorithm_sid.setter
+    def crypto_algorithm_sid(self, value: int | None) -> None:
+        dp = self._dp_or_none()
+        if value is None:
+            if dp is not None:
+                dp.cryptAlgorithmSid = None
+            return
+        self._dp_or_add().cryptAlgorithmSid = int(value)
+
+    @property
+    def spin_count(self) -> int | None:
+        """Value of ``@w:cryptSpinCount`` (iteration count) or |None|."""
+        dp = self._dp_or_none()
+        if dp is None:
+            return None
+        return dp.cryptSpinCount
+
+    @spin_count.setter
+    def spin_count(self, value: int | None) -> None:
+        dp = self._dp_or_none()
+        if value is None:
+            if dp is not None:
+                dp.cryptSpinCount = None
+            return
+        self._dp_or_add().cryptSpinCount = int(value)
+
+    # -- high-level helpers --------------------------------------------------
+
+    def set_password(self, password: str) -> None:
+        """Populate ``@w:hash``/``@w:salt`` and algorithm metadata from `password`.
+
+        Generates a fresh 16-byte random salt, hashes the password using the
+        Word-standard SHA-1 scheme with 100,000 iterations, and sets the
+        ``@w:cryptProviderType=rsaAES``, ``@w:cryptAlgorithmClass=hash``,
+        ``@w:cryptAlgorithmType=typeAny``, ``@w:cryptAlgorithmSid=4``,
+        ``@w:cryptSpinCount=100000`` attributes accordingly.
+        """
+        salt_bytes = os.urandom(16)
+        digest = _hash_password(password, salt_bytes, _DEFAULT_SPIN_COUNT)
+        dp = self._dp_or_add()
+        dp.cryptProviderType = _DEFAULT_CRYPT_PROVIDER_TYPE
+        dp.cryptAlgorithmClass = _DEFAULT_CRYPT_ALGORITHM_CLASS
+        dp.cryptAlgorithmType = _DEFAULT_CRYPT_ALGORITHM_TYPE
+        dp.cryptAlgorithmSid = _DEFAULT_CRYPT_ALGORITHM_SID
+        dp.cryptSpinCount = _DEFAULT_SPIN_COUNT
+        dp.salt = base64.b64encode(salt_bytes).decode("ascii")
+        dp.hash = digest
+
+    # -- backward-compat aliases --------------------------------------------
+
     @property
     def enabled(self) -> bool:
-        """True when document protection is enforced."""
-        return self._settings.documentProtection_enforcement
+        """Alias for :attr:`enforce` (pre-existing API)."""
+        return self.enforce
 
     @property
     def type(self) -> str | None:
-        """The protection type (e.g. "readOnly", "comments", "trackedChanges", "forms")
-        or None if no protection is set."""
+        """Raw ``@w:edit`` string or |None| (pre-existing API).
+
+        Prefer :attr:`mode`, which returns a |WD_PROTECTION| enum member.
+        """
         return self._settings.documentProtection_edit
+
+
+# -- backward-compat: preserve private name referenced elsewhere --
+_DocumentProtection = DocumentProtection
 
 
 class CompatSettings:

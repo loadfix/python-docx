@@ -602,6 +602,33 @@ class WD_VIEW(BaseXmlEnum):
     """Full-screen reading view optimized for reading."""
 
 
+class WD_PROTECTION(BaseXmlEnum):
+    """Specifies the document-protection editing mode.
+
+    Maps to the ``w:edit`` attribute of ``w:documentProtection`` in the settings
+    part. A document protection element with ``w:enforcement="1"`` prevents the
+    user from editing the document in ways other than those permitted by the
+    selected mode. For example, :attr:`COMMENTS` allows inserting comments but
+    not modifying paragraph text.
+    """
+
+    READ_ONLY = (0, "readOnly", "The document is read-only; no edits are permitted.")
+    """The document is read-only; no edits are permitted."""
+
+    COMMENTS = (1, "comments", "Only comments may be inserted or modified.")
+    """Only comments may be inserted or modified."""
+
+    TRACKED_CHANGES = (
+        2,
+        "trackedChanges",
+        "Changes are permitted but recorded as tracked revisions.",
+    )
+    """Changes are permitted but recorded as tracked revisions."""
+
+    FORMS = (3, "forms", "Only form-field content may be edited.")
+    """Only form-field content may be edited."""
+
+
 class WD_FRAME_H_ANCHOR(BaseXmlEnum):
     """Specifies the base from which a text frame's horizontal position is measured.
 

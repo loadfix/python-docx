@@ -13,10 +13,11 @@ from docx.enum.text import (
     WD_ENDNOTE_POSITION,
     WD_FOOTNOTE_POSITION,
     WD_NUMBER_FORMAT,
+    WD_PROTECTION,
     WD_VIEW,
 )
 from docx.footnotes import FootnoteProperties
-from docx.settings import CompatFlags, CompatSettings, Settings
+from docx.settings import CompatFlags, CompatSettings, DocumentProtection, Settings
 from docx.shared import Twips
 
 from .unitutil.cxml import element, xml
@@ -626,3 +627,250 @@ class DescribeCompatFlags:
         assert "cachedColBalance" in names
         # -- a reasonable coverage threshold --
         assert len(names) >= 50
+
+
+class DescribeDocumentProtection:
+    """Unit-test suite for `docx.settings.DocumentProtection`."""
+
+    # -- backward-compat: legacy read-only API still works -----------------
+
+    def it_exposes_legacy_type_attribute(self):
+        settings = Settings(
+            element("w:settings/w:documentProtection{w:edit=readOnly,w:enforcement=1}")
+        )
+        assert settings.document_protection.type == "readOnly"
+
+    def it_exposes_legacy_enabled_attribute(self):
+        settings = Settings(
+            element("w:settings/w:documentProtection{w:edit=readOnly,w:enforcement=1}")
+        )
+        assert settings.document_protection.enabled is True
+
+    # -- mode / enforce ----------------------------------------------------
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_mode"),
+        [
+            ("w:settings", None),
+            ("w:settings/w:documentProtection", None),
+            (
+                "w:settings/w:documentProtection{w:edit=readOnly}",
+                WD_PROTECTION.READ_ONLY,
+            ),
+            (
+                "w:settings/w:documentProtection{w:edit=comments}",
+                WD_PROTECTION.COMMENTS,
+            ),
+            (
+                "w:settings/w:documentProtection{w:edit=trackedChanges}",
+                WD_PROTECTION.TRACKED_CHANGES,
+            ),
+            (
+                "w:settings/w:documentProtection{w:edit=forms}",
+                WD_PROTECTION.FORMS,
+            ),
+        ],
+    )
+    def it_can_get_mode(self, cxml: str, expected_mode: WD_PROTECTION | None):
+        settings = Settings(element(cxml))
+        assert settings.document_protection.mode == expected_mode
+
+    @pytest.mark.parametrize(
+        "member",
+        [
+            WD_PROTECTION.READ_ONLY,
+            WD_PROTECTION.COMMENTS,
+            WD_PROTECTION.TRACKED_CHANGES,
+            WD_PROTECTION.FORMS,
+        ],
+    )
+    def it_round_trips_every_mode(self, member: WD_PROTECTION):
+        settings = Settings(element("w:settings"))
+        settings.document_protection.mode = member
+        assert settings.document_protection.mode == member
+
+    def it_creates_the_documentProtection_element_on_first_mode_set(self):
+        settings = Settings(element("w:settings"))
+        settings.document_protection.mode = WD_PROTECTION.COMMENTS
+        assert settings._settings.xml == xml(
+            "w:settings/w:documentProtection{w:edit=comments}"
+        )
+
+    def it_clears_mode_when_assigned_None(self):
+        settings = Settings(
+            element("w:settings/w:documentProtection{w:edit=readOnly}")
+        )
+        settings.document_protection.mode = None
+        assert settings.document_protection.mode is None
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_enforce"),
+        [
+            ("w:settings", False),
+            ("w:settings/w:documentProtection", False),
+            ("w:settings/w:documentProtection{w:enforcement=0}", False),
+            ("w:settings/w:documentProtection{w:enforcement=1}", True),
+        ],
+    )
+    def it_can_get_enforce(self, cxml: str, expected_enforce: bool):
+        assert Settings(element(cxml)).document_protection.enforce is expected_enforce
+
+    def it_can_set_enforce(self):
+        settings = Settings(element("w:settings"))
+        settings.document_protection.enforce = True
+        assert settings.document_protection.enforce is True
+        settings.document_protection.enforce = False
+        assert settings.document_protection.enforce is False
+
+    # -- formatting_locked -------------------------------------------------
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected"),
+        [
+            ("w:settings", False),
+            ("w:settings/w:documentProtection", False),
+            ("w:settings/w:documentProtection{w:formatting=1}", True),
+            ("w:settings/w:documentProtection{w:formatting=0}", False),
+        ],
+    )
+    def it_can_get_formatting_locked(self, cxml: str, expected: bool):
+        assert (
+            Settings(element(cxml)).document_protection.formatting_locked is expected
+        )
+
+    def it_can_set_formatting_locked(self):
+        settings = Settings(element("w:settings"))
+        settings.document_protection.formatting_locked = True
+        assert settings.document_protection.formatting_locked is True
+        settings.document_protection.formatting_locked = False
+        assert settings.document_protection.formatting_locked is False
+
+    # -- password_hash / password_salt -------------------------------------
+
+    def it_round_trips_password_hash_and_salt(self):
+        settings = Settings(element("w:settings"))
+        settings.document_protection.password_hash = "deadbeef=="
+        settings.document_protection.password_salt = "cafebabe+/"
+        assert settings.document_protection.password_hash == "deadbeef=="
+        assert settings.document_protection.password_salt == "cafebabe+/"
+
+    def it_returns_None_for_password_fields_when_absent(self):
+        settings = Settings(element("w:settings"))
+        assert settings.document_protection.password_hash is None
+        assert settings.document_protection.password_salt is None
+
+    def it_can_clear_password_hash_by_assigning_None(self):
+        settings = Settings(element("w:settings"))
+        settings.document_protection.password_hash = "abc"
+        settings.document_protection.password_hash = None
+        assert settings.document_protection.password_hash is None
+
+    # -- algorithm metadata ------------------------------------------------
+
+    def it_round_trips_algorithm_metadata(self):
+        settings = Settings(element("w:settings"))
+        protection = settings.document_protection
+        protection.crypto_provider_type = "rsaAES"
+        protection.crypto_algorithm_class = "hash"
+        protection.crypto_algorithm_type = "typeAny"
+        protection.crypto_algorithm_sid = 4
+        protection.spin_count = 100000
+
+        assert protection.crypto_provider_type == "rsaAES"
+        assert protection.crypto_algorithm_class == "hash"
+        assert protection.crypto_algorithm_type == "typeAny"
+        assert protection.crypto_algorithm_sid == 4
+        assert protection.spin_count == 100000
+
+    def it_returns_None_for_algorithm_metadata_when_absent(self):
+        settings = Settings(element("w:settings"))
+        protection = settings.document_protection
+        assert protection.crypto_provider_type is None
+        assert protection.crypto_algorithm_class is None
+        assert protection.crypto_algorithm_type is None
+        assert protection.crypto_algorithm_sid is None
+        assert protection.spin_count is None
+
+    # -- high-level enable / disable --------------------------------------
+
+    def it_returns_a_DocumentProtection_from_document_protection(self):
+        settings = Settings(element("w:settings"))
+        assert isinstance(settings.document_protection, DocumentProtection)
+
+    def it_can_enable_protection_without_a_password(self):
+        settings = Settings(element("w:settings"))
+        settings.enable_protection(mode=WD_PROTECTION.COMMENTS)
+        protection = settings.document_protection
+        assert protection.mode == WD_PROTECTION.COMMENTS
+        assert protection.enforce is True
+        assert protection.password_hash is None
+        assert protection.password_salt is None
+        assert protection.crypto_provider_type is None
+        assert protection.spin_count is None
+
+    def it_can_enable_protection_with_a_password(self):
+        settings = Settings(element("w:settings"))
+        settings.enable_protection(mode=WD_PROTECTION.READ_ONLY, password="secret")
+        protection = settings.document_protection
+        assert protection.mode == WD_PROTECTION.READ_ONLY
+        assert protection.enforce is True
+        assert protection.password_hash is not None
+        assert protection.password_salt is not None
+        # -- base64 strings decode cleanly to their expected byte lengths --
+        import base64 as _b64
+
+        assert len(_b64.b64decode(protection.password_salt)) == 16
+        assert len(_b64.b64decode(protection.password_hash)) == 20  # SHA-1
+        assert protection.crypto_provider_type == "rsaAES"
+        assert protection.crypto_algorithm_class == "hash"
+        assert protection.crypto_algorithm_type == "typeAny"
+        assert protection.crypto_algorithm_sid == 4
+        assert protection.spin_count == 100000
+
+    def it_produces_a_different_hash_per_call(self):
+        settings = Settings(element("w:settings"))
+        settings.enable_protection(mode=WD_PROTECTION.READ_ONLY, password="secret")
+        hash1 = settings.document_protection.password_hash
+        salt1 = settings.document_protection.password_salt
+        settings.enable_protection(mode=WD_PROTECTION.READ_ONLY, password="secret")
+        hash2 = settings.document_protection.password_hash
+        salt2 = settings.document_protection.password_salt
+        # -- fresh random salt means the hashes differ too --
+        assert salt1 != salt2
+        assert hash1 != hash2
+
+    def it_can_enable_protection_without_enforcement(self):
+        settings = Settings(element("w:settings"))
+        settings.enable_protection(mode=WD_PROTECTION.FORMS, enforce=False)
+        protection = settings.document_protection
+        assert protection.mode == WD_PROTECTION.FORMS
+        assert protection.enforce is False
+
+    def it_defaults_to_READ_ONLY_when_no_mode_given(self):
+        settings = Settings(element("w:settings"))
+        settings.enable_protection()
+        assert settings.document_protection.mode == WD_PROTECTION.READ_ONLY
+        assert settings.document_protection.enforce is True
+
+    def it_can_disable_protection(self):
+        settings = Settings(
+            element("w:settings/w:documentProtection{w:edit=readOnly,w:enforcement=1}")
+        )
+        settings.disable_protection()
+        assert settings._settings.xml == xml("w:settings")
+
+    def it_tolerates_disable_when_already_absent(self):
+        settings = Settings(element("w:settings"))
+        settings.disable_protection()
+        assert settings._settings.xml == xml("w:settings")
+
+    def it_clears_stale_password_fields_when_enabling_without_password(self):
+        settings = Settings(element("w:settings"))
+        settings.enable_protection(mode=WD_PROTECTION.READ_ONLY, password="secret")
+        # -- now re-enable without a password: hash/salt/crypto-meta should be cleared --
+        settings.enable_protection(mode=WD_PROTECTION.READ_ONLY)
+        protection = settings.document_protection
+        assert protection.password_hash is None
+        assert protection.password_salt is None
+        assert protection.crypto_provider_type is None
+        assert protection.spin_count is None
