@@ -872,6 +872,95 @@ class DescribeParagraph:
         assert list(tc) == [p1, new_paragraph._p, tc[2]]
         assert new_paragraph.text == "middle"
 
+    def it_can_add_a_caption_after_itself(
+        self, request: pytest.FixtureRequest
+    ):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.get_style_id.return_value = "Caption"
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        body = element("w:body/(w:p{id=1},w:p{id=2})")
+        paragraph = Paragraph(cast(CT_P, body[0]), FakeParent())
+
+        caption = paragraph.add_caption_after("A diagram")
+
+        assert isinstance(caption, Paragraph)
+        # -- the caption sits between the two existing paragraphs --
+        assert list(body) == [paragraph._p, caption._p, body[2]]
+        assert caption.text == "Figure 1: A diagram"
+        # -- one SEQ field with the correct instruction and cached "1" --
+        assert len(caption.fields) == 1
+        field = caption.fields[0]
+        assert field.type == "SEQ"
+        assert field.instruction.strip() == "SEQ Figure \\* ARABIC"
+        assert field.result_text == "1"
+
+    def it_can_add_a_caption_before_itself(
+        self, request: pytest.FixtureRequest
+    ):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.get_style_id.return_value = "Caption"
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        body = element("w:body/(w:p{id=1},w:p{id=2})")
+        paragraph = Paragraph(cast(CT_P, body[1]), FakeParent())
+
+        caption = paragraph.add_caption_before("A diagram")
+
+        assert isinstance(caption, Paragraph)
+        # -- the caption sits between the two existing paragraphs --
+        assert list(body) == [body[0], caption._p, paragraph._p]
+        assert caption.text == "Figure 1: A diagram"
+
+    def it_honors_custom_label_on_add_caption_after(
+        self, request: pytest.FixtureRequest
+    ):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.get_style_id.return_value = "Caption"
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        body = element("w:body/w:p")
+        paragraph = Paragraph(cast(CT_P, body[0]), FakeParent())
+
+        caption = paragraph.add_caption_after("Prices", label="Table")
+
+        assert caption.text == "Table 1: Prices"
+        assert caption.fields[0].instruction.strip() == "SEQ Table \\* ARABIC"
+
+    def it_honors_custom_style_on_add_caption_before(
+        self, request: pytest.FixtureRequest
+    ):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.get_style_id.return_value = "MyStyleId"
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        body = element("w:body/w:p")
+        paragraph = Paragraph(cast(CT_P, body[0]), FakeParent())
+
+        caption = paragraph.add_caption_before("Hello", style="MyStyle")
+
+        # -- pStyle w:val came from get_style_id("MyStyle", ...) --
+        story_part_.get_style_id.assert_any_call("MyStyle", WD_STYLE_TYPE.PARAGRAPH)
+        pPr = caption._p.pPr
+        assert pPr is not None
+        assert pPr.style == "MyStyleId"
+
     def it_can_insert_a_table_before_itself(
         self, fake_parent: t.ProvidesStoryPart
     ):
