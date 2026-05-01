@@ -489,6 +489,57 @@ class DescribeDocument:
             "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val"
         ) == "left"
 
+    def it_can_accept_move_revisions_across_the_document(self, document_part_: Mock):
+        # -- source side (moveFrom) is removed entirely, destination (moveTo) is
+        # -- unwrapped so its runs survive as live text --
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/("
+                'w:p/(w:r/w:t"before ",'
+                'w:moveFrom{w:id=1,w:author=A,w:name=m1}/w:r/w:delText"moved"),'
+                'w:p/(w:r/w:t"dest: ",'
+                'w:moveTo{w:id=2,w:author=B,w:name=m1}/w:r/w:t"moved")'
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.accept_all_changes()
+
+        assert count == 2
+        assert document_elm.xpath(".//w:moveFrom") == []
+        assert document_elm.xpath(".//w:moveTo") == []
+        paragraphs = document_elm.xpath(".//w:p")
+        assert "".join(t.text for t in paragraphs[0].xpath(".//w:t")) == "before "
+        assert "".join(t.text for t in paragraphs[1].xpath(".//w:t")) == "dest: moved"
+
+    def it_can_reject_move_revisions_across_the_document(self, document_part_: Mock):
+        # -- source side (moveFrom) is unwrapped and its delText becomes t,
+        # -- destination (moveTo) and its content are removed --
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/("
+                'w:p/(w:r/w:t"before ",'
+                'w:moveFrom{w:id=1,w:author=A,w:name=m1}/w:r/w:delText"moved"),'
+                'w:p/(w:r/w:t"dest: ",'
+                'w:moveTo{w:id=2,w:author=B,w:name=m1}/w:r/w:t"moved")'
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.reject_all_changes()
+
+        assert count == 2
+        assert document_elm.xpath(".//w:moveFrom") == []
+        assert document_elm.xpath(".//w:moveTo") == []
+        assert document_elm.xpath(".//w:delText") == []
+        paragraphs = document_elm.xpath(".//w:p")
+        assert "".join(t.text for t in paragraphs[0].xpath(".//w:t")) == "before moved"
+        assert "".join(t.text for t in paragraphs[1].xpath(".//w:t")) == "dest: "
+
     def it_renders_revision_marks_text_joined_by_blank_lines(self, document_part_: Mock):
         document_elm = cast(
             CT_Document,

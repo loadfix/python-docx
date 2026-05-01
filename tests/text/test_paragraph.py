@@ -685,6 +685,17 @@ class DescribeParagraph:
                 ',w:del{w:id=2,w:author=B}/w:r/w:delText"removed")',
                 2,
             ),
+            ('w:p/w:moveFrom{w:id=3,w:author=A,w:name=m1}/w:r/w:delText"gone"', 1),
+            ('w:p/w:moveTo{w:id=4,w:author=B,w:name=m1}/w:r/w:t"moved"', 1),
+            (
+                "w:p/("
+                'w:ins{w:id=1,w:author=A}/w:r/w:t"i",'
+                'w:del{w:id=2,w:author=B}/w:r/w:delText"d",'
+                'w:moveFrom{w:id=3,w:author=C,w:name=m1}/w:r/w:delText"mf",'
+                'w:moveTo{w:id=4,w:author=D,w:name=m1}/w:r/w:t"mt"'
+                ")",
+                4,
+            ),
         ],
     )
     def it_provides_access_to_tracked_changes(self, p_cxml: str, count: int):
@@ -693,6 +704,29 @@ class DescribeParagraph:
         tracked_changes = paragraph.tracked_changes
 
         assert len(tracked_changes) == count
+
+    def it_wraps_move_revisions_in_MoveRevision_proxies(self):
+        from docx.tracked_changes import MoveRevision
+
+        paragraph = Paragraph(
+            element(
+                "w:p/("
+                'w:ins{w:id=1,w:author=A}/w:r/w:t"i",'
+                'w:moveFrom{w:id=3,w:author=C,w:name=m1}/w:r/w:delText"mf",'
+                'w:moveTo{w:id=4,w:author=D,w:name=m1}/w:r/w:t"mt"'
+                ")"
+            ),
+            None,
+        )
+
+        changes = paragraph.tracked_changes
+
+        types = [c.type for c in changes]
+        assert types == ["insertion", "move_from", "move_to"]
+        assert isinstance(changes[1], MoveRevision)
+        assert isinstance(changes[2], MoveRevision)
+        assert changes[1].name == "m1"  # type: ignore[attr-defined]
+        assert changes[2].name == "m1"  # type: ignore[attr-defined]
 
     def it_exposes_its_formatting_change_when_pPrChange_present(self):
         p = cast(

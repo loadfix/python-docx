@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from docx.oxml.text.pagebreak import CT_LastRenderedPageBreak
     from docx.oxml.text.parfmt import CT_PPr
     from docx.oxml.text.run import CT_R
-    from docx.oxml.tracked_changes import CT_Del, CT_Ins
+    from docx.oxml.tracked_changes import CT_Del, CT_Ins, CT_MoveFrom, CT_MoveTo
     from docx.oxml.text.font import CT_RPr
 
 
@@ -247,9 +247,18 @@ class CT_P(BaseOxmlElement):
         return "".join(e.text for e in self.xpath("w:r | w:hyperlink | w:fldSimple | w:sdt"))
 
     @property
-    def tracked_change_elements(self) -> list[CT_Ins | CT_Del]:
-        """`w:ins` and `w:del` children of this paragraph, in document order."""
-        return self.xpath("./w:ins | ./w:del")
+    def tracked_change_elements(
+        self,
+    ) -> list[CT_Ins | CT_Del | CT_MoveFrom | CT_MoveTo]:
+        """Run-level track-change children of this paragraph, in document order.
+
+        Includes `w:ins`, `w:del`, `w:moveFrom`, and `w:moveTo`. The paragraph-
+        level range-start / range-end elements (`w:moveFromRangeStart`,
+        `w:moveFromRangeEnd`, `w:moveToRangeStart`, `w:moveToRangeEnd`) used to
+        bracket cross-paragraph moves are intentionally excluded — they mark
+        ranges rather than wrap run content.
+        """
+        return self.xpath("./w:ins | ./w:del | ./w:moveFrom | ./w:moveTo")
 
     def _insert_pPr(self, pPr: CT_PPr) -> CT_PPr:
         self.insert(0, pPr)

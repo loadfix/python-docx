@@ -22,7 +22,7 @@ from docx.styles.style import ParagraphStyle
 from docx.text.hyperlink import Hyperlink
 from docx.text.pagebreak import RenderedPageBreak
 from docx.text.parfmt import ParagraphFormat
-from docx.tracked_changes import TrackedChange
+from docx.tracked_changes import MoveRevision, TrackedChange
 from docx.text.run import Run
 
 if TYPE_CHECKING:
@@ -801,9 +801,22 @@ class Paragraph(StoryChild):
 
     @property
     def tracked_changes(self) -> list[TrackedChange]:
-        """A list of |TrackedChange| objects for each insertion or deletion in this
-        paragraph."""
-        return [TrackedChange(tc) for tc in self._p.tracked_change_elements]
+        """A list of |TrackedChange| objects for each run-level track change.
+
+        Yields proxies for `w:ins`, `w:del`, `w:moveFrom`, and `w:moveTo` children
+        of this paragraph in document order. Move-revision elements are wrapped
+        in |MoveRevision|, exposing the `@w:name` pairing attribute and
+        ``.peer`` lookup.
+        """
+        from docx.oxml.tracked_changes import CT_MoveFrom, CT_MoveTo
+
+        result: list[TrackedChange] = []
+        for tc in self._p.tracked_change_elements:
+            if isinstance(tc, (CT_MoveFrom, CT_MoveTo)):
+                result.append(MoveRevision(tc))
+            else:
+                result.append(TrackedChange(tc))
+        return result
 
     def revision_marks_text(
         self,

@@ -9,7 +9,13 @@ from typing import cast
 
 import pytest
 
-from docx.oxml.tracked_changes import CT_Del, CT_DelText, CT_Ins
+from docx.oxml.tracked_changes import (
+    CT_Del,
+    CT_DelText,
+    CT_Ins,
+    CT_MoveFrom,
+    CT_MoveTo,
+)
 
 from ..unitutil.cxml import element
 
@@ -147,3 +153,127 @@ class DescribeCT_Del_acceptReject:
         # Both runs survive; their text values are "keep " and "restore"
         texts = [t.text for t in p.xpath("./w:r/w:t")]
         assert texts == ["keep ", "restore"]
+
+
+class DescribeCT_MoveFrom:
+    """Unit-test suite for `docx.oxml.tracked_changes.CT_MoveFrom`."""
+
+    def it_knows_its_id(self):
+        mf = cast(
+            CT_MoveFrom,
+            element("w:moveFrom{w:id=1,w:author=Alice,w:name=m1}"),
+        )
+        assert mf.id == 1
+
+    def it_knows_its_author(self):
+        mf = cast(
+            CT_MoveFrom,
+            element("w:moveFrom{w:id=1,w:author=Alice,w:name=m1}"),
+        )
+        assert mf.author == "Alice"
+
+    def it_knows_its_name(self):
+        mf = cast(
+            CT_MoveFrom,
+            element("w:moveFrom{w:id=1,w:author=Alice,w:name=m1}"),
+        )
+        assert mf.name == "m1"
+
+    def it_returns_None_when_name_is_absent(self):
+        mf = cast(CT_MoveFrom, element("w:moveFrom{w:id=1,w:author=A}"))
+        assert mf.name is None
+
+    def it_can_produce_its_text_from_delText_children(self):
+        mf = cast(
+            CT_MoveFrom,
+            element(
+                'w:moveFrom{w:id=1,w:author=A,w:name=m1}/w:r/w:delText"moved away"'
+            ),
+        )
+        assert mf.text == "moved away"
+
+    def it_is_recognized_as_CT_Del_for_polymorphism(self):
+        # -- CT_MoveFrom inherits from CT_Del so _resolve_all_changes's type
+        # -- dispatch treats them uniformly --
+        mf = cast(CT_MoveFrom, element("w:moveFrom{w:id=1,w:author=A,w:name=m1}"))
+        assert isinstance(mf, CT_Del)
+
+
+class DescribeCT_MoveTo:
+    """Unit-test suite for `docx.oxml.tracked_changes.CT_MoveTo`."""
+
+    def it_knows_its_id(self):
+        mt = cast(CT_MoveTo, element("w:moveTo{w:id=2,w:author=Bob,w:name=m1}"))
+        assert mt.id == 2
+
+    def it_knows_its_author(self):
+        mt = cast(CT_MoveTo, element("w:moveTo{w:id=2,w:author=Bob,w:name=m1}"))
+        assert mt.author == "Bob"
+
+    def it_knows_its_name(self):
+        mt = cast(CT_MoveTo, element("w:moveTo{w:id=2,w:author=Bob,w:name=m1}"))
+        assert mt.name == "m1"
+
+    def it_returns_None_when_name_is_absent(self):
+        mt = cast(CT_MoveTo, element("w:moveTo{w:id=2,w:author=B}"))
+        assert mt.name is None
+
+    def it_can_produce_its_text_from_t_children(self):
+        mt = cast(
+            CT_MoveTo,
+            element('w:moveTo{w:id=2,w:author=B,w:name=m1}/w:r/w:t"moved here"'),
+        )
+        assert mt.text == "moved here"
+
+    def it_is_recognized_as_CT_Ins_for_polymorphism(self):
+        mt = cast(CT_MoveTo, element("w:moveTo{w:id=2,w:author=B,w:name=m1}"))
+        assert isinstance(mt, CT_Ins)
+
+
+class DescribeCT_MoveFrom_acceptReject:
+    """Accept/reject behavior for `<w:moveFrom>`."""
+
+    def it_removes_itself_on_accept_completing_the_move(self):
+        p = element(
+            'w:p/(w:r/w:t"keep",'
+            'w:moveFrom{w:id=1,w:author=A,w:name=m1}/w:r/w:delText"gone")'
+        )
+        mf = p.xpath("./w:moveFrom")[0]
+        mf.accept()
+        assert p.xpath("./w:moveFrom") == []
+        assert [r.text for r in p.xpath("./w:r/w:t")] == ["keep"]
+
+    def it_restores_content_on_reject_converting_delText_to_t(self):
+        p = element(
+            'w:p/(w:r/w:t"keep ",'
+            'w:moveFrom{w:id=1,w:author=A,w:name=m1}/w:r/w:delText"restored")'
+        )
+        mf = p.xpath("./w:moveFrom")[0]
+        mf.reject()
+        assert p.xpath("./w:moveFrom") == []
+        assert p.xpath("./w:r/w:delText") == []
+        assert [t.text for t in p.xpath("./w:r/w:t")] == ["keep ", "restored"]
+
+
+class DescribeCT_MoveTo_acceptReject:
+    """Accept/reject behavior for `<w:moveTo>`."""
+
+    def it_unwraps_itself_on_accept_keeping_content(self):
+        p = element(
+            'w:p/(w:r/w:t"before ",'
+            'w:moveTo{w:id=2,w:author=B,w:name=m1}/w:r/w:t"moved")'
+        )
+        mt = p.xpath("./w:moveTo")[0]
+        mt.accept()
+        assert p.xpath("./w:moveTo") == []
+        assert [r.text for r in p.xpath("./w:r/w:t")] == ["before ", "moved"]
+
+    def it_removes_itself_on_reject_cancelling_the_move(self):
+        p = element(
+            'w:p/(w:r/w:t"before ",'
+            'w:moveTo{w:id=2,w:author=B,w:name=m1}/w:r/w:t"moved")'
+        )
+        mt = p.xpath("./w:moveTo")[0]
+        mt.reject()
+        assert p.xpath("./w:moveTo") == []
+        assert [r.text for r in p.xpath("./w:r/w:t")] == ["before "]
