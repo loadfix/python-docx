@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from docx.endnotes import Endnotes, EndnoteProperties
     from docx.font_table import FontTable
     from docx.footnotes import FootnoteProperties, Footnotes
+    from docx.form_fields import FormField
     from docx.ink import InkAnnotation
     from docx.oxml.content_controls import CT_Sdt
     from docx.oxml.document import CT_Body, CT_Document
@@ -308,6 +309,20 @@ class Document(ElementProxy):
     def endnotes(self) -> Endnotes:
         """A |Endnotes| object providing access to endnotes in the document."""
         return self._part.endnotes
+
+    @property
+    def form_fields(self) -> list[FormField]:
+        """All legacy form fields (``w:ffData``) found in the document body, in order.
+
+        Walks top-level body paragraphs only. Form fields nested inside table
+        cells, headers, footers, footnotes, or endnotes are not included in
+        this collection — callers can access those via the ``form_fields``
+        property on the enclosing paragraph.
+        """
+        result: list[FormField] = []
+        for paragraph in self.paragraphs:
+            result.extend(paragraph.form_fields)
+        return result
 
     @property
     def has_macros(self) -> bool:

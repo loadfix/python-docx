@@ -157,6 +157,13 @@ register_element_cls("w:fldChar", CT_FldChar)
 register_element_cls("w:fldSimple", CT_FldSimple)
 register_element_cls("w:instrText", CT_InstrText)
 
+from .form_fields import CT_FFCheckBox, CT_FFData, CT_FFDDList, CT_FFTextInput
+
+register_element_cls("w:ffData", CT_FFData)
+register_element_cls("w:textInput", CT_FFTextInput)
+register_element_cls("w:checkBox", CT_FFCheckBox)
+register_element_cls("w:ddList", CT_FFDDList)
+
 from .document import CT_Background, CT_Body, CT_Document
 
 register_element_cls("w:background", CT_Background)

@@ -11,6 +11,7 @@ from docx.enum.shape import WD_ANCHOR_H, WD_ANCHOR_V, WD_WRAP_TYPE
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
 from docx.fields import Field
+from docx.form_fields import FormField
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml.drawing import CT_Drawing
 from docx.oxml.shape import CT_Anchor
@@ -250,6 +251,77 @@ class Paragraph(StoryChild):
         begin_run = self._p.add_complex_field(instr, result_text)
         return Field.for_complex(begin_run)
 
+    def add_text_form_field(
+        self,
+        name: str,
+        default: str = "",
+        maxlength: int | None = None,
+    ) -> FormField:
+        """Append a legacy text form field (``FORMTEXT``) and return it.
+
+        `name` becomes the form field's ``w:name/@w:val`` — the programmatic
+        identifier used by Word macros and REF fields to retrieve the value.
+        `default` is the initial value; it is written both to
+        ``w:textInput/w:default`` and used as the rendered result text so
+        Word displays it immediately without a field update. `maxlength` is
+        the character limit (|None| means no limit).
+        """
+        from docx.form_fields import _append_form_field, new_text_form_field_ffData
+
+        ffData = new_text_form_field_ffData(name, default=default, maxlength=maxlength)
+        begin_run = _append_form_field(
+            self._p, " FORMTEXT ", ffData, result_text=default
+        )
+        return FormField(begin_run)
+
+    def add_checkbox_form_field(
+        self,
+        name: str,
+        checked: bool = False,
+    ) -> FormField:
+        """Append a legacy checkbox form field (``FORMCHECKBOX``) and return it.
+
+        `name` becomes the form field's ``w:name/@w:val``. `checked` sets both
+        the default and current checked state. The rendered result region of
+        the complex field is left empty — Word shows a checkbox glyph for
+        ``FORMCHECKBOX`` regardless of the result runs.
+        """
+        from docx.form_fields import _append_form_field, new_checkbox_form_field_ffData
+
+        ffData = new_checkbox_form_field_ffData(name, checked=checked)
+        begin_run = _append_form_field(self._p, " FORMCHECKBOX ", ffData, result_text="")
+        return FormField(begin_run)
+
+    def add_dropdown_form_field(
+        self,
+        name: str,
+        options: list[str],
+        default_index: int = 0,
+    ) -> FormField:
+        """Append a legacy dropdown form field (``FORMDROPDOWN``) and return it.
+
+        `name` becomes the form field's ``w:name/@w:val``. `options` are the
+        list entries the dropdown offers, in display order. `default_index` is
+        the 0-based index of the option that is initially selected; it is
+        written to both ``w:default`` and ``w:result``. The rendered result
+        text is set to the option at `default_index` when that index is in
+        range, so Word displays the initial value immediately.
+        """
+        from docx.form_fields import _append_form_field, new_dropdown_form_field_ffData
+
+        ffData = new_dropdown_form_field_ffData(
+            name, options=options, default_index=default_index
+        )
+        initial_text = (
+            options[default_index]
+            if 0 <= default_index < len(options)
+            else ""
+        )
+        begin_run = _append_form_field(
+            self._p, " FORMDROPDOWN ", ffData, result_text=initial_text
+        )
+        return FormField(begin_run)
+
     def add_floating_image(
         self,
         image_path_or_stream: str | IO[bytes],
@@ -314,6 +386,23 @@ class Paragraph(StoryChild):
                 result.append(Field.for_simple(el))
             else:
                 result.append(Field.for_complex(el))
+        return result
+
+    @property
+    def form_fields(self) -> list[FormField]:
+        """List of |FormField| objects for each legacy form field in this paragraph.
+
+        A legacy form field is a complex field whose ``begin`` ``w:fldChar``
+        carries a ``w:ffData`` child. Returned in document order. Complex
+        fields without ``w:ffData`` (e.g. ``PAGE``, ``REF``) are ignored —
+        those remain accessible via :attr:`fields`.
+        """
+        result: list[FormField] = []
+        begin_runs = self._p.xpath(
+            "./w:r[w:fldChar[@w:fldCharType='begin' and w:ffData]]"
+        )
+        for r in begin_runs:
+            result.append(FormField(cast(CT_R, r)))
         return result
 
     @property
