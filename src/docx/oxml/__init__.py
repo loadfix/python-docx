@@ -413,6 +413,42 @@ register_element_cls("w:relyOnVML", CT_OnOff)
 register_element_cls("w:allowPNG", CT_OnOff)
 register_element_cls("w:doNotSaveAsSingleFile", CT_OnOff)
 
+from .theme import (
+    CT_ClrScheme,
+    CT_ColorChoice,
+    CT_FontCollection,
+    CT_FontScheme,
+    CT_SRgbColor,
+    CT_SysColor,
+    CT_TextFont,
+    CT_Theme,
+    CT_ThemeElements,
+)
+
+register_element_cls("a:theme", CT_Theme)
+register_element_cls("a:themeElements", CT_ThemeElements)
+register_element_cls("a:clrScheme", CT_ClrScheme)
+register_element_cls("a:fontScheme", CT_FontScheme)
+register_element_cls("a:majorFont", CT_FontCollection)
+register_element_cls("a:minorFont", CT_FontCollection)
+register_element_cls("a:latin", CT_TextFont)
+register_element_cls("a:ea", CT_TextFont)
+register_element_cls("a:cs", CT_TextFont)
+register_element_cls("a:srgbClr", CT_SRgbColor)
+register_element_cls("a:sysClr", CT_SysColor)
+register_element_cls("a:dk1", CT_ColorChoice)
+register_element_cls("a:lt1", CT_ColorChoice)
+register_element_cls("a:dk2", CT_ColorChoice)
+register_element_cls("a:lt2", CT_ColorChoice)
+register_element_cls("a:accent1", CT_ColorChoice)
+register_element_cls("a:accent2", CT_ColorChoice)
+register_element_cls("a:accent3", CT_ColorChoice)
+register_element_cls("a:accent4", CT_ColorChoice)
+register_element_cls("a:accent5", CT_ColorChoice)
+register_element_cls("a:accent6", CT_ColorChoice)
+register_element_cls("a:hlink", CT_ColorChoice)
+register_element_cls("a:folHlink", CT_ColorChoice)
+
 from .tracked_changes import (
     CT_Del,
     CT_DelText,
