@@ -37,6 +37,7 @@ if TYPE_CHECKING:
         CT_TblPr,
         CT_Tc,
         CT_TcBorders,
+        CT_TcMar,
     )
     from docx.oxml.text.paragraph import CT_P
     from docx.shared import Length
@@ -559,6 +560,49 @@ class _Cell(BlockItemContainer):
         return CellShading(self._tc)
 
     @property
+    def margins(self) -> CellMargins:
+        """Read-only. |CellMargins| proxy for per-cell margin overrides.
+
+        Always returns a |CellMargins| object. When no ``w:tcMar`` element is
+        present, each edge reads as |None|; assigning to an edge creates the
+        ``w:tcPr/w:tcMar`` structure on demand.
+        """
+        return CellMargins(self._tc)
+
+    def set_margins(
+        self,
+        top: "Length | None" = None,
+        bottom: "Length | None" = None,
+        start: "Length | None" = None,
+        end: "Length | None" = None,
+    ) -> CellMargins:
+        """Set one or more cell-margin edges in a single call.
+
+        Only arguments explicitly provided (i.e. not |None|) are written; existing
+        edges not mentioned in the call are left unchanged. To explicitly clear
+        an edge, assign |None| directly via the |CellMargins| proxy or call
+        :meth:`remove_margins`. Returns the |CellMargins| proxy.
+        """
+        margins = self.margins
+        if top is not None:
+            margins.top = top
+        if bottom is not None:
+            margins.bottom = bottom
+        if start is not None:
+            margins.start = start
+        if end is not None:
+            margins.end = end
+        return margins
+
+    def remove_margins(self) -> None:
+        """Remove any ``w:tcMar`` element from this cell, clearing all per-cell
+        margin overrides. Leaves the cell inheriting table-level cell margins."""
+        tcPr = self._tc.tcPr
+        if tcPr is None:
+            return
+        tcPr._remove_tcMar()  # pyright: ignore[reportPrivateUsage]
+
+    @property
     def text_direction(self) -> WD_TEXT_DIRECTION | None:
         """Member of :ref:`WdTextDirection` or |None|.
 
@@ -896,6 +940,97 @@ class CellBorders:
 
     def _get_or_add_tcBorders(self) -> CT_TcBorders:
         return self._tc.get_or_add_tcPr().get_or_add_tcBorders()
+
+
+class CellMargins:
+    """Proxy for per-cell margin overrides (the ``w:tcMar`` element).
+
+    Accessed via :attr:`_Cell.margins`. Provides read/write access to the four
+    margin edges: ``top``, ``bottom``, ``start`` and ``end``. The underlying
+    ``w:tcMar`` element (and its parent ``w:tcPr``) are created lazily on first
+    write. When no ``w:tcMar`` is present, each edge reads as |None|.
+
+    The edge names ``start`` and ``end`` map to either the modern ``w:start`` /
+    ``w:end`` tags or the legacy ``w:left`` / ``w:right`` tags. Reads accept
+    either form; writes produce ``w:start`` / ``w:end``.
+    """
+
+    def __init__(self, tc: CT_Tc):
+        self._tc = tc
+
+    @property
+    def _tcMar(self) -> "CT_TcMar | None":
+        tcPr = self._tc.tcPr
+        if tcPr is None:
+            return None
+        return tcPr.tcMar
+
+    def _get_or_add_tcMar(self) -> "CT_TcMar":
+        return self._tc.get_or_add_tcPr().get_or_add_tcMar()
+
+    def _get_edge(self, edge: str) -> "Length | None":
+        tcMar = self._tcMar
+        if tcMar is None:
+            return None
+        return tcMar.get_margin(edge)
+
+    def _set_edge(self, edge: str, value: "Length | None") -> None:
+        if value is None:
+            tcMar = self._tcMar
+            if tcMar is None:
+                return
+            tcMar.remove_margin(edge)
+            # -- if the tcMar is now empty, remove it to keep the XML tidy --
+            if len(tcMar) == 0:
+                tcPr = self._tc.tcPr
+                if tcPr is not None:
+                    tcPr._remove_tcMar()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._get_or_add_tcMar().set_margin(edge, value)
+
+    @property
+    def top(self) -> "Length | None":
+        """Top cell-margin as a |Length|, or |None| when not set."""
+        return self._get_edge("top")
+
+    @top.setter
+    def top(self, value: "Length | None") -> None:
+        self._set_edge("top", value)
+
+    @property
+    def bottom(self) -> "Length | None":
+        """Bottom cell-margin as a |Length|, or |None| when not set."""
+        return self._get_edge("bottom")
+
+    @bottom.setter
+    def bottom(self, value: "Length | None") -> None:
+        self._set_edge("bottom", value)
+
+    @property
+    def start(self) -> "Length | None":
+        """Start (leading-edge) cell-margin as a |Length|, or |None| when not set.
+
+        Reads ``w:start`` when present, otherwise the legacy ``w:left``. Writes
+        always produce ``w:start``.
+        """
+        return self._get_edge("start")
+
+    @start.setter
+    def start(self, value: "Length | None") -> None:
+        self._set_edge("start", value)
+
+    @property
+    def end(self) -> "Length | None":
+        """End (trailing-edge) cell-margin as a |Length|, or |None| when not set.
+
+        Reads ``w:end`` when present, otherwise the legacy ``w:right``. Writes
+        always produce ``w:end``.
+        """
+        return self._get_edge("end")
+
+    @end.setter
+    def end(self, value: "Length | None") -> None:
+        self._set_edge("end", value)
 
 
 class _Column(Parented):

@@ -15,6 +15,7 @@ from docx.enum.table import (
     WD_TEXT_DIRECTION,
 )
 from docx.exceptions import InvalidSpanError
+from docx.oxml.ns import qn
 from docx.oxml.parser import parse_xml
 from docx.oxml.table import (
     CT_Border,
@@ -26,9 +27,10 @@ from docx.oxml.table import (
     CT_TblWidth,
     CT_Tc,
     CT_TcBorders,
+    CT_TcMar,
     CT_TcPr,
 )
-from docx.shared import Emu, Inches
+from docx.shared import Emu, Inches, Pt, Twips
 from docx.oxml.text.paragraph import CT_P
 from docx.shared import Inches, Length, RGBColor
 
@@ -236,6 +238,120 @@ class DescribeCT_TcPr_borders:
         tcPr.get_or_add_tcBorders()
         expected = xml("w:tcPr/(w:tcW,w:tcBorders,w:shd)")
         assert tcPr.xml == expected
+
+
+class DescribeCT_TcMar:
+    """Unit-test suite for `docx.oxml.table.CT_TcMar` objects."""
+
+    def it_returns_None_for_all_edges_when_empty(self):
+        tcMar = cast(CT_TcMar, element("w:tcMar"))
+        assert tcMar.get_margin("top") is None
+        assert tcMar.get_margin("bottom") is None
+        assert tcMar.get_margin("start") is None
+        assert tcMar.get_margin("end") is None
+
+    @pytest.mark.parametrize(
+        ("edge", "tag"),
+        [("top", "w:top"), ("bottom", "w:bottom"), ("start", "w:start"), ("end", "w:end")],
+    )
+    def it_can_read_an_edge_value(self, edge: str, tag: str):
+        tcMar = cast(CT_TcMar, element("w:tcMar/%s{w:w=144,w:type=dxa}" % tag))
+        assert tcMar.get_margin(edge) == Twips(144)
+
+    def it_reads_start_from_legacy_w_left(self):
+        tcMar = cast(CT_TcMar, element("w:tcMar/w:left{w:w=240,w:type=dxa}"))
+        assert tcMar.get_margin("start") == Twips(240)
+
+    def it_reads_end_from_legacy_w_right(self):
+        tcMar = cast(CT_TcMar, element("w:tcMar/w:right{w:w=360,w:type=dxa}"))
+        assert tcMar.get_margin("end") == Twips(360)
+
+    @pytest.mark.parametrize(
+        ("edge", "value"),
+        [
+            ("top", Inches(0.1)),
+            ("bottom", Pt(6)),
+            ("start", Twips(100)),
+            ("end", Inches(0.25)),
+        ],
+    )
+    def it_can_round_trip_a_margin_value(self, edge: str, value):
+        tcMar = cast(CT_TcMar, element("w:tcMar"))
+        tcMar.set_margin(edge, value)
+        assert tcMar.get_margin(edge) == value
+
+    def it_writes_start_as_w_start_even_when_legacy_left_is_present(self):
+        tcMar = cast(CT_TcMar, element("w:tcMar/w:left{w:w=100,w:type=dxa}"))
+        tcMar.set_margin("start", Twips(200))
+        # -- legacy w:left should be replaced by w:start --
+        assert tcMar.get_margin("start") == Twips(200)
+        assert tcMar.find(qn("w:left")) is None
+        assert tcMar.find(qn("w:start")) is not None
+
+    def it_can_remove_a_margin_edge(self):
+        tcMar = cast(
+            CT_TcMar,
+            element("w:tcMar/(w:top{w:w=100,w:type=dxa},w:bottom{w:w=200,w:type=dxa})"),
+        )
+        tcMar.remove_margin("top")
+        assert tcMar.get_margin("top") is None
+        assert tcMar.get_margin("bottom") == Twips(200)
+
+    def it_removes_the_legacy_tag_when_asked_to_remove_start_or_end(self):
+        tcMar = cast(
+            CT_TcMar,
+            element("w:tcMar/(w:left{w:w=100,w:type=dxa},w:right{w:w=200,w:type=dxa})"),
+        )
+        tcMar.remove_margin("start")
+        tcMar.remove_margin("end")
+        assert tcMar.find(qn("w:left")) is None
+        assert tcMar.find(qn("w:right")) is None
+
+    def it_keeps_children_in_schema_order(self):
+        tcMar = cast(CT_TcMar, element("w:tcMar"))
+        tcMar.set_margin("end", Twips(40))
+        tcMar.set_margin("top", Twips(10))
+        tcMar.set_margin("bottom", Twips(30))
+        tcMar.set_margin("start", Twips(20))
+        expected = xml(
+            "w:tcMar/(w:top{w:w=10,w:type=dxa},w:start{w:w=20,w:type=dxa},"
+            "w:bottom{w:w=30,w:type=dxa},w:end{w:w=40,w:type=dxa})"
+        )
+        assert tcMar.xml == expected
+
+    def it_raises_on_unknown_edge_name(self):
+        tcMar = cast(CT_TcMar, element("w:tcMar"))
+        with pytest.raises(ValueError):
+            tcMar.get_margin("middle")
+
+
+class DescribeCT_TcPr_margins:
+    """Unit-test suite for `w:tcMar` features of CT_TcPr."""
+
+    def it_is_None_when_no_tcMar_child_is_present(self):
+        tcPr = cast(CT_TcPr, element("w:tcPr"))
+        assert tcPr.tcMar is None
+
+    def it_can_add_a_tcMar_child(self):
+        tcPr = cast(CT_TcPr, element("w:tcPr"))
+        tcMar = tcPr.get_or_add_tcMar()
+        assert isinstance(tcMar, CT_TcMar)
+        assert tcPr.tcMar is tcMar
+
+    def it_inserts_tcMar_in_the_right_position(self):
+        tcPr = cast(CT_TcPr, element("w:tcPr/(w:tcW,w:vAlign{w:val=center})"))
+        tcPr.get_or_add_tcMar()
+        # -- tcMar should appear between tcW (earlier) and vAlign (later) --
+        expected = xml("w:tcPr/(w:tcW,w:tcMar,w:vAlign{w:val=center})")
+        assert tcPr.xml == expected
+
+    def it_can_remove_tcMar(self):
+        tcPr = cast(
+            CT_TcPr, element("w:tcPr/w:tcMar/w:top{w:w=100,w:type=dxa}")
+        )
+        tcPr._remove_tcMar()
+        assert tcPr.tcMar is None
+        assert tcPr.xml == xml("w:tcPr")
 
 
 class DescribeCT_Shd:

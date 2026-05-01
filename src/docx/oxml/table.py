@@ -15,7 +15,7 @@ from docx.enum.table import (
 )
 from docx.exceptions import InvalidSpanError
 from docx.oxml.ns import nsdecls, qn
-from docx.oxml.parser import parse_xml
+from docx.oxml.parser import OxmlElement, parse_xml
 from docx.oxml.shared import CT_DecimalNumber
 from docx.oxml.simpletypes import (
     ST_EighthPointMeasure,
@@ -166,6 +166,128 @@ class CT_TcBorders(BaseOxmlElement):
         "w:right", successors=_tag_seq[4:]
     )
     del _tag_seq
+
+
+class CT_TcMar(BaseOxmlElement):
+    """`w:tcMar` element, child of `w:tcPr`.
+
+    Specifies per-cell margin overrides. Children are `w:top`, `w:bottom`, and
+    either `w:start`/`w:end` (newer ISO naming) or `w:left`/`w:right` (legacy).
+    Each child carries `@w:w` (the measure, typically twips) and `@w:type`
+    (usually ``"dxa"``). Child elements share tag names with border elements
+    and the globally-registered class for those tags is |CT_Border|; this
+    class therefore manipulates children directly via attribute access rather
+    than typed descriptors.
+    """
+
+    # -- logical edge name -> ordered preference of actual child tag names.
+    # -- "start"/"end" are preferred for new writes, but "left"/"right" are
+    # -- recognised for documents using the legacy naming.
+    _EDGE_TAGS: dict[str, tuple[str, ...]] = {
+        "top": ("w:top",),
+        "bottom": ("w:bottom",),
+        "start": ("w:start", "w:left"),
+        "end": ("w:end", "w:right"),
+    }
+    # -- XSD ordering used to keep children in a canonical sequence --
+    _TAG_ORDER: tuple[str, ...] = (
+        "w:top",
+        "w:start",
+        "w:left",
+        "w:bottom",
+        "w:end",
+        "w:right",
+    )
+
+    def get_margin(self, edge: str) -> Length | None:
+        """Return the |Length| value for `edge` or |None| if not present.
+
+        `edge` must be one of "top", "bottom", "start", "end". Reads from the
+        preferred tag name for that edge, falling back to the legacy name
+        when appropriate (start -> left, end -> right).
+        """
+        child = self._find_edge(edge)
+        if child is None:
+            return None
+        w_attr = child.get(qn("w:w"))
+        if w_attr is None:
+            return None
+        try:
+            return Twips(int(w_attr))
+        except (TypeError, ValueError):
+            return None
+
+    def set_margin(self, edge: str, value: Length | None) -> None:
+        """Set `edge` to `value`. Pass |None| to remove the edge element.
+
+        Writes always use the preferred (modern) tag name for the edge
+        (``w:start`` / ``w:end``). If a legacy ``w:left`` / ``w:right`` child
+        is present for the same edge it is removed so the edge is represented
+        exactly once.
+        """
+        if value is None:
+            self._remove_edge(edge)
+            return
+        # -- remove any legacy alias so the edge is represented by a single child --
+        preferred_tag = self._EDGE_TAGS[edge][0]
+        preferred_qn = qn(preferred_tag)
+        for alias_tag in self._EDGE_TAGS[edge][1:]:
+            alias_qn = qn(alias_tag)
+            for existing in list(self):
+                if existing.tag == alias_qn:
+                    self.remove(existing)
+        twips = Emu(int(value)).twips
+        child = None
+        for existing in self:
+            if existing.tag == preferred_qn:
+                child = existing
+                break
+        if child is None:
+            child = cast(BaseOxmlElement, OxmlElement(preferred_tag))
+            self._insert_edge_child(child)
+        child.set(qn("w:w"), str(twips))
+        child.set(qn("w:type"), "dxa")
+
+    def remove_margin(self, edge: str) -> None:
+        """Remove the child element for `edge`, matching either the modern or
+        legacy tag name."""
+        self._remove_edge(edge)
+
+    # -- internal helpers --
+
+    def _edge_tag_qnames(self, edge: str) -> tuple[str, ...]:
+        if edge not in self._EDGE_TAGS:
+            raise ValueError(
+                "edge must be one of 'top', 'bottom', 'start', 'end'; got %r" % edge
+            )
+        return tuple(qn(t) for t in self._EDGE_TAGS[edge])
+
+    def _find_edge(self, edge: str):
+        candidates = self._edge_tag_qnames(edge)
+        for child in self:
+            if child.tag in candidates:
+                return child
+        return None
+
+    def _remove_edge(self, edge: str) -> None:
+        candidates = self._edge_tag_qnames(edge)
+        # -- use list() because we're mutating during iteration --
+        for child in list(self):
+            if child.tag in candidates:
+                self.remove(child)
+
+    def _insert_edge_child(self, new_child: BaseOxmlElement) -> None:
+        """Insert `new_child` into this `w:tcMar`, respecting XSD tag order."""
+        order = {qn(tag): idx for idx, tag in enumerate(self._TAG_ORDER)}
+        new_tag = cast(str, new_child.tag)
+        new_pos = order.get(new_tag, len(order))
+        for idx, existing in enumerate(self):
+            existing_tag = cast(str, existing.tag)
+            existing_pos = order.get(existing_tag, len(order))
+            if existing_pos > new_pos:
+                self.insert(idx, new_child)
+                return
+        self.append(new_child)
 
 
 class CT_Height(BaseOxmlElement):
@@ -992,6 +1114,7 @@ class CT_TcPr(BaseOxmlElement):
     get_or_add_gridSpan: Callable[[], CT_DecimalNumber]
     get_or_add_shd: Callable[[], CT_Shd]
     get_or_add_tcBorders: Callable[[], CT_TcBorders]
+    get_or_add_tcMar: Callable[[], CT_TcMar]
     get_or_add_tcW: Callable[[], CT_TblWidth]
     get_or_add_textDirection: Callable[[], CT_TextDirection]
     get_or_add_vAlign: Callable[[], CT_VerticalJc]
@@ -999,6 +1122,7 @@ class CT_TcPr(BaseOxmlElement):
     _remove_gridSpan: Callable[[], None]
     _remove_shd: Callable[[], None]
     _remove_tcBorders: Callable[[], None]
+    _remove_tcMar: Callable[[], None]
     _remove_textDirection: Callable[[], None]
     _remove_vAlign: Callable[[], None]
     _remove_vMerge: Callable[[], None]
@@ -1037,6 +1161,9 @@ class CT_TcPr(BaseOxmlElement):
     )
     shd: CT_Shd | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:shd", successors=_tag_seq[7:]
+    )
+    tcMar: CT_TcMar | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:tcMar", successors=_tag_seq[9:]
     )
     textDirection: CT_TextDirection | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:textDirection", successors=_tag_seq[10:]

@@ -23,10 +23,11 @@ from docx.enum.table import (
 from docx.oxml.parser import parse_xml
 from docx.oxml.table import CT_Row, CT_Tbl, CT_TblGridCol, CT_Tc
 from docx.parts.document import DocumentPart
-from docx.shared import Emu, Inches, Length, Pt, RGBColor
+from docx.shared import Emu, Inches, Length, Pt, RGBColor, Twips
 from docx.table import (
     BorderElement,
     CellBorders,
+    CellMargins,
     CellShading,
     Table,
     TableBorders,
@@ -1071,6 +1072,150 @@ class DescribeCellBorders:
         borders3 = cell.borders
         assert borders3.top.style is None
         assert borders3.top.width is None
+
+    # fixtures -------------------------------------------------------
+
+    @pytest.fixture
+    def parent_(self, request: FixtureRequest):
+        return instance_mock(request, Table)
+
+
+class DescribeCellMargins:
+    """Unit-test suite for `docx.table.CellMargins` objects."""
+
+    def it_is_accessible_via_cell_margins(self, parent_: Mock):
+        tc = cast(CT_Tc, element("w:tc"))
+        cell = _Cell(tc, parent_)
+        margins = cell.margins
+        assert isinstance(margins, CellMargins)
+
+    def it_returns_None_for_every_edge_when_no_tcMar_present(self, parent_: Mock):
+        tc = cast(CT_Tc, element("w:tc"))
+        cell = _Cell(tc, parent_)
+        margins = cell.margins
+        assert margins.top is None
+        assert margins.bottom is None
+        assert margins.start is None
+        assert margins.end is None
+
+    def it_does_not_create_any_xml_on_a_pure_read(self, parent_: Mock):
+        tc = cast(CT_Tc, element("w:tc"))
+        cell = _Cell(tc, parent_)
+        # -- access all edges as reads --
+        m = cell.margins
+        _ = (m.top, m.bottom, m.start, m.end)
+        # -- no tcPr or tcMar should have been created --
+        assert cell._tc.xml == xml("w:tc")
+
+    @pytest.mark.parametrize(
+        ("edge", "value"),
+        [
+            ("top", Inches(0.1)),
+            ("bottom", Pt(6)),
+            ("start", Twips(120)),
+            ("end", Inches(0.25)),
+        ],
+    )
+    def it_round_trips_each_edge(self, edge: str, value: Length, parent_: Mock):
+        tc = cast(CT_Tc, element("w:tc"))
+        cell = _Cell(tc, parent_)
+        setattr(cell.margins, edge, value)
+        # -- re-read via a fresh proxy --
+        assert getattr(cell.margins, edge) == value
+
+    def it_reads_start_from_legacy_w_left(self, parent_: Mock):
+        tc = cast(
+            CT_Tc,
+            element("w:tc/w:tcPr/w:tcMar/w:left{w:w=120,w:type=dxa}"),
+        )
+        cell = _Cell(tc, parent_)
+        assert cell.margins.start == Twips(120)
+
+    def it_reads_end_from_legacy_w_right(self, parent_: Mock):
+        tc = cast(
+            CT_Tc,
+            element("w:tc/w:tcPr/w:tcMar/w:right{w:w=200,w:type=dxa}"),
+        )
+        cell = _Cell(tc, parent_)
+        assert cell.margins.end == Twips(200)
+
+    def it_creates_tcPr_and_tcMar_on_demand(self, parent_: Mock):
+        tc = cast(CT_Tc, element("w:tc"))
+        cell = _Cell(tc, parent_)
+        cell.margins.top = Twips(100)
+        expected = xml("w:tc/w:tcPr/w:tcMar/w:top{w:w=100,w:type=dxa}")
+        assert cell._tc.xml == expected
+
+    def it_writes_only_provided_edges_via_set_margins(self, parent_: Mock):
+        tc = cast(CT_Tc, element("w:tc"))
+        cell = _Cell(tc, parent_)
+        cell.set_margins(top=Twips(10), end=Twips(40))
+        expected = xml(
+            "w:tc/w:tcPr/w:tcMar/(w:top{w:w=10,w:type=dxa},"
+            "w:end{w:w=40,w:type=dxa})"
+        )
+        assert cell._tc.xml == expected
+
+    def it_leaves_unmentioned_edges_alone_on_set_margins(self, parent_: Mock):
+        tc = cast(
+            CT_Tc,
+            element(
+                "w:tc/w:tcPr/w:tcMar/(w:top{w:w=100,w:type=dxa},"
+                "w:bottom{w:w=200,w:type=dxa})"
+            ),
+        )
+        cell = _Cell(tc, parent_)
+        cell.set_margins(start=Twips(50))
+        assert cell.margins.top == Twips(100)
+        assert cell.margins.bottom == Twips(200)
+        assert cell.margins.start == Twips(50)
+
+    def it_can_clear_a_single_edge_with_None(self, parent_: Mock):
+        tc = cast(
+            CT_Tc,
+            element(
+                "w:tc/w:tcPr/w:tcMar/(w:top{w:w=100,w:type=dxa},"
+                "w:bottom{w:w=200,w:type=dxa})"
+            ),
+        )
+        cell = _Cell(tc, parent_)
+        cell.margins.top = None
+        assert cell.margins.top is None
+        assert cell.margins.bottom == Twips(200)
+
+    def it_removes_empty_tcMar_when_last_edge_cleared(self, parent_: Mock):
+        tc = cast(
+            CT_Tc,
+            element("w:tc/w:tcPr/w:tcMar/w:top{w:w=100,w:type=dxa}"),
+        )
+        cell = _Cell(tc, parent_)
+        cell.margins.top = None
+        # -- empty tcMar should have been pruned, leaving an empty tcPr --
+        assert cell._tc.xml == xml("w:tc/w:tcPr")
+
+    def it_can_remove_all_margins(self, parent_: Mock):
+        tc = cast(
+            CT_Tc,
+            element(
+                "w:tc/w:tcPr/w:tcMar/(w:top{w:w=10,w:type=dxa},"
+                "w:bottom{w:w=20,w:type=dxa})"
+            ),
+        )
+        cell = _Cell(tc, parent_)
+        cell.remove_margins()
+        assert cell._tc.xml == xml("w:tc/w:tcPr")
+
+    def it_remove_margins_is_a_no_op_without_tcPr(self, parent_: Mock):
+        tc = cast(CT_Tc, element("w:tc"))
+        cell = _Cell(tc, parent_)
+        cell.remove_margins()
+        assert cell._tc.xml == xml("w:tc")
+
+    def it_set_margins_with_no_args_is_a_no_op(self, parent_: Mock):
+        tc = cast(CT_Tc, element("w:tc"))
+        cell = _Cell(tc, parent_)
+        cell.set_margins()
+        assert cell._tc.xml == xml("w:tc")
 
     # fixtures -------------------------------------------------------
 
