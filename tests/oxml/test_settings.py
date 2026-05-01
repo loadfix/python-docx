@@ -173,3 +173,42 @@ class DescribeCT_Settings:
     def it_can_get_evenAndOddHeaders(self, cxml: str, expected_value: bool):
         settings = cast(CT_Settings, element(cxml))
         assert settings.evenAndOddHeaders_val is expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:settings", None),
+            ("w:settings/w:view", None),
+            ("w:settings/w:view{w:val=normal}", "normal"),
+            ("w:settings/w:view{w:val=outline}", "outline"),
+            ("w:settings/w:view{w:val=print}", "print"),
+            ("w:settings/w:view{w:val=web}", "web"),
+            ("w:settings/w:view{w:val=reading}", "reading"),
+            ("w:settings/w:view{w:val=masterPages}", "masterPages"),
+            ("w:settings/w:view{w:val=none}", "none"),
+        ],
+    )
+    def it_can_get_the_view_val(self, cxml: str, expected_value: str | None):
+        settings = cast(CT_Settings, element(cxml))
+        assert settings.view_val == expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            ("w:settings", "print", "w:settings/w:view{w:val=print}"),
+            (
+                "w:settings/w:view{w:val=print}",
+                "outline",
+                "w:settings/w:view{w:val=outline}",
+            ),
+            ("w:settings/w:view{w:val=print}", None, "w:settings"),
+            ("w:settings/w:zoom{w:percent=100}", "web",
+             "w:settings/(w:view{w:val=web},w:zoom{w:percent=100})"),
+        ],
+    )
+    def it_can_set_the_view_val(
+        self, cxml: str, new_value: str | None, expected_cxml: str
+    ):
+        settings = cast(CT_Settings, element(cxml))
+        settings.view_val = new_value
+        assert settings.xml == xml(expected_cxml)

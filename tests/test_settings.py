@@ -9,7 +9,12 @@ import warnings
 import pytest
 
 from docx.endnotes import EndnoteProperties
-from docx.enum.text import WD_ENDNOTE_POSITION, WD_FOOTNOTE_POSITION, WD_NUMBER_FORMAT
+from docx.enum.text import (
+    WD_ENDNOTE_POSITION,
+    WD_FOOTNOTE_POSITION,
+    WD_NUMBER_FORMAT,
+    WD_VIEW,
+)
 from docx.footnotes import FootnoteProperties
 from docx.settings import Settings
 from docx.shared import Twips
@@ -269,6 +274,68 @@ class DescribeSettings:
     def it_can_remove_endnote_properties(self):
         settings = Settings(element("w:settings/w:endnotePr/w:pos{w:val=docEnd}"))
         settings.remove_endnote_properties()
+        assert settings._settings.xml == xml("w:settings")
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:settings", None),
+            ("w:settings/w:view{w:val=normal}", WD_VIEW.NORMAL),
+            ("w:settings/w:view{w:val=outline}", WD_VIEW.OUTLINE),
+            ("w:settings/w:view{w:val=print}", WD_VIEW.PRINT),
+            ("w:settings/w:view{w:val=web}", WD_VIEW.WEB),
+            ("w:settings/w:view{w:val=reading}", WD_VIEW.READING),
+            ("w:settings/w:view{w:val=masterPages}", WD_VIEW.MASTER_PAGES),
+            ("w:settings/w:view{w:val=none}", WD_VIEW.NONE),
+        ],
+    )
+    def it_can_get_the_view(self, cxml: str, expected_value: WD_VIEW | None):
+        assert Settings(element(cxml)).view == expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            ("w:settings", WD_VIEW.PRINT, "w:settings/w:view{w:val=print}"),
+            ("w:settings", WD_VIEW.OUTLINE, "w:settings/w:view{w:val=outline}"),
+            (
+                "w:settings/w:view{w:val=normal}",
+                WD_VIEW.WEB,
+                "w:settings/w:view{w:val=web}",
+            ),
+            ("w:settings/w:view{w:val=print}", None, "w:settings"),
+        ],
+    )
+    def it_can_set_the_view(
+        self, cxml: str, new_value: WD_VIEW | None, expected_cxml: str
+    ):
+        settings = Settings(element(cxml))
+        settings.view = new_value
+        assert settings._settings.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        "member",
+        [
+            WD_VIEW.NONE,
+            WD_VIEW.PRINT,
+            WD_VIEW.OUTLINE,
+            WD_VIEW.MASTER_PAGES,
+            WD_VIEW.NORMAL,
+            WD_VIEW.WEB,
+            WD_VIEW.READING,
+        ],
+    )
+    def it_round_trips_every_view_mode(self, member: WD_VIEW):
+        settings = Settings(element("w:settings"))
+        settings.view = member
+        assert settings.view == member
+
+    def it_returns_None_for_view_when_no_view_child_present(self):
+        assert Settings(element("w:settings")).view is None
+
+    def it_removes_the_view_child_when_view_set_to_None(self):
+        settings = Settings(element("w:settings/w:view{w:val=print}"))
+        settings.view = None
+        assert settings.view is None
         assert settings._settings.xml == xml("w:settings")
 
     def it_round_trips_endnote_properties_through_settings(self):
