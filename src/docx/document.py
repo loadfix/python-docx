@@ -17,6 +17,7 @@ from docx.text.run import Run
 
 if TYPE_CHECKING:
     import docx.types as t
+    from docx.accessibility import HeadingIssue
     from docx.bookmarks import Bookmarks
     from docx.comments import Comment, Comments
     from docx.content_controls import ContentControl, ContentControlType
@@ -381,6 +382,18 @@ class Document(ElementProxy):
     def sections(self) -> Sections:
         """|Sections| object providing access to each section in this document."""
         return Sections(self._element, self._part)
+
+    def validate_heading_structure(self) -> list[HeadingIssue]:
+        """Return a list of |HeadingIssue| objects describing heading problems.
+
+        Scans the body paragraphs for common accessibility issues in the heading
+        outline: skipped levels (e.g. a Heading 3 directly following a Heading 1),
+        multiple Heading 1 paragraphs, empty heading paragraphs, and documents that
+        start below Heading 1. Returns an empty list when no issues are found.
+        """
+        from docx.accessibility import validate_heading_structure
+
+        return validate_heading_structure(self.paragraphs)
 
     @property
     def settings(self) -> Settings:
