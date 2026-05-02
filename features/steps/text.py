@@ -441,3 +441,65 @@ def then_each_run_stable_id_is_16_char_hex(context: Context):
     for r in context.paragraph.runs:
         sid = r.stable_id
         assert hex_re.match(sid), f"run stable_id {sid!r} is not 16-char hex"
+
+
+# -- symbol (w:sym) step extensions --------------------------------------
+
+
+def _parse_char_code(spec):
+    spec = spec.strip()
+    if spec.startswith("0x") or spec.startswith("0X"):
+        return int(spec, 16)
+    if spec.isdigit() or (spec.startswith("-") and spec[1:].isdigit()):
+        return int(spec)
+    # -- leave it as a raw hex string, add_symbol accepts str forms --
+    return spec
+
+
+@when("I add symbol {char_code} from font {font}")
+def when_I_add_symbol_from_font(context, char_code, font):
+    context.run.add_symbol(_parse_char_code(char_code), font)
+
+
+@when("I delete the first symbol")
+def when_I_delete_the_first_symbol(context):
+    next(iter(context.run.symbols)).delete()
+
+
+@then("the last item in the run is a w:sym element")
+def then_last_item_is_w_sym(context):
+    last = list(context.run._r)[-1]
+    assert last.tag == qn("w:sym"), f"got {last.tag!r}"
+
+
+@then("the run contains {count:d} symbol")
+def then_the_run_contains_n_symbol(context, count):
+    actual = len(list(context.run.symbols))
+    assert actual == count, f"got {actual}, expected {count}"
+
+
+@then("the run contains {count:d} symbols")
+def then_the_run_contains_n_symbols(context, count):
+    actual = len(list(context.run.symbols))
+    assert actual == count, f"got {actual}, expected {count}"
+
+
+@then("the first symbol has char_code {char_code}")
+def then_the_first_symbol_has_char_code(context, char_code):
+    expected = _parse_char_code(char_code)
+    if isinstance(expected, str):
+        expected = int(expected, 16)
+    first = next(iter(context.run.symbols))
+    assert first.char_code == expected, f"got {first.char_code!r}, expected {expected!r}"
+
+
+@then("the first symbol has char_hex {value}")
+def then_the_first_symbol_has_char_hex(context, value):
+    first = next(iter(context.run.symbols))
+    assert first.char_hex == value, f"got {first.char_hex!r}, expected {value!r}"
+
+
+@then("the first symbol has font {font}")
+def then_the_first_symbol_has_font(context, font):
+    first = next(iter(context.run.symbols))
+    assert first.font == font, f"got {first.font!r}, expected {font!r}"

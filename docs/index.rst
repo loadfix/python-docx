@@ -77,6 +77,7 @@ User Guide
    user/tables
    user/tables-advanced
    user/text
+   user/text-advanced
    user/sections
    user/sections-advanced
    user/hdrftr
