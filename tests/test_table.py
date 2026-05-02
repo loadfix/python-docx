@@ -31,6 +31,7 @@ from docx.table import (
     CellShading,
     Table,
     TableBorders,
+    TableCellMargins,
     TableStyleFlags,
     _Cell,
     _Column,
@@ -726,6 +727,223 @@ class DescribeTable:
 
         assert table.preferred_width == Inches(2)
         assert table._tbl.xml == xml("w:tbl/w:tblPr/w:tblW{w:type=dxa,w:w=2880}")
+
+    # -- alt_text / alt_description (upstream#1048, #921) ------------
+
+    @pytest.mark.parametrize(
+        ("tbl_cxml", "expected"),
+        [
+            ("w:tbl/w:tblPr", None),
+            ("w:tbl/w:tblPr/w:tblCaption{w:val=Sales}", "Sales"),
+        ],
+    )
+    def it_knows_its_alt_text(
+        self, tbl_cxml: str, expected: str | None, document_: Mock
+    ):
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+        assert table.alt_text == expected
+
+    def it_can_set_its_alt_text(self, document_: Mock):
+        table = Table(cast(CT_Tbl, element("w:tbl/w:tblPr")), document_)
+        table.alt_text = "Quarterly sales"
+        assert table.alt_text == "Quarterly sales"
+        assert table._tbl.xml == xml(
+            "w:tbl/w:tblPr/w:tblCaption{w:val=Quarterly sales}"
+        )
+
+    def it_can_clear_its_alt_text(self, document_: Mock):
+        table = Table(
+            cast(
+                CT_Tbl,
+                element("w:tbl/w:tblPr/w:tblCaption{w:val=x}"),
+            ),
+            document_,
+        )
+        table.alt_text = None
+        assert table.alt_text is None
+        assert table._tbl.xml == xml("w:tbl/w:tblPr")
+
+    @pytest.mark.parametrize(
+        ("tbl_cxml", "expected"),
+        [
+            ("w:tbl/w:tblPr", None),
+            ("w:tbl/w:tblPr/w:tblDescription{w:val=Monthly totals}", "Monthly totals"),
+        ],
+    )
+    def it_knows_its_alt_description(
+        self, tbl_cxml: str, expected: str | None, document_: Mock
+    ):
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+        assert table.alt_description == expected
+
+    def it_can_set_and_clear_its_alt_description(self, document_: Mock):
+        table = Table(cast(CT_Tbl, element("w:tbl/w:tblPr")), document_)
+        table.alt_description = "A long description"
+        assert table.alt_description == "A long description"
+        assert table._tbl.xml == xml(
+            "w:tbl/w:tblPr/w:tblDescription{w:val=A long description}"
+        )
+        table.alt_description = None
+        assert table.alt_description is None
+
+    # -- indent / left_indent (upstream#1144, #586) ------------------
+
+    @pytest.mark.parametrize(
+        ("tbl_cxml", "expected"),
+        [
+            ("w:tbl/w:tblPr", None),
+            ("w:tbl/w:tblPr/w:tblInd{w:w=720,w:type=dxa}", Twips(720)),
+        ],
+    )
+    def it_knows_its_indent(
+        self, tbl_cxml: str, expected: Length | None, document_: Mock
+    ):
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+        assert table.indent == expected
+        assert table.left_indent == expected
+
+    def it_can_change_its_indent(self, document_: Mock):
+        table = Table(cast(CT_Tbl, element("w:tbl/w:tblPr")), document_)
+        table.indent = Inches(0.5)
+        assert table.indent == Inches(0.5)
+        assert table._tbl.xml == xml("w:tbl/w:tblPr/w:tblInd{w:w=720,w:type=dxa}")
+
+    def it_left_indent_is_an_alias_of_indent(self, document_: Mock):
+        table = Table(cast(CT_Tbl, element("w:tbl/w:tblPr")), document_)
+        table.left_indent = Inches(1)
+        assert table.indent == Inches(1)
+        assert table._tbl.xml == xml("w:tbl/w:tblPr/w:tblInd{w:w=1440,w:type=dxa}")
+
+    def it_can_clear_its_indent(self, document_: Mock):
+        table = Table(
+            cast(CT_Tbl, element("w:tbl/w:tblPr/w:tblInd{w:w=720,w:type=dxa}")),
+            document_,
+        )
+        table.indent = None
+        assert table.indent is None
+        assert table._tbl.xml == xml("w:tbl/w:tblPr")
+
+    # -- cell_margins (upstream#1401) --------------------------------
+
+    def it_exposes_cell_margins_as_a_TableCellMargins(self, document_: Mock):
+        table = Table(cast(CT_Tbl, element("w:tbl/w:tblPr")), document_)
+        assert isinstance(table.cell_margins, TableCellMargins)
+
+    def it_reads_None_for_every_cell_margin_edge_when_absent(self, document_: Mock):
+        table = Table(cast(CT_Tbl, element("w:tbl/w:tblPr")), document_)
+        m = table.cell_margins
+        assert m.top is None
+        assert m.bottom is None
+        assert m.start is None
+        assert m.end is None
+
+    def it_creates_tblCellMar_on_first_write(self, document_: Mock):
+        table = Table(cast(CT_Tbl, element("w:tbl/w:tblPr")), document_)
+        table.cell_margins.top = Twips(100)
+        assert table.cell_margins.top == Twips(100)
+        assert table._tbl.xml == xml(
+            "w:tbl/w:tblPr/w:tblCellMar/w:top{w:w=100,w:type=dxa}"
+        )
+
+    def it_removes_empty_tblCellMar_when_last_edge_cleared(self, document_: Mock):
+        table = Table(
+            cast(
+                CT_Tbl,
+                element("w:tbl/w:tblPr/w:tblCellMar/w:top{w:w=100,w:type=dxa}"),
+            ),
+            document_,
+        )
+        table.cell_margins.top = None
+        assert table._tbl.xml == xml("w:tbl/w:tblPr")
+
+    # -- merged_cell_ranges (PR#1036) --------------------------------
+
+    def it_returns_empty_list_when_no_merged_cells(self, document_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element("w:tbl/(w:tblPr,w:tblGrid/(w:gridCol,w:gridCol),w:tr/(w:tc,w:tc))"),
+        )
+        table = Table(tbl, document_)
+        assert table.merged_cell_ranges() == []
+
+    def it_reports_horizontal_merge_range(self, document_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/("
+                "w:tblPr,"
+                "w:tblGrid/(w:gridCol,w:gridCol,w:gridCol),"
+                "w:tr/("
+                "w:tc/w:tcPr/w:gridSpan{w:val=2},"
+                "w:tc)"
+                ")"
+            ),
+        )
+        table = Table(tbl, document_)
+        ranges = table.merged_cell_ranges()
+        assert ranges == [(0, 1, 0, 2)]
+
+    def it_reports_vertical_merge_range(self, document_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/("
+                "w:tblPr,"
+                "w:tblGrid/(w:gridCol,w:gridCol),"
+                "w:tr/("
+                "w:tc/w:tcPr/w:vMerge{w:val=restart},"
+                "w:tc),"
+                "w:tr/("
+                "w:tc/w:tcPr/w:vMerge,"
+                "w:tc)"
+                ")"
+            ),
+        )
+        table = Table(tbl, document_)
+        ranges = table.merged_cell_ranges()
+        assert ranges == [(0, 2, 0, 1)]
+
+    # -- split (upstream#481) ----------------------------------------
+
+    def it_can_split_itself_at_a_row_boundary(self, document_: Mock):
+        body = element(
+            "w:body/w:tbl/("
+            "w:tblPr,w:tblGrid/w:gridCol,"
+            "w:tr/w:tc/w:p,"
+            "w:tr/w:tc/w:p,"
+            "w:tr/w:tc/w:p"
+            ")"
+        )
+        tbl = body.tbl_lst[0]
+        table = Table(cast(CT_Tbl, tbl), document_)
+
+        paragraph, new_table = table.split(before_row=2)
+
+        # -- paragraph + new tbl were inserted after the original --
+        assert isinstance(paragraph, Paragraph)
+        assert isinstance(new_table, Table)
+        assert list(body) == [tbl, paragraph._p, new_table._tbl]
+        # -- original retains rows 0..1, new table has row 2 --
+        assert len(table._tbl.tr_lst) == 2
+        assert len(new_table._tbl.tr_lst) == 1
+        # -- tblPr and tblGrid were copied onto the new table --
+        assert new_table._tbl.tblPr is not None
+        assert new_table._tbl.tblGrid is not None
+
+    @pytest.mark.parametrize("bad", [0, -1, 3, 99])
+    def it_raises_on_out_of_range_split(self, bad: int, document_: Mock):
+        body = element(
+            "w:body/w:tbl/("
+            "w:tblPr,w:tblGrid/w:gridCol,"
+            "w:tr/w:tc/w:p,"
+            "w:tr/w:tc/w:p,"
+            "w:tr/w:tc/w:p"
+            ")"
+        )
+        tbl = body.tbl_lst[0]
+        table = Table(cast(CT_Tbl, tbl), document_)
+        with pytest.raises(ValueError):
+            table.split(before_row=bad)
 
     def it_can_insert_a_paragraph_before_itself(self, document_: Mock):
         body = element("w:body/(w:p{id=1},w:tbl/(w:tblPr,w:tblGrid),w:p{id=2})")
@@ -2819,6 +3037,39 @@ class Describe_Row:
         row = table.rows[0]
         with pytest.raises(IndexError):
             row.insert_cell(99)
+
+    # -- apply_shading (upstream#370) --------------------------------
+
+    def it_applies_shading_to_every_cell_in_the_row(self, parent_: Mock):
+        tr = cast(CT_Row, element("w:tr/(w:tc,w:tc,w:tc)"))
+        row = _Row(tr, parent_)
+        row.apply_shading(RGBColor(0xFF, 0x00, 0x00))
+        for tc in tr.tc_lst:
+            cell = _Cell(tc, parent_)
+            assert cell.shading.fill_color == RGBColor(0xFF, 0x00, 0x00)
+
+    def it_accepts_a_hex_string_for_apply_shading(self, parent_: Mock):
+        tr = cast(CT_Row, element("w:tr/(w:tc,w:tc)"))
+        row = _Row(tr, parent_)
+        row.apply_shading("00FF00")
+        for tc in tr.tc_lst:
+            cell = _Cell(tc, parent_)
+            assert cell.shading.fill_color == RGBColor(0x00, 0xFF, 0x00)
+
+    def it_clears_shading_when_passed_None(self, parent_: Mock):
+        tr = cast(
+            CT_Row,
+            element(
+                "w:tr/("
+                "w:tc/w:tcPr/w:shd{w:val=clear,w:fill=FF0000},"
+                "w:tc/w:tcPr/w:shd{w:val=clear,w:fill=FF0000})"
+            ),
+        )
+        row = _Row(tr, parent_)
+        row.apply_shading(None)
+        for tc in tr.tc_lst:
+            cell = _Cell(tc, parent_)
+            assert cell.shading.fill_color is None
 
     # fixtures -------------------------------------------------------
 

@@ -286,6 +286,17 @@ class CT_TcMar(BaseOxmlElement):
         self.append(new_child)
 
 
+class CT_TblCellMar(CT_TcMar):
+    """`w:tblCellMar` element, child of `w:tblPr`.
+
+    Specifies the default cell margins for every cell in the parent table.
+    Structurally identical to `w:tcMar` (its children are `w:top`/`w:bottom`
+    and either the modern `w:start`/`w:end` or legacy `w:left`/`w:right`
+    pairs, each carrying `@w:w` and `@w:type`). Shares the read/write edge
+    helpers of `CT_TcMar` via inheritance.
+    """
+
+
 class CT_Height(BaseOxmlElement):
     """Used for `w:trHeight` to specify a row height and row height rule."""
 
@@ -684,13 +695,21 @@ class CT_TblPr(BaseOxmlElement):
     get_or_add_bidiVisual: Callable[[], CT_OnOff]
     get_or_add_jc: Callable[[], CT_Jc]
     get_or_add_tblBorders: Callable[[], CT_TblBorders]
+    get_or_add_tblCellMar: Callable[[], CT_TblCellMar]
+    get_or_add_tblInd: Callable[[], CT_TblWidth]
     get_or_add_tblLayout: Callable[[], CT_TblLayoutType]
     get_or_add_tblLook: Callable[[], CT_TblLook]
     get_or_add_tblW: Callable[[], CT_TblWidth]
+    _add_tblCaption: Callable[[], CT_String]
+    _add_tblDescription: Callable[[], CT_String]
     _add_tblStyle: Callable[[], CT_String]
     _remove_bidiVisual: Callable[[], None]
     _remove_jc: Callable[[], None]
     _remove_tblBorders: Callable[[], None]
+    _remove_tblCaption: Callable[[], None]
+    _remove_tblCellMar: Callable[[], None]
+    _remove_tblDescription: Callable[[], None]
+    _remove_tblInd: Callable[[], None]
     _remove_tblLayout: Callable[[], None]
     _remove_tblLook: Callable[[], None]
     _remove_tblStyle: Callable[[], None]
@@ -728,14 +747,26 @@ class CT_TblPr(BaseOxmlElement):
     jc: CT_Jc | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:jc", successors=_tag_seq[8:]
     )
+    tblInd: CT_TblWidth | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:tblInd", successors=_tag_seq[10:]
+    )
     tblBorders: CT_TblBorders | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:tblBorders", successors=_tag_seq[11:]
     )
     tblLayout: CT_TblLayoutType | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:tblLayout", successors=_tag_seq[13:]
     )
+    tblCellMar: CT_TblCellMar | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:tblCellMar", successors=_tag_seq[14:]
+    )
     tblLook: CT_TblLook | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:tblLook", successors=_tag_seq[15:]
+    )
+    tblCaption: CT_String | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:tblCaption", successors=_tag_seq[16:]
+    )
+    tblDescription: CT_String | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:tblDescription", successors=_tag_seq[17:]
     )
     tblPrChange: CT_TblPrChange | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:tblPrChange", successors=()
