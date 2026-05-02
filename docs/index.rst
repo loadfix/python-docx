@@ -86,6 +86,7 @@ User Guide
    user/charts
    user/content-controls
    user/endnotes
+   user/fields
    user/shapes
    user/accessibility
    user/statistics
