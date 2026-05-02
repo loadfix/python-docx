@@ -17,7 +17,9 @@ if TYPE_CHECKING:
 
 
 def Document(
-    docx: str | IO[bytes] | None = None, recover: bool = False
+    docx: str | IO[bytes] | None = None,
+    recover: bool = False,
+    huge_tree: bool = False,
 ) -> DocumentObject:
     """Return a |Document| object loaded from `docx`, where `docx` can be either a path
     to a ``.docx`` file (a string) or a file-like object.
@@ -32,9 +34,18 @@ def Document(
     XML — for example, an invalid zip file or a password-protected document —
     continue to raise (:class:`PackageNotFoundError`, :class:`EncryptedDocumentError`).
     Default behaviour (``recover=False``) is unchanged.
+
+    When `huge_tree` is True, lxml's ``huge_tree=True`` parser variant is used,
+    lifting libxml2's default 10 MB-per-AttValue and 256-deep-nesting safety
+    limits so extremely large documents can be parsed. Only enable for trusted
+    input — the default parser's XML-bomb protections no longer apply. Closes
+    upstream#1086.
+
+    .. versionadded:: 1.3.0.dev0
+       The `huge_tree` parameter.
     """
     docx = _default_docx_path() if docx is None else docx
-    package = Package.open(docx, recover=recover)
+    package = Package.open(docx, recover=recover, huge_tree=huge_tree)
     document_part = cast("DocumentPart", package.main_document_part)
     if document_part.content_type not in (CT.WML_DOCUMENT_MAIN, CT.WML_DOCUMENT_MACRO):
         raise ValueError(

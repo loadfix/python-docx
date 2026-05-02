@@ -39,6 +39,29 @@ _recovery_parser = etree.XMLParser(
 )
 _recovery_parser.set_element_class_lookup(element_class_lookup)
 
+# -- a third parser with `huge_tree=True` used opt-in via ``Document(..., huge_tree=True)``
+# -- so very large documents (AttValue > 10 MB, > 256 nested elements, etc.) can be
+# -- parsed. This relaxes libxml2's built-in XML-bomb protections and should only be
+# -- enabled for trusted input. upstream#1086.
+_huge_tree_parser = etree.XMLParser(
+    remove_blank_text=True,
+    resolve_entities=False,
+    no_network=True,
+    huge_tree=True,
+)
+_huge_tree_parser.set_element_class_lookup(element_class_lookup)
+
+# -- matching recovery parser with huge_tree enabled, used when both
+# -- `recover=True` and `huge_tree=True` are active simultaneously.
+_huge_tree_recovery_parser = etree.XMLParser(
+    remove_blank_text=True,
+    resolve_entities=False,
+    no_network=True,
+    huge_tree=True,
+    recover=True,
+)
+_huge_tree_recovery_parser.set_element_class_lookup(element_class_lookup)
+
 
 class _RecoveryState:
     """Opt-in, process-wide recovery-mode state for `parse_xml()`.
@@ -57,6 +80,20 @@ class _RecoveryState:
 _recovery_state = _RecoveryState()
 
 
+class _HugeTreeState:
+    """Process-wide flag enabling the ``huge_tree=True`` lxml parser.
+
+    Controlled via :func:`huge_tree_mode` and used by :func:`parse_xml` to pick
+    between the default and huge-tree parsers. Not thread-safe.
+    """
+
+    def __init__(self) -> None:
+        self.active: bool = False
+
+
+_huge_tree_state = _HugeTreeState()
+
+
 @contextmanager
 def recovery_mode() -> Iterator[list[str]]:
     """Context manager enabling recovery parsing for the duration of the block.
@@ -70,6 +107,26 @@ def recovery_mode() -> Iterator[list[str]]:
         yield _recovery_state.warnings
     finally:
         _recovery_state.active = False
+
+
+@contextmanager
+def huge_tree_mode() -> Iterator[None]:
+    """Context manager enabling the ``huge_tree=True`` lxml parser.
+
+    While active, :func:`parse_xml` uses the huge-tree parser variant, which
+    disables libxml2's built-in safety limits (notably the 10 MB AttValue cap
+    and the default 256-deep nesting limit). Only enable for trusted input —
+    the security guarantees of the default parser no longer apply. Nestable
+    with :func:`recovery_mode`.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+    previous = _huge_tree_state.active
+    _huge_tree_state.active = True
+    try:
+        yield
+    finally:
+        _huge_tree_state.active = previous
 
 
 def parse_xml(xml: str | bytes, recover: bool | None = None) -> "BaseOxmlElement":
@@ -87,11 +144,14 @@ def parse_xml(xml: str | bytes, recover: bool | None = None) -> "BaseOxmlElement
     recovery are appended as strings to the active recovery-mode warnings list.
     """
     use_recover = recover if recover is not None else _recovery_state.active
+    use_huge = _huge_tree_state.active
     if not use_recover:
-        return cast("BaseOxmlElement", etree.fromstring(xml, oxml_parser))
+        parser = _huge_tree_parser if use_huge else oxml_parser
+        return cast("BaseOxmlElement", etree.fromstring(xml, parser))
 
+    recovery_parser = _huge_tree_recovery_parser if use_huge else _recovery_parser
     try:
-        element = etree.fromstring(xml, _recovery_parser)
+        element = etree.fromstring(xml, recovery_parser)
     except etree.XMLSyntaxError as exc:
         # -- lxml still raises for entirely empty input even with recover=True --
         if _recovery_state.active:
@@ -99,7 +159,7 @@ def parse_xml(xml: str | bytes, recover: bool | None = None) -> "BaseOxmlElement
         element = None
     # -- collect parse warnings when the ambient recovery context is active --
     if _recovery_state.active:
-        for entry in _recovery_parser.error_log:
+        for entry in recovery_parser.error_log:
             _recovery_state.warnings.append(str(entry))
     return cast("BaseOxmlElement", element)
 

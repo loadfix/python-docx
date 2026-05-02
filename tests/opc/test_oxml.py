@@ -55,6 +55,35 @@ class DescribeCT_Relationship:
         assert rel.target_ref == "docProps/core.xml"
         assert rel.target_mode == RTM.INTERNAL
 
+    def it_reports_external_for_fragment_targets_even_without_target_mode(self):
+        # -- upstream#902 / #1349 / #678: internal-bookmark hyperlinks have
+        # -- `Target="#bookmark1"` with no (or Internal) TargetMode. The part
+        # -- resolver must treat them as external so no partname lookup fires.
+        rel_xml = (
+            '<Relationship xmlns="http://schemas.openxmlformats.org/package/2006'
+            '/relationships" Id="rId1" Type="http://schemas.openxmlformats.org'
+            '/officeDocument/2006/relationships/hyperlink" Target="#bookmark1"/>'
+        )
+        rel = parse_xml(rel_xml)
+        assert rel.target_mode == RTM.EXTERNAL
+
+    def it_reports_external_for_empty_or_missing_targets(self):
+        rel_xml = (
+            '<Relationship xmlns="http://schemas.openxmlformats.org/package/2006'
+            '/relationships" Id="rId1" Type="http://rel/type" Target=""/>'
+        )
+        rel = parse_xml(rel_xml)
+        assert rel.target_mode == RTM.EXTERNAL
+
+    def it_preserves_external_target_mode_for_real_external_targets(self):
+        rel_xml = (
+            '<Relationship xmlns="http://schemas.openxmlformats.org/package/2006'
+            '/relationships" Id="rId1" Type="http://rel/type"'
+            ' Target="http://example.com" TargetMode="External"/>'
+        )
+        rel = parse_xml(rel_xml)
+        assert rel.target_mode == RTM.EXTERNAL
+
     def it_can_construct_from_attribute_values(self):
         cases = (
             ("rId9", "ReLtYpE", "foo/bar.xml", None),

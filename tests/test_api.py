@@ -74,7 +74,7 @@ class DescribeDocument:
 
         document = DocumentFactoryFn("foobar.docx")
 
-        Package_.open.assert_called_once_with("foobar.docx", recover=False)
+        Package_.open.assert_called_once_with("foobar.docx", recover=False, huge_tree=False)
         assert document is document_
 
     def it_opens_the_default_docx_if_none_specified(
@@ -87,7 +87,9 @@ class DescribeDocument:
 
         document = DocumentFactoryFn()
 
-        Package_.open.assert_called_once_with("default-document.docx", recover=False)
+        Package_.open.assert_called_once_with(
+            "default-document.docx", recover=False, huge_tree=False
+        )
         assert document is document_
 
     def it_opens_a_docm_file(self, Package_: Mock, document_: Mock):
@@ -97,7 +99,7 @@ class DescribeDocument:
 
         document = DocumentFactoryFn("foobar.docm")
 
-        Package_.open.assert_called_once_with("foobar.docm", recover=False)
+        Package_.open.assert_called_once_with("foobar.docm", recover=False, huge_tree=False)
         assert document is document_
 
     def it_raises_on_not_a_Word_file(self, Package_: Mock):
@@ -180,7 +182,28 @@ class DescribeDocument:
 
         DocumentFactoryFn("foobar.docx", recover=True)
 
-        Package_.open.assert_called_once_with("foobar.docx", recover=True)
+        Package_.open.assert_called_once_with("foobar.docx", recover=True, huge_tree=False)
+
+    def it_passes_huge_tree_True_through_to_Package_open(
+        self, Package_: Mock, document_: Mock
+    ):
+        # -- upstream#1086: huge_tree=True must propagate to Package.open --
+        document_part = Package_.open.return_value.main_document_part
+        document_part.document = document_
+        document_part.content_type = CT.WML_DOCUMENT_MAIN
+
+        DocumentFactoryFn("foobar.docx", huge_tree=True)
+
+        Package_.open.assert_called_once_with("foobar.docx", recover=False, huge_tree=True)
+
+    def it_defaults_huge_tree_to_False(self, Package_: Mock, document_: Mock):
+        document_part = Package_.open.return_value.main_document_part
+        document_part.document = document_
+        document_part.content_type = CT.WML_DOCUMENT_MAIN
+
+        DocumentFactoryFn("foobar.docx")
+
+        Package_.open.assert_called_once_with("foobar.docx", recover=False, huge_tree=False)
 
     # -- fixtures --------------------------------------------------------------------------------
 

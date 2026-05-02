@@ -901,6 +901,14 @@ class Document(ElementProxy):
 
         `path_or_stream` can be either a path to a filesystem location (a string) or a
         file-like object.
+
+        When `path_or_stream` is a string, the filename component (the last path
+        segment) is validated against the set of characters Windows disallows in
+        file names (``< > : " | ? *``). If one of those characters is present,
+        an :class:`OSError` is raised rather than writing a silently-empty or
+        mis-named file (closes upstream#1111). The rest of the path — including
+        drive-letter colons and forward/backward directory separators — is left
+        to the underlying file system.
         """
         self._part.save(path_or_stream)
 
