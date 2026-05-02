@@ -69,24 +69,11 @@ class CT_Shd(BaseOxmlElement):
     )
 
 
-class CT_Border(BaseOxmlElement):
-    """`w:top`, `w:bottom`, `w:left`, `w:right`, `w:insideH`, `w:insideV` border element.
-
-    Defines a single border edge with style, width, color, and spacing attributes.
-    """
-
-    val: WD_BORDER_STYLE | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
-        "w:val", WD_BORDER_STYLE
-    )
-    sz: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
-        "w:sz", ST_EighthPointMeasure
-    )
-    color: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
-        "w:color", ST_HexColor
-    )
-    space: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
-        "w:space", XsdUnsignedInt
-    )
+# -- `CT_Border` is defined once in `docx.oxml.text.parfmt` and re-exported --
+# -- here so table-border / page-border / paragraph-border all use the same --
+# -- class. Historical duplication (see GitHub #165) caused the parfmt --
+# -- registration to silently overwrite the table one for `w:top` etc. --
+from docx.oxml.text.parfmt import CT_Border as CT_Border  # noqa: F401, E402
 
 
 class CT_TblBorders(BaseOxmlElement):
