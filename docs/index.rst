@@ -83,6 +83,8 @@ User Guide
    user/styles-using
    user/comments
    user/shapes
+   user/accessibility
+   user/statistics
 
 
 API Documentation
