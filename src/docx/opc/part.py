@@ -73,6 +73,17 @@ class Part:
         """Content type of this part."""
         return self._content_type
 
+    @content_type.setter
+    def content_type(self, value: str):
+        """Override the content type of this part.
+
+        Primarily used to switch a ``.dotx`` template's main-document part
+        to ``.docx`` when deriving a new document from a template.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        self._content_type = value
+
     def drop_rel(self, rId: str):
         """Remove the relationship identified by `rId` if its reference count is less
         than 2.
@@ -247,7 +258,12 @@ class XmlPart(Part):
         """
         from docx.opc.constants import CONTENT_TYPE as CT
 
-        if content_type in (CT.WML_DOCUMENT_MAIN, CT.WML_DOCUMENT_MACRO):
+        if content_type in (
+            CT.WML_DOCUMENT_MAIN,
+            CT.WML_DOCUMENT_MACRO,
+            CT.WML_TEMPLATE_MAIN,
+            CT.WML_TEMPLATE_MACRO,
+        ):
             stub = (
                 b'<w:document xmlns:w="http://schemas.openxmlformats.org/'
                 b'wordprocessingml/2006/main"><w:body/></w:document>'

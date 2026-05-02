@@ -18,6 +18,20 @@ if TYPE_CHECKING:
     from docx.parts.document import DocumentPart
 
 
+#: Content types accepted as the main document part of a WordprocessingML package.
+#: Includes the Transitional document/macro pair plus the template variants
+#: (``.dotx`` / ``.dotm``). Closes upstream#1532, upstream#363,
+#: upstream-PR#1537, upstream-PR#522, upstream-PR#523.
+_WORD_CONTENT_TYPES = frozenset(
+    (
+        CT.WML_DOCUMENT_MAIN,
+        CT.WML_DOCUMENT_MACRO,
+        CT.WML_TEMPLATE_MAIN,
+        CT.WML_TEMPLATE_MACRO,
+    )
+)
+
+
 def Document(
     docx: "str | os.PathLike[str] | IO[bytes] | None" = None,
     recover: bool = False,
@@ -28,7 +42,10 @@ def Document(
     ``.docx`` file (a ``str`` or :class:`os.PathLike`) or a file-like object.
 
     If `docx` is missing or ``None``, the built-in default document "template" is
-    loaded.
+    loaded. Both regular documents (``.docx`` / ``.docm``) and templates
+    (``.dotx`` / ``.dotm``) are accepted; for templates the returned |Document|
+    keeps the template content-type until the caller either saves as-is or
+    uses :func:`Document.from_template` to derive a new document.
 
     .. versionchanged:: 1.3.0.dev0
        Accepts :class:`os.PathLike` path arguments.
@@ -56,7 +73,10 @@ def Document(
     previous behaviour. Closes upstream#1464.
 
     .. versionadded:: 1.3.0.dev0
-       The `huge_tree` and `include_metadata` parameters.
+       The `huge_tree` and `include_metadata` parameters; ``.dotx`` / ``.dotm``
+       templates now load directly; Strict-OOXML packages are transparently
+       translated to Transitional on open; Flat-OPC (``<pkg:package>``) input
+       is auto-detected.
     """
     if docx is None:
         docx = _default_docx_stream()
@@ -64,7 +84,7 @@ def Document(
         docx = os.fspath(docx)
     package = Package.open(docx, recover=recover, huge_tree=huge_tree)
     document_part = cast("DocumentPart", package.main_document_part)
-    if document_part.content_type not in (CT.WML_DOCUMENT_MAIN, CT.WML_DOCUMENT_MACRO):
+    if document_part.content_type not in _WORD_CONTENT_TYPES:
         raise ValueError(
             f"file '{docx}' is not a Word file, content type is '{document_part.content_type}'"
         )
@@ -73,6 +93,41 @@ def Document(
         document.core_properties.clear_all()
         document.extended_properties.clear_all()
     return document
+
+
+def from_template(template: str | IO[bytes]) -> DocumentObject:
+    """Return a new |Document| derived from a ``.dotx`` / ``.dotm`` template.
+
+    `template` is a path or file-like object for a template package. The
+    returned |Document| has its main-document content-type switched to the
+    regular (non-template) equivalent — ``.dotx`` → ``.docx`` and
+    ``.dotm`` → ``.docm`` — so that :meth:`Document.save` produces a normal
+    Word document rather than a template.
+
+    Raises :class:`ValueError` if `template` is not a WordprocessingML
+    template package.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+    package = Package.open(template)
+    document_part = cast("DocumentPart", package.main_document_part)
+    source_ct = document_part.content_type
+    if source_ct == CT.WML_TEMPLATE_MAIN:
+        document_part.content_type = CT.WML_DOCUMENT_MAIN
+    elif source_ct == CT.WML_TEMPLATE_MACRO:
+        document_part.content_type = CT.WML_DOCUMENT_MACRO
+    else:
+        raise ValueError(
+            f"file '{template}' is not a Word template, content type is '{source_ct}'"
+        )
+    return document_part.document
+
+
+# -- expose `from_template` as `Document.from_template(...)` so the public
+# -- API reads naturally regardless of whether callers grab it off the
+# -- `docx` module or the `Document` factory. `Document` is a function
+# -- (not a class), so plain attribute assignment gives the right callable.
+Document.from_template = from_template  # type: ignore[attr-defined]
 
 
 def _default_docx_stream() -> io.BytesIO:

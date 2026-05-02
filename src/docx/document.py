@@ -1539,7 +1539,7 @@ class Document(ElementProxy):
             for p in self.paragraphs
         )
 
-    def save(self, path_or_stream: str | IO[bytes]):
+    def save(self, path_or_stream: str | IO[bytes], flat_opc: bool = False):
         """Save this document to `path_or_stream`.
 
         `path_or_stream` can be either a path to a filesystem location (a string) or a
@@ -1552,7 +1552,23 @@ class Document(ElementProxy):
         mis-named file (closes upstream#1111). The rest of the path — including
         drive-letter colons and forward/backward directory separators — is left
         to the underlying file system.
+
+        When `flat_opc` is True, the document is serialised as Flat-OPC — the
+        ``<pkg:package>`` single-XML-file representation defined in ECMA-376
+        Part 2 — rather than a zip package. Closes upstream#892.
+
+        .. versionadded:: 1.3.0.dev0
+           The `flat_opc` parameter.
         """
+        if flat_opc:
+            import io as _io
+
+            from docx.opc.flat_opc import write_flat_opc
+
+            buf = _io.BytesIO()
+            self._part.save(buf)
+            write_flat_opc(path_or_stream, buf.getvalue())
+            return
         self._part.save(path_or_stream)
 
     def search(
