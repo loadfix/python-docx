@@ -95,6 +95,7 @@ User Guide
    user/shapes
    user/accessibility
    user/statistics
+   user/toc
 
 
 API Documentation
