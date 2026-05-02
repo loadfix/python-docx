@@ -1601,9 +1601,19 @@ class _Column(Parented):
                 break
 
     @property
-    def _index(self):
-        """Index of this column in its table, starting from zero."""
+    def index(self) -> int:
+        """Zero-based index of this column within its table.
+
+        The index reflects the position of the underlying ``w:gridCol`` element
+        among its siblings in the table's ``w:tblGrid``. Equivalent to
+        ``table.columns[n].index == n`` for non-merged tables.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._gridCol.gridCol_idx
+
+    # -- legacy private alias retained for backwards compatibility --
+    _index = index
 
 
 class _Columns(Parented):
@@ -1832,9 +1842,18 @@ class _Row(Parented):
         return self._parent.table
 
     @property
-    def _index(self) -> int:
-        """Index of this row in its table, starting from zero."""
+    def index(self) -> int:
+        """Zero-based index of this row within its table.
+
+        Reflects the position of the underlying ``w:tr`` element among its
+        siblings in the table's ``w:tbl`` in document order.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._tr.tr_idx
+
+    # -- legacy private alias retained for backwards compatibility --
+    _index = index
 
 
 class _Rows(Parented):

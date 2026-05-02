@@ -203,13 +203,26 @@ class Paragraph(StoryChild):
         hyperlink_elm = self._p.add_hyperlink(rId, anchor, display_text, rPr)
         return Hyperlink(hyperlink_elm, self)
 
-    def add_run(self, text: str | None = None, style: str | CharacterStyle | None = None) -> Run:
+    def add_run(
+        self,
+        text: str | None = None,
+        style: str | CharacterStyle | None = None,
+        track_author: str | None = None,
+    ) -> Run:
         """Append run containing `text` and having character-style `style`.
 
         `text` can contain tab (``\\t``) characters, which are converted to the
         appropriate XML form for a tab. `text` can also include newline (``\\n``) or
         carriage return (``\\r``) characters, each of which is converted to a line
         break. When `text` is `None`, the new run is empty.
+
+        If `track_author` is supplied (or if an enclosing
+        :meth:`Document.tracked_changes` context is active), the new run is
+        wrapped in a `w:ins` tracked-insertion marker attributed to that
+        author. Closes upstream#1025.
+
+        .. versionadded:: 1.3.0.dev0
+           Added ``track_author`` keyword argument.
         """
         r = self._p.add_r()
         run = Run(r, self)
@@ -217,6 +230,7 @@ class Paragraph(StoryChild):
             run.text = text
         if style:
             run.style = style
+        _maybe_wrap_tracked_run(r, track_author, self)
         return run
 
     def add_content_control(
@@ -1290,3 +1304,50 @@ _SHAPE_NAME_PREFIX: dict[WD_SHAPE, str] = {
 def _shape_name_for(shape_type: WD_SHAPE) -> str:
     """Return a human-readable prefix used to build a `wps:cNvPr/@name`."""
     return _SHAPE_NAME_PREFIX.get(shape_type, "Shape")
+
+
+def _maybe_wrap_tracked_run(
+    r: CT_R,
+    track_author: str | None,
+    paragraph: "Paragraph",
+) -> None:
+    """Wrap `r` in a `w:ins` revision marker when tracked-change writing is active.
+
+    Resolution order for the author/date:
+
+    1. An explicit `track_author` keyword argument (from
+       :meth:`Paragraph.add_run` or :meth:`BlockItemContainer.add_paragraph`)
+       always wins. The paired date is taken from the active
+       :meth:`Document.tracked_changes` context, or `None` (``now()``) when
+       no context is active.
+    2. When `track_author` is |None|, the active
+       :meth:`Document.tracked_changes` context supplies both author and
+       date.
+
+    A paragraph is considered to have no active context when
+    ``paragraph.part`` does not reference a :class:`Document` proxy. In that
+    case, only the explicit `track_author` branch applies.
+    """
+    import datetime as _dt
+
+    from docx.tracked_changes import _active_track_author, wrap_run_in_ins
+
+    # -- dial in author/date --
+    author: str | None = None
+    date: _dt.datetime | None = None
+    try:
+        part = paragraph.part
+    except Exception:  # pragma: no cover -- detached paragraphs in tests
+        part = None
+
+    active = _active_track_author(part) if part is not None else None
+    if track_author is not None:
+        author = track_author
+        if active is not None:
+            date = active[1]
+    elif active is not None:
+        author, date = active
+
+    if not author:
+        return
+    wrap_run_in_ins(r, author, date)

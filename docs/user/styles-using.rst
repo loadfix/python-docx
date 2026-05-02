@@ -23,6 +23,14 @@ name::
     >>> styles['Normal']
     <docx.styles.style._ParagraphStyle object at <0x10a7c4f6b>
 
+.. note:: Looking up a style name that is not defined in the document raises
+   |KeyError|. This includes built-in styles that Word knows about but which
+   have not yet been materialized in the document's ``styles.xml`` part (so
+   called *latent styles*). If you need to use a latent style, define it
+   first via :meth:`~docx.styles.styles.Styles.add_style` or promote the
+   latent definition. Catch |KeyError| if you want to fall back to a default
+   style when the requested one is missing. (upstream#170)
+
 .. note:: Built-in styles are stored in a WordprocessingML file using their
    English name, e.g. 'Heading 1', even though users working on a localized
    version of Word will see native language names in the UI, e.g. 'Kop 1'.

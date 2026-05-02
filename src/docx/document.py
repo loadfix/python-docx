@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 from typing import IO, TYPE_CHECKING, cast
 from collections.abc import Iterator, Sequence
@@ -47,6 +48,7 @@ if TYPE_CHECKING:
     from docx.table import Table
     from docx.text.paragraph import Paragraph
     from docx.theme import Theme
+    from docx.tracked_changes import _TrackedChangesCtx
     from docx.web_settings import WebSettings
 
 
@@ -62,6 +64,60 @@ class Document(ElementProxy):
         self._element = element
         self._part = part
         self.__body = None
+        # -- active `tracked_changes()` context, if any. Stored as a simple
+        # -- LIFO stack so nested `with document.tracked_changes(...)` blocks
+        # -- shadow outer ones.
+        from docx.tracked_changes import _TrackedChangesCtx
+
+        self._tracked_changes_stack: list[_TrackedChangesCtx] = []
+        # -- expose this proxy on the part so deep children (Paragraph,
+        # -- Run, etc.) can look up the active tracked-changes state via
+        # -- `self.part._track_changes_doc_proxy`. Safe to set: the part
+        # -- has exactly one Document proxy. The try/except tolerates
+        # -- `spec_set` mocks used in unit tests. --
+        try:
+            setattr(part, "_track_changes_doc_proxy", self)
+        except AttributeError:  # pragma: no cover -- test fixtures only
+            pass
+
+    def __enter__(self) -> Document:
+        """Enter context-manager; returns `self`.
+
+        Pairs with :meth:`__exit__` / :meth:`close` to provide lifecycle
+        symmetry with other file-like resources. The document itself does
+        not hold an OS file handle after opening — |docx| fully parses the
+        underlying ``.docx`` zip on construction — so the context-manager
+        protocol exists mainly to let callers use the familiar ``with``
+        idiom (upstream#379)::
+
+            with Document('example.docx') as document:
+                document.add_paragraph('Added in context.')
+                document.save('out.docx')
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit context-manager; delegates to :meth:`close`.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        self.close()
+
+    def close(self) -> None:
+        """Release resources associated with this document.
+
+        python-docx reads the ``.docx`` package eagerly on construction and
+        does not retain the source file handle, so :meth:`close` is a no-op
+        today. It exists to give callers a symmetric lifecycle API — useful
+        for code that treats a ``Document`` like any other closeable
+        resource — and is safe to call multiple times.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        # -- drop any stale tracked-changes context state --
+        self._tracked_changes_stack = []
 
     def add_comment(
         self,
@@ -156,7 +212,12 @@ class Document(ElementProxy):
         paragraph.add_page_break()
         return paragraph
 
-    def add_paragraph(self, text: str = "", style: str | ParagraphStyle | None = None) -> Paragraph:
+    def add_paragraph(
+        self,
+        text: str = "",
+        style: str | ParagraphStyle | None = None,
+        track_author: str | None = None,
+    ) -> Paragraph:
         """Return paragraph newly added to the end of the document.
 
         The paragraph is populated with `text` and having paragraph style `style`.
@@ -165,8 +226,43 @@ class Document(ElementProxy):
         appropriate XML form for a tab. `text` can also include newline (``\\n``) or
         carriage return (``\\r``) characters, each of which is converted to a line
         break.
+
+        If `track_author` is supplied, the inserted run is wrapped in a
+        `w:ins` element with ``@w:author`` set to that string (closes
+        upstream#1025). When the document has an active
+        :meth:`tracked_changes` context, `track_author` defaults to the
+        author of the innermost context; pass ``track_author=""`` explicitly
+        if you need to opt out of the active context for one call.
+
+        .. versionadded:: 1.3.0.dev0
+           Added ``track_author`` keyword argument.
         """
-        return self._body.add_paragraph(text, style)
+        if track_author is None:
+            return self._body.add_paragraph(text, style)
+        return self._body.add_paragraph(text, style, track_author=track_author)
+
+    def tracked_changes(
+        self, author: str, date: "dt.datetime | None" = None
+    ) -> "_TrackedChangesCtx":
+        """Return a context manager that wraps new content in `w:ins` markers.
+
+        Every call to :meth:`add_paragraph` / :meth:`BlockItemContainer.add_paragraph`
+        or :meth:`Paragraph.add_run` made while the returned context is
+        active wraps the new ``w:r`` element in a ``w:ins`` element whose
+        ``@w:author`` is `author` and whose ``@w:date`` is `date` (defaulting
+        to the current UTC time). Contexts can be nested; the innermost
+        author/date wins.
+
+        Closes upstream#1025::
+
+            with document.tracked_changes(author="Reviewer"):
+                document.add_paragraph("A new paragraph under review.")
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.tracked_changes import _TrackedChangesCtx
+
+        return _TrackedChangesCtx(self, author, date)
 
     def add_content_control(
         self,
