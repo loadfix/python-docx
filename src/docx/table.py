@@ -98,6 +98,7 @@ class Table(StoryChild):
         for tr in self._tbl.tr_lst:
             tc = tr.add_tc()
             tc.width = width
+        self._invalidate_cells_cache()
         return _Column(gridCol, self)
 
     def add_row(self, source_row: _Row | None = None):
@@ -149,6 +150,7 @@ class Table(StoryChild):
                     # -- cnfStyle is the first child in w:trPr (see _tag_seq) --
                     new_trPr.insert(0, deepcopy(prior_cnfStyle))
 
+        self._invalidate_cells_cache()
         return _Row(tr, self)
 
     def insert_row(self, index: int) -> _Row:
@@ -810,6 +812,24 @@ class Table(StoryChild):
         self.table_direction = value
 
     @property
+    def cells(self) -> list[_Cell]:
+        """Cached sequence of |_Cell| objects for this table's layout grid.
+
+        Public alias of the (now-cached) ``_cells`` property. The first access
+        builds the grid via :meth:`_compute_cells`; subsequent accesses return
+        the cached list. Structural mutations (``add_row``, ``add_column``,
+        ``_Cell.split``, :meth:`delete_column`, etc.) invalidate the cache via
+        :meth:`_invalidate_cells_cache` so callers always see a current grid.
+
+        The returned list has length ``len(rows) * column_count``. The list is
+        owned by the cache: callers should treat it as read-only and avoid
+        mutating it in place. (upstream#1209, PR#1051, PR#565)
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self._cells
+
+    @property
     def _cells(self) -> list[_Cell]:
         """A sequence of |_Cell| objects, one for each cell of the layout grid.
 
@@ -821,6 +841,56 @@ class Table(StoryChild):
         filled with a placeholder |_Cell| (borrowing the cell directly above
         where possible, else the nearest real ``w:tc`` in the same row) so
         callers never encounter |None|. (upstream#939, #1367, #1334, #1193)
+
+        Cached after first computation; :meth:`_invalidate_cells_cache`
+        clears the cache when the table is structurally mutated.
+        """
+        cached = self.__dict__.get("_cells_cache")
+        if cached is not None:
+            return cached
+        cells = self._compute_cells()
+        self.__dict__["_cells_cache"] = cells
+        return cells
+
+    def _invalidate_cells_cache(self) -> None:
+        """Clear the cached `_cells` list so the next access recomputes it.
+
+        Called automatically by structural mutators on this table (``add_row``,
+        ``add_column``, ``_Cell.split``, :meth:`delete_column`, etc.). Callers
+        that mutate ``w:tbl`` children directly should call this to keep the
+        cached grid coherent.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        self.__dict__.pop("_cells_cache", None)
+
+    def iter_rows_fast(self) -> Iterator[_Row]:
+        """Yield |_Row| instances without building the full cell grid.
+
+        A lazy, generator-based alternative to ``table.rows`` for large
+        tables. This avoids the O(rows * cols) cell-grid construction
+        performed by :attr:`_cells`; useful when you only need to scan each
+        row's own ``w:tr`` children (e.g. read the first cell's text in a
+        100_000-row export). (upstream#1516)
+
+        Invariants:
+
+        - Rows are yielded in document order.
+        - No grid-alignment placeholders are materialised; rows whose
+          ``w:gridBefore`` / ``w:gridAfter`` would normally be padded are
+          *not* padded in the yielded row's own ``cells`` view.
+        - The returned rows share the table as parent so ``row.cells`` works
+          normally — it's only the outer grid build that is skipped.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        for tr in self._tbl.tr_lst:
+            yield _Row(tr, self)
+
+    def _compute_cells(self) -> list[_Cell]:
+        """Build the layout-grid cell sequence (uncached).
+
+        Consult :attr:`_cells` / :attr:`cells` for the cached public form.
         """
         col_count = self._column_count
         cells: list[_Cell] = []
@@ -1204,6 +1274,11 @@ class _Cell(BlockItemContainer):
         """
         tc, tc_2 = self._tc, other_cell._tc
         merged_tc = tc.merge(tc_2)
+        # -- invalidate the owning Table's cached cell grid --
+        parent = self._parent
+        table = getattr(parent, "table", None) if parent is not None else None
+        if table is not None and hasattr(table, "_invalidate_cells_cache"):
+            table._invalidate_cells_cache()
         return _Cell(merged_tc, self._parent)
 
     @property
