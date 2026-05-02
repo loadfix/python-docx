@@ -479,7 +479,13 @@ class CT_SectPr(BaseOxmlElement):
     @orientation.setter
     def orientation(self, value: WD_ORIENTATION | None):
         pgSz = self.get_or_add_pgSz()
-        pgSz.orient = value if value else WD_ORIENTATION.PORTRAIT
+        new_orient = value if value else WD_ORIENTATION.PORTRAIT
+        # -- swap `w` and `h` when orientation actually changes and both dims
+        # -- are present; skip when either dim is None so we don't fabricate
+        # -- page-size attributes from thin air.
+        if pgSz.orient != new_orient and pgSz.w is not None and pgSz.h is not None:
+            pgSz.w, pgSz.h = pgSz.h, pgSz.w
+        pgSz.orient = new_orient
 
     @property
     def page_height(self) -> Length | None:

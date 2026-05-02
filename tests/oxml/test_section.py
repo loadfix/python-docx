@@ -11,6 +11,7 @@ from docx.enum.section import (
     WD_BORDER_OFFSET_FROM,
     WD_DOC_GRID_TYPE,
     WD_LINE_NUMBERING_RESTART,
+    WD_ORIENTATION,
 )
 from docx.enum.text import WD_BORDER_STYLE
 from docx.oxml.section import (
@@ -100,6 +101,110 @@ class DescribeCT_SectPr_cols:
         cols = sectPr.get_or_add_cols()
         assert cols is not None
         expected = xml("w:sectPr/(w:pgMar,w:cols)")
+        assert sectPr.xml == expected
+
+
+class DescribeCT_SectPr_orientation_swap:
+    """Unit-test suite for CT_SectPr orientation setter w/h swap behavior."""
+
+    def it_swaps_w_and_h_when_changing_portrait_to_landscape(self):
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:pgSz{w:w=12240,w:h=15840}")
+        )
+
+        sectPr.orientation = WD_ORIENTATION.LANDSCAPE
+
+        expected = xml(
+            "w:sectPr/w:pgSz{w:w=15840,w:h=12240,w:orient=landscape}"
+        )
+        assert sectPr.xml == expected
+
+    def it_swaps_w_and_h_when_changing_landscape_to_portrait(self):
+        sectPr = cast(
+            CT_SectPr,
+            element(
+                "w:sectPr/w:pgSz{w:w=15840,w:h=12240,w:orient=landscape}"
+            ),
+        )
+
+        sectPr.orientation = WD_ORIENTATION.PORTRAIT
+
+        # -- orient is dropped (default is portrait), dims are swapped back --
+        expected = xml("w:sectPr/w:pgSz{w:w=12240,w:h=15840}")
+        assert sectPr.xml == expected
+
+    def it_treats_None_as_portrait_and_swaps_from_landscape(self):
+        sectPr = cast(
+            CT_SectPr,
+            element(
+                "w:sectPr/w:pgSz{w:w=15840,w:h=12240,w:orient=landscape}"
+            ),
+        )
+
+        sectPr.orientation = None
+
+        expected = xml("w:sectPr/w:pgSz{w:w=12240,w:h=15840}")
+        assert sectPr.xml == expected
+
+    def it_is_idempotent_when_setting_same_orientation_landscape(self):
+        sectPr = cast(
+            CT_SectPr,
+            element(
+                "w:sectPr/w:pgSz{w:w=15840,w:h=12240,w:orient=landscape}"
+            ),
+        )
+
+        sectPr.orientation = WD_ORIENTATION.LANDSCAPE
+
+        expected = xml(
+            "w:sectPr/w:pgSz{w:w=15840,w:h=12240,w:orient=landscape}"
+        )
+        assert sectPr.xml == expected
+
+    def it_is_idempotent_when_setting_same_orientation_portrait(self):
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:pgSz{w:w=12240,w:h=15840}")
+        )
+
+        sectPr.orientation = WD_ORIENTATION.PORTRAIT
+
+        expected = xml("w:sectPr/w:pgSz{w:w=12240,w:h=15840}")
+        assert sectPr.xml == expected
+
+    def it_skips_swap_when_width_is_missing(self):
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:pgSz{w:h=15840}")
+        )
+
+        sectPr.orientation = WD_ORIENTATION.LANDSCAPE
+
+        expected = xml("w:sectPr/w:pgSz{w:h=15840,w:orient=landscape}")
+        assert sectPr.xml == expected
+
+    def it_skips_swap_when_height_is_missing(self):
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:pgSz{w:w=12240}")
+        )
+
+        sectPr.orientation = WD_ORIENTATION.LANDSCAPE
+
+        expected = xml("w:sectPr/w:pgSz{w:w=12240,w:orient=landscape}")
+        assert sectPr.xml == expected
+
+    def it_skips_swap_when_both_dims_missing(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr/w:pgSz"))
+
+        sectPr.orientation = WD_ORIENTATION.LANDSCAPE
+
+        expected = xml("w:sectPr/w:pgSz{w:orient=landscape}")
+        assert sectPr.xml == expected
+
+    def it_creates_pgSz_with_no_dims_when_none_present(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+
+        sectPr.orientation = WD_ORIENTATION.LANDSCAPE
+
+        expected = xml("w:sectPr/w:pgSz{w:orient=landscape}")
         assert sectPr.xml == expected
 
 
