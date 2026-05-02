@@ -1,4 +1,5 @@
 """Step implementations for tracked-changes features.
+"""Step implementations for tracked-changes features (read + reject side).
 
 Covers:
 * trk-read-ins-del — iterating Paragraph.tracked_changes
@@ -10,6 +11,8 @@ Covers:
 * trk-marks-text — revision_marks_text() preview output
 * trk-accept-insertions — Document.accept_all_changes and per-change
   TrackedChange.accept on w:ins / w:cellIns wrappers
+* trk-reject-changes — reject-side behaviour for Document.reject_all_changes()
+  and per-change TrackedChange.reject()
 """
 
 from __future__ import annotations
@@ -449,6 +452,127 @@ def then_paragraph_text_eq(context: Context, p_idx: int, expected: str):
 def then_paragraph_has_count_direct_w_r(context: Context, p_idx: int, count: int):
     actual = len(context.document.paragraphs[p_idx]._p.xpath("./w:r"))
     assert actual == count, f"expected {count} direct w:r, got {actual}"
+# -- reject-side steps =====================================
+
+
+def _strip_elements(document: Document, xpath: str) -> None:
+    """Detach every element matching `xpath` from the document body."""
+    for elm in document._element.body.xpath(xpath):
+        parent = elm.getparent()
+        if parent is not None:
+            parent.remove(elm)
+
+
+def _unwrap_elements(document: Document, xpath: str) -> None:
+    """Replace every matching element with its children, in place."""
+    for elm in document._element.body.xpath(xpath):
+        parent = elm.getparent()
+        if parent is None:
+            continue
+        idx = parent.index(elm)
+        for i, child in enumerate(list(elm)):
+            parent.insert(idx + i, child)
+        parent.remove(elm)
+
+
+@given("the trk-reject document")
+def given_the_trk_reject_document(context: Context):
+    context.document = Document(test_docx("trk-reject"))
+
+
+@given("the trk-reject document with only insertions")
+def given_the_trk_reject_document_only_insertions(context: Context):
+    # -- drop every deletion / move / cell marker so the doc only carries
+    # -- insertions. The remaining scaffolding keeps paragraph indices 1 and
+    # -- 2 stable (the wrapped "w:ins" in those paragraphs survives). --
+    document = Document(test_docx("trk-reject"))
+    _strip_elements(document, ".//w:del | .//w:moveFrom")
+    # -- moveTo contains w:t; unwrapping keeps the destination content but
+    # -- removes the revision wrapper so it no longer counts as an insertion
+    _unwrap_elements(document, ".//w:moveTo")
+    # -- remove cell markers without disturbing the cells themselves
+    _strip_elements(document, ".//w:cellIns | .//w:cellDel")
+    context.document = document
+
+
+@given("the trk-reject document with only deletions")
+def given_the_trk_reject_document_only_deletions(context: Context):
+    # -- mirror of the insertions-only variant: keep every w:del, strip the
+    # -- rest. Stripping (not unwrapping) the w:ins wrappers makes the
+    # -- pre-reject content match what a reviewer who only deleted text would
+    # -- see, with stable paragraph indices preserved. --
+    document = Document(test_docx("trk-reject"))
+    _strip_elements(document, ".//w:ins | .//w:moveFrom | .//w:moveTo")
+    _strip_elements(document, ".//w:cellIns | .//w:cellDel")
+    context.document = document
+
+
+@when("I call document.reject_all_changes()")
+def when_i_call_document_reject_all_changes(context: Context):
+    context.reject_count = context.document.reject_all_changes()
+
+
+@when("I reject the insertion in paragraph {p_idx:d}")
+def when_i_reject_the_insertion_in_paragraph(context: Context, p_idx: int):
+    paragraph = context.document.paragraphs[p_idx]
+    for tc in paragraph.tracked_changes:
+        if tc.type == "insertion":
+            tc.reject()
+            return
+    raise AssertionError(f"paragraph {p_idx} has no insertion to reject")
+
+
+@when("I reject the deletion in paragraph {p_idx:d}")
+def when_i_reject_the_deletion_in_paragraph(context: Context, p_idx: int):
+    paragraph = context.document.paragraphs[p_idx]
+    for tc in paragraph.tracked_changes:
+        if tc.type == "deletion":
+            tc.reject()
+            return
+    raise AssertionError(f"paragraph {p_idx} has no deletion to reject")
+
+
+@when("I reject every tracked change in paragraph {p_idx:d}")
+def when_i_reject_every_tracked_change_in_paragraph(context: Context, p_idx: int):
+    paragraph = context.document.paragraphs[p_idx]
+    # -- snapshot the list; rejecting mutates the paragraph's XML tree and
+    # -- invalidates any subsequent iteration over the live proxy list
+    for tc in list(paragraph.tracked_changes):
+        tc.reject()
+
+
+@then("the reject count is {count:d}")
+def then_the_reject_count_is(context: Context, count: int):
+    assert context.reject_count == count, (
+        f"expected reject count {count}, got {context.reject_count}"
+    )
+
+
+@then("the document has no {tag} elements")
+def then_the_document_has_no_tag_elements(context: Context, tag: str):
+    found = context.document._element.body.xpath(f".//{tag}")
+    assert not found, (
+        f"expected no {tag} elements, found {len(found)}"
+    )
+
+
+@then('paragraph {p_idx:d} text equals "{expected}"')
+def then_paragraph_text_equals(context: Context, p_idx: int, expected: str):
+    actual = context.document.paragraphs[p_idx].text
+    assert actual == expected, (
+        f"paragraph {p_idx} text mismatch: expected {expected!r}, got {actual!r}"
+    )
+
+
+@then('paragraph {p_idx:d} revision_marks_text equals "{expected}"')
+def then_paragraph_revision_marks_text_equals(
+    context: Context, p_idx: int, expected: str
+):
+    actual = context.document.paragraphs[p_idx].revision_marks_text()
+    assert actual == expected, (
+        f"paragraph {p_idx} revision_marks_text mismatch:"
+        f" expected {expected!r}, got {actual!r}"
+    )
 
 
 @then("paragraph {p_idx:d} has {count:d} tracked change remaining")
@@ -534,6 +658,7 @@ def then_paragraph_p_idx_text_is(context: Context, p_idx: int, expected: str):
 @then("paragraph {p_idx:d} still has {count:d} tracked change")
 @then("paragraph {p_idx:d} still has {count:d} tracked changes")
 def then_paragraph_still_has_n_tracked_changes(
+def then_paragraph_has_n_tracked_changes_remaining(
     context: Context, p_idx: int, count: int
 ):
     actual = len(context.document.paragraphs[p_idx].tracked_changes)
@@ -648,3 +773,35 @@ def then_the_first_table_has_rows_and_cells(
 def then_the_first_cell_text_is(context: Context, expected: str):
     actual = context.document.tables[0].cell(0, 0).text
     assert actual == expected, f"expected {expected!r}, got {actual!r}"
+        f"paragraph {p_idx}: expected {count} tracked changes, got {actual}"
+    )
+
+
+@then("the remaining tracked change in paragraph {p_idx:d} is a deletion")
+def then_remaining_tc_is_a_deletion(context: Context, p_idx: int):
+    tcs = context.document.paragraphs[p_idx].tracked_changes
+    assert len(tcs) == 1, f"expected 1 tracked change, got {len(tcs)}"
+    assert tcs[0].type == "deletion", (
+        f"expected deletion, got {tcs[0].type!r}"
+    )
+
+
+@then("the remaining tracked change in paragraph {p_idx:d} is an insertion")
+def then_remaining_tc_is_an_insertion(context: Context, p_idx: int):
+    tcs = context.document.paragraphs[p_idx].tracked_changes
+    assert len(tcs) == 1, f"expected 1 tracked change, got {len(tcs)}"
+    assert tcs[0].type == "insertion", (
+        f"expected insertion, got {tcs[0].type!r}"
+    )
+
+
+@then("row {row_idx:d} of table {tbl_idx:d} has {count:d} cell")
+@then("row {row_idx:d} of table {tbl_idx:d} has {count:d} cells")
+def then_row_of_table_has_n_cells(
+    context: Context, row_idx: int, tbl_idx: int, count: int
+):
+    table = context.document.tables[tbl_idx]
+    actual = len(table.rows[row_idx].cells)
+    assert actual == count, (
+        f"row {row_idx} of table {tbl_idx}: expected {count} cells, got {actual}"
+    )
