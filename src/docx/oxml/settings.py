@@ -41,6 +41,89 @@ class CT_Zoom(BaseOxmlElement):
     )
 
 
+class CT_MailMerge(BaseOxmlElement):
+    """`w:mailMerge` element, container for mail-merge configuration metadata.
+
+    Describes the main document type, data source, query, destination, and
+    related fields. python-docx does not execute the merge; it only exposes the
+    stored configuration for read/write.
+    """
+
+    _tag_seq = (
+        "w:mainDocumentType",
+        "w:linkToQuery",
+        "w:dataType",
+        "w:connectString",
+        "w:query",
+        "w:dataSource",
+        "w:headerSource",
+        "w:doNotSuppressBlankLines",
+        "w:destination",
+        "w:addressFieldName",
+        "w:mailSubject",
+        "w:mailAsAttachment",
+        "w:viewMergedData",
+        "w:activeRecord",
+        "w:checkErrors",
+        "w:odso",
+    )
+
+    mainDocumentType: "_CT_MMVal | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:mainDocumentType", successors=_tag_seq[1:]
+    )
+    linkToQuery: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:linkToQuery", successors=_tag_seq[2:]
+    )
+    dataType: "_CT_MMVal | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:dataType", successors=_tag_seq[3:]
+    )
+    connectString: "_CT_MMVal | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:connectString", successors=_tag_seq[4:]
+    )
+    query: "_CT_MMVal | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:query", successors=_tag_seq[5:]
+    )
+    doNotSuppressBlankLines: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:doNotSuppressBlankLines", successors=_tag_seq[8:]
+    )
+    destination: "_CT_MMVal | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:destination", successors=_tag_seq[9:]
+    )
+    addressFieldName: "_CT_MMVal | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:addressFieldName", successors=_tag_seq[10:]
+    )
+    mailSubject: "_CT_MMVal | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:mailSubject", successors=_tag_seq[11:]
+    )
+    mailAsAttachment: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:mailAsAttachment", successors=_tag_seq[12:]
+    )
+    viewMergedData: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:viewMergedData", successors=_tag_seq[13:]
+    )
+    activeRecord: "_CT_MMVal | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:activeRecord", successors=_tag_seq[14:]
+    )
+    checkErrors: "_CT_MMVal | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:checkErrors", successors=_tag_seq[15:]
+    )
+
+    del _tag_seq
+
+
+class _CT_MMVal(BaseOxmlElement):
+    """Shared CT for the many `w:mailMerge` children that only carry a `w:val` attribute.
+
+    Covers `w:mainDocumentType`, `w:dataType`, `w:connectString`, `w:query`,
+    `w:destination`, `w:addressFieldName`, `w:mailSubject`, `w:activeRecord`,
+    `w:checkErrors`.
+    """
+
+    val: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:val", ST_String
+    )
+
+
 class CT_DocProtect(BaseOxmlElement):
     """`w:documentProtection` element, specifying document editing restrictions."""
 
@@ -365,6 +448,9 @@ class CT_Settings(BaseOxmlElement):
     )
     zoom: CT_Zoom | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:zoom", successors=_tag_seq[3:]
+    )
+    mailMerge: CT_MailMerge | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:mailMerge", successors=_tag_seq[30:]
     )
     trackRevisions: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:trackRevisions", successors=_tag_seq[32:]
