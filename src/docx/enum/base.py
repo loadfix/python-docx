@@ -19,10 +19,13 @@ class BaseEnum(int, enum.Enum):
     corresponding member in the MS API enum of the same name.
     """
 
-    def __new__(cls, ms_api_value: int, docstr: str):
+    def __new__(cls, ms_api_value: int, docstr: str | None):
         self = int.__new__(cls, ms_api_value)
         self._value_ = ms_api_value
-        self.__doc__ = docstr.strip()
+        # -- ``docstr`` may be ``None`` under ``python -OO`` if callers
+        # -- pass a class/function docstring that was stripped by the
+        # -- optimizer. Coerce to empty string. Closes upstream-PR#337.
+        self.__doc__ = (docstr or "").strip()
         return self
 
     def __str__(self):
@@ -39,11 +42,13 @@ class BaseXmlEnum(int, enum.Enum):
 
     xml_value: str | None
 
-    def __new__(cls, ms_api_value: int, xml_value: str | None, docstr: str):
+    def __new__(cls, ms_api_value: int, xml_value: str | None, docstr: str | None):
         self = int.__new__(cls, ms_api_value)
         self._value_ = ms_api_value
         self.xml_value = xml_value
-        self.__doc__ = docstr.strip()
+        # -- ``docstr`` may be ``None`` under ``python -OO``. Coerce to
+        # -- empty string. Closes upstream-PR#337.
+        self.__doc__ = (docstr or "").strip()
         return self
 
     def __str__(self):
@@ -119,8 +124,14 @@ class DocsPageFormatter:
     def _member_def(self, member: BaseEnum | BaseXmlEnum):
         """Return an individual member definition formatted as an RST glossary entry,
         wrapped to fit within 78 columns."""
-        assert member.__doc__ is not None
-        member_docstring = textwrap.dedent(member.__doc__).strip()
+        # -- Under ``python -OO`` asserts are stripped and class/function
+        # -- ``__doc__`` attributes are set to ``None``. Enum members here get
+        # -- their ``__doc__`` assigned from a runtime tuple element in
+        # -- ``BaseEnum.__new__`` / ``BaseXmlEnum.__new__``, so the docstring
+        # -- survives -OO — but defensively coerce to an empty string rather
+        # -- than crashing ``textwrap.dedent(None)`` if that ever changes.
+        # -- Closes upstream-PR#337.
+        member_docstring = textwrap.dedent(member.__doc__ or "").strip()
         member_docstring = textwrap.fill(
             member_docstring,
             width=78,
