@@ -16,10 +16,19 @@ from docx.enum.shape import (
     WD_WRAP_TYPE,
 )
 from docx.oxml.document import CT_Body
-from docx.oxml.ns import nsmap
+from docx.oxml.ns import nsmap, qn
 from docx.oxml.shape import CT_Anchor, CT_Inline
-from docx.shape import FloatingImage, InlineShape, InlineShapes
-from docx.shared import Emu, Length
+from docx.shape import (
+    EffectsFormat,
+    FloatingImage,
+    InlineShape,
+    InlineShapes,
+    PictureCrop,
+    PictureOutline,
+    ShadowFormat,
+    _percent_to_thousandths,
+)
+from docx.shared import Emu, Length, RGBColor
 
 from .unitutil.cxml import element, xml
 from .unitutil.mock import FixtureRequest, Mock, instance_mock
@@ -361,3 +370,323 @@ class DescribeFloatingImage:
 
         assert anchor.docPr.title is None
         assert "title" not in anchor.docPr.attrib
+
+
+# -- helpers for image-effect tests ----------------------------------------------------
+
+
+def _inline_picture() -> CT_Inline:
+    """Return a freshly-minted `wp:inline` wrapping a `pic:pic`."""
+    return CT_Inline.new_pic_inline(1, "rId1", "f.png", 1000, 2000)
+
+
+def _floating_picture() -> CT_Anchor:
+    return CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 1000, 2000)
+
+
+class Describe_percent_to_thousandths:
+    """Unit-test suite for the ``_percent_to_thousandths`` helper."""
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (0.0, 0),
+            (0.5, 50000),
+            (1.0, 100000),
+            (0.25, 25000),
+            # -- whole-number percents treated as percents --
+            (25, 25000),
+            (100, 100000),
+            # -- clamping --
+            (-0.1, 0),
+            (1.5, 100000),
+            (-5, 0),
+            (250, 100000),
+        ],
+    )
+    def it_accepts_fractional_and_percent_inputs(
+        self, value: float, expected: int
+    ):
+        assert _percent_to_thousandths(value) == expected
+
+    def it_rejects_booleans(self):
+        with pytest.raises(TypeError):
+            _percent_to_thousandths(True)
+
+
+class DescribePictureOutline:
+    """Unit-test suite for `docx.shape.PictureOutline`."""
+
+    def it_is_None_when_no_ln_element_present(self):
+        inline = _inline_picture()
+        outline = InlineShape(inline).outline
+
+        assert outline.width is None
+        assert outline.color is None
+        assert outline.transparency == 0.0
+
+    def it_can_set_and_read_the_outline_width(self):
+        inline = _inline_picture()
+        shape = InlineShape(inline)
+
+        shape.outline.width = Emu(12700)
+
+        assert shape.outline.width == Emu(12700)
+        assert isinstance(shape.outline.width, Length)
+
+    def it_can_set_and_read_the_outline_color(self):
+        inline = _inline_picture()
+        shape = InlineShape(inline)
+
+        shape.outline.color = RGBColor(0xFF, 0x00, 0x00)
+
+        assert shape.outline.color == RGBColor(0xFF, 0x00, 0x00)
+
+    def it_accepts_a_hex_string_for_color(self):
+        inline = _inline_picture()
+        shape = InlineShape(inline)
+
+        shape.outline.color = "00FF00"
+
+        assert shape.outline.color == RGBColor(0x00, 0xFF, 0x00)
+
+    def it_can_clear_the_width_and_color(self):
+        inline = _inline_picture()
+        shape = InlineShape(inline)
+        shape.outline.width = Emu(12700)
+        shape.outline.color = RGBColor(0xFF, 0, 0)
+
+        shape.outline.width = None
+        shape.outline.color = None
+
+        assert shape.outline.width is None
+        assert shape.outline.color is None
+
+    def it_can_set_and_read_transparency(self):
+        inline = _inline_picture()
+        shape = InlineShape(inline)
+        shape.outline.color = RGBColor(0, 0, 0)
+
+        shape.outline.transparency = 0.25
+
+        # -- transparency 0.25 means alpha 75000 --
+        assert shape.outline.transparency == pytest.approx(0.25, abs=1e-6)
+        # -- a:alpha lives inside a:srgbClr --
+        ln_xml = shape._inline.graphic.graphicData.pic.spPr.ln.xml
+        assert 'val="75000"' in ln_xml
+
+    def it_emits_ln_in_schema_order(self):
+        inline = _inline_picture()
+        shape = InlineShape(inline)
+
+        shape.outline.width = Emu(9525)
+
+        spPr = shape._inline.graphic.graphicData.pic.spPr
+        tags = [c.tag for c in spPr]
+        # -- a:ln after a:prstGeom --
+        assert tags.index(qn("a:ln")) > tags.index(qn("a:prstGeom"))
+
+    def it_raises_when_shape_is_not_a_picture(self):
+        inline = cast(
+            CT_Inline,
+            element(
+                'wp:inline/(wp:extent{cx=1,cy=1},wp:docPr{id=1,name=P},'
+                "a:graphic/a:graphicData{uri=foo})"
+            ),
+        )
+        with pytest.raises(ValueError):
+            InlineShape(inline).outline
+
+
+class DescribePictureCrop:
+    """Unit-test suite for `docx.shape.PictureCrop`."""
+
+    def it_defaults_to_zero_for_all_sides(self):
+        inline = _inline_picture()
+        crop = InlineShape(inline).crop
+
+        assert crop.left == 0.0
+        assert crop.top == 0.0
+        assert crop.right == 0.0
+        assert crop.bottom == 0.0
+
+    def it_can_set_each_side_independently(self):
+        inline = _inline_picture()
+        shape = InlineShape(inline)
+
+        shape.crop.left = 0.1
+        shape.crop.top = 0.2
+        shape.crop.right = 0.05
+        shape.crop.bottom = 0.15
+
+        assert shape.crop.left == pytest.approx(0.1, abs=1e-6)
+        assert shape.crop.top == pytest.approx(0.2, abs=1e-6)
+        assert shape.crop.right == pytest.approx(0.05, abs=1e-6)
+        assert shape.crop.bottom == pytest.approx(0.15, abs=1e-6)
+
+    def it_accepts_percent_ints_as_well(self):
+        inline = _inline_picture()
+        shape = InlineShape(inline)
+
+        shape.crop.left = 25  # -- 25% --
+
+        assert shape.crop.left == pytest.approx(0.25, abs=1e-6)
+
+    def it_supports_the_set_method(self):
+        inline = _inline_picture()
+        shape = InlineShape(inline)
+
+        shape.crop.set(left=0.1, top=0.2, right=0.05, bottom=0.15)
+
+        src = shape._inline.graphic.graphicData.pic.blipFill.srcRect
+        assert src is not None
+        assert src.l == 10000
+        assert src.t == 20000
+        assert src.r == 5000
+        assert src.b == 15000
+
+    def it_removes_the_attribute_when_set_to_None_or_zero(self):
+        inline = _inline_picture()
+        shape = InlineShape(inline)
+        shape.crop.left = 0.5
+
+        shape.crop.left = None
+
+        src = shape._inline.graphic.graphicData.pic.blipFill.srcRect
+        assert src is None or "l" not in src.attrib
+
+    def it_raises_when_shape_is_not_a_picture(self):
+        inline = cast(
+            CT_Inline,
+            element(
+                'wp:inline/(wp:extent{cx=1,cy=1},wp:docPr{id=1,name=P},'
+                "a:graphic/a:graphicData{uri=foo})"
+            ),
+        )
+        with pytest.raises(ValueError):
+            InlineShape(inline).crop
+
+    def it_works_on_floating_images(self):
+        anchor = _floating_picture()
+        floating = FloatingImage(anchor)
+
+        floating.crop.left = 0.1
+
+        assert floating.crop.left == pytest.approx(0.1, abs=1e-6)
+
+
+class DescribeEffectsFormat:
+    """Unit-test suite for `docx.shape.EffectsFormat` and `ShadowFormat`."""
+
+    def it_reports_shadow_absent_by_default(self):
+        inline = _inline_picture()
+        effects = InlineShape(inline).effects
+
+        assert isinstance(effects, EffectsFormat)
+        assert isinstance(effects.shadow, ShadowFormat)
+        assert effects.shadow.exists is False
+
+    def it_can_apply_a_shadow_with_attributes(self):
+        inline = _inline_picture()
+        shape = InlineShape(inline)
+
+        shape.effects.shadow.apply(
+            blur_radius=Emu(38100),
+            distance=Emu(12700),
+            angle=45,
+            color=RGBColor(0x80, 0x80, 0x80),
+        )
+
+        shadow = shape.effects.shadow
+        assert shadow.exists is True
+        assert shadow.blur_radius == Emu(38100)
+        assert shadow.distance == Emu(12700)
+        assert shadow.angle == pytest.approx(45.0, abs=1e-6)
+        assert shadow.color == RGBColor(0x80, 0x80, 0x80)
+
+    def it_emits_outerShdw_in_schema_order(self):
+        inline = _inline_picture()
+        shape = InlineShape(inline)
+
+        shape.effects.shadow.apply(blur_radius=Emu(10000))
+
+        spPr = shape._inline.graphic.graphicData.pic.spPr
+        tags = [c.tag for c in spPr]
+        assert tags.index(qn("a:effectLst")) > tags.index(qn("a:prstGeom"))
+        outerShdw = spPr.effectLst.outerShdw
+        assert outerShdw is not None
+        assert outerShdw.blurRad == 10000
+
+    def it_can_clear_the_shadow(self):
+        inline = _inline_picture()
+        shape = InlineShape(inline)
+        shape.effects.shadow.apply(distance=Emu(10000))
+        assert shape.effects.shadow.exists is True
+
+        shape.effects.shadow.clear()
+
+        assert shape.effects.shadow.exists is False
+
+    def it_wraps_angle_modulo_360(self):
+        inline = _inline_picture()
+        shape = InlineShape(inline)
+
+        shape.effects.shadow.angle = 405
+
+        assert shape.effects.shadow.angle == pytest.approx(45.0, abs=1e-6)
+
+    def it_can_clear_individual_attributes(self):
+        inline = _inline_picture()
+        shape = InlineShape(inline)
+        shape.effects.shadow.apply(
+            blur_radius=Emu(10000),
+            distance=Emu(5000),
+            angle=45,
+            color=RGBColor(0, 0, 0),
+        )
+
+        shape.effects.shadow.blur_radius = None
+        shape.effects.shadow.color = None
+
+        shadow = shape.effects.shadow
+        assert shadow.blur_radius is None
+        assert shadow.color is None
+        # -- distance and angle preserved --
+        assert shadow.distance == Emu(5000)
+
+    def it_works_on_floating_images(self):
+        anchor = _floating_picture()
+        floating = FloatingImage(anchor)
+
+        floating.effects.shadow.apply(
+            blur_radius=Emu(20000), color=RGBColor(0xFF, 0, 0)
+        )
+
+        assert floating.effects.shadow.exists is True
+        assert floating.effects.shadow.color == RGBColor(0xFF, 0, 0)
+
+    def it_raises_when_shape_is_not_a_picture(self):
+        inline = cast(
+            CT_Inline,
+            element(
+                'wp:inline/(wp:extent{cx=1,cy=1},wp:docPr{id=1,name=P},'
+                "a:graphic/a:graphicData{uri=foo})"
+            ),
+        )
+        with pytest.raises(ValueError):
+            InlineShape(inline).effects
+
+
+class DescribeFloatingImageOutline:
+    """Sanity checks for outline on `FloatingImage` specifically."""
+
+    def it_exposes_an_outline_proxy(self):
+        anchor = _floating_picture()
+        floating = FloatingImage(anchor)
+
+        floating.outline.width = Emu(9525)
+        floating.outline.color = RGBColor(0, 0, 0xFF)
+
+        assert isinstance(floating.outline, PictureOutline)
+        assert floating.outline.width == Emu(9525)
+        assert floating.outline.color == RGBColor(0, 0, 0xFF)

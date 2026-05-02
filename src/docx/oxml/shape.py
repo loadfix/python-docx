@@ -12,6 +12,7 @@ from docx.oxml.simpletypes import (
     ST_PositiveCoordinate,
     ST_RelationshipId,
     XsdBoolean,
+    XsdInt,
     XsdString,
     XsdToken,
 )
@@ -400,6 +401,9 @@ class CT_BlipFillProperties(BaseOxmlElement):
     blip: CT_Blip = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "a:blip", successors=("a:srcRect", "a:tile", "a:stretch")
     )
+    srcRect: CT_RelativeRect | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "a:srcRect", successors=("a:tile", "a:stretch")
+    )
 
 
 class CT_GraphicalObject(BaseOxmlElement):
@@ -720,8 +724,25 @@ class CT_PresetGeometry2D(BaseOxmlElement):
 
 
 class CT_RelativeRect(BaseOxmlElement):
-    """``<a:fillRect>`` element, specifying picture should fill containing rectangle
-    shape."""
+    """Relative rectangle element, e.g. ``<a:fillRect>`` / ``<a:srcRect>``.
+
+    Used for ``a:srcRect`` (image crop) where each attribute expresses a
+    percentage of the source image to cut off from the corresponding edge,
+    in 1000ths of a percent (e.g. ``50000`` means 50%).
+    """
+
+    l: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "l", XsdInt
+    )
+    t: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "t", XsdInt
+    )
+    r: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "r", XsdInt
+    )
+    b: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "b", XsdInt
+    )
 
 
 class CT_ShapeProperties(BaseOxmlElement):
@@ -739,6 +760,20 @@ class CT_ShapeProperties(BaseOxmlElement):
             "a:sp3d",
             "a:extLst",
         ),
+    )
+    ln: CT_LineProperties | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "a:ln",
+        successors=(
+            "a:effectLst",
+            "a:effectDag",
+            "a:scene3d",
+            "a:sp3d",
+            "a:extLst",
+        ),
+    )
+    effectLst: CT_EffectList | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "a:effectLst",
+        successors=("a:scene3d", "a:sp3d", "a:extLst"),
     )
 
     @property
@@ -802,3 +837,121 @@ class CT_Transform2D(BaseOxmlElement):
     def cy(self, value):
         ext = self.get_or_add_ext()
         ext.cy = value
+
+
+class CT_Alpha(BaseOxmlElement):
+    """``<a:alpha>`` element — alpha-channel value used to express transparency.
+
+    The ``val`` attribute is a ``ST_PositiveFixedPercentage`` in 1000ths of a
+    percent (e.g. ``50000`` means 50%). A value of ``100000`` is fully
+    opaque; a value of ``0`` is fully transparent.
+    """
+
+    val: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "val", XsdInt
+    )
+
+
+class CT_SolidColorFill(BaseOxmlElement):
+    """``<a:solidFill>`` element — a single solid RGB color fill.
+
+    Contains one color-choice child. Only ``a:srgbClr`` is modelled here
+    since that is the variant python-docx writes; other color choices may
+    be present on read-back and are preserved verbatim.
+    """
+
+    srgbClr = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "a:srgbClr",
+        successors=(
+            "a:scrgbClr",
+            "a:hslClr",
+            "a:sysClr",
+            "a:schemeClr",
+            "a:prstClr",
+        ),
+    )
+
+
+class CT_LineProperties(BaseOxmlElement):
+    """``<a:ln>`` element — line (outline/border) properties.
+
+    Exposes the ``w`` (line width in EMU) attribute plus a single
+    ``a:solidFill`` child for colour.
+    """
+
+    solidFill: CT_SolidColorFill | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "a:solidFill",
+        successors=(
+            "a:prstDash",
+            "a:custDash",
+            "a:round",
+            "a:bevel",
+            "a:miter",
+            "a:headEnd",
+            "a:tailEnd",
+            "a:extLst",
+        ),
+    )
+
+    w: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w", XsdInt
+    )
+    cap: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "cap", XsdString
+    )
+    cmpd: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "cmpd", XsdString
+    )
+    algn: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "algn", XsdString
+    )
+
+
+class CT_OuterShadow(BaseOxmlElement):
+    """``<a:outerShdw>`` element — outer drop-shadow effect.
+
+    Attributes ``blurRad`` and ``dist`` are in EMU; ``dir`` is a positive
+    fixed angle in 60000ths of a degree (``ST_PositiveFixedAngle``).
+    Exactly one color-choice child is present per the schema; only
+    ``a:srgbClr`` is modelled here.
+    """
+
+    srgbClr = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "a:srgbClr",
+        successors=(
+            "a:scrgbClr",
+            "a:hslClr",
+            "a:sysClr",
+            "a:schemeClr",
+            "a:prstClr",
+        ),
+    )
+
+    blurRad: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "blurRad", XsdInt
+    )
+    dist: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "dist", XsdInt
+    )
+    dir: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "dir", XsdInt
+    )
+    algn: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "algn", XsdString
+    )
+    rotWithShape: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "rotWithShape", XsdBoolean
+    )
+
+
+class CT_EffectList(BaseOxmlElement):
+    """``<a:effectLst>`` element — list of visual effects applied to a shape."""
+
+    outerShdw: CT_OuterShadow | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "a:outerShdw",
+        successors=(
+            "a:prstShdw",
+            "a:reflection",
+            "a:softEdge",
+        ),
+    )
