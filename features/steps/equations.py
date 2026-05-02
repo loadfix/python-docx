@@ -16,6 +16,7 @@ Some ``Given`` phrasings (for example ``a fresh default document``) are
 registered elsewhere in the steps package and are re-used here by keeping the
 wording identical.
 """
+"""Step implementations for OMML equation-builder features."""
 
 from __future__ import annotations
 
@@ -149,6 +150,7 @@ def then_xml_contains(context: Context, fragment: str):
         f"expected {fragment!r} in xml, got {context.xml!r}"
     )
 from docx.equations import Equation, build_subscript, build_superscript
+from docx.equations import Equation, build_radical
 
 from helpers import test_docx
 
@@ -164,6 +166,9 @@ def given_document_having_two_superscript_equations(context: Context):
 @given("a document having chained subscript equations")
 def given_document_having_chained_subscript_equations(context: Context):
     context.document = Document(test_docx("equ-subscript"))
+@given("a document having a radical-equation fixture")
+def given_document_with_radical_fixture(context: Context):
+    context.document = Document(test_docx("equ-radical"))
 
 
 # when ====================================================
@@ -204,6 +209,27 @@ def when_add_subscript_to_same_paragraph(
     context: Context, base: str, sub: str
 ):
     context.paragraph.add_equation(build_subscript(base, sub))
+@when('I build a radical with expr "{expr}" and no degree')
+def when_build_radical_no_degree(context: Context, expr: str):
+    context.omml_xml = build_radical(expr)
+    context.equation = Equation.from_omml_xml(context.omml_xml)
+
+
+@when('I build a radical with expr "{expr}" and degree "{degree}"')
+def when_build_radical_with_degree(context: Context, expr: str, degree: str):
+    context.omml_xml = build_radical(expr, degree)
+    context.equation = Equation.from_omml_xml(context.omml_xml)
+
+
+@when(
+    'I append a radical equation with expr "{expr}" and degree "{degree}" '
+    "to a new paragraph"
+)
+def when_append_radical_equation(context: Context, expr: str, degree: str):
+    paragraph = context.document.add_paragraph()
+    omml = build_radical(expr, degree)
+    context.paragraph = paragraph
+    context.equation = paragraph.add_equation(omml)
 
 
 # then ====================================================
@@ -226,6 +252,55 @@ def then_built_equation_is_display_mode(context: Context, value: str):
     expected = {"True": True, "False": False}[value]
     actual = context.built_equation.is_display_mode
     assert actual is expected, f"expected {expected!r}, got {actual!r}"
+@then('the OMML contains an "{tag}" element')
+def then_omml_contains_element(context: Context, tag: str):
+    raw = context.equation.raw_xml
+    needle = ("<%s" % tag).encode("utf-8")
+    assert needle in raw, f"{needle!r} not found in {raw!r}"
+
+
+@then('the OMML contains an empty "{tag}" element')
+def then_omml_contains_empty_element(context: Context, tag: str):
+    raw = context.equation.raw_xml
+    needle = ("<%s/>" % tag).encode("utf-8")
+    assert needle in raw, f"{needle!r} not found in {raw!r}"
+
+
+@then('the OMML contains a populated "{tag}" element')
+def then_omml_contains_populated_element(context: Context, tag: str):
+    raw = context.equation.raw_xml
+    # -- populated means opening tag followed by at least one child, not self-closing --
+    empty = ("<%s/>" % tag).encode("utf-8")
+    opened = ("<%s>" % tag).encode("utf-8")
+    assert opened in raw, f"{opened!r} not found in {raw!r}"
+    assert empty not in raw, f"unexpected empty {tag} in {raw!r}"
+
+
+@then('the equation text is "{text}"')
+def then_equation_text_is(context: Context, text: str):
+    actual = context.equation.text
+    assert actual == text, f"expected {text!r}, got {actual!r}"
+
+
+@then("the document has {count:d} radical equations")
+def then_document_has_radical_equations(context: Context, count: int):
+    radical_eqs = [
+        eq for eq in context.document.equations if b"<m:rad>" in eq.raw_xml
+    ]
+    assert len(radical_eqs) == count, (
+        f"expected {count} radical equations, got {len(radical_eqs)}"
+    )
+    context.radical_equations = radical_eqs
+
+
+@then('the third radical has a nested "{tag}" descendant')
+def then_third_radical_has_nested(context: Context, tag: str):
+    radical = context.radical_equations[2]
+    needle = ("<%s>" % tag).encode("utf-8")
+    count = radical.raw_xml.count(needle)
+    assert count >= 2, (
+        f"expected at least 2 {tag!r} elements (outer + nested), got {count}"
+    )
 
 
 @then("the paragraph has {count:d} equation")
@@ -252,6 +327,7 @@ def then_appended_equation_text(context: Context, text: str):
         f"expected appended equation.text {text!r}, got {actual!r}"
     )
 def then_paragraph_has_n_equations(context: Context, count: int):
+def then_paragraph_has_equations(context: Context, count: int):
     actual = len(context.paragraph.equations)
     assert actual == count, f"expected {count} equations, got {actual}"
 
@@ -326,3 +402,14 @@ def then_every_document_equation_raw_xml_contains(
     for eq in _doc_equations(context):
         raw = eq.raw_xml.decode("utf-8")
         assert fragment in raw, f"{fragment!r} not found in {raw!r}"
+@then('the appended equation text is "{text}"')
+def then_appended_equation_text(context: Context, text: str):
+    actual = context.equation.text
+    assert actual == text, f"expected {text!r}, got {actual!r}"
+
+
+@then("the appended equation is not display mode")
+def then_appended_equation_not_display_mode(context: Context):
+    assert context.equation.is_display_mode is False, (
+        "expected inline (non-display) equation"
+    )
