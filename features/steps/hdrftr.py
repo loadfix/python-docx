@@ -132,3 +132,107 @@ def then_header_2_text_eq_header_text(context):
     assert actual == expected, "header_2.paragraphs[0].text == %s" % actual
 
 
+# ==========================================================================
+# Odd / even / first-page headers & footers
+# (hdr-header-footer.feature extension)
+# ==========================================================================
+
+
+@given("a Section from the odd-even-hdrs document as section")
+def given_a_Section_from_the_odd_even_hdrs_document(context):
+    context.document = Document(test_docx("doc-odd-even-hdrs"))
+    context.section = context.document.sections[0]
+
+
+@when("I assign {value} to section.different_odd_and_even_pages_header_footer")
+def when_I_assign_to_different_odd_and_even_pages_hdrftr(context, value):
+    context.section.different_odd_and_even_pages_header_footer = eval(value)
+
+
+# NOTE: `when_I_assign_value_to_section_different_first_page_hdrftr` from
+# features/steps/section.py already handles the
+# "I assign {bool_val} to section.different_first_page_header_footer" step,
+# so we do not re-register it here.
+
+
+@then("section.different_odd_and_even_pages_header_footer is {value}")
+def then_section_different_odd_and_even_pages_header_footer_is(context, value):
+    actual = context.section.different_odd_and_even_pages_header_footer
+    expected = eval(value)
+    assert actual == expected, (
+        "section.different_odd_and_even_pages_header_footer is %s" % actual
+    )
+
+
+@then('section.header.paragraphs[0].text is "{text}"')
+def then_section_header_paragraphs_0_text_is(context, text):
+    actual = context.section.header.paragraphs[0].text
+    assert actual == text, f"section.header text is {actual!r}"
+
+
+@then('section.footer.paragraphs[0].text is "{text}"')
+def then_section_footer_paragraphs_0_text_is(context, text):
+    actual = context.section.footer.paragraphs[0].text
+    assert actual == text, f"section.footer text is {actual!r}"
+
+
+@then('section.even_page_header.paragraphs[0].text is "{text}"')
+def then_section_even_page_header_paragraphs_0_text_is(context, text):
+    actual = context.section.even_page_header.paragraphs[0].text
+    assert actual == text, f"section.even_page_header text is {actual!r}"
+
+
+@then('section.even_page_footer.paragraphs[0].text is "{text}"')
+def then_section_even_page_footer_paragraphs_0_text_is(context, text):
+    actual = context.section.even_page_footer.paragraphs[0].text
+    assert actual == text, f"section.even_page_footer text is {actual!r}"
+
+
+@then('section.first_page_header.paragraphs[0].text is "{text}"')
+def then_section_first_page_header_paragraphs_0_text_is(context, text):
+    actual = context.section.first_page_header.paragraphs[0].text
+    assert actual == text, f"section.first_page_header text is {actual!r}"
+
+
+@then('section.first_page_footer.paragraphs[0].text is "{text}"')
+def then_section_first_page_footer_paragraphs_0_text_is(context, text):
+    actual = context.section.first_page_footer.paragraphs[0].text
+    assert actual == text, f"section.first_page_footer text is {actual!r}"
+
+
+@then("section.even_page_header.is_linked_to_previous is {value}")
+def then_section_even_page_header_is_linked_to_previous_is(context, value):
+    actual = context.section.even_page_header.is_linked_to_previous
+    expected = eval(value)
+    assert actual == expected, (
+        "section.even_page_header.is_linked_to_previous is %s" % actual
+    )
+
+
+@then("section.even_page_footer.is_linked_to_previous is {value}")
+def then_section_even_page_footer_is_linked_to_previous_is(context, value):
+    actual = context.section.even_page_footer.is_linked_to_previous
+    expected = eval(value)
+    assert actual == expected, (
+        "section.even_page_footer.is_linked_to_previous is %s" % actual
+    )
+
+
+@then("section.first_page_header.is_linked_to_previous is {value}")
+def then_section_first_page_header_is_linked_to_previous_is(context, value):
+    actual = context.section.first_page_header.is_linked_to_previous
+    expected = eval(value)
+    assert actual == expected, (
+        "section.first_page_header.is_linked_to_previous is %s" % actual
+    )
+
+
+@then("section.first_page_footer.is_linked_to_previous is {value}")
+def then_section_first_page_footer_is_linked_to_previous_is(context, value):
+    actual = context.section.first_page_footer.is_linked_to_previous
+    expected = eval(value)
+    assert actual == expected, (
+        "section.first_page_footer.is_linked_to_previous is %s" % actual
+    )
+
+

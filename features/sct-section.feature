@@ -148,3 +148,65 @@ Feature: Access and change section properties
       | header      |  0.25  |
       | footer      |  0.5   |
       | gutter      |  0.25  |
+
+
+  # -- multi-column layout --------------------------------------------------
+
+  Scenario: Default section reports a single column
+    Given a Section with a single column as section
+     Then section.columns is a SectionColumns object
+      And section.columns.count is 1
+      And section.columns.equal_width is True
+      And section.columns.space is None
+      And len(section.columns) is 0
+
+
+  Scenario: Read equal-width multi-column settings
+    Given a Section with three equal columns as section
+     Then section.columns.count is 3
+      And section.columns.equal_width is True
+      And section.columns.space is 18 pt
+      And len(section.columns) is 0
+
+
+  Scenario: Read unequal-width multi-column settings
+    Given a Section with two unequal columns as section
+     Then section.columns.count is 2
+      And section.columns.equal_width is False
+      And len(section.columns) is 2
+      And section.columns[0].width is 2.5 inches
+      And section.columns[0].space is 0.5 inches
+      And section.columns[1].width is 4.0 inches
+
+
+  Scenario: Iterate over the columns sequence
+    Given a Section with two unequal columns as section
+     Then iterating section.columns yields 2 Column objects
+
+
+  Scenario Outline: Set section column count and spacing
+    Given a Section with two equal columns as section
+     When I assign <count> to section.columns.count
+      And I assign <space> to section.columns.space in pt
+     Then section.columns.count is <count>
+      And section.columns.space is <space> pt
+
+    Examples: Column count / space combinations
+      | count | space |
+      |     2 |    12 |
+      |     3 |    24 |
+      |     4 |    18 |
+
+
+  Scenario: Toggle equal_width
+    Given a Section with two equal columns as section
+     When I assign False to section.columns.equal_width
+     Then section.columns.equal_width is False
+
+
+  Scenario: Update individual Column width
+    Given a Section with two unequal columns as section
+     When I assign 3.0 inches to section.columns[0].width
+      And I assign 0.75 inches to section.columns[1].space
+     Then section.columns[0].width is 3.0 inches
+      And section.columns[1].space is 0.75 inches
