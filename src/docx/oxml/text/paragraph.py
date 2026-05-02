@@ -28,9 +28,10 @@ _TRANSPARENT_WRAPPERS = frozenset(
     {
         qn("w:smartTag"),
         qn("w:customXml"),
-        # -- tracked-insertion / move-destination are present in the final doc --
-        qn("w:ins"),
-        qn("w:moveTo"),
+        # -- w:ins / w:moveTo are NOT transparent: they represent tracked
+        # -- insertions / move-destinations whose content should be excluded
+        # -- from the paragraph's final-view text. Content is still reachable
+        # -- via revision_marks_text() / tracked_changes. --
     }
 )
 _RUN_LIKE_TAGS = frozenset(
@@ -61,9 +62,6 @@ def _iter_run_like(container: BaseOxmlElement):
     callers see a flat run-list regardless of the wrapper scaffolding:
 
     - ``w:smartTag`` / ``w:customXml`` — generic run wrappers.
-    - ``w:ins`` / ``w:moveTo`` — tracked-insertion and move-destination;
-      their run content *is* present in the final document and must be
-      visible to Find/Replace and text accessors.
     - ``w:sdt`` — yielded directly so that higher-level iterators that want
       content-control boundaries can see them; but note ``CT_P.text`` descends
       one level further so the inner text surfaces (see handling below).
@@ -71,8 +69,15 @@ def _iter_run_like(container: BaseOxmlElement):
       ``mc:Choice``; fall back to ``mc:Fallback`` when Choice has no run-like
       descendants.
 
+    ``w:ins`` / ``w:moveTo`` are NOT treated as transparent — their content
+    represents tracked insertions / move-destinations that should be excluded
+    from the paragraph's final-view text. Acceptance of the change (via
+    ``Document.accept_all_changes()`` or ``TrackedChange.accept()``) unwraps
+    the ``w:ins`` wrapper, at which point the inner runs become ordinary
+    children and are yielded normally.
+
     This is the fix for upstream #932 / #225 (smartTag), #1327 / #1389 / #335
-    / PR#1538 / PR#734 (sdt / AlternateContent / ins / moveTo).
+    / PR#1538 / PR#734 (sdt / AlternateContent).
     """
     for child in container:
         tag = child.tag

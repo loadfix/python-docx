@@ -131,7 +131,11 @@ class DescribeCT_P_TransparentWrapperExpansion:
     See upstream #1327, #1389, #335, PR#1538, PR#734.
     """
 
-    def it_descends_into_w_ins_for_paragraph_text(self):
+    def it_excludes_w_ins_content_from_paragraph_text(self):
+        """Tracked insertions are NOT visible in final-view paragraph text.
+
+        Their content is reachable via revision_marks_text() / tracked_changes.
+        """
         from docx.oxml.parser import parse_xml
 
         xml = (
@@ -145,9 +149,10 @@ class DescribeCT_P_TransparentWrapperExpansion:
             b'</w:p>'
         )
         p = cast(CT_P, parse_xml(xml))
-        assert p.text == "before inserted after"
+        assert p.text == "before  after"
 
-    def it_descends_into_w_moveTo_for_paragraph_text(self):
+    def it_excludes_w_moveTo_content_from_paragraph_text(self):
+        """Tracked move-destinations are NOT visible in final-view paragraph text."""
         from docx.oxml.parser import parse_xml
 
         xml = (
@@ -160,14 +165,15 @@ class DescribeCT_P_TransparentWrapperExpansion:
             b'</w:p>'
         )
         p = cast(CT_P, parse_xml(xml))
-        assert p.text == "X moved"
+        assert p.text == "X "
 
-    def it_yields_ins_and_moveTo_runs_from_iter_r_elements(self):
+    def it_excludes_ins_and_moveTo_runs_from_iter_r_elements(self):
         from docx.oxml.parser import parse_xml
 
         xml = (
             b'<w:p xmlns:w='
             b'"http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            b'<w:r><w:t>plain</w:t></w:r>'
             b'<w:ins w:id="1" w:author="A" w:date="2024-01-01T00:00:00Z">'
             b'<w:r><w:t>ins1</w:t></w:r>'
             b'</w:ins>'
@@ -178,7 +184,7 @@ class DescribeCT_P_TransparentWrapperExpansion:
         )
         p = cast(CT_P, parse_xml(xml))
         rs = list(p.iter_r_elements())
-        assert [r.text for r in rs] == ["ins1", "mv"]
+        assert [r.text for r in rs] == ["plain"]
 
     def it_descends_mc_AlternateContent_preferring_Choice(self):
         from docx.oxml.parser import parse_xml
