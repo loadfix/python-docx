@@ -73,6 +73,50 @@ class DescribeBaseOxmlElement:
         element.remove_all(*tagnames)
         assert element.xml == expected_xml
 
+    def it_accepts_custom_namespaces_on_xpath(self):
+        # -- upstream-PR#622: `xpath(namespaces=...)` merges extra prefixes on
+        # -- top of the built-in OOXML nsmap so callers can resolve custom
+        # -- XML parts without re-declaring every standard prefix.
+        from docx.oxml.ns import nsdecls
+
+        xml = (
+            '<w:document %s xmlns:custom="urn:example:custom">'
+            '<w:body><custom:tag w:val="hello"/></w:body>'
+            "</w:document>" % nsdecls("w")
+        ).encode()
+        root = parse_xml(xml)
+
+        hits = root.xpath(
+            ".//custom:tag", namespaces={"custom": "urn:example:custom"}
+        )
+
+        assert len(hits) == 1
+        assert hits[0].get(qn("w:val")) == "hello"
+
+    def it_can_compile_and_cache_xpath_expressions(self):
+        # -- upstream#342: repeated calls should reuse the compiled xpath.
+        from docx.oxml.xmlchemy import _XP
+
+        expr_a = _XP(".//w:p", {"w": "http://example"})
+        expr_b = _XP(".//w:p", {"w": "http://example"})
+        assert expr_a is expr_b, "xpath cache must return identical compiled objects"
+
+    def it_returns_empty_hits_when_namespace_is_unmapped(self):
+        # -- Without a custom namespace mapping, a prefix that isn't in the
+        # -- built-in nsmap raises or returns empty; with a custom mapping, it
+        # -- resolves correctly.
+        from docx.oxml.ns import nsdecls
+
+        xml = (
+            '<w:document %s xmlns:zz="urn:zzz">'
+            '<w:body><zz:marker/></w:body>'
+            "</w:document>" % nsdecls("w")
+        ).encode()
+        root = parse_xml(xml)
+
+        hits = root.xpath(".//zz:marker", namespaces={"zz": "urn:zzz"})
+        assert len(hits) == 1
+
     # fixtures ---------------------------------------------
 
     @pytest.fixture(

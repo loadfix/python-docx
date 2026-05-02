@@ -332,7 +332,7 @@ class OpcPackage:
         relationships for this package."""
         return Relationships(PACKAGE_URI.baseURI)
 
-    def save(self, pkg_file: str | IO[bytes]):
+    def save(self, pkg_file: str | IO[bytes], reproducible: bool = False):
         """Save this package to `pkg_file`.
 
         `pkg_file` can be either a file-path or a file-like object.
@@ -342,12 +342,19 @@ class OpcPackage:
         mismatch raises :class:`OSError`. This avoids the silently-truncated /
         no-file-created failure mode reported in upstream#1111 when callers
         pass e.g. ``"my:file.docx"`` as the save target.
+
+        When `reproducible` is True, the emitted zip archive uses fixed
+        timestamps and sorted member names so repeated saves of the same content
+        produce byte-identical output. Closes upstream#1042 / upstream-PR#810.
+
+        .. versionadded:: 1.3.0.dev0
+           The `reproducible` parameter.
         """
         if isinstance(pkg_file, str):
             _validate_save_path(pkg_file)
         for part in self.parts:
             part.before_marshal()
-        PackageWriter.write(pkg_file, self.rels, self.parts)
+        PackageWriter.write(pkg_file, self.rels, self.parts, reproducible=reproducible)
 
     @property
     def _extended_properties_part(self):

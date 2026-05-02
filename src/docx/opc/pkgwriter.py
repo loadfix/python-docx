@@ -29,13 +29,21 @@ class PackageWriter:
     """
 
     @staticmethod
-    def write(pkg_file, pkg_rels, parts):
+    def write(pkg_file, pkg_rels, parts, reproducible: bool = False):
         """Write a physical package (.pptx file) to `pkg_file` containing `pkg_rels` and
-        `parts` and a content types stream based on the content types of the parts."""
-        phys_writer = PhysPkgWriter(pkg_file)
+        `parts` and a content types stream based on the content types of the parts.
+
+        When `reproducible` is True, the underlying zip writer emits fixed
+        timestamps and sorted member names so repeated saves of the same input
+        produce byte-identical output. Closes upstream#1042 / upstream-PR#810.
+
+        .. versionadded:: 1.3.0.dev0
+           The `reproducible` parameter.
+        """
+        phys_writer = PhysPkgWriter(pkg_file, reproducible=reproducible)
         PackageWriter._write_content_types_stream(phys_writer, parts)
         PackageWriter._write_pkg_rels(phys_writer, pkg_rels)
-        PackageWriter._write_parts(phys_writer, parts)
+        PackageWriter._write_parts(phys_writer, parts, reproducible=reproducible)
         phys_writer.close()
 
     @staticmethod
@@ -46,9 +54,20 @@ class PackageWriter:
         phys_writer.write(CONTENT_TYPES_URI, cti.blob)
 
     @staticmethod
-    def _write_parts(phys_writer: PhysPkgWriter, parts: Iterable[Part]):
+    def _write_parts(
+        phys_writer: PhysPkgWriter,
+        parts: Iterable[Part],
+        reproducible: bool = False,
+    ):
         """Write the blob of each part in `parts` to the package, along with a rels item
-        for its relationships if and only if it has any."""
+        for its relationships if and only if it has any.
+
+        When `reproducible` is True, parts are emitted in sorted partname order.
+        The underlying reproducible writer also sorts internally before flushing,
+        so this is mostly for tidy debugging of write order.
+        """
+        if reproducible:
+            parts = sorted(parts, key=lambda p: p.partname)
         for part in parts:
             phys_writer.write(part.partname, part.blob)
             if len(part.rels):

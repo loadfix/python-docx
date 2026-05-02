@@ -76,6 +76,30 @@ class DescribePhysPkgReader:
         with pytest.raises(PackageNotFoundError):
             PhysPkgReader("foobar")
 
+    def it_raises_FileNotFoundError_when_path_does_not_exist(self, tmp_path):
+        # -- upstream#1410: distinguish missing file from not-a-zip file --
+        missing = str(tmp_path / "no-such-file.docx")
+
+        with pytest.raises(FileNotFoundError):
+            PhysPkgReader(missing)
+
+    def it_still_satisfies_PackageNotFoundError_for_missing_file(self, tmp_path):
+        # -- backward-compat: existing callers catching PackageNotFoundError
+        # -- still work for the missing-file case. --
+        missing = str(tmp_path / "no-such-file.docx")
+
+        with pytest.raises(PackageNotFoundError):
+            PhysPkgReader(missing)
+
+    def it_raises_NotADocxError_when_file_exists_but_is_not_a_zip(self, tmp_path):
+        from docx.opc.exceptions import NotADocxError
+
+        not_a_zip = tmp_path / "bogus.docx"
+        not_a_zip.write_bytes(b"this is plain text, not a zip")
+
+        with pytest.raises(NotADocxError):
+            PhysPkgReader(str(not_a_zip))
+
     def it_raises_EncryptedDocumentError_for_OLE_path(self, tmp_path):
         encrypted_path = tmp_path / "encrypted.docx"
         # -- OLE signature + some trailing bytes; enough to look like an OLE file --
@@ -203,6 +227,48 @@ class DescribeZipPkgWriter:
         pkg_file = io.BytesIO()
         yield pkg_file
         pkg_file.close()
+
+
+class DescribeReproducibleZipPkgWriter:
+    """Exercises the deterministic-save path (upstream#1042)."""
+
+    def it_uses_fixed_timestamps_for_every_member(self, tmp_docx_path):
+        from docx.opc.phys_pkg import REPRODUCIBLE_TIMESTAMP
+
+        pkg_writer = PhysPkgWriter(tmp_docx_path, reproducible=True)
+        pkg_writer.write(PackURI("/a.xml"), b"<a/>")
+        pkg_writer.write(PackURI("/b.xml"), b"<b/>")
+        pkg_writer.close()
+
+        with ZipFile(tmp_docx_path, "r") as zipf:
+            for info in zipf.infolist():
+                assert info.date_time == REPRODUCIBLE_TIMESTAMP
+
+    def it_writes_members_in_sorted_order(self, tmp_docx_path):
+        pkg_writer = PhysPkgWriter(tmp_docx_path, reproducible=True)
+        # -- write in reverse order deliberately --
+        pkg_writer.write(PackURI("/z.xml"), b"<z/>")
+        pkg_writer.write(PackURI("/a.xml"), b"<a/>")
+        pkg_writer.write(PackURI("/m.xml"), b"<m/>")
+        pkg_writer.close()
+
+        with ZipFile(tmp_docx_path, "r") as zipf:
+            names = zipf.namelist()
+        assert names == sorted(names)
+
+    def it_produces_byte_identical_output_across_runs(self, tmp_path):
+        import io
+        from docx import Document
+
+        document = Document()
+        document.add_paragraph("hello world")
+
+        out1 = io.BytesIO()
+        out2 = io.BytesIO()
+        document.save(out1, reproducible=True)
+        document.save(out2, reproducible=True)
+
+        assert out1.getvalue() == out2.getvalue()
 
 
 # fixtures -------------------------------------------------

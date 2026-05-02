@@ -164,6 +164,24 @@ class DescribeDocument:
         with pytest.raises(EncryptedDocumentError, match="msoffcrypto-tool"):
             DocumentFactoryFn(str(encrypted_path))
 
+    def it_raises_FileNotFoundError_on_missing_path(self, tmp_path):
+        # -- upstream#1410: missing file must raise FileNotFoundError so it
+        # -- behaves like a normal filesystem-missing error. --
+        missing = str(tmp_path / "no-such-file.docx")
+
+        with pytest.raises(FileNotFoundError):
+            DocumentFactoryFn(missing)
+
+    def it_raises_NotADocxError_on_non_zip_file(self, tmp_path):
+        # -- upstream#1410: existing file that isn't a zip raises NotADocxError --
+        from docx.opc.exceptions import NotADocxError
+
+        plain = tmp_path / "plain.docx"
+        plain.write_bytes(b"this is just text, not a zip")
+
+        with pytest.raises(NotADocxError):
+            DocumentFactoryFn(str(plain))
+
     def it_raises_EncryptedDocumentError_on_password_protected_stream(self):
         stream = io.BytesIO(_OLE_SIGNATURE + b"\x00" * 512)
 

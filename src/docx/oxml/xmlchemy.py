@@ -29,6 +29,33 @@ def serialize_for_reading(element: ElementBase):
     return XmlString(xml)
 
 
+from functools import lru_cache as _lru_cache  # noqa: E402
+
+
+@_lru_cache(maxsize=2048)
+def _XP_cached(
+    xpath_str: str, ns_items: frozenset[tuple[str, str]]
+) -> etree.XPath:
+    """Return a compiled ``etree.XPath`` for `xpath_str` + namespaces.
+
+    Keyed on the xpath expression string and the immutable namespace mapping
+    (as a ``frozenset`` of items) so look-ups are stable regardless of the
+    caller-supplied dict's iteration order. Closes upstream#342.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+    return etree.XPath(xpath_str, namespaces=dict(ns_items))
+
+
+def _XP(xpath_str: str, ns: dict[str, str]) -> etree.XPath:
+    """Convenience wrapper around :func:`_XP_cached` that accepts a plain dict.
+
+    The namespace dict is frozen into a ``frozenset`` before cache lookup so
+    the cache key is hashable and order-insensitive.
+    """
+    return _XP_cached(xpath_str, frozenset(ns.items()))
+
+
 class XmlString(str):
     """Provides string comparison override suitable for serialized XML that is useful
     for tests."""
@@ -710,12 +737,38 @@ class BaseOxmlElement(_OxmlElementBase, metaclass=MetaOxmlElement):
         """
         return serialize_for_reading(self)
 
-    def xpath(self, xpath_str: str, **kwargs: Any) -> Any:  # pyright: ignore[reportIncompatibleMethodOverride]
-        """Override of `lxml` _Element.xpath() method.
+    def xpath(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self,
+        xpath_str: str,
+        namespaces: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Override of `lxml` ``_Element.xpath()`` method.
 
-        Provides standard Open XML namespace mapping (`nsmap`) in centralized location.
+        Provides the standard Open XML namespace mapping (:data:`docx.oxml.ns.nsmap`)
+        in a centralized location so call sites don't have to re-declare common
+        prefixes like ``w:`` or ``a:``.
+
+        `namespaces` accepts a mapping of extra prefixes to merge on top of the
+        built-in nsmap — useful when working with custom XML parts, third-party
+        extension namespaces, or Microsoft extensions (e.g. ``w14:``) that aren't
+        in the default map. Prefixes already present in the default map can be
+        overridden by supplying the same key. Closes upstream-PR#622.
+
+        Uses a compiled-expression LRU cache (see :data:`_XP`) to amortize
+        ``etree.XPath`` compilation across repeated calls — hot xpaths like
+        ``.//w:p`` were being re-compiled on every invocation prior to this.
+        Closes upstream#342.
+
+        .. versionadded:: 1.3.0.dev0
+           The `namespaces` parameter and xpath expression cache.
         """
-        return super().xpath(xpath_str, namespaces=nsmap, **kwargs)
+        if namespaces:
+            merged: dict[str, str] = {**nsmap, **namespaces}
+        else:
+            merged = nsmap
+        compiled = _XP(xpath_str, merged)
+        return compiled(self, **kwargs)
 
     @property
     def _nsptag(self) -> str:
