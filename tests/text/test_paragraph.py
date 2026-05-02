@@ -240,6 +240,44 @@ class DescribeParagraph:
         assert img.vertical_offset == 457200
         assert img.wrap_type == WD_WRAP_TYPE.BEHIND
 
+    def it_can_add_a_floating_shape_by_coordinates(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.enum.shape import WD_ANCHOR_H, WD_ANCHOR_V, WD_WRAP_TYPE
+        from docx.oxml.shape import CT_Anchor as _CT_Anchor
+        from docx.parts.story import StoryPart
+        from docx.shape import FloatingImage
+
+        story_part_ = instance_mock(request, StoryPart)
+        anchor = _CT_Anchor.new_pic_anchor(1, "rId1", "foo.png", 1000, 2000)
+        story_part_.new_pic_anchor.return_value = anchor
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, FakeParent())
+
+        img = paragraph.add_floating_shape(
+            "foo.png",
+            x=111_111,
+            y=222_222,
+            width=1000,
+            height=2000,
+            h_anchor=WD_ANCHOR_H.PAGE,
+            v_anchor=WD_ANCHOR_V.MARGIN,
+            wrap=WD_WRAP_TYPE.BEHIND,
+        )
+
+        assert isinstance(img, FloatingImage)
+        assert img.horizontal_anchor == WD_ANCHOR_H.PAGE
+        assert img.vertical_anchor == WD_ANCHOR_V.MARGIN
+        assert img.horizontal_offset == 111_111
+        assert img.vertical_offset == 222_222
+        assert img.wrap_type == WD_WRAP_TYPE.BEHIND
+
     def it_can_add_a_shape(self, request: pytest.FixtureRequest):
         from docx.drawing import WordprocessingShape
         from docx.enum.shape import WD_SHAPE

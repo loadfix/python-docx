@@ -815,3 +815,220 @@ class DescribeFloatingImageOutline:
         assert isinstance(floating.outline, PictureOutline)
         assert floating.outline.width == Emu(9525)
         assert floating.outline.color == RGBColor(0, 0, 0xFF)
+
+
+# --- image-lifecycle tests ----------------------------------------------------
+
+
+class _FakeImageParts:
+    """Minimal stand-in for `docx.package.ImageParts` supporting `remove` + `in`."""
+
+    def __init__(self):
+        self._image_parts: list = []
+
+    def __contains__(self, item):
+        return item in self._image_parts
+
+    def append(self, item):
+        self._image_parts.append(item)
+
+    def remove(self, item):
+        self._image_parts.remove(item)
+
+    def __iter__(self):
+        return iter(self._image_parts)
+
+    def __len__(self):
+        return len(self._image_parts)
+
+
+class _FakePackage:
+    """Minimal package stand-in for delete/replace unit tests."""
+
+    def __init__(self):
+        self.image_parts = _FakeImageParts()
+        self._rels_for_iter = []
+
+    @property
+    def _image_parts(self):
+        # -- test-convenience shim so test bodies that poke at
+        #    `package._image_parts` keep working unchanged --
+        return self.image_parts._image_parts
+
+    def iter_rels(self):
+        for rel in self._rels_for_iter:
+            yield rel
+
+
+class _FakeRel:
+    def __init__(self, rId, target_part, is_external=False):
+        self.rId = rId
+        self.target_part = target_part
+        self.is_external = is_external
+
+
+class _FakePart:
+    """Story-part stand-in owning a rels dict and an XML element."""
+
+    def __init__(self, element, package):
+        self._element = element
+        self.package = package
+        from docx.opc.rel import Relationships
+        self.rels = Relationships("/word/document.xml")
+
+    def drop_rel(self, rId):
+        # -- same contract as docx.opc.part.Part.drop_rel --
+        if self._rel_ref_count(rId) < 2 and rId in self.rels:
+            del self.rels[rId]
+            self.rels._target_parts_by_rId.pop(rId, None)
+
+    def _rel_ref_count(self, rId):
+        from typing import cast as _cast
+        rIds = _cast("list[str]", self._element.xpath("//@r:id"))
+        return len([_rId for _rId in rIds if _rId == rId])
+
+    def relate_to(self, target_part, reltype, is_external=False):
+        rel = self.rels.get_or_add(reltype, target_part)
+        return rel.rId
+
+
+class DescribeInlineShape_delete:
+    """Unit-test suite for `InlineShape.delete`."""
+
+    def it_removes_the_drawing_and_drops_the_rId(self):
+        from docx.opc.constants import RELATIONSHIP_TYPE as _RT
+        from docx.parts.image import ImagePart as _ImagePart
+
+        run_el = element(
+            "w:p/w:r/w:drawing/wp:inline/a:graphic/a:graphicData/pic:pic/"
+            "pic:blipFill/a:blip{r:embed=rId4}"
+        )
+        # -- set up package + part + rels --
+        package = _FakePackage()
+        part = _FakePart(run_el, package)
+        image_part = Mock(spec=_ImagePart)
+        rel = part.rels.add_relationship(_RT.IMAGE, image_part, "rId4")
+        package._rels_for_iter = []  # -- no other refs after removal --
+        package._image_parts.append(image_part)
+
+        inline = run_el.xpath(".//wp:inline")[0]
+        InlineShape(cast(CT_Inline, inline)).delete(part=part)
+
+        # -- drawing is gone and run was pruned --
+        assert run_el.xpath(".//w:drawing") == []
+        assert run_el.xpath(".//w:r") == []
+        # -- rId removed from rels --
+        assert "rId4" not in part.rels
+        # -- image part removed from package cache --
+        assert image_part not in package._image_parts
+
+    def it_keeps_the_rId_when_another_drawing_still_references_it(self):
+        from docx.opc.constants import RELATIONSHIP_TYPE as _RT
+        from docx.parts.image import ImagePart as _ImagePart
+
+        body = element(
+            "w:body/(w:p/w:r/w:drawing/wp:inline/a:graphic/a:graphicData/pic:pic/"
+            "pic:blipFill/a:blip{r:embed=rId1},"
+            "w:p/w:r/w:drawing/wp:inline/a:graphic/a:graphicData/pic:pic/"
+            "pic:blipFill/a:blip{r:embed=rId1})"
+        )
+        package = _FakePackage()
+        part = _FakePart(body, package)
+        image_part = Mock(spec=_ImagePart)
+        part.rels.add_relationship(_RT.IMAGE, image_part, "rId1")
+        package._image_parts.append(image_part)
+
+        inline = body.xpath(".//wp:inline")[0]
+        InlineShape(cast(CT_Inline, inline)).delete(part=part)
+
+        # -- only one drawing removed; rId still present --
+        remaining_drawings = body.xpath(".//w:drawing")
+        assert len(remaining_drawings) == 1
+        assert "rId1" in part.rels
+
+
+class DescribeFloatingImage_delete:
+    """Unit-test suite for `FloatingImage.delete`."""
+
+    def it_removes_the_anchor_drawing_and_prunes_the_rId(self):
+        from docx.opc.constants import RELATIONSHIP_TYPE as _RT
+        from docx.parts.image import ImagePart as _ImagePart
+
+        run_el = element(
+            "w:p/w:r/w:drawing/wp:anchor/a:graphic/a:graphicData/pic:pic/"
+            "pic:blipFill/a:blip{r:embed=rId9}"
+        )
+        package = _FakePackage()
+        part = _FakePart(run_el, package)
+        image_part = Mock(spec=_ImagePart)
+        part.rels.add_relationship(_RT.IMAGE, image_part, "rId9")
+        package._image_parts.append(image_part)
+
+        anchor = run_el.xpath(".//wp:anchor")[0]
+        FloatingImage(cast(CT_Anchor, anchor)).delete(part=part)
+
+        assert run_el.xpath(".//w:drawing") == []
+        assert "rId9" not in part.rels
+        assert image_part not in package._image_parts
+
+
+class DescribeInlineShape_replace_image:
+    """Unit-test suite for `InlineShape.replace_image`."""
+
+    def it_rewrites_the_image_part_when_rId_is_exclusive(self, request: FixtureRequest):
+        from docx.opc.constants import RELATIONSHIP_TYPE as _RT
+        from docx.parts.image import ImagePart as _ImagePart
+        from .unitutil.mock import method_mock
+
+        # -- set up one drawing with a unique rId --
+        run_el = element(
+            "w:p/w:r/w:drawing/wp:inline/a:graphic/a:graphicData/pic:pic/"
+            "pic:blipFill/a:blip{r:embed=rIdA}"
+        )
+        old_image_part = Mock(spec=_ImagePart)
+        new_image_part = Mock(spec=_ImagePart)
+
+        package = _FakePackage()
+        package.get_or_add_image_part = Mock(return_value=new_image_part)
+
+        part = _FakePart(run_el, package)
+        part.rels.add_relationship(_RT.IMAGE, old_image_part, "rIdA")
+
+        inline = run_el.xpath(".//wp:inline")[0]
+        InlineShape(cast(CT_Inline, inline)).replace_image("new.png", part=part)
+
+        # -- rId preserved; target_part rebound to new image part --
+        blip = run_el.xpath(".//a:blip")[0]
+        assert blip.get(qn("r:embed")) == "rIdA"
+        assert part.rels["rIdA"].target_part is new_image_part
+        package.get_or_add_image_part.assert_called_once_with("new.png")
+
+    def it_allocates_a_new_rId_when_the_existing_rId_is_shared(
+        self, request: FixtureRequest
+    ):
+        from docx.opc.constants import RELATIONSHIP_TYPE as _RT
+        from docx.parts.image import ImagePart as _ImagePart
+
+        # -- two drawings sharing the same rId --
+        body = element(
+            "w:body/(w:p/w:r/w:drawing/wp:inline/a:graphic/a:graphicData/pic:pic/"
+            "pic:blipFill/a:blip{r:embed=rId1},"
+            "w:p/w:r/w:drawing/wp:inline/a:graphic/a:graphicData/pic:pic/"
+            "pic:blipFill/a:blip{r:embed=rId1})"
+        )
+        old_image_part = Mock(spec=_ImagePart)
+        new_image_part = Mock(spec=_ImagePart)
+        package = _FakePackage()
+        package.get_or_add_image_part = Mock(return_value=new_image_part)
+
+        part = _FakePart(body, package)
+        part.rels.add_relationship(_RT.IMAGE, old_image_part, "rId1")
+
+        inline = body.xpath(".//wp:inline")[0]
+        InlineShape(cast(CT_Inline, inline)).replace_image("new.png", part=part)
+
+        # -- first blip's embed was rebound, second was not --
+        blips = body.xpath(".//a:blip")
+        assert blips[0].get(qn("r:embed")) != "rId1"
+        assert blips[0].get(qn("r:embed")) in part.rels
+        assert blips[1].get(qn("r:embed")) == "rId1"

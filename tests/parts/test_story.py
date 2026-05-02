@@ -153,6 +153,57 @@ class DescribeStoryPart:
 
         assert story_part.next_id == 5
 
+    def it_can_create_a_linked_pic_inline(self, request):
+        from docx.oxml.ns import qn
+
+        story_part = StoryPart(None, None, None, None)
+        # -- patch helpers to avoid needing a real package / image file --
+        method_mock(
+            request,
+            StoryPart,
+            "_resolve_link_target",
+            return_value=("https://example.com/cat.png", "cat.png", 914400, 457200, None),
+        )
+        method_mock(request, StoryPart, "relate_to", return_value="rId7")
+        property_mock(request, StoryPart, "next_id", return_value=3)
+
+        inline = story_part.new_pic_inline(
+            None, link=True, save_with_document=False, url="https://example.com/cat.png"
+        )
+
+        blip = inline.find(".//" + qn("a:blip"))
+        assert blip is not None
+        assert blip.get(qn("r:link")) == "rId7"
+        assert blip.get(qn("r:embed")) is None
+
+    def it_can_create_a_linked_pic_anchor(self, request):
+        from docx.oxml.ns import qn
+
+        story_part = StoryPart(None, None, None, None)
+        method_mock(
+            request,
+            StoryPart,
+            "_resolve_link_target",
+            return_value=("c:\\foo.png", "foo.png", 914400, 457200, None),
+        )
+        method_mock(request, StoryPart, "relate_to", return_value="rId9")
+        property_mock(request, StoryPart, "next_id", return_value=4)
+
+        anchor = story_part.new_pic_anchor(
+            "c:\\foo.png", link=True, save_with_document=False
+        )
+
+        blip = anchor.find(".//" + qn("a:blip"))
+        assert blip is not None
+        assert blip.get(qn("r:link")) == "rId9"
+        assert blip.get(qn("r:embed")) is None
+
+    def it_raises_when_link_requires_a_target(self, request):
+        story_part = StoryPart(None, None, None, None)
+
+        with pytest.raises(ValueError, match="requires an image path/stream or a url"):
+            story_part._resolve_link_target(None, None, None, None)
+
     def it_knows_the_main_document_part_to_help(self, package_, document_part_):
         package_.main_document_part = document_part_
         story_part = StoryPart(None, None, None, package_)

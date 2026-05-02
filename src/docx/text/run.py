@@ -62,9 +62,12 @@ class Run(StoryChild):
 
     def add_picture(
         self,
-        image_path_or_stream: "str | os.PathLike[str] | IO[bytes]",
+        image_path_or_stream: "str | os.PathLike[str] | IO[bytes] | None" = None,
         width: int | Length | None = None,
         height: int | Length | None = None,
+        link: bool = False,
+        save_with_document: bool = True,
+        url: str | None = None,
     ) -> InlineShape:
         """Return |InlineShape| containing image identified by `image_path_or_stream`.
 
@@ -80,12 +83,30 @@ class Run(StoryChild):
         per-inch (dpi) value specified in the image file, defaulting to 72 dpi if no
         value is specified, as is often the case.
 
+        When `link` is |True| and `save_with_document` is |False|, the
+        picture is added as a linked (external) image: no image part is
+        created in the package and the `a:blip` uses ``r:link`` referencing
+        an external relationship. `url` may be supplied to link a remote
+        image; when both `url` and `image_path_or_stream` are supplied,
+        `url` becomes the link target while the local path is used only to
+        probe the native dimensions.
+
         .. versionchanged:: 1.3.0.dev0
            Accepts :class:`os.PathLike` path arguments.
+
+        .. versionadded:: 1.3.0.dev0
+            ``link``, ``save_with_document``, and ``url`` parameters.
         """
         if isinstance(image_path_or_stream, os.PathLike):
             image_path_or_stream = os.fspath(image_path_or_stream)
-        inline = self.part.new_pic_inline(image_path_or_stream, width, height)
+        inline = self.part.new_pic_inline(
+            image_path_or_stream,
+            width,
+            height,
+            link=link,
+            save_with_document=save_with_document,
+            url=url,
+        )
         self._r.add_drawing(inline)
         return InlineShape(inline, self.part)
 

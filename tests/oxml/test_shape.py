@@ -258,6 +258,26 @@ class DescribeCT_Inline:
         assert xfrm is not None
         assert xfrm.get("rot") == str(90 * 60000)
 
+    def it_builds_a_linked_pic_blip_when_link_is_True(self):
+        inline = CT_Inline.new_pic_inline(
+            1, "rIdX", "f.jpg", 100, 100, link=True
+        )
+
+        blip = inline.find(".//" + qn("a:blip"))
+        assert blip is not None
+        assert blip.get(qn("r:link")) == "rIdX"
+        assert blip.get(qn("r:embed")) is None
+
+    def it_builds_a_linked_anchor_blip_when_link_is_True(self):
+        anchor = CT_Anchor.new_pic_anchor(
+            1, "rIdX", "f.jpg", 100, 100, link=True
+        )
+
+        blip = anchor.find(".//" + qn("a:blip"))
+        assert blip is not None
+        assert blip.get(qn("r:link")) == "rIdX"
+        assert blip.get(qn("r:embed")) is None
+
 
 class DescribeCT_ShapeProperties:
     """Unit-test suite for outline/effect children on `pic:spPr`."""

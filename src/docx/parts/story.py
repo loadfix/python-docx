@@ -77,12 +77,29 @@ class StoryPart(XmlPart):
         image_descriptor: "str | os.PathLike[str] | IO[bytes]",
         width: int | Length | None = None,
         height: int | Length | None = None,
+        link: bool = False,
+        save_with_document: bool = True,
+        url: str | None = None,
     ) -> CT_Inline:
         """Return a newly-created `w:inline` element.
 
         The element contains the image specified by `image_descriptor` and is scaled
         based on the values of `width` and `height`.
+
+        When `link` is |True| and `save_with_document` is |False|, the
+        returned inline wraps an ``a:blip`` with ``r:link`` (a purely linked
+        picture). ``url`` may be used in place of a local path, in which case
+        the external relationship points to that URL; at least one of
+        `image_descriptor` or `url` must be supplied for linked pictures.
+
+        .. versionadded:: 1.3.0.dev0
+            ``link``, ``save_with_document``, and ``url`` parameters.
         """
+        if link and not save_with_document:
+            return self._new_linked_pic_inline(
+                image_descriptor, width, height, url=url
+            )
+
         rId, image = self.get_or_add_image(image_descriptor)
         cx, cy = image.scaled_dimensions(width, height)
         shape_id, filename = self.next_id, image.filename
@@ -102,6 +119,9 @@ class StoryPart(XmlPart):
         image_descriptor: "str | os.PathLike[str] | IO[bytes]",
         width: int | Length | None = None,
         height: int | Length | None = None,
+        link: bool = False,
+        save_with_document: bool = True,
+        url: str | None = None,
     ) -> CT_Anchor:
         """Return a newly-created `wp:anchor` element.
 
@@ -111,13 +131,108 @@ class StoryPart(XmlPart):
         SVG images with a fallback PNG are not supported for floating images in this
         minimal implementation; SVG inputs are embedded via the PNG fallback path only
         through the standard picture relationship as for a regular raster image.
+
+        When `link` is |True| and `save_with_document` is |False|, the
+        returned anchor references the image via an external ``r:link``
+        relationship. See :meth:`new_pic_inline` for the semantics of `url`.
+
+        .. versionadded:: 1.3.0.dev0
+            ``link``, ``save_with_document``, and ``url`` parameters.
         """
+        if link and not save_with_document:
+            return self._new_linked_pic_anchor(
+                image_descriptor, width, height, url=url
+            )
+
         rId, image = self.get_or_add_image(image_descriptor)
         cx, cy = image.scaled_dimensions(width, height)
         shape_id, filename = self.next_id, image.filename
         orientation = getattr(image, "orientation", None)
         return CT_Anchor.new_pic_anchor(
             shape_id, rId, filename, cx, cy, orientation=orientation
+        )
+
+    def _resolve_link_target(
+        self,
+        image_descriptor: str | IO[bytes] | None,
+        width: int | Length | None,
+        height: int | Length | None,
+        url: str | None,
+    ) -> tuple[str, str, Length, Length, int | None]:
+        """Return ``(target_ref, filename, cx, cy, orientation)`` for a linked image.
+
+        `target_ref` is the string written into the external relationship
+        TargetMode="External" attribute. When `image_descriptor` is a local
+        path, it is loaded so dimensions can be probed; when only `url` is
+        supplied, default 1" dimensions are returned and `filename` falls
+        back to the basename of the URL.
+        """
+        import os
+        from docx.image.image import Image as _Image
+        from docx.shared import Inches as _Inches
+
+        if image_descriptor is None and url is None:
+            raise ValueError(
+                "add_picture(link=True, save_with_document=False) requires "
+                "an image path/stream or a url"
+            )
+
+        if image_descriptor is not None:
+            image = _Image.from_file(image_descriptor)
+            cx, cy = image.scaled_dimensions(width, height)
+            filename = image.filename
+            orientation = getattr(image, "orientation", None)
+            if url is not None:
+                target_ref = url
+            elif isinstance(image_descriptor, str):
+                target_ref = image_descriptor
+            else:
+                target_ref = filename
+            return target_ref, filename, cx, cy, orientation
+
+        # -- URL-only path: we can't probe dimensions without fetching, so
+        #    apply a reasonable default of 1"x1" unless caller supplied both --
+        assert url is not None
+        from docx.shared import Emu as _Emu
+
+        native = _Inches(1)
+        cx_val = _Emu(int(width)) if width is not None else native
+        cy_val = _Emu(int(height)) if height is not None else native
+        filename = os.path.basename(url.split("?")[0]) or "image"
+        return url, filename, cx_val, cy_val, None
+
+    def _new_linked_pic_inline(
+        self,
+        image_descriptor: str | IO[bytes] | None,
+        width: int | Length | None,
+        height: int | Length | None,
+        url: str | None,
+    ) -> CT_Inline:
+        """Return a `wp:inline` wrapping a linked (external) picture blip."""
+        target_ref, filename, cx, cy, orientation = self._resolve_link_target(
+            image_descriptor, width, height, url
+        )
+        rId = self.relate_to(target_ref, RT.IMAGE, is_external=True)
+        shape_id = self.next_id
+        return CT_Inline.new_pic_inline(
+            shape_id, rId, filename, cx, cy, orientation=orientation, link=True
+        )
+
+    def _new_linked_pic_anchor(
+        self,
+        image_descriptor: str | IO[bytes] | None,
+        width: int | Length | None,
+        height: int | Length | None,
+        url: str | None,
+    ) -> CT_Anchor:
+        """Return a `wp:anchor` wrapping a linked (external) picture blip."""
+        target_ref, filename, cx, cy, orientation = self._resolve_link_target(
+            image_descriptor, width, height, url
+        )
+        rId = self.relate_to(target_ref, RT.IMAGE, is_external=True)
+        shape_id = self.next_id
+        return CT_Anchor.new_pic_anchor(
+            shape_id, rId, filename, cx, cy, orientation=orientation, link=True
         )
 
     def _new_svg_pic_inline(
