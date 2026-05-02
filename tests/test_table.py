@@ -1082,6 +1082,37 @@ class Describe_Cell:
         assert isinstance(table, Table)
         assert cell._element.xml == snippet_seq("new-tbl")[1]
 
+    def it_can_add_a_picture(self):
+        # -- upstream#10, upstream-PR#429: _Cell.add_picture mirrors
+        #    Paragraph.add_picture semantics via a newly-added paragraph.
+        from docx import Document as OpenDocument
+        from docx.shape import InlineShape
+
+        document = OpenDocument()
+        table = document.add_table(rows=1, cols=1)
+        cell = table.cell(0, 0)
+
+        shape = cell.add_picture("tests/test_files/python-icon.png")
+
+        assert isinstance(shape, InlineShape)
+        # -- the picture is carried on a newly-added paragraph --
+        assert any(
+            p._p.xpath(".//wp:inline") for p in cell.paragraphs
+        )
+
+    def it_accepts_a_PathLike_image_path_for_add_picture(self):
+        from pathlib import Path
+
+        from docx import Document as OpenDocument
+        from docx.shape import InlineShape
+
+        document = OpenDocument()
+        cell = document.add_table(rows=1, cols=1).cell(0, 0)
+
+        shape = cell.add_picture(Path("tests/test_files/python-icon.png"))
+
+        assert isinstance(shape, InlineShape)
+
     def it_can_merge_itself_with_other_cells(
         self, tc_: Mock, tc_2_: Mock, parent_: Mock, merged_tc_: Mock
     ):

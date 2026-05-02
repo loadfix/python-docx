@@ -77,6 +77,18 @@ class DescribeDocument:
         Package_.open.assert_called_once_with("foobar.docx", recover=False, huge_tree=False)
         assert document is document_
 
+    def it_accepts_a_PathLike_docx_path(self, Package_: Mock, document_: Mock):
+        # -- upstream-PR#1168: accept os.PathLike (e.g. pathlib.Path) --
+        document_part = Package_.open.return_value.main_document_part
+        document_part.document = document_
+        document_part.content_type = CT.WML_DOCUMENT_MAIN
+
+        document = DocumentFactoryFn(Path("foobar.docx"))
+
+        # -- os.fspath normalises the PathLike to str before delegating --
+        Package_.open.assert_called_once_with("foobar.docx", recover=False, huge_tree=False)
+        assert document is document_
+
     def it_opens_the_default_docx_if_none_specified(
         self, _default_docx_stream_: Mock, Package_: Mock, document_: Mock
     ):

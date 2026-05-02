@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import warnings
-from typing import TYPE_CHECKING, cast, overload
+from typing import IO, TYPE_CHECKING, cast, overload
 from collections.abc import Iterator
 
 from typing_extensions import TypeAlias
@@ -660,6 +661,29 @@ class _Cell(BlockItemContainer):
         characters, each of which is converted to a line break.
         """
         return super().add_paragraph(text, style)
+
+    def add_picture(
+        self,
+        image_path_or_stream: "str | os.PathLike[str] | IO[bytes]",
+        width: int | Length | None = None,
+        height: int | Length | None = None,
+    ):
+        """Return |InlineShape| for a picture added to this cell.
+
+        The picture is appended to the cell, in its own paragraph, and scaled based on
+        `width` and `height`. If neither is specified, the picture appears at its native
+        size. If only one is specified, it is used to compute a scaling factor that
+        preserves the image's aspect ratio.
+
+        `image_path_or_stream` may be a ``str`` path, an :class:`os.PathLike` (e.g.
+        :class:`pathlib.Path`), or a binary file-like object containing an image.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        if isinstance(image_path_or_stream, os.PathLike):
+            image_path_or_stream = os.fspath(image_path_or_stream)
+        run = self.add_paragraph().add_run()
+        return run.add_picture(image_path_or_stream, width, height)
 
     @property
     def borders(self) -> CellBorders:

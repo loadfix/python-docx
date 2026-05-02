@@ -12,6 +12,8 @@ from docx.oxml.ns import nsmap, qn
 from docx.shared import Emu, Parented, RGBColor
 
 if TYPE_CHECKING:
+    from docx.image.image import Image
+    from docx.opc.part import Part
     from docx.oxml.document import CT_Body
     from docx.oxml.shape import (
         CT_Anchor,
@@ -536,9 +538,10 @@ class InlineShape:
     """Proxy for an ``<wp:inline>`` element, representing the container for an inline
     graphical object."""
 
-    def __init__(self, inline: CT_Inline):
+    def __init__(self, inline: CT_Inline, part: Part | None = None):
         super().__init__()
         self._inline = inline
+        self._part = part
 
     @property
     def height(self) -> Length:
@@ -670,6 +673,95 @@ class InlineShape:
     @title.setter
     def title(self, value: str | None):
         self._inline.docPr.title = value
+
+    @property
+    def opacity(self) -> float | None:
+        """Image opacity as a float in ``[0.0, 1.0]``, or |None| when unset.
+
+        Reads ``a:blip/a:alphaModFix/@amt`` (a positive percentage expressed
+        in 1/1000ths of a percent, per DrawingML ``ST_PositivePercentage``)
+        and returns the equivalent fraction — e.g. ``amt=50000`` yields
+        ``0.5``. Returns |None| when no ``a:alphaModFix`` element is
+        present; since the spec default is 100%, callers can treat |None|
+        as fully opaque.
+
+        Assigning a float clamps the value to ``[0.0, 1.0]`` and writes the
+        corresponding ``@amt``. Assigning |None| removes the
+        ``a:alphaModFix`` element. Closes upstream#1316.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return _get_opacity(self._blip())
+
+    @opacity.setter
+    def opacity(self, value: float | None):
+        _set_opacity(self._blip(), value)
+
+    @property
+    def lock_aspect_ratio(self) -> bool:
+        """Whether this picture's aspect ratio is locked in Word.
+
+        Reads ``pic:nvPicPr/pic:cNvPicPr/a:picLocks/@noChangeAspect``. When
+        the element or attribute is absent the spec default is ``False``
+        (aspect *not* locked).
+
+        Assigning a bool creates the ``a:picLocks`` child element on demand
+        and writes the attribute. Assigning ``False`` clears the lock that
+        python-docx writes by default on newly-added pictures, matching the
+        upstream#1314 request. Closes upstream#1314.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return _get_lock_aspect(self._cNvPicPr())
+
+    @lock_aspect_ratio.setter
+    def lock_aspect_ratio(self, value: bool):
+        _set_lock_aspect(self._cNvPicPr(), value)
+
+    @property
+    def image(self) -> Image:
+        """The :class:`~docx.image.image.Image` referenced by this inline shape.
+
+        Resolves the related |ImagePart| via ``a:blip/@r:embed`` on the
+        containing part's relationships and returns its underlying |Image|.
+        Read-only. Raises :class:`ValueError` when this shape carries no
+        part reference (for example an |InlineShape| constructed directly
+        from XML) or when no ``r:embed`` rId is present. Closes upstream#249.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        if self._part is None:
+            raise ValueError(
+                "InlineShape.image requires a part reference; "
+                "construct the shape via add_picture() or InlineShapes[..]"
+            )
+        blip = self._blip()
+        if blip is None or blip.embed is None:
+            raise ValueError("inline shape has no embedded image reference")
+        image_part = self._part.related_parts[blip.embed]
+        return image_part.image
+
+    # -- helpers ---------------------------------------------------------------
+
+    def _blip(self):
+        """Return the `a:blip` child of this inline, or |None| when not a picture."""
+        graphicData = self._inline.graphic.graphicData
+        if graphicData.uri != nsmap["pic"]:
+            return None
+        pic = graphicData.pic
+        if pic is None:
+            return None
+        return pic.blipFill.blip
+
+    def _cNvPicPr(self):
+        """Return the `pic:cNvPicPr` child, or |None| when not a picture."""
+        graphicData = self._inline.graphic.graphicData
+        if graphicData.uri != nsmap["pic"]:
+            return None
+        pic = graphicData.pic
+        if pic is None:
+            return None
+        return pic.nvPicPr.cNvPicPr
 
 
 class FloatingImage:
@@ -852,6 +944,35 @@ class FloatingImage:
         return WD_INLINE_SHAPE.NOT_IMPLEMENTED
 
     @property
+    def opacity(self) -> float | None:
+        """Image opacity as a fraction in ``[0.0, 1.0]``, or |None| when unset.
+
+        See :attr:`InlineShape.opacity` for semantics. Closes upstream#1316.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return _get_opacity(self._blip())
+
+    @opacity.setter
+    def opacity(self, value: float | None):
+        _set_opacity(self._blip(), value)
+
+    @property
+    def lock_aspect_ratio(self) -> bool:
+        """Whether this floating picture's aspect ratio is locked in Word.
+
+        See :attr:`InlineShape.lock_aspect_ratio` for semantics. Closes
+        upstream#1314.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return _get_lock_aspect(self._cNvPicPr())
+
+    @lock_aspect_ratio.setter
+    def lock_aspect_ratio(self, value: bool):
+        _set_lock_aspect(self._cNvPicPr(), value)
+
+    @property
     def _pic(self) -> CT_Picture | None:
         """Underlying ``pic:pic`` element, or |None| for non-picture anchors."""
         graphic = self._anchor.graphic
@@ -896,3 +1017,68 @@ class FloatingImage:
         if pic is None:
             raise ValueError("effects are only available on picture anchors")
         return EffectsFormat(pic.spPr)
+
+    # -- helpers ---------------------------------------------------------------
+
+    def _blip(self):
+        """Return the `a:blip` element for this anchor's picture, or |None|."""
+        pic = self._pic
+        if pic is None:
+            return None
+        return pic.find(".//" + qn("a:blip"))
+
+    def _cNvPicPr(self):
+        """Return the `pic:cNvPicPr` element for this anchor's picture, or |None|."""
+        pic = self._pic
+        if pic is None:
+            return None
+        return pic.find(qn("pic:nvPicPr") + "/" + qn("pic:cNvPicPr"))
+
+
+# ---------------------------------------------------------------------------
+# Shared opacity / lock_aspect_ratio helpers for InlineShape and FloatingImage
+# ---------------------------------------------------------------------------
+
+
+def _get_opacity(blip):
+    """Return the opacity encoded on `blip` as a ``[0.0, 1.0]`` float, or |None|."""
+    if blip is None:
+        return None
+    amf = getattr(blip, "alphaModFix", None)
+    if amf is None:
+        return None
+    amt = amf.amt
+    if amt is None:
+        # -- default per spec is 100% when the element is present without @amt --
+        return 1.0
+    return max(0.0, min(1.0, amt / 100000.0))
+
+
+def _set_opacity(blip, value):
+    """Write `value` (``[0.0, 1.0]`` float or |None|) to `blip/a:alphaModFix/@amt`."""
+    if blip is None:
+        raise ValueError("cannot set opacity on a shape that is not a picture")
+    if value is None:
+        blip._remove_alphaModFix()  # pyright: ignore[reportPrivateUsage]
+        return
+    clamped = max(0.0, min(1.0, float(value)))
+    amf = blip.get_or_add_alphaModFix()
+    amf.amt = int(round(clamped * 100000))
+
+
+def _get_lock_aspect(cNvPicPr) -> bool:
+    if cNvPicPr is None:
+        return False
+    picLocks = getattr(cNvPicPr, "picLocks", None)
+    if picLocks is None:
+        return False
+    return bool(picLocks.noChangeAspect)
+
+
+def _set_lock_aspect(cNvPicPr, value: bool) -> None:
+    if cNvPicPr is None:
+        raise ValueError(
+            "cannot set lock_aspect_ratio on a shape that is not a picture"
+        )
+    picLocks = cNvPicPr.get_or_add_picLocks()
+    picLocks.noChangeAspect = bool(value)

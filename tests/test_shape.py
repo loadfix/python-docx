@@ -236,6 +236,105 @@ class DescribeInlineShape:
         assert inline_shape._inline.docPr.title is None
         assert "title" not in inline_shape._inline.docPr.attrib
 
+    # -- opacity / alphaModFix (upstream#1316) --------------------------------
+
+    def it_returns_None_for_opacity_when_absent(self):
+        # -- a bare picture inline has no a:alphaModFix in its a:blip --
+        inline = cast(
+            CT_Inline,
+            CT_Inline.new_pic_inline(shape_id=1, rId="rId1", filename="f.png", cx=1, cy=1),
+        )
+        assert InlineShape(inline).opacity is None
+
+    def it_can_set_and_read_opacity(self):
+        inline = cast(
+            CT_Inline,
+            CT_Inline.new_pic_inline(shape_id=1, rId="rId1", filename="f.png", cx=1, cy=1),
+        )
+        shape = InlineShape(inline)
+
+        shape.opacity = 0.25
+
+        # -- 25% as ST_PositivePercentage (1/1000ths of a percent) --
+        blip = inline.graphic.graphicData.pic.blipFill.blip
+        assert blip.alphaModFix is not None
+        assert blip.alphaModFix.amt == 25000
+        assert shape.opacity == pytest.approx(0.25)
+
+    def it_clamps_opacity_into_unit_interval(self):
+        inline = cast(
+            CT_Inline,
+            CT_Inline.new_pic_inline(shape_id=1, rId="rId1", filename="f.png", cx=1, cy=1),
+        )
+        shape = InlineShape(inline)
+
+        shape.opacity = 2.0
+        assert shape.opacity == 1.0
+
+        shape.opacity = -0.5
+        assert shape.opacity == 0.0
+
+    def it_removes_alphaModFix_when_opacity_set_to_None(self):
+        inline = cast(
+            CT_Inline,
+            CT_Inline.new_pic_inline(shape_id=1, rId="rId1", filename="f.png", cx=1, cy=1),
+        )
+        shape = InlineShape(inline)
+        shape.opacity = 0.5
+
+        shape.opacity = None
+
+        blip = inline.graphic.graphicData.pic.blipFill.blip
+        assert blip.alphaModFix is None
+        assert shape.opacity is None
+
+    # -- lock_aspect_ratio (upstream#1314) ------------------------------------
+
+    def it_defaults_lock_aspect_ratio_to_False_when_absent(self):
+        inline = cast(
+            CT_Inline,
+            CT_Inline.new_pic_inline(shape_id=1, rId="rId1", filename="f.png", cx=1, cy=1),
+        )
+        # -- the `pic:cNvPicPr` is present but empty; no `a:picLocks` child --
+        assert InlineShape(inline).lock_aspect_ratio is False
+
+    def it_can_release_and_reapply_the_aspect_ratio_lock(self):
+        inline = cast(
+            CT_Inline,
+            CT_Inline.new_pic_inline(shape_id=1, rId="rId1", filename="f.png", cx=1, cy=1),
+        )
+        shape = InlineShape(inline)
+
+        shape.lock_aspect_ratio = False
+        cNvPicPr = inline.graphic.graphicData.pic.nvPicPr.cNvPicPr
+        assert cNvPicPr.picLocks is not None
+        assert cNvPicPr.picLocks.noChangeAspect is False
+
+        shape.lock_aspect_ratio = True
+        assert cNvPicPr.picLocks.noChangeAspect is True
+        assert shape.lock_aspect_ratio is True
+
+    # -- `.image` read-only property (upstream#249) ---------------------------
+
+    def it_exposes_the_underlying_Image_via_rId(self):
+        from docx import Document as OpenDocument
+
+        document = OpenDocument()
+        inline_shape = document.add_picture("tests/test_files/python-icon.png")
+
+        image = inline_shape.image
+
+        assert image.content_type == "image/png"
+        assert image.filename == "python-icon.png"
+
+    def it_raises_when_image_is_requested_without_a_part(self):
+        inline = cast(
+            CT_Inline,
+            CT_Inline.new_pic_inline(shape_id=1, rId="rId1", filename="f.png", cx=1, cy=1),
+        )
+        with pytest.raises(ValueError, match="part reference"):
+            InlineShape(inline).image
+
 
 class DescribeFloatingImage:
     """Unit-test suite for `docx.shape.FloatingImage`."""
@@ -370,6 +469,32 @@ class DescribeFloatingImage:
 
         assert anchor.docPr.title is None
         assert "title" not in anchor.docPr.attrib
+
+    # -- opacity / alphaModFix (upstream#1316) --------------------------------
+
+    def it_can_set_opacity_on_a_floating_picture(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+
+        floating.opacity = 0.75
+
+        assert floating.opacity == pytest.approx(0.75)
+
+    def it_returns_None_for_opacity_when_not_set(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        assert FloatingImage(anchor).opacity is None
+
+    # -- lock_aspect_ratio (upstream#1314) ------------------------------------
+
+    def it_can_toggle_lock_aspect_ratio_on_a_floating_picture(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+
+        floating.lock_aspect_ratio = False
+        assert floating.lock_aspect_ratio is False
+
+        floating.lock_aspect_ratio = True
+        assert floating.lock_aspect_ratio is True
 
 
 # -- helpers for image-effect tests ----------------------------------------------------

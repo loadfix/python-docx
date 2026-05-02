@@ -383,9 +383,47 @@ class CT_Anchor(BaseOxmlElement):
         )
 
 
+class CT_AlphaModulateFixedEffect(BaseOxmlElement):
+    """``<a:alphaModFix>`` element, applies a fixed alpha modulation to a blip.
+
+    Its ``@amt`` attribute is expressed in 1/1000ths of a percent (matching
+    DrawingML's ``ST_PositivePercentage``) and represents the resulting
+    opacity — e.g. ``50000`` is 50% opacity. The spec default is ``100%``
+    (``100000``).
+
+    .. versionadded:: 1.3.0.dev0
+    """
+
+    amt: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "amt", XsdInt
+    )
+
+
 class CT_Blip(BaseOxmlElement):
     """``<a:blip>`` element, specifies image source and adjustments such as alpha and
     tint."""
+
+    # -- `a:blip` content is an unbounded choice of DrawingML effect children
+    # -- followed by an optional `a:extLst`. We only model `a:alphaModFix` for
+    # -- now (used for opacity); successors lists the remaining effect siblings
+    # -- plus `a:extLst` so insertion keeps document order. --
+    alphaModFix: CT_AlphaModulateFixedEffect | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "a:alphaModFix",
+        successors=(
+            "a:alphaRepl",
+            "a:biLevel",
+            "a:blur",
+            "a:clrChange",
+            "a:clrRepl",
+            "a:duotone",
+            "a:fillOverlay",
+            "a:grayscl",
+            "a:hsl",
+            "a:lum",
+            "a:tint",
+            "a:extLst",
+        ),
+    )
 
     embed: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "r:embed", ST_RelationshipId
@@ -565,8 +603,26 @@ class CT_NonVisualDrawingProps(BaseOxmlElement):
     )
 
 
+class CT_PictureLocking(BaseOxmlElement):
+    """``<a:picLocks>`` element, picture-level locking attributes.
+
+    ``@noChangeAspect`` controls whether the picture's aspect ratio is
+    locked against user resize in Word.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+
+    noChangeAspect: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "noChangeAspect", XsdBoolean
+    )
+
+
 class CT_NonVisualPictureProperties(BaseOxmlElement):
     """``<pic:cNvPicPr>`` element, specifies picture locking and resize behaviors."""
+
+    picLocks: CT_PictureLocking | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "a:picLocks", successors=("a:extLst",)
+    )
 
 
 class CT_Picture(BaseOxmlElement):
@@ -692,6 +748,9 @@ class CT_PictureNonVisual(BaseOxmlElement):
     """``<pic:nvPicPr>`` element, non-visual picture properties."""
 
     cNvPr = OneAndOnlyOne("pic:cNvPr")
+    cNvPicPr: CT_NonVisualPictureProperties = OneAndOnlyOne(  # pyright: ignore[reportAssignmentType]
+        "pic:cNvPicPr"
+    )
 
 
 class CT_Point2D(BaseOxmlElement):

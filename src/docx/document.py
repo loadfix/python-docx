@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import os
 import re
 from typing import IO, TYPE_CHECKING, cast
 from collections.abc import Iterator, Sequence
@@ -424,7 +425,7 @@ class Document(ElementProxy):
 
     def add_picture(
         self,
-        image_path_or_stream: str | IO[bytes],
+        image_path_or_stream: "str | os.PathLike[str] | IO[bytes]",
         width: int | Length | None = None,
         height: int | Length | None = None,
     ):
@@ -437,7 +438,15 @@ class Document(ElementProxy):
         aspect ratio of the image. The native size of the picture is calculated using
         the dots-per-inch (dpi) value specified in the image file, defaulting to 72 dpi
         if no value is specified, as is often the case.
+
+        `image_path_or_stream` may be a ``str`` path, an ``os.PathLike`` (e.g.
+        :class:`pathlib.Path`), or a binary file-like object.
+
+        .. versionchanged:: 1.3.0.dev0
+           Accepts :class:`os.PathLike` path arguments.
         """
+        if isinstance(image_path_or_stream, os.PathLike):
+            image_path_or_stream = os.fspath(image_path_or_stream)
         run = self.add_paragraph().add_run()
         return run.add_picture(image_path_or_stream, width, height)
 
