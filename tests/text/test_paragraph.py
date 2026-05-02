@@ -982,6 +982,21 @@ class DescribeParagraph:
         assert Run_.mock_calls == [call(r_, paragraph), call(r_2_, paragraph)]
         assert runs == [run_, run_2_]
 
+    def it_includes_smartTag_wrapped_runs_in_runs_list(self):
+        # -- upstream#932, #225: runs inside `w:smartTag` must be visible --
+        from docx.oxml.parser import parse_xml
+
+        xml_bytes = (
+            b'<w:p xmlns:w='
+            b'"http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            b'<w:r><w:t>a</w:t></w:r>'
+            b'<w:smartTag><w:r><w:t>b</w:t></w:r></w:smartTag>'
+            b'<w:r><w:t>c</w:t></w:r>'
+            b'</w:p>'
+        )
+        paragraph = Paragraph(cast(CT_P, parse_xml(xml_bytes)), None)
+        assert [r.text for r in paragraph.runs] == ["a", "b", "c"]
+
     def it_can_add_a_run_to_itself(self, add_run_fixture):
         paragraph, text, style, style_prop_, expected_xml = add_run_fixture
         run = paragraph.add_run(text, style)
@@ -1383,7 +1398,11 @@ class DescribeParagraph:
 
     @pytest.fixture
     def p_(self, request, r_, r_2_):
-        return instance_mock(request, CT_P, r_lst=(r_, r_2_))
+        p = instance_mock(request, CT_P, r_lst=(r_, r_2_))
+        # -- `Paragraph.runs` iterates via `iter_r_elements` so the mock must
+        # -- expose that generator-producing method. --
+        p.iter_r_elements.return_value = iter((r_, r_2_))
+        return p
 
     @pytest.fixture
     def ParagraphFormat_(self, request, paragraph_format_):

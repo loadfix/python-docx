@@ -2,11 +2,11 @@
 
 import pytest
 
-from docx.enum.style import WD_STYLE_TYPE
+from docx.enum.style import WD_STYLE, WD_STYLE_TYPE
 from docx.oxml.styles import CT_Style, CT_Styles
 from docx.styles.latent import LatentStyles
 from docx.styles.style import BaseStyle
-from docx.styles.styles import Styles
+from docx.styles.styles import Styles, _builtin_style_ui_name
 
 from ..unitutil.cxml import element
 from ..unitutil.mock import call, class_mock, function_mock, instance_mock, method_mock
@@ -40,6 +40,36 @@ class DescribeStyles:
         styles, key, expected_element = getitem_name_fixture
         style = styles[key]
         assert style._element is expected_element
+
+    def it_can_get_a_style_by_WD_BUILTIN_STYLE_enum_member(self):
+        # -- upstream#1439: `styles[WD_STYLE.BODY_TEXT]` used to raise KeyError --
+        styles = Styles(
+            element(
+                "w:styles/w:style{w:type=paragraph}/w:name{w:val=Body Text}"
+            )
+        )
+        expected_element = styles._element[0]
+
+        style = styles[WD_STYLE.BODY_TEXT]
+
+        assert style._element is expected_element
+
+    def it_can_get_a_heading_style_by_WD_BUILTIN_STYLE_enum_member(self):
+        styles = Styles(
+            element(
+                "w:styles/w:style{w:type=paragraph}/w:name{w:val=heading 1}"
+            )
+        )
+        expected_element = styles._element[0]
+
+        style = styles[WD_STYLE.HEADING_1]
+
+        assert style._element is expected_element
+
+    def it_raises_KeyError_for_missing_WD_BUILTIN_STYLE_member(self):
+        styles = Styles(element("w:styles"))
+        with pytest.raises(KeyError):
+            styles[WD_STYLE.BODY_TEXT]
 
     def it_raises_on_style_not_found(self, get_raises_fixture):
         styles, key = get_raises_fixture
@@ -399,3 +429,16 @@ class DescribeStyles:
     @pytest.fixture
     def styles_elm_(self, request):
         return instance_mock(request, CT_Styles)
+
+
+class DescribeBuiltinStyleUiName:
+    """Unit-test suite for `_builtin_style_ui_name` helper."""
+
+    def it_returns_Body_Text_for_BODY_TEXT(self):
+        assert _builtin_style_ui_name(WD_STYLE.BODY_TEXT) == "Body Text"
+
+    def it_returns_Heading_1_for_HEADING_1(self):
+        assert _builtin_style_ui_name(WD_STYLE.HEADING_1) == "Heading 1"
+
+    def it_returns_Normal_for_NORMAL(self):
+        assert _builtin_style_ui_name(WD_STYLE.NORMAL) == "Normal"

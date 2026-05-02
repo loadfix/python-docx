@@ -1119,8 +1119,16 @@ class Paragraph(StoryChild):
     @property
     def runs(self) -> list[Run]:
         """Sequence of |Run| instances corresponding to the <w:r> elements in this
-        paragraph."""
-        return [Run(r, self) for r in self._p.r_lst]
+        paragraph.
+
+        Descends transparently through ``w:smartTag`` and ``w:customXml``
+        wrappers so runs nested inside those elements are reported alongside
+        direct-child runs (upstream #932, #225). Runs nested inside
+        ``w:hyperlink``, ``w:fldSimple``, or ``w:sdt`` are not included here
+        (they surface via :attr:`hyperlinks`, :attr:`fields`, and
+        :attr:`content_controls` respectively).
+        """
+        return [Run(r, self) for r in self._p.iter_r_elements()]
 
     @property
     def style(self) -> ParagraphStyle | None:

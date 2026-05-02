@@ -24,6 +24,34 @@ if TYPE_CHECKING:
     from docx.oxml.text.font import CT_RPr
 
 
+_TRANSPARENT_WRAPPERS = frozenset({qn("w:smartTag"), qn("w:customXml")})
+_RUN_LIKE_TAGS = frozenset(
+    {qn("w:r"), qn("w:hyperlink"), qn("w:fldSimple"), qn("w:sdt")}
+)
+
+
+def _iter_run_like(container: BaseOxmlElement):
+    """Yield run-like children of ``container`` in document order.
+
+    ``w:r``, ``w:hyperlink``, ``w:fldSimple``, and ``w:sdt`` are yielded
+    directly. ``w:smartTag`` and ``w:customXml`` wrappers are transparent —
+    the iterator descends into them recursively and yields their run-like
+    descendants in place, so callers see a flat run-list regardless of
+    whether the runs are wrapped in smart-tag or custom-XML scaffolding.
+
+    This is the lightweight fix for upstream issues #932 / #225 (runs inside
+    ``w:smartTag`` being dropped by ``Paragraph.runs`` and ``CT_P.text``).
+    Descent into ``w:sdt`` (content controls) is *not* transparent here —
+    that is tracked separately in Phase B text cluster.
+    """
+    for child in container:
+        tag = child.tag
+        if tag in _TRANSPARENT_WRAPPERS:
+            yield from _iter_run_like(child)
+        elif tag in _RUN_LIKE_TAGS:
+            yield child
+
+
 class CT_P(BaseOxmlElement):
     """`<w:p>` element, containing the properties and text for a paragraph."""
 
@@ -269,9 +297,23 @@ class CT_P(BaseOxmlElement):
 
         Inner-content child elements like `w:r`, `w:hyperlink`, `w:fldSimple`, and
         `w:sdt` (structured document tag / content control) are translated to their
-        text equivalent.
+        text equivalent. Runs wrapped in ``w:smartTag`` or ``w:customXml``
+        elements are descended into transparently so their text is included
+        in document order (upstream #932, #225).
         """
-        return "".join(e.text for e in self.xpath("w:r | w:hyperlink | w:fldSimple | w:sdt"))
+        return "".join(e.text for e in _iter_run_like(self))
+
+    def iter_r_elements(self):
+        """Yield ``w:r`` descendants in document order, transparent to wrappers.
+
+        ``w:smartTag`` and ``w:customXml`` wrappers around runs are descended
+        into; the runs inside hyperlinks, fldSimple, or sdt are *not* yielded
+        (those are yielded by higher-level iterators as ``CT_Hyperlink``,
+        ``CT_FldSimple``, and ``CT_Sdt`` respectively). See upstream #932.
+        """
+        for el in _iter_run_like(self):
+            if el.tag == qn("w:r"):
+                yield el
 
     @property
     def tracked_change_elements(

@@ -32,6 +32,18 @@ class WD_PARAGRAPH_ALIGNMENT(BaseXmlEnum):
     JUSTIFY = (3, "both", "Fully justified.")
     """Fully justified."""
 
+    # -- Bidi-aware aliases. ``start`` maps to left-alignment and ``end`` to
+    # -- right-alignment for left-to-right paragraphs (which is what Word
+    # -- resolves them to at render time). Sharing the same ``ms_api_value``
+    # -- as LEFT/RIGHT makes ``member is WD_ALIGN_PARAGRAPH.LEFT`` and equality
+    # -- comparisons against the legacy names continue to work for callers
+    # -- that have branched on alignment before `start`/`end` existed.
+    START = (0, "start", "Left-aligned (logical start; alias of LEFT).")
+    """Left-aligned (logical start; alias of LEFT)."""
+
+    END = (2, "end", "Right-aligned (logical end; alias of RIGHT).")
+    """Right-aligned (logical end; alias of RIGHT)."""
+
     DISTRIBUTE = (
         4,
         "distribute",
@@ -62,6 +74,21 @@ class WD_PARAGRAPH_ALIGNMENT(BaseXmlEnum):
         "Justified according to Thai formatting layout.",
     )
     """Justified according to Thai formatting layout."""
+
+    @classmethod
+    def from_xml(cls, xml_value: str | None) -> "WD_PARAGRAPH_ALIGNMENT":
+        """Return the enum member for ``xml_value``.
+
+        Overridden to map the bidi-aware ``start``/``end`` XML values onto the
+        :attr:`LEFT` / :attr:`RIGHT` members. Word writes ``start`` and
+        ``end`` on RTL-aware paragraph alignment; mapping them to LEFT/RIGHT
+        preserves compatibility with existing equality checks.
+        """
+        if xml_value == "start":
+            return cls.LEFT
+        if xml_value == "end":
+            return cls.RIGHT
+        return super().from_xml(xml_value)
 
 
 WD_ALIGN_PARAGRAPH = WD_PARAGRAPH_ALIGNMENT
