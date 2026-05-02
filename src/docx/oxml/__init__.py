@@ -476,7 +476,9 @@ from .text.font import (
     CT_Highlight,
     CT_HpsMeasure,
     CT_Language,
+    CT_Ligatures,
     CT_RPr,
+    CT_TextScale,
     CT_Underline,
     CT_VerticalAlignRun,
 )
@@ -512,7 +514,9 @@ register_element_cls("w:szCs", CT_HpsMeasure)
 register_element_cls("w:u", CT_Underline)
 register_element_cls("w:vanish", CT_OnOff)
 register_element_cls("w:vertAlign", CT_VerticalAlignRun)
+register_element_cls("w:w", CT_TextScale)
 register_element_cls("w:webHidden", CT_OnOff)
+register_element_cls("w14:ligatures", CT_Ligatures)
 
 from .text.paragraph import CT_P
 
@@ -605,10 +609,13 @@ from .text.parfmt import (
     CT_TabStops,
 )
 
+register_element_cls("w:autoSpaceDE", CT_OnOff)
+register_element_cls("w:autoSpaceDN", CT_OnOff)
 register_element_cls("w:bar", CT_Border)
 register_element_cls("w:bdr", CT_Border)
 register_element_cls("w:between", CT_Border)
 register_element_cls("w:bottom", CT_Border)
+register_element_cls("w:contextualSpacing", CT_OnOff)
 register_element_cls("w:framePr", CT_FramePr)
 register_element_cls("w:ind", CT_Ind)
 register_element_cls("w:insideH", CT_Border)

@@ -1441,3 +1441,117 @@ class DescribeFont_RtlSizeAndName:
         assert rFonts.get(qn("w:eastAsiaTheme")) is None
         assert rFonts.get(qn("w:cstheme")) is None
         assert rFonts.get(qn("w:ascii")) == "Calibri"
+
+    # -- cs_size ---------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r/w:rPr", None),
+            ("w:r/w:rPr/w:szCs{w:val=24}", Pt(12)),
+        ],
+    )
+    def it_knows_its_cs_size(self, r_cxml: str, expected_value: Length | None):
+        r = cast(CT_R, element(r_cxml))
+        assert Font(r).cs_size == expected_value
+
+    def it_can_set_its_cs_size(self):
+        r = cast(CT_R, element("w:r"))
+        Font(r).cs_size = Pt(14)
+        assert r.xml == xml("w:r/w:rPr/w:szCs{w:val=28}")
+
+    def it_can_remove_its_cs_size(self):
+        r = cast(CT_R, element("w:r/w:rPr/w:szCs{w:val=24}"))
+        Font(r).cs_size = None
+        assert r.xml == xml("w:r/w:rPr")
+
+    # -- character_scale -------------------------------------------------
+
+    @pytest.mark.parametrize(
+        ("r_cxml", "expected_value"),
+        [
+            ("w:r", None),
+            ("w:r/w:rPr", None),
+            ("w:r/w:rPr/w:w{w:val=150}", 150),
+        ],
+    )
+    def it_knows_its_character_scale(self, r_cxml: str, expected_value: int | None):
+        r = cast(CT_R, element(r_cxml))
+        assert Font(r).character_scale == expected_value
+
+    def it_can_set_its_character_scale(self):
+        r = cast(CT_R, element("w:r"))
+        Font(r).character_scale = 80
+        assert r.xml == xml("w:r/w:rPr/w:w{w:val=80}")
+
+    def it_can_remove_its_character_scale(self):
+        r = cast(CT_R, element("w:r/w:rPr/w:w{w:val=150}"))
+        Font(r).character_scale = None
+        assert r.xml == xml("w:r/w:rPr")
+
+    # -- ligatures -------------------------------------------------------
+
+    def it_knows_its_ligatures_value(self):
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import parse_xml
+
+        xml_bytes = (
+            b'<w:r xmlns:w='
+            b'"http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+            b' xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">'
+            b'<w:rPr><w14:ligatures w14:val="standard"/></w:rPr>'
+            b'</w:r>'
+        )
+        r = cast(CT_R, parse_xml(xml_bytes))
+        assert Font(r).ligatures == "standard"
+
+    def it_can_set_its_ligatures_value(self):
+        from docx.oxml.ns import qn
+
+        r = cast(CT_R, element("w:r"))
+        Font(r).ligatures = "standardContextual"
+        lig = r.find(qn("w:rPr")).find(qn("w14:ligatures"))
+        assert lig is not None
+        assert lig.get(qn("w14:val")) == "standardContextual"
+
+    def it_can_remove_its_ligatures(self):
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import parse_xml
+
+        xml_bytes = (
+            b'<w:r xmlns:w='
+            b'"http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+            b' xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">'
+            b'<w:rPr><w14:ligatures w14:val="all"/></w:rPr>'
+            b'</w:r>'
+        )
+        r = cast(CT_R, parse_xml(xml_bytes))
+        Font(r).ligatures = None
+        assert r.find(qn("w:rPr")).find(qn("w14:ligatures")) is None
+
+    def it_returns_None_for_absent_ligatures(self):
+        r = cast(CT_R, element("w:r/w:rPr"))
+        assert Font(r).ligatures is None
+
+    # -- copy_to ---------------------------------------------------------
+
+    def it_can_copy_to_another_font(self):
+        src_r = cast(
+            CT_R, element("w:r/w:rPr/(w:b,w:i,w:sz{w:val=32})")
+        )
+        dst_r = cast(CT_R, element("w:r/w:rPr/w:u{w:val=single}"))
+
+        Font(src_r).copy_to(Font(dst_r))
+
+        # destination should now have src's rPr
+        assert dst_r.xml == xml("w:r/w:rPr/(w:b,w:i,w:sz{w:val=32})")
+
+    def it_clears_target_rPr_when_source_has_none(self):
+        src_r = cast(CT_R, element("w:r"))
+        dst_r = cast(CT_R, element("w:r/w:rPr/w:b"))
+
+        Font(src_r).copy_to(Font(dst_r))
+
+        # destination rPr is preserved but empty
+        assert dst_r.xml == xml("w:r/w:rPr")

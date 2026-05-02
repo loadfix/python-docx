@@ -225,8 +225,21 @@ class Font(ElementProxy):
     @property
     def color(self):
         """A |ColorFormat| object providing a way to get and set the text color for this
-        font."""
+        font.
+
+        Read-only property returning a |ColorFormat|; assignments set the run's
+        RGB color. Assigning an |RGBColor| is equivalent to
+        ``font.color.rgb = value``. Assigning |None| clears any direct color
+        (``w:rPr/w:color``).
+
+        .. versionadded:: 1.3.0.dev0
+            Assignment shorthand for ``font.color.rgb = <value>``.
+        """
         return ColorFormat(self._element)
+
+    @color.setter
+    def color(self, value: RGBColor | None) -> None:
+        ColorFormat(self._element).rgb = value
 
     @property
     def complex_script(self) -> bool | None:
@@ -751,6 +764,102 @@ class Font(ElementProxy):
     @shadow.setter
     def shadow(self, value: bool | None) -> None:
         self._set_bool_prop("shadow", value)
+
+    @property
+    def cs_size(self) -> Length | None:
+        """Complex-script (RTL / bidi) font height in English Metric Units.
+
+        Maps to ``w:rPr/w:szCs``. Returns |None| when ``w:szCs`` is absent
+        (inherited from the style hierarchy). Assigning |None| removes the
+        attribute.
+
+        Word uses ``w:szCs`` for Arabic / Hebrew / Farsi glyph sizing and
+        leaves them at the default when only ``w:sz`` is set. The main
+        :attr:`size` setter also writes ``w:szCs`` for symmetry; use
+        ``cs_size`` to override the complex-script size independently.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        return rPr.szCs_val
+
+    @cs_size.setter
+    def cs_size(self, emu: int | Length | None) -> None:
+        rPr = self._element.get_or_add_rPr()
+        rPr.szCs_val = None if emu is None else Emu(emu)
+
+    @property
+    def character_scale(self) -> int | None:
+        """Horizontal character-scale percentage (``w:rPr/w:w/@w:val``).
+
+        Integer percent, e.g. ``100`` for normal width, ``200`` for double-
+        width, ``50`` for half-width. Returns |None| when ``w:w`` is absent
+        (inherited). Assigning |None| removes the element.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        return rPr.w_val
+
+    @character_scale.setter
+    def character_scale(self, value: int | None) -> None:
+        rPr = self._element.get_or_add_rPr()
+        rPr.w_val = value
+
+    @property
+    def ligatures(self) -> str | None:
+        """OpenType ligature style (``w:rPr/w14:ligatures/@w14:val``).
+
+        String value such as ``"none"``, ``"standard"``,
+        ``"standardContextual"``, ``"historical"``, ``"discretional"``,
+        ``"all"``, or combinations like ``"standardContextualHistorical"``.
+        Returns |None| when ``w14:ligatures`` is absent. Assigning |None|
+        removes the element.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        rPr = self._element.rPr
+        if rPr is None:
+            return None
+        return rPr.ligatures_val
+
+    @ligatures.setter
+    def ligatures(self, value: str | None) -> None:
+        rPr = self._element.get_or_add_rPr()
+        rPr.ligatures_val = value
+
+    def copy_to(self, target: "Font") -> None:
+        """Replace `target`'s ``w:rPr`` children with a deep copy of this ``w:rPr``.
+
+        When this font has no ``w:rPr``, `target`'s ``w:rPr`` children (and
+        attributes) are cleared but the element is preserved. When this font
+        does have an ``w:rPr``, the target's ``w:rPr`` is ensured to exist
+        and its contents are replaced — the target run's character
+        formatting becomes identical to this run's.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from copy import deepcopy
+
+        source_rPr = self._element.rPr
+        target_rPr = target._element.get_or_add_rPr()
+        # -- clear target's existing children and attributes --
+        for child in list(target_rPr):
+            target_rPr.remove(child)
+        for attr_name in list(target_rPr.attrib):
+            del target_rPr.attrib[attr_name]
+        if source_rPr is None:
+            return
+        # -- copy attributes --
+        for attr_name, attr_value in source_rPr.attrib.items():
+            target_rPr.set(attr_name, attr_value)
+        # -- deep-copy children --
+        for child in source_rPr:
+            target_rPr.append(deepcopy(child))
 
     @property
     def size(self) -> Length | None:

@@ -785,3 +785,160 @@ class DescribeTextFrame:
         frame.width = None
 
         assert framePr.xml == xml("w:framePr{w:wrap=around}")
+
+
+class DescribeParagraphFormatNewFields:
+    """Unit tests for Phase C field additions on ParagraphFormat."""
+
+    # -- outline_level --------------------------------------------------
+
+    def it_reads_outline_level_as_None_when_not_present(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p")
+        assert ParagraphFormat(p).outline_level is None
+
+    def it_reads_outline_level_value(self):
+        from docx.enum.text import WD_OUTLINELVL
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p/w:pPr/w:outlineLvl{w:val=3}")
+        assert ParagraphFormat(p).outline_level == WD_OUTLINELVL.LEVEL_4
+
+    def it_writes_outline_level(self):
+        from docx.enum.text import WD_OUTLINELVL
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p")
+        ParagraphFormat(p).outline_level = WD_OUTLINELVL.LEVEL_1
+        assert p.xml == xml("w:p/w:pPr/w:outlineLvl{w:val=0}")
+
+    def it_writes_body_text_outline_level(self):
+        from docx.enum.text import WD_OUTLINELVL
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p")
+        ParagraphFormat(p).outline_level = WD_OUTLINELVL.BODY_TEXT
+        assert p.xml == xml("w:p/w:pPr/w:outlineLvl{w:val=10}")
+
+    def it_clears_outline_level(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p/w:pPr/w:outlineLvl{w:val=0}")
+        ParagraphFormat(p).outline_level = None
+        assert p.xml == xml("w:p/w:pPr")
+
+    def it_raises_on_invalid_outline_level(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p")
+        with pytest.raises(ValueError):
+            ParagraphFormat(p).outline_level = 42
+
+    # -- contextual_spacing ---------------------------------------------
+
+    def it_reads_contextual_spacing(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p/w:pPr/w:contextualSpacing")
+        assert ParagraphFormat(p).contextual_spacing is True
+
+    def it_writes_contextual_spacing(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p")
+        ParagraphFormat(p).contextual_spacing = True
+        assert p.xml == xml("w:p/w:pPr/w:contextualSpacing")
+
+    def it_clears_contextual_spacing(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p/w:pPr/w:contextualSpacing")
+        ParagraphFormat(p).contextual_spacing = None
+        assert p.xml == xml("w:p/w:pPr")
+
+    # -- first_line_chars ------------------------------------------------
+
+    def it_reads_first_line_chars(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p/w:pPr/w:ind{w:firstLineChars=200}")
+        assert ParagraphFormat(p).first_line_chars == 200
+
+    def it_reads_first_line_chars_as_None(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p")
+        assert ParagraphFormat(p).first_line_chars is None
+
+    def it_writes_first_line_chars(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p")
+        ParagraphFormat(p).first_line_chars = 300
+        assert p.xml == xml("w:p/w:pPr/w:ind{w:firstLineChars=300}")
+
+    def it_clears_first_line_chars(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p/w:pPr/w:ind{w:firstLineChars=200}")
+        ParagraphFormat(p).first_line_chars = None
+        assert p.xml == xml("w:p/w:pPr/w:ind")
+
+    # -- auto_space_de / auto_space_dn ----------------------------------
+
+    def it_reads_auto_space_de(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p/w:pPr/w:autoSpaceDE{w:val=0}")
+        assert ParagraphFormat(p).auto_space_de is False
+
+    def it_writes_auto_space_de(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p")
+        ParagraphFormat(p).auto_space_de = False
+        assert p.xml == xml("w:p/w:pPr/w:autoSpaceDE{w:val=0}")
+
+    def it_reads_auto_space_dn(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p/w:pPr/w:autoSpaceDN{w:val=0}")
+        assert ParagraphFormat(p).auto_space_dn is False
+
+    def it_writes_auto_space_dn(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p")
+        ParagraphFormat(p).auto_space_dn = True
+        assert p.xml == xml("w:p/w:pPr/w:autoSpaceDN")
+
+    # -- shading_color --------------------------------------------------
+
+    def it_reads_shading_color(self):
+        from docx.shared import RGBColor
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p/w:pPr/w:shd{w:val=clear,w:fill=FFFF00}")
+        assert ParagraphFormat(p).shading_color == RGBColor(0xFF, 0xFF, 0x00)
+
+    def it_reads_shading_color_as_None_when_absent(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p")
+        assert ParagraphFormat(p).shading_color is None
+
+    def it_writes_shading_color(self):
+        from docx.shared import RGBColor
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p")
+        ParagraphFormat(p).shading_color = RGBColor(0xAB, 0xCD, 0xEF)
+        assert p.xml == xml("w:p/w:pPr/w:shd{w:val=clear,w:fill=ABCDEF}")
+
+    def it_clears_shading_color(self):
+        from docx.text.parfmt import ParagraphFormat
+
+        p = element("w:p/w:pPr/w:shd{w:val=clear,w:fill=FFFF00}")
+        ParagraphFormat(p).shading_color = None
+        assert p.xml == xml("w:p/w:pPr")

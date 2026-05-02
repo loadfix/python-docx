@@ -102,6 +102,26 @@ class CT_HpsMeasure(BaseOxmlElement):
     val: Length = RequiredAttribute("w:val", ST_HpsMeasure)
 
 
+class CT_TextScale(BaseOxmlElement):
+    """`<w:w>` element — horizontal character scale as a percentage.
+
+    The ``w:val`` attribute is an integer percentage (0..600 in Word).
+    """
+
+    val: int | None = OptionalAttribute("w:val", ST_DecimalNumber)
+
+
+class CT_Ligatures(BaseOxmlElement):
+    """`<w14:ligatures>` element — OpenType ligature style.
+
+    The ``w14:val`` attribute is a string like ``"none"``, ``"standard"``,
+    ``"standardContextual"``, ``"historical"``, ``"discretional"``,
+    ``"all"``, or combinations such as ``"standardContextualHistorical"``.
+    """
+
+    val: str | None = OptionalAttribute("w14:val", ST_String)
+
+
 class CT_RPr(BaseOxmlElement):
     """`<w:rPr>` element, containing the properties for a run."""
 
@@ -117,6 +137,7 @@ class CT_RPr(BaseOxmlElement):
     get_or_add_sz: Callable[[], CT_HpsMeasure]
     get_or_add_szCs: Callable[[], CT_HpsMeasure]
     get_or_add_vertAlign: Callable[[], CT_VerticalAlignRun]
+    get_or_add_w: Callable[[], "CT_TextScale"]
     _add_rStyle: Callable[..., CT_String]
     _add_u: Callable[[], CT_Underline]
     _remove_bdr: Callable[[], None]
@@ -133,6 +154,7 @@ class CT_RPr(BaseOxmlElement):
     _remove_szCs: Callable[[], None]
     _remove_u: Callable[[], None]
     _remove_vertAlign: Callable[[], None]
+    _remove_w: Callable[[], None]
 
     _tag_seq = (
         "w:rStyle",
@@ -196,6 +218,9 @@ class CT_RPr(BaseOxmlElement):
     webHidden = ZeroOrOne("w:webHidden", successors=_tag_seq[18:])
     color: CT_Color | None = ZeroOrOne("w:color", successors=_tag_seq[19:])
     spacing = ZeroOrOne("w:spacing", successors=_tag_seq[20:])
+    w: "CT_TextScale | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:w", successors=_tag_seq[21:]
+    )
     kern: CT_HpsMeasure | None = ZeroOrOne("w:kern", successors=_tag_seq[22:])
     sz: CT_HpsMeasure | None = ZeroOrOne("w:sz", successors=_tag_seq[24:])
     szCs: CT_HpsMeasure | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
@@ -432,6 +457,50 @@ class CT_RPr(BaseOxmlElement):
             return
         sz = self.get_or_add_sz()
         sz.val = value
+
+    @property
+    def w_val(self) -> int | None:
+        """The integer percentage value of `w:w/@w:val`, or |None| if not present.
+
+        The ``w:w`` element specifies character width scaling in the run.
+        """
+        w = self.w
+        if w is None:
+            return None
+        return w.val
+
+    @w_val.setter
+    def w_val(self, value: int | None) -> None:
+        if value is None:
+            self._remove_w()
+            return
+        w = self.get_or_add_w()
+        w.val = value
+
+    @property
+    def ligatures_val(self) -> str | None:
+        """The string value of `w14:ligatures/@w14:val`, or |None| if not present."""
+        from docx.oxml.ns import qn
+
+        lig = self.find(qn("w14:ligatures"))
+        if lig is None:
+            return None
+        return lig.get(qn("w14:val"))
+
+    @ligatures_val.setter
+    def ligatures_val(self, value: str | None) -> None:
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import OxmlElement
+
+        lig = self.find(qn("w14:ligatures"))
+        if value is None:
+            if lig is not None:
+                self.remove(lig)
+            return
+        if lig is None:
+            lig = OxmlElement("w14:ligatures")
+            self.append(lig)
+        lig.set(qn("w14:val"), value)
 
     @property
     def szCs_val(self) -> Length | None:
