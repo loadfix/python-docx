@@ -507,16 +507,6 @@ def when_I_call_font_remove_language(context):
     context.font.remove_language()
 
 
-@when("I assign {value} to font.name_far_east")
-def when_I_assign_value_to_font_name_far_east(context, value):
-    context.font.name_far_east = None if value == "None" else value
-
-
-@when("I assign {value} to font.name_east_asia")
-def when_I_assign_value_to_font_name_east_asia(context, value):
-    context.font.name_east_asia = None if value == "None" else value
-
-
 @when("I assign {value} to font.shading_color")
 def when_I_assign_value_to_font_shading_color(context, value):
     context.font.shading_color = _parse_rgb(value)
@@ -560,18 +550,6 @@ def then_font_east_asian_language_is(context, value):
 def then_font_bidi_language_is(context, value):
     expected = None if value == "None" else value
     assert context.font.bidi_language == expected
-
-
-@then("font.name_far_east is {value}")
-def then_font_name_far_east_is(context, value):
-    expected = None if value == "None" else value
-    assert context.font.name_far_east == expected
-
-
-@then("font.name_east_asia is {value}")
-def then_font_name_east_asia_is(context, value):
-    expected = None if value == "None" else value
-    assert context.font.name_east_asia == expected
 
 
 @then("font.shading_color is {value}")

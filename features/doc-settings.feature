@@ -157,7 +157,7 @@ Feature: Document.settings
 
     Examples: Settings.compatibility_mode states
       | testfile               | value |
-      | doc-odd-even-hdrs      | 15    |
+      | doc-compat             | 15    |
 
 
   Scenario: Settings.default_tab_stop round-trip with a Length value
