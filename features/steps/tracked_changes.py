@@ -67,6 +67,12 @@ def given_the_trk_marks_document(context: Context):
     context.document = Document(test_docx("trk-marks"))
 
 
+@given("the trk-accept-del document")
+def given_the_trk_accept_del_document(context: Context):
+    context.document = Document(test_docx("trk-accept-del"))
+    context.accept_count = None
+
+
 # when =====================================================
 
 
@@ -448,6 +454,86 @@ def then_paragraph_has_count_direct_w_r(context: Context, p_idx: int, count: int
 @then("paragraph {p_idx:d} has {count:d} tracked change remaining")
 @then("paragraph {p_idx:d} has {count:d} tracked changes remaining")
 def then_paragraph_has_count_tracked_changes_remaining(
+# -- accept-side steps for tracked deletions -------------------------------------
+
+
+@when("I call document.accept_all_changes")
+def when_i_call_document_accept_all_changes(context: Context):
+    # -- accumulate when invoked more than once in a single scenario --
+    prior = context.accept_count or 0
+    context.accept_count = context.document.accept_all_changes()
+    context.accept_count_cumulative = prior + context.accept_count
+
+
+@when("I accept the only tracked change on paragraph {p_idx:d}")
+def when_i_accept_the_only_tracked_change_on_paragraph(context: Context, p_idx: int):
+    paragraph = context.document.paragraphs[p_idx]
+    changes = paragraph.tracked_changes
+    assert len(changes) == 1, (
+        f"expected exactly 1 tracked change on paragraph {p_idx}, got {len(changes)}"
+    )
+    changes[0].accept()
+
+
+@when("I accept every deletion-typed tracked change on paragraph {p_idx:d}")
+def when_i_accept_every_deletion_on_paragraph(context: Context, p_idx: int):
+    paragraph = context.document.paragraphs[p_idx]
+    # -- iterate over a snapshot because accept() mutates the underlying XML --
+    for tc in list(paragraph.tracked_changes):
+        if tc.type == "deletion":
+            tc.accept()
+
+
+@then("the accept-changes count is {count:d}")
+def then_the_accept_changes_count_is(context: Context, count: int):
+    assert context.accept_count == count, (
+        f"expected accept-changes count {count}, got {context.accept_count}"
+    )
+
+
+@then("the document has no w:del elements")
+def then_the_document_has_no_w_del_elements(context: Context):
+    dels = context.document._element.body.xpath(".//w:del")
+    assert dels == [], f"expected no w:del elements, got {len(dels)}"
+
+
+@then("the document has no w:delText elements")
+def then_the_document_has_no_w_delText_elements(context: Context):
+    dts = context.document._element.body.xpath(".//w:delText")
+    assert dts == [], f"expected no w:delText elements, got {len(dts)}"
+
+
+@then("the document has no w:cellDel elements")
+def then_the_document_has_no_w_cellDel_elements(context: Context):
+    cd = context.document._element.body.xpath(".//w:cellDel")
+    assert cd == [], f"expected no w:cellDel elements, got {len(cd)}"
+
+
+@then("the document has {count:d} w:del elements")
+def then_the_document_has_n_w_del_elements(context: Context, count: int):
+    dels = context.document._element.body.xpath(".//w:del")
+    assert len(dels) == count, (
+        f"expected {count} w:del elements, got {len(dels)}"
+    )
+
+
+@then('paragraph {p_idx:d} text is ""')
+def then_paragraph_p_idx_text_is_empty(context: Context, p_idx: int):
+    actual = context.document.paragraphs[p_idx].text
+    assert actual == "", f"paragraph {p_idx} text: expected empty, got {actual!r}"
+
+
+@then('paragraph {p_idx:d} text is "{expected}"')
+def then_paragraph_p_idx_text_is(context: Context, p_idx: int, expected: str):
+    actual = context.document.paragraphs[p_idx].text
+    assert actual == expected, (
+        f"paragraph {p_idx} text: expected {expected!r}, got {actual!r}"
+    )
+
+
+@then("paragraph {p_idx:d} still has {count:d} tracked change")
+@then("paragraph {p_idx:d} still has {count:d} tracked changes")
+def then_paragraph_still_has_n_tracked_changes(
     context: Context, p_idx: int, count: int
 ):
     actual = len(context.document.paragraphs[p_idx].tracked_changes)
@@ -489,3 +575,76 @@ def then_accept_all_changes_return_value_is(context: Context, count: int):
     assert actual == count, (
         f"expected accept_all_changes() == {count}, got {actual}"
     )
+        f"paragraph {p_idx}: expected {count} tracked change(s), got {actual}"
+    )
+
+
+@then("paragraph {p_idx:d} has no w:del children")
+def then_paragraph_has_no_w_del_children(context: Context, p_idx: int):
+    p = context.document.paragraphs[p_idx]._p
+    dels = p.xpath("./w:del")
+    assert dels == [], f"expected no direct-child w:del, got {len(dels)}"
+
+
+@then("paragraph {p_idx:d} has no w:delText descendants")
+def then_paragraph_has_no_w_delText_descendants(context: Context, p_idx: int):
+    p = context.document.paragraphs[p_idx]._p
+    dts = p.xpath(".//w:delText")
+    assert dts == [], f"expected no w:delText descendants, got {len(dts)}"
+
+
+@then("paragraph {p_idx:d} has no w:pPr/w:rPr/w:del marker")
+def then_paragraph_has_no_pmark_del(context: Context, p_idx: int):
+    p = context.document.paragraphs[p_idx]._p
+    pmark = p.xpath("./w:pPr/w:rPr/w:del")
+    assert pmark == [], (
+        f"expected no w:pPr/w:rPr/w:del on paragraph {p_idx}, got {len(pmark)}"
+    )
+
+
+@then("paragraph {p_idx:d} still has a w:ins child")
+def then_paragraph_still_has_a_w_ins_child(context: Context, p_idx: int):
+    p = context.document.paragraphs[p_idx]._p
+    inss = p.xpath("./w:ins")
+    assert len(inss) >= 1, (
+        f"expected at least one w:ins direct child, got {len(inss)}"
+    )
+
+
+@then('paragraph {p_idx:d} has {count:d} tracked change of type "{expected}"')
+@then('paragraph {p_idx:d} has {count:d} tracked changes of type "{expected}"')
+def then_paragraph_has_n_tracked_changes_of_type(
+    context: Context, p_idx: int, count: int, expected: str
+):
+    changes = context.document.paragraphs[p_idx].tracked_changes
+    assert len(changes) == count, (
+        f"paragraph {p_idx}: expected {count} tracked change(s), got {len(changes)}"
+    )
+    types = [tc.type for tc in changes]
+    assert all(t == expected for t in types), (
+        f"paragraph {p_idx}: expected all {expected!r}, got {types!r}"
+    )
+
+
+@then("the first table has {rows:d} row with {cells:d} cell")
+@then("the first table has {rows:d} row with {cells:d} cells")
+@then("the first table has {rows:d} rows with {cells:d} cell")
+@then("the first table has {rows:d} rows with {cells:d} cells")
+def then_the_first_table_has_rows_and_cells(
+    context: Context, rows: int, cells: int
+):
+    table = context.document.tables[0]
+    actual_rows = len(table.rows)
+    assert actual_rows == rows, (
+        f"expected {rows} row(s), got {actual_rows}"
+    )
+    actual_cells = len(table.rows[0].cells)
+    assert actual_cells == cells, (
+        f"expected {cells} cell(s) in row 0, got {actual_cells}"
+    )
+
+
+@then('the first cell text is "{expected}"')
+def then_the_first_cell_text_is(context: Context, expected: str):
+    actual = context.document.tables[0].cell(0, 0).text
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
