@@ -33,10 +33,47 @@ from docx import __version__  # noqa
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
-    "sphinx.ext.todo",
-    "sphinx.ext.coverage",
+    "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
 ]
+
+# -- Napoleon (Google / NumPy docstring support) ----------------------------
+napoleon_google_docstring = True
+napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = False
+napoleon_include_private_with_doc = False
+napoleon_include_special_with_doc = True
+
+
+def setup(app):
+    r"""Install a pre-napoleon hook that disables napoleon's attribute-style
+    parsing for property/attribute/data docstrings.
+
+    Napoleon treats concise attribute docstrings as ``"type : description"``
+    and splits on the first ``:``. Existing RST-style docstrings in this
+    project use single-backtick inline markup containing colons (e.g.
+    ``\`w:moveFrom\``), which napoleon misparses as a type field. We install
+    a handler at an earlier priority than napoleon's ``autodoc-process-
+    docstring`` listener so we can snapshot the lines, then a later handler
+    that restores them for property/attribute/data objects — effectively
+    making napoleon a no-op for those docstrings while leaving
+    method/function/class NumPy/Google parsing intact.
+    """
+    snapshots: dict = {}
+
+    def _snapshot(app, what, name, obj, options, lines):
+        if what in ("property", "attribute", "data"):
+            snapshots[name] = list(lines)
+
+    def _restore(app, what, name, obj, options, lines):
+        if what in ("property", "attribute", "data") and name in snapshots:
+            lines[:] = snapshots.pop(name)
+
+    # Napoleon's listener registers at default priority (500). Use 100 for
+    # snapshot (runs first) and 900 for restore (runs last).
+    app.connect("autodoc-process-docstring", _snapshot, priority=100)
+    app.connect("autodoc-process-docstring", _restore, priority=900)
+
 
 # Add any paths that contain templates here, relative to this directory.
 # templates_path = ["_templates"]
