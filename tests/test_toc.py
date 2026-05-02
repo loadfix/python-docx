@@ -266,6 +266,65 @@ class DescribeParagraphInsertTableOfContents:
         assert "H2" in result
 
 
+class DescribeDocumentAddListOfFigures:
+    """Unit-test suite for `Document.add_list_of_figures`."""
+
+    def it_appends_a_LoF_paragraph_with_a_TOC_c_Figure_field(self):
+        document: DocumentCls = Document()
+        start_count = len(document.paragraphs)
+
+        paragraph = document.add_list_of_figures()
+
+        assert isinstance(paragraph, Paragraph)
+        assert len(document.paragraphs) == start_count + 1
+        field = paragraph.fields[0]
+        assert field.is_complex is True
+        assert field.type == "TOC"
+        assert field.instruction.strip() == 'TOC \\c "Figure"'
+
+    def it_marks_the_field_dirty_so_Word_rebuilds_it_on_open(self):
+        document: DocumentCls = Document()
+
+        paragraph = document.add_list_of_figures()
+
+        assert paragraph.fields[0].is_dirty is True
+
+    def it_honors_a_custom_caption_label(self):
+        document: DocumentCls = Document()
+
+        paragraph = document.add_list_of_figures(caption_label="Illustration")
+
+        assert paragraph.fields[0].instruction.strip() == 'TOC \\c "Illustration"'
+
+
+class DescribeDocumentAddListOfTables:
+    """Unit-test suite for `Document.add_list_of_tables`."""
+
+    def it_appends_a_LoT_paragraph_with_a_TOC_c_Table_field(self):
+        document: DocumentCls = Document()
+
+        paragraph = document.add_list_of_tables()
+
+        field = paragraph.fields[0]
+        assert field.is_complex is True
+        assert field.type == "TOC"
+        assert field.instruction.strip() == 'TOC \\c "Table"'
+
+    def it_marks_the_field_dirty(self):
+        document: DocumentCls = Document()
+
+        paragraph = document.add_list_of_tables()
+
+        assert paragraph.fields[0].is_dirty is True
+
+    def it_honors_a_custom_caption_label(self):
+        document: DocumentCls = Document()
+
+        paragraph = document.add_list_of_tables(caption_label="Figura")
+
+        assert paragraph.fields[0].instruction.strip() == 'TOC \\c "Figura"'
+
+
 class DescribePopulateTocParagraph:
     """Unit-test suite for the low-level `populate_toc_paragraph` helper."""
 

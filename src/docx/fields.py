@@ -245,6 +245,61 @@ class Field:
             return self.result_text
         return text
 
+    def mark_dirty(self) -> None:
+        """Mark this field's cached result as stale (``@w:dirty="true"``).
+
+        Word consults the ``w:dirty`` attribute on the field's ``w:fldChar``
+        begin marker (complex fields) or on the ``w:fldSimple`` element
+        (simple fields) to decide whether to re-evaluate the field on open.
+        Setting this flag is the programmatic equivalent of right-clicking
+        the field in Word and choosing *Update Field*: Word will recompute
+        the result the next time the document is opened or refreshed.
+
+        This is especially useful for ``TOC`` fields where the cached
+        preview python-docx produces is not a real rendering — marking the
+        TOC dirty forces Word to rebuild it on open. Closes upstream#1403.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        if self._kind == "simple":
+            self._element.set(qn("w:dirty"), "true")
+            return
+        # -- complex field: find the `w:fldChar` with @fldCharType="begin"
+        #    inside the begin-run and set its `w:dirty` attribute --
+        for child in self._element:
+            if child.tag != qn("w:fldChar"):
+                continue
+            if child.get(qn("w:fldCharType")) == "begin":
+                child.set(qn("w:dirty"), "true")
+                return
+
+    @property
+    def is_dirty(self) -> bool:
+        """True when this field is marked dirty (``@w:dirty="true"``).
+
+        For simple fields this reads ``w:fldSimple/@w:dirty``; for complex
+        fields it reads the ``@w:dirty`` attribute on the ``begin``
+        ``w:fldChar`` marker. Values are interpreted using ST_OnOff
+        semantics: ``"true"``, ``"1"``, and ``"on"`` (case-insensitive)
+        count as true; anything else (including the attribute's absence)
+        as false.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        if self._kind == "simple":
+            val = self._element.get(qn("w:dirty"))
+        else:
+            val = None
+            for child in self._element:
+                if child.tag != qn("w:fldChar"):
+                    continue
+                if child.get(qn("w:fldCharType")) == "begin":
+                    val = child.get(qn("w:dirty"))
+                    break
+        if val is None:
+            return False
+        return val.strip().lower() in ("true", "1", "on")
+
     def update_result_text(self, new_text: str) -> None:
         """Replace this field's rendered result with `new_text`.
 

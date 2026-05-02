@@ -413,6 +413,8 @@ class CT_Settings(BaseOxmlElement):
     _remove_defaultTabStop: Callable[[], None]
     get_or_add_evenAndOddHeaders: Callable[[], CT_OnOff]
     _remove_evenAndOddHeaders: Callable[[], None]
+    get_or_add_updateFields: Callable[[], CT_OnOff]
+    _remove_updateFields: Callable[[], None]
     get_or_add_footnotePr: Callable[[], "CT_FtnDocProps"]
     _remove_footnotePr: Callable[[], None]
     get_or_add_endnotePr: Callable[[], "CT_EdnDocProps"]
@@ -575,6 +577,9 @@ class CT_Settings(BaseOxmlElement):
     evenAndOddHeaders: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:evenAndOddHeaders", successors=_tag_seq[48:]
     )
+    updateFields: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:updateFields", successors=_tag_seq[77:]
+    )
     footnotePr: "CT_FtnDocProps | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:footnotePr", successors=_tag_seq[79:]
     )
@@ -654,6 +659,21 @@ class CT_Settings(BaseOxmlElement):
             self._remove_trackRevisions()
             return
         self.get_or_add_trackRevisions().val = value
+
+    @property
+    def updateFields_val(self) -> bool:
+        """True if `w:updateFields` is present and enabled."""
+        updateFields = self.updateFields
+        if updateFields is None:
+            return False
+        return updateFields.val
+
+    @updateFields_val.setter
+    def updateFields_val(self, value: bool | None):
+        if value is None or value is False:
+            self._remove_updateFields()
+            return
+        self.get_or_add_updateFields().val = value
 
     @property
     def defaultTabStop_val(self) -> Length | None:

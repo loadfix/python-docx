@@ -151,6 +151,33 @@ class DescribeSettings:
     @pytest.mark.parametrize(
         ("cxml", "expected_value"),
         [
+            ("w:settings", False),
+            ("w:settings/w:updateFields", True),
+            ("w:settings/w:updateFields{w:val=0}", False),
+            ("w:settings/w:updateFields{w:val=true}", True),
+        ],
+    )
+    def it_can_get_update_fields_on_open(self, cxml: str, expected_value: bool):
+        assert Settings(element(cxml)).update_fields_on_open is expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            ("w:settings", True, "w:settings/w:updateFields"),
+            ("w:settings/w:updateFields", False, "w:settings"),
+            ("w:settings/w:trackRevisions", True, "w:settings/(w:trackRevisions,w:updateFields)"),
+        ],
+    )
+    def it_can_set_update_fields_on_open(
+        self, cxml: str, new_value: bool, expected_cxml: str
+    ):
+        settings = Settings(element(cxml))
+        settings.update_fields_on_open = new_value
+        assert settings._settings.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
             ("w:settings", None),
             ("w:settings/w:defaultTabStop{w:val=720}", Twips(720)),
         ],
