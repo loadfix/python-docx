@@ -2,6 +2,14 @@
 
 python-docx fork (loadfix/python-docx) — extending python-docx with footnotes, endnotes, track changes, fields, bookmarks, and other missing OOXML capabilities.
 
+This project is one of a sibling series of OOXML libraries under the loadfix org:
+
+- **loadfix/python-docx** — Word `.docx` (this repo)
+- **loadfix/python-pptx** — PowerPoint `.pptx`
+- **loadfix/python-xlsx** — Excel `.xlsx`
+
+The three libraries share an architectural lineage (three-layer proxy/part/oxml pattern over lxml) and OOXML spec conventions. When implementing a feature that exists across the trio, consult the sibling repos for naming and API-shape precedent.
+
 ## Architecture
 
 Three-layer pattern:
