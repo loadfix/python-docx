@@ -233,23 +233,108 @@ Feature: Get or set font properties
       | web_hidden        |
 
 
-  Scenario: Get East Asian typeface name when not specified
+  Scenario: Get font.kerning when unset
+    Given a font
+     Then font.kerning is None
+
+
+  Scenario Outline: Set and get font.kerning
+    Given a font
+     When I assign <value> to font.kerning
+     Then font.kerning is <expected>
+
+    Examples: font.kerning values (half-points via Pt)
+      | value   | expected |
+      | Pt(10)  | Pt(10)   |
+      | Pt(8)   | Pt(8)    |
+      | None    | None     |
+
+
+  Scenario: Get font.character_spacing when unset
+    Given a font
+     Then font.character_spacing is None
+
+
+  Scenario Outline: Set and get font.character_spacing
+    Given a font
+     When I assign <value> to font.character_spacing
+     Then font.character_spacing is <expected>
+
+    Examples: font.character_spacing values (twentieths of a point via Pt)
+      | value    | expected |
+      | Pt(1)    | Pt(1)    |
+      | Pt(-0.5) | Pt(-0.5) |
+      | None     | None     |
+
+
+  Scenario: Get font.right_to_left default
+    Given a font
+     Then font.right_to_left is False
+
+
+  Scenario Outline: Set font.right_to_left
+    Given a font
+     When I assign <value> to font.right_to_left
+     Then font.right_to_left is <expected>
+
+    Examples: right-to-left toggle
+      | value | expected |
+      | True  | True     |
+      | False | False    |
+      | None  | False    |
+
+
+  Scenario: Get font.language when unset
+    Given a font
+     Then font.language is None
+      And font.east_asian_language is None
+      And font.bidi_language is None
+
+
+  Scenario Outline: Set language tags
+    Given a font
+     When I assign <value> to font.<prop_name>
+     Then font.<prop_name> is <expected>
+
+    Examples: language-tag assignments
+      | prop_name           | value | expected |
+      | language            | en-US | en-US    |
+      | language            | fr-FR | fr-FR    |
+      | language            | None  | None     |
+      | east_asian_language | ja-JP | ja-JP    |
+      | east_asian_language | None  | None     |
+      | bidi_language       | ar-SA | ar-SA    |
+      | bidi_language       | None  | None     |
+
+
+  Scenario: Remove the entire w:lang element
+    Given a font
+     When I assign en-US to font.language
+      And I assign ja-JP to font.east_asian_language
+      And I assign ar-SA to font.bidi_language
+      And I call font.remove_language()
+     Then font.language is None
+      And font.east_asian_language is None
+      And font.bidi_language is None
+
+
+  Scenario: Get font.name_far_east when unset
     Given a font
      Then font.name_far_east is None
       And font.name_east_asia is None
 
 
-  Scenario Outline: Set East Asian typeface name round-trip
+  Scenario Outline: Set font.name_far_east
     Given a font
-     When I assign <value> to font.name_far_east
-     Then font.name_far_east is <value>
-      And font.name_east_asia is <value>
+     When I assign <value> to font.<prop_name>
+     Then font.name_far_east is <expected>
+      And font.name_east_asia is <expected>
 
-    Examples: font.name_far_east assignment cases
-      | value      |
-      | MS Mincho  |
-      | SimSun     |
-      | None       |
+    Examples: East-Asian typeface assignments (both spellings are aliased)
+      | prop_name      | value      | expected   |
+      | name_far_east  | MS Mincho  | MS Mincho  |
+      | name_east_asia | SimSun     | SimSun     |
+      | name_far_east  | None       | None       |
 
 
   Scenario: name_east_asia is a writable alias for name_far_east

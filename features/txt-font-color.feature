@@ -70,3 +70,35 @@ Feature: Get and set font color
       | a theme | LIGHT_2  | THEME      | LIGHT_2     |
       | a theme | None     | None       | None        |
       | an RGB  | None     | None       | None        |
+
+
+  Scenario: Get font.shading_color when unset
+    Given a font
+     Then font.shading_color is None
+
+
+  Scenario Outline: Set and read font.shading_color
+    Given a font
+     When I assign <value> to font.shading_color
+     Then font.shading_color is <expected>
+
+    Examples: run-level background shading colors
+      | value   | expected |
+      | FF00FF  | FF00FF   |
+      | 336699  | 336699   |
+      | None    | None     |
+
+
+  Scenario: Clearing shading_color removes the w:shd element
+    Given a font
+     When I assign 00FF00 to font.shading_color
+      And I assign None to font.shading_color
+     Then font.shading_color is None
+
+
+  Scenario: shading_color is independent of highlight_color
+    Given a font
+     When I assign BRIGHT_GREEN to font.highlight_color
+      And I assign CC0000 to font.shading_color
+     Then font.highlight_color is BRIGHT_GREEN
+      And font.shading_color is CC0000

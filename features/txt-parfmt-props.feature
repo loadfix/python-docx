@@ -172,3 +172,70 @@ Feature: Get or set paragraph formatting properties
       | widow_control     | to inherit |   False   | False |
       | widow_control     | Off        |   True    | True  |
       | widow_control     | On         |   None    | None  |
+
+
+  Scenario: paragraph_format.frame is None for a plain paragraph
+    Given a paragraph format from txt-frame paragraph 0
+     Then paragraph_format has no text frame
+
+
+  Scenario Outline: paragraph_format.frame is a TextFrame when w:framePr present
+    Given a paragraph format from txt-frame paragraph <idx>
+     Then paragraph_format has a text frame
+
+    Examples: frame presence
+      | idx |
+      | 1   |
+      | 2   |
+
+
+  Scenario: Read frame dimensions and anchors
+    Given a paragraph format from txt-frame paragraph 1
+     Then text_frame.width is Inches(3)
+      And text_frame.height is Inches(1)
+      And text_frame.horizontal_position is Inches(0.5)
+      And text_frame.vertical_position is Inches(0.75)
+      And text_frame.horizontal_anchor is WD_FRAME_H_ANCHOR.PAGE
+      And text_frame.vertical_anchor is WD_FRAME_V_ANCHOR.MARGIN
+      And text_frame.wrap is WD_FRAME_WRAP.AROUND
+      And text_frame.horizontal_alignment is WD_FRAME_H_ALIGN.CENTER
+
+
+  Scenario: Read drop-cap frame attributes
+    Given a paragraph format from txt-frame paragraph 2
+     Then text_frame.drop_cap is WD_FRAME_DROP_CAP.DROP
+      And text_frame.lines is 3
+      And text_frame.horizontal_anchor is WD_FRAME_H_ANCHOR.TEXT
+      And text_frame.vertical_anchor is WD_FRAME_V_ANCHOR.TEXT
+
+
+  Scenario: Create a new frame on a bare paragraph
+    Given a paragraph format from txt-frame paragraph 0
+     When I call paragraph_format.set_frame width=Inches(2) height=Inches(0.5)
+     Then text_frame.width is Inches(2)
+      And text_frame.height is Inches(0.5)
+
+
+  Scenario: Update an existing frame in place
+    Given a paragraph format from txt-frame paragraph 1
+     When I call paragraph_format.set_frame width=Inches(4)
+     Then text_frame.width is Inches(4)
+      And text_frame.height is Inches(1)
+
+
+  Scenario: Remove a frame
+    Given a paragraph format from txt-frame paragraph 1
+     When I call paragraph_format.remove_frame()
+     Then paragraph_format has no text frame
+
+
+  Scenario Outline: Read paragraph_format.right_to_left (run-inherited bidi)
+    Given a paragraph format
+     When I assign <value> to paragraph_format.right_to_left
+     Then paragraph_format.right_to_left is <expected>
+
+    Examples: paragraph-level right-to-left toggle
+      | value | expected |
+      | True  | True     |
+      | False | False    |
+      | None  | False    |

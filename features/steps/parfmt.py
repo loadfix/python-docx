@@ -208,3 +208,117 @@ def then_paragraph_format_prop_name_is_value(context, prop_name, value):
     paragraph_format = context.paragraph_format
     actual_value = getattr(paragraph_format, prop_name)
     assert actual_value == expected_value
+
+
+# -- frame / bidi / kinsoku / word-wrap extensions -----------------------
+
+from docx.enum.text import (  # noqa: E402
+    WD_FRAME_DROP_CAP,
+    WD_FRAME_H_ALIGN,
+    WD_FRAME_H_ANCHOR,
+    WD_FRAME_V_ALIGN,
+    WD_FRAME_V_ANCHOR,
+    WD_FRAME_WRAP,
+)
+from docx.shared import Inches, Length  # noqa: E402
+
+
+def _parse_length_or_none(spec):
+    spec = spec.strip()
+    if spec == "None":
+        return None
+    if spec.startswith("Pt("):
+        return Pt(float(spec[3:-1]))
+    if spec.startswith("Inches("):
+        return Inches(float(spec[7:-1]))
+    return int(spec)
+
+
+_FRAME_ENUM_LOOKUP = {
+    "WD_FRAME_H_ANCHOR": WD_FRAME_H_ANCHOR,
+    "WD_FRAME_V_ANCHOR": WD_FRAME_V_ANCHOR,
+    "WD_FRAME_WRAP": WD_FRAME_WRAP,
+    "WD_FRAME_DROP_CAP": WD_FRAME_DROP_CAP,
+    "WD_FRAME_H_ALIGN": WD_FRAME_H_ALIGN,
+    "WD_FRAME_V_ALIGN": WD_FRAME_V_ALIGN,
+}
+
+
+def _parse_enum_value(spec):
+    spec = spec.strip()
+    if spec == "None":
+        return None
+    enum_name, _, member = spec.partition(".")
+    if enum_name in _FRAME_ENUM_LOOKUP:
+        return getattr(_FRAME_ENUM_LOOKUP[enum_name], member)
+    raise ValueError(spec)
+
+
+def _parse_frame_kwargs(spec):
+    result = {}
+    for pair in spec.split():
+        key, _, val = pair.partition("=")
+        if val.startswith("Inches("):
+            result[key] = Inches(float(val[7:-1]))
+        elif val.startswith("Pt("):
+            result[key] = Pt(float(val[3:-1]))
+        elif val in ("True", "False"):
+            result[key] = val == "True"
+        elif val == "None":
+            result[key] = None
+        else:
+            try:
+                result[key] = int(val)
+            except ValueError:
+                result[key] = _parse_enum_value(val)
+    return result
+
+
+@given("a paragraph format from txt-frame paragraph {idx:d}")
+def given_a_paragraph_format_from_txt_frame_paragraph(context, idx):
+    document = Document(test_docx("txt-frame"))
+    context.document = document
+    context.paragraph = document.paragraphs[idx]
+    context.paragraph_format = context.paragraph.paragraph_format
+
+
+@when("I call paragraph_format.set_frame {kwargs}")
+def when_I_call_paragraph_format_set_frame(context, kwargs):
+    context.paragraph_format.set_frame(**_parse_frame_kwargs(kwargs))
+
+
+@when("I call paragraph_format.remove_frame()")
+def when_I_call_paragraph_format_remove_frame(context):
+    context.paragraph_format.remove_frame()
+
+
+@then("paragraph_format has no text frame")
+def then_paragraph_format_has_no_text_frame(context):
+    frame = context.paragraph_format.frame
+    assert frame is None, f"expected None, got {frame!r}"
+
+
+@then("paragraph_format has a text frame")
+def then_paragraph_format_has_a_text_frame(context):
+    frame = context.paragraph_format.frame
+    assert frame is not None, "expected a TextFrame, got None"
+
+
+@then("text_frame.{attr} is {value}")
+def then_text_frame_attr_is(context, attr, value):
+    frame = context.paragraph_format.frame
+    assert frame is not None
+    actual = getattr(frame, attr)
+    if attr in ("lines",):
+        expected = int(value) if value != "None" else None
+    elif "anchor" in attr or "wrap" in attr or "drop_cap" in attr or "alignment" in attr:
+        expected = _parse_enum_value(value)
+    else:
+        expected = _parse_length_or_none(value)
+    assert actual == expected, (
+        f"text_frame.{attr}: got {actual!r}, expected {expected!r}"
+    )
+
+
+# -- kinsoku / word_wrap use the generic `paragraph_format.{prop_name} is
+# -- {value}` then-step defined above.
