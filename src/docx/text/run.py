@@ -83,6 +83,50 @@ class Run(StoryChild):
         self._r.add_drawing(inline)
         return InlineShape(inline)
 
+    def add_text_box(
+        self,
+        width: Length | None = None,
+        height: Length | None = None,
+        text: str | None = None,
+    ):
+        """Append a DrawingML text box (``wps:wsp`` + ``wps:txbx``) to this run.
+
+        The text box is created with a rectangular preset geometry of `width`
+        by `height` (defaults 3" x 1.5") and may be seeded with `text` in a
+        single initial paragraph. Callers can add further paragraphs via
+        :meth:`~docx.drawing.WordprocessingShape.add_paragraph`.
+
+        Returns the :class:`~docx.drawing.WordprocessingShape` proxy.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.drawing import WordprocessingShape
+        from docx.enum.shape import WD_SHAPE
+        from docx.oxml.drawing import new_inline_shape_drawing
+        from docx.shared import Inches
+
+        cx = int(width) if width is not None else int(Inches(3))
+        cy = int(height) if height is not None else int(Inches(1.5))
+
+        story_part = self.part
+        shape_id = story_part.next_id
+        name = "Text Box %d" % shape_id
+
+        drawing = new_inline_shape_drawing(
+            WD_SHAPE.RECTANGLE.value,
+            cx,
+            cy,
+            shape_id,
+            name,
+            text=text if text is not None else "",
+        )
+        self._r.append(drawing)
+
+        wsp = drawing.xpath(
+            ".//wp:inline/a:graphic/a:graphicData/wps:wsp"
+        )[0]
+        return WordprocessingShape(wsp, self)
+
     def add_tab(self) -> None:
         """Add a ``<w:tab/>`` element at the end of the run, which Word interprets as a
         tab character."""

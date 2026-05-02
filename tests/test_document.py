@@ -127,6 +127,77 @@ class DescribeDocument:
         run_.add_picture.assert_called_once_with(path, width, height)
         assert picture is picture_
 
+    def it_can_add_a_shape(self):
+        from docx import Document as OpenDocument
+        from docx.drawing import WordprocessingShape
+        from docx.enum.shape import WD_SHAPE
+        from docx.shared import Inches
+
+        document = OpenDocument()
+
+        shape = document.add_shape(
+            WD_SHAPE.ROUNDED_RECTANGLE, Inches(2), Inches(1), text="Hi"
+        )
+
+        assert isinstance(shape, WordprocessingShape)
+        assert shape.shape_type is WD_SHAPE.ROUNDED_RECTANGLE
+        assert shape.text == "Hi"
+
+    def it_round_trips_a_created_shape(self):
+        import io
+
+        from docx import Document as OpenDocument
+        from docx.enum.shape import WD_SHAPE
+        from docx.shared import Inches
+
+        document = OpenDocument()
+        document.add_shape(WD_SHAPE.OVAL, Inches(1), Inches(1), text="Egg")
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        reopened = OpenDocument(buf)
+
+        wsp_list = reopened.element.body.xpath(".//wps:wsp")
+        assert len(wsp_list) == 1
+        prstGeoms = reopened.element.body.xpath(".//a:prstGeom/@prst")
+        assert "ellipse" in prstGeoms
+
+    def it_can_add_a_canvas(self):
+        from docx import Document as OpenDocument
+        from docx.drawing import Canvas
+        from docx.enum.shape import WD_SHAPE
+        from docx.shared import Inches
+
+        document = OpenDocument()
+
+        canvas = document.add_canvas(Inches(4), Inches(2))
+        shape = canvas.add_shape(WD_SHAPE.RECTANGLE, Inches(1), Inches(1))
+
+        assert isinstance(canvas, Canvas)
+        assert canvas.shapes[0].shape_type is WD_SHAPE.RECTANGLE
+        assert shape.shape_type is WD_SHAPE.RECTANGLE
+        # -- the canvas is wrapped in a w:drawing under a new body paragraph --
+        wpc_list = document.element.body.xpath(".//wpc:wpc")
+        assert len(wpc_list) == 1
+
+    def it_can_add_a_text_box(self):
+        from docx import Document as OpenDocument
+        from docx.drawing import WordprocessingShape
+        from docx.shared import Inches
+
+        document = OpenDocument()
+
+        text_box = document.add_text_box(Inches(3), Inches(1), text="Note")
+        text_box.add_paragraph("Second paragraph")
+
+        assert isinstance(text_box, WordprocessingShape)
+        assert "Note" in text_box.text
+        assert "Second paragraph" in text_box.text
+        # -- a wps:txbx was emitted in the body --
+        txbx_list = document.element.body.xpath(".//wps:txbx")
+        assert len(txbx_list) == 1
+
     def it_returns_empty_charts_for_a_chartless_document(self):
         from docx import Document as OpenDocument
 

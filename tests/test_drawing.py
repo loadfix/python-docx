@@ -421,8 +421,97 @@ class DescribeWordprocessingShape:
 
         assert shape.text == "New"
 
+    def it_can_append_a_paragraph_to_its_text_frame(self, document_part_: Mock):
+        wsp = cast(CT_WordprocessingShape, element("wps:wsp"))
+        shape = WordprocessingShape(wsp, document_part_)
+
+        paragraph = shape.add_paragraph("Hello")
+
+        assert shape.text == "Hello"
+        assert paragraph.text == "Hello"
+
+    def it_can_append_paragraphs_to_an_existing_text_frame(
+        self, document_part_: Mock
+    ):
+        wsp = cast(
+            CT_WordprocessingShape,
+            element('wps:wsp/wps:txbx/w:txbxContent/w:p/w:r/w:t"First"'),
+        )
+        shape = WordprocessingShape(wsp, document_part_)
+
+        shape.add_paragraph("Second")
+
+        assert shape.text == "First\nSecond"
+
     # -- fixtures --------------------------------------------------------------------------------
 
     @pytest.fixture
     def document_part_(self, request: FixtureRequest):
         return instance_mock(request, DocumentPart)
+
+
+class DescribeCanvas:
+    """Unit-test suite for `docx.drawing.Canvas`."""
+
+    def it_lists_contained_shapes(self, request: FixtureRequest):
+        from docx.drawing import Canvas
+        from docx.oxml.drawing import CT_WordprocessingCanvas
+
+        story_part_ = instance_mock(request, DocumentPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        wpc = cast(
+            CT_WordprocessingCanvas,
+            element("wpc:wpc/(wps:wsp,wps:wsp)"),
+        )
+        canvas = Canvas(wpc, FakeParent())  # type: ignore[arg-type]
+
+        assert len(canvas.shapes) == 2
+
+    def it_can_add_a_shape(self, request: FixtureRequest):
+        from docx.drawing import Canvas
+        from docx.enum.shape import WD_SHAPE
+        from docx.oxml.drawing import CT_WordprocessingCanvas
+        from docx.shared import Inches
+
+        story_part_ = instance_mock(request, DocumentPart)
+        story_part_.next_id = 3
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        wpc = cast(CT_WordprocessingCanvas, element("wpc:wpc"))
+        canvas = Canvas(wpc, FakeParent())  # type: ignore[arg-type]
+
+        shape = canvas.add_shape(
+            WD_SHAPE.ROUNDED_RECTANGLE, Inches(2), Inches(1), text="X"
+        )
+
+        assert shape.shape_type is WD_SHAPE.ROUNDED_RECTANGLE
+        assert shape.text == "X"
+        # -- wsp is a direct child of the wpc --
+        assert len(canvas.shapes) == 1
+        assert canvas.shapes[0].name == "Rounded Rectangle 3"
+
+    def it_raises_when_shape_type_is_not_a_WD_SHAPE(self, request: FixtureRequest):
+        from docx.drawing import Canvas
+        from docx.oxml.drawing import CT_WordprocessingCanvas
+
+        story_part_ = instance_mock(request, DocumentPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        wpc = cast(CT_WordprocessingCanvas, element("wpc:wpc"))
+        canvas = Canvas(wpc, FakeParent())  # type: ignore[arg-type]
+
+        with pytest.raises(TypeError, match="WD_SHAPE"):
+            canvas.add_shape("rect")  # type: ignore[arg-type]

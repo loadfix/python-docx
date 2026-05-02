@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from docx.custom_properties import CustomProperties
     from docx.extended_properties import ExtendedProperties
     from docx.custom_xml import CustomXmlPart
+    from docx.drawing import Canvas
     from docx.embedded_objects import EmbeddedObject
     from docx.endnotes import Endnotes, EndnoteProperties
     from docx.equations import Equation
@@ -331,6 +332,95 @@ class Document(ElementProxy):
         run._r.add_drawing(inline)
 
         return Chart(chart_part)
+
+    def add_shape(
+        self,
+        shape_type,
+        width: Length | None = None,
+        height: Length | None = None,
+        text: str | None = None,
+    ):
+        """Append an inline DrawingML preset shape in its own paragraph.
+
+        `shape_type` is a :class:`docx.enum.shape.WD_SHAPE` member (e.g.
+        ``WD_SHAPE.ROUNDED_RECTANGLE``). `width` and `height` are |Length|
+        values; they default to 2" x 1" when omitted. When `text` is provided a
+        minimal text-frame is attached so Word renders the string inside the
+        shape. The shape is emitted as a ``wps:wsp`` with ``a:prstGeom`` inside
+        a ``w:drawing/wp:inline``.
+
+        Returns a :class:`docx.drawing.WordprocessingShape` proxy for the new
+        shape. Closes upstream#1112 and upstream#517.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        paragraph = self.add_paragraph()
+        return paragraph.add_shape(shape_type, width, height, text=text)
+
+    def add_canvas(
+        self,
+        width: Length | None = None,
+        height: Length | None = None,
+    ) -> Canvas:
+        """Append a DrawingML canvas (``wpc:wpc``) in its own paragraph.
+
+        A canvas groups one or more shapes or pictures under a single
+        ``w:drawing/wp:inline/a:graphic/a:graphicData`` whose URI is the
+        WordprocessingCanvas namespace. `width` and `height` default to
+        6" x 3".
+
+        Returns a :class:`docx.drawing.Canvas` proxy. Callers can build up the
+        canvas contents via :meth:`Canvas.add_shape`. Closes upstream#411.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.drawing import Canvas
+        from docx.oxml.drawing import new_inline_canvas_drawing
+
+        cx = int(width) if width is not None else int(Inches(6))
+        cy = int(height) if height is not None else int(Inches(3))
+
+        shape_id = self._part.next_id
+        name = "Canvas %d" % shape_id
+        drawing = new_inline_canvas_drawing(cx, cy, shape_id, name)
+
+        paragraph = self.add_paragraph()
+        run = paragraph.add_run()
+        run._r.append(drawing)
+
+        wpc = drawing.xpath(".//wp:inline/a:graphic/a:graphicData/wpc:wpc")[0]
+        return Canvas(wpc, paragraph)
+
+    def add_text_box(
+        self,
+        width: Length | None = None,
+        height: Length | None = None,
+        text: str | None = None,
+    ):
+        """Append an inline DrawingML text box in its own paragraph.
+
+        A text box is a ``wps:wsp`` whose preset geometry is a simple rectangle
+        carrying a ``wps:txbx/w:txbxContent`` text frame. `width` and `height`
+        default to 3" x 1.5". When `text` is provided, the text box is
+        initialised with a single paragraph containing that string; otherwise
+        callers can append paragraphs via
+        :meth:`~docx.drawing.WordprocessingShape.add_paragraph`.
+
+        Returns a :class:`docx.drawing.WordprocessingShape` proxy. Closes
+        upstream#524.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.enum.shape import WD_SHAPE
+
+        cx = width if width is not None else Inches(3)
+        cy = height if height is not None else Inches(1.5)
+
+        paragraph = self.add_paragraph()
+        shape = paragraph.add_shape(
+            WD_SHAPE.RECTANGLE, cx, cy, text=text if text is not None else ""
+        )
+        return shape
 
     def add_picture(
         self,
