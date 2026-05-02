@@ -18,6 +18,7 @@ from docx.image.jpeg import (
     _MarkerFinder,
     _MarkerParser,
     _SofMarker,
+    _Soi,
 )
 from docx.image.tiff import Tiff
 
@@ -40,6 +41,10 @@ class DescribeJpeg:
         jpeg = Jpeg(None, None, None, None)
         assert jpeg.default_ext == "jpg"
 
+    def it_reports_None_orientation_by_default(self):
+        jpeg = Jpeg(None, None, None, None)
+        assert jpeg.orientation is None
+
     class DescribeExif:
         def it_can_construct_from_an_exif_stream(self, from_exif_fixture):
             # fixture ----------------------
@@ -54,6 +59,19 @@ class DescribeJpeg:
             assert exif.horz_dpi == horz_dpi
             assert exif.vert_dpi == vert_dpi
 
+        def it_surfaces_the_APP1_orientation(
+            self, stream_, _JfifMarkers_, jfif_markers_
+        ):
+            jfif_markers_.sof.px_width = 10
+            jfif_markers_.sof.px_height = 20
+            jfif_markers_.app1.horz_dpi = 72
+            jfif_markers_.app1.vert_dpi = 72
+            jfif_markers_.app1.orientation = 6
+
+            exif = Exif.from_stream(stream_)
+
+            assert exif.orientation == 6
+
     class DescribeJfif:
         def it_can_construct_from_a_jfif_stream(self, from_jfif_fixture):
             stream_, _JfifMarkers_, cx, cy, horz_dpi, vert_dpi = from_jfif_fixture
@@ -64,6 +82,27 @@ class DescribeJpeg:
             assert jfif.px_height == cy
             assert jfif.horz_dpi == horz_dpi
             assert jfif.vert_dpi == vert_dpi
+
+    class Describe_Soi:
+        def it_constructs_from_a_bare_SOI_stream(
+            self, stream_, _JfifMarkers_, jfif_markers_
+        ):
+            """Regression: JPEGs lacking JFIF/Exif identifier segments must be
+            recognised through the plain SOI dispatch path."""
+            jfif_markers_.sof.px_width = 111
+            jfif_markers_.sof.px_height = 222
+
+            soi = _Soi.from_stream(stream_)
+
+            assert isinstance(soi, _Soi)
+            assert isinstance(soi, Jpeg)
+            assert soi.content_type == MIME_TYPE.JPEG
+            assert soi.px_width == 111
+            assert soi.px_height == 222
+            # -- bare SOI streams carry no density; fall back to 72dpi --
+            assert soi.horz_dpi == 72
+            assert soi.vert_dpi == 72
+            assert soi.orientation is None
 
     # fixtures -------------------------------------------------------
 
@@ -296,18 +335,19 @@ class Describe_App0Marker:
 
 class Describe_App1Marker:
     def it_can_construct_from_a_stream_and_offset(
-        self, _App1Marker__init_, _tiff_from_exif_segment_
+        self, _App1Marker__init_, _tiff_from_exif_segment_, tiff_
     ):
         bytes_ = b"\x00\x42Exif\x00\x00"
         marker_code, offset, length = JPEG_MARKER_CODE.APP1, 0, 66
         horz_dpi, vert_dpi = 42, 24
+        tiff_.orientation = 6  # -- non-mock value so call signature is clean --
         stream = StreamReader(io.BytesIO(bytes_), BIG_ENDIAN)
 
         app1_marker = _App1Marker.from_stream(stream, marker_code, offset)
 
         _tiff_from_exif_segment_.assert_called_once_with(stream, offset, length)
         _App1Marker__init_.assert_called_once_with(
-            ANY, marker_code, offset, length, horz_dpi, vert_dpi
+            ANY, marker_code, offset, length, horz_dpi, vert_dpi, 6
         )
         assert isinstance(app1_marker, _App1Marker)
 
@@ -335,6 +375,16 @@ class Describe_App1Marker:
         app1 = _App1Marker(None, None, None, horz_dpi, vert_dpi)
         assert app1.horz_dpi == horz_dpi
         assert app1.vert_dpi == vert_dpi
+
+    def it_knows_the_EXIF_orientation_tag_value(self):
+        """Regression: orientation from the underlying TIFF must reach the
+        App1 marker so drawing insertion can emit `a:xfrm/@rot`."""
+        app1 = _App1Marker(None, None, None, 72, 72, orientation=6)
+        assert app1.orientation == 6
+
+    def it_defaults_orientation_to_None(self):
+        app1 = _App1Marker(None, None, None, 72, 72)
+        assert app1.orientation is None
 
     # fixtures -------------------------------------------------------
 

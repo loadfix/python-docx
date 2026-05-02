@@ -75,13 +75,16 @@ class StoryPart(XmlPart):
         rId, image = self.get_or_add_image(image_descriptor)
         cx, cy = image.scaled_dimensions(width, height)
         shape_id, filename = self.next_id, image.filename
+        orientation = getattr(image, "orientation", None)
 
         if image.content_type == MIME_TYPE.SVG:
             return self._new_svg_pic_inline(
-                shape_id, rId, filename, cx, cy
+                shape_id, rId, filename, cx, cy, orientation=orientation
             )
 
-        return CT_Inline.new_pic_inline(shape_id, rId, filename, cx, cy)
+        return CT_Inline.new_pic_inline(
+            shape_id, rId, filename, cx, cy, orientation=orientation
+        )
 
     def new_pic_anchor(
         self,
@@ -101,7 +104,10 @@ class StoryPart(XmlPart):
         rId, image = self.get_or_add_image(image_descriptor)
         cx, cy = image.scaled_dimensions(width, height)
         shape_id, filename = self.next_id, image.filename
-        return CT_Anchor.new_pic_anchor(shape_id, rId, filename, cx, cy)
+        orientation = getattr(image, "orientation", None)
+        return CT_Anchor.new_pic_anchor(
+            shape_id, rId, filename, cx, cy, orientation=orientation
+        )
 
     def _new_svg_pic_inline(
         self,
@@ -110,13 +116,14 @@ class StoryPart(XmlPart):
         filename: str,
         cx: Length,
         cy: Length,
+        orientation: int | None = None,
     ) -> CT_Inline:
         """Return a `wp:inline` element for an SVG image with a PNG fallback."""
         fallback_png = self._generate_svg_fallback()
         fallback_stream = io.BytesIO(fallback_png)
         fallback_rId, _ = self.get_or_add_image(fallback_stream)
         return CT_Inline.new_svg_pic_inline(
-            shape_id, fallback_rId, svg_rId, filename, cx, cy
+            shape_id, fallback_rId, svg_rId, filename, cx, cy, orientation=orientation
         )
 
     @staticmethod

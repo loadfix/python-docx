@@ -9,7 +9,12 @@ from typing import cast
 import pytest
 
 from docx.oxml.ns import qn
-from docx.oxml.shape import CT_Anchor
+from docx.oxml.shape import (
+    CT_Anchor,
+    CT_Inline,
+    CT_Picture,
+    _rot_for_exif_orientation,
+)
 
 from ..unitutil.cxml import element
 
@@ -130,3 +135,120 @@ class DescribeCT_Anchor:
 
         assert anchor.positionH.relativeFrom == "page"
         assert anchor.positionV.relativeFrom == "margin"
+
+    def it_emits_a_rot_attribute_when_EXIF_orientation_implies_rotation(self):
+        """Regression for upstream#540.
+
+        A portrait photo taken with the camera sideways carries an EXIF
+        ``Orientation`` of 6, meaning "rotate 90 degrees clockwise to
+        view upright". Word honours the value from `a:xfrm/@rot`.
+        """
+        anchor = CT_Anchor.new_pic_anchor(
+            1, "rId1", "f.png", 100, 100, orientation=6
+        )
+
+        xfrm = anchor.find(".//" + qn("a:xfrm"))
+        assert xfrm is not None
+        assert xfrm.get("rot") == str(90 * 60000)
+
+    def it_omits_rot_for_orientation_1_or_None(self):
+        for orientation in (None, 1):
+            anchor = CT_Anchor.new_pic_anchor(
+                2, "rId2", "f.png", 100, 100, orientation=orientation
+            )
+
+            xfrm = anchor.find(".//" + qn("a:xfrm"))
+            assert xfrm is not None
+            assert xfrm.get("rot") is None
+
+
+class DescribeCT_Picture:
+    """Unit-test suite for `docx.oxml.shape.CT_Picture`."""
+
+    def it_always_emits_an_a_xfrm_with_a_ext_on_new(self):
+        """Regression for upstream#1164: the non-SVG `_pic_xml()` branch
+        used to emit no `<a:xfrm>`, so Word resized the image back to
+        default dimensions until the user nudged it."""
+        pic = CT_Picture.new(
+            pic_id=0, filename="f.png", rId="rId1", cx=1_234_567, cy=7_654_321
+        )
+
+        xfrm = pic.find(".//" + qn("a:xfrm"))
+        assert xfrm is not None, "expected a:xfrm in pic:spPr"
+        ext = xfrm.find(qn("a:ext"))
+        assert ext is not None, "expected a:ext as a:xfrm child"
+        assert int(ext.get("cx")) == 1_234_567
+        assert int(ext.get("cy")) == 7_654_321
+        # -- and the off origin child, so Word anchors the xfrm --
+        off = xfrm.find(qn("a:off"))
+        assert off is not None
+        assert off.get("x") == "0"
+        assert off.get("y") == "0"
+
+    def it_sets_rot_on_xfrm_for_rotated_EXIF_orientation(self):
+        pic = CT_Picture.new(
+            pic_id=0,
+            filename="f.jpg",
+            rId="rId1",
+            cx=100,
+            cy=100,
+            orientation=8,
+        )
+
+        xfrm = pic.find(".//" + qn("a:xfrm"))
+        assert xfrm is not None
+        assert xfrm.get("rot") == str(270 * 60000)
+
+    def it_emits_xfrm_in_svg_branch_with_rot_when_rotated(self):
+        pic = CT_Picture.new_svg(
+            pic_id=0,
+            filename="f.svg",
+            fallback_rId="rId1",
+            svg_rId="rId2",
+            cx=100,
+            cy=100,
+            orientation=3,
+        )
+
+        xfrm = pic.find(".//" + qn("a:xfrm"))
+        assert xfrm is not None
+        assert xfrm.get("rot") == str(180 * 60000)
+
+
+class Describe_rot_for_exif_orientation:
+    @pytest.mark.parametrize(
+        ("orientation", "expected"),
+        [
+            (None, 0),
+            (0, 0),  # out-of-range
+            (1, 0),
+            (2, 0),
+            (3, 180 * 60000),
+            (4, 180 * 60000),
+            (5, 90 * 60000),
+            (6, 90 * 60000),
+            (7, 270 * 60000),
+            (8, 270 * 60000),
+            (9, 0),  # out-of-range
+            (42, 0),  # out-of-range
+        ],
+    )
+    def it_maps_EXIF_orientation_to_xfrm_rot_60000ths_of_degree(
+        self, orientation: int | None, expected: int
+    ):
+        assert _rot_for_exif_orientation(orientation) == expected
+
+
+class DescribeCT_Inline:
+    """Unit-test suite for `docx.oxml.shape.CT_Inline`."""
+
+    def it_threads_orientation_into_pic_xfrm_rot(self):
+        """End-to-end: calling `new_pic_inline` with orientation=6 should
+        produce a drawing whose `a:xfrm/@rot` is 5_400_000 (90deg)."""
+        inline = CT_Inline.new_pic_inline(
+            1, "rId1", "f.jpg", 100, 100, orientation=6
+        )
+
+        xfrm = inline.find(".//" + qn("a:xfrm"))
+        assert xfrm is not None
+        assert xfrm.get("rot") == str(90 * 60000)

@@ -335,6 +335,33 @@ class Describe_ImageHeaderFactory:
         with pytest.raises(UnrecognizedImageError):
             _ImageHeaderFactory(stream)
 
+    def it_recognises_a_plain_SOI_JPEG_without_JFIF_or_Exif_markers(self):
+        """Regression for upstream#1430, #187, #350, PR#423.
+
+        Valid JPEGs emitted by cameras / tools regularly omit the APP0
+        (JFIF) and APP1 (Exif) identifier segments. Prior to this fix
+        they hit `UnrecognizedImageError` here and never reached
+        `Jpeg.from_stream`.
+        """
+        from docx.image.jpeg import Jpeg, _Soi
+
+        # -- minimal valid JPEG: SOI, DQT, SOF0 (80x48), SOS, EOI --
+        sof0 = (
+            b"\xff\xc0\x00\x11\x08\x00\x30\x00\x50\x03\x01\x22\x00"
+            b"\x02\x11\x01\x03\x11\x01"
+        )
+        dqt = b"\xff\xdb\x00\x43\x00" + b"\x10" * 64
+        sos = b"\xff\xda\x00\x0c\x03\x01\x00\x02\x11\x03\x11\x00\x3f\x00"
+        eoi = b"\xff\xd9"
+        stream = io.BytesIO(b"\xff\xd8" + dqt + sof0 + sos + eoi)
+
+        header = _ImageHeaderFactory(stream)
+
+        assert isinstance(header, _Soi)
+        assert isinstance(header, Jpeg)
+        assert header.px_width == 80
+        assert header.px_height == 48
+
     # fixtures -------------------------------------------------------
 
     @pytest.fixture(

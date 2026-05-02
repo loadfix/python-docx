@@ -147,6 +147,19 @@ class Describe_TiffParser:
         assert tiff_parser.horz_dpi == 72
         assert tiff_parser.vert_dpi == 72
 
+    @pytest.mark.parametrize("value", [1, 2, 3, 4, 5, 6, 7, 8])
+    def it_exposes_a_valid_Orientation_tag_value(self, value):
+        tiff_parser = _TiffParser(_IfdEntries({TIFF_TAG.ORIENTATION: value}))
+
+        assert tiff_parser.orientation == value
+
+    @pytest.mark.parametrize("bad", [0, 9, -1, "2", None, True])
+    def it_returns_None_for_absent_or_out_of_range_orientation(self, bad):
+        entries = {} if bad is None else {TIFF_TAG.ORIENTATION: bad}
+        tiff_parser = _TiffParser(_IfdEntries(entries))
+
+        assert tiff_parser.orientation is None
+
     # fixtures -------------------------------------------------------
 
     @pytest.fixture(

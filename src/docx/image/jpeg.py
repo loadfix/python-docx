@@ -3,6 +3,8 @@
 Includes both JFIF and Exif sub-formats.
 """
 
+from __future__ import annotations
+
 import io
 
 from docx.image.constants import JPEG_MARKER_CODE, MIME_TYPE
@@ -25,6 +27,16 @@ class Jpeg(BaseImageHeader):
         """Default filename extension, always 'jpg' for JPG images."""
         return "jpg"
 
+    @property
+    def orientation(self):
+        """EXIF ``Orientation`` tag value (1-8) if this image carries an
+        APP1/Exif segment containing the tag, otherwise |None|.
+
+        Plain JFIF images and Exif images that omit the tag both return
+        |None|, signalling "no rotation" to consumers.
+        """
+        return getattr(self, "_orientation", None)
+
 
 class Exif(Jpeg):
     """Image header parser for Exif image format."""
@@ -41,7 +53,9 @@ class Exif(Jpeg):
         horz_dpi = markers.app1.horz_dpi
         vert_dpi = markers.app1.vert_dpi
 
-        return cls(px_width, px_height, horz_dpi, vert_dpi)
+        instance = cls(px_width, px_height, horz_dpi, vert_dpi)
+        instance._orientation = getattr(markers.app1, "orientation", None)
+        return instance
 
 
 class Jfif(Jpeg):
@@ -58,7 +72,44 @@ class Jfif(Jpeg):
         horz_dpi = markers.app0.horz_dpi
         vert_dpi = markers.app0.vert_dpi
 
-        return cls(px_width, px_height, horz_dpi, vert_dpi)
+        instance = cls(px_width, px_height, horz_dpi, vert_dpi)
+        # -- JFIF-only files have no APP1; plain SOI+SOFn sniffed through
+        #    `_SOI_marker` also lacks an APP1. Honour an orientation tag if a
+        #    later-appearing APP1/Exif segment did provide one. --
+        app1_orientation = None
+        try:
+            app1 = markers.app1
+        except KeyError:
+            app1 = None
+        if app1 is not None:
+            app1_orientation = getattr(app1, "orientation", None)
+        instance._orientation = app1_orientation
+        return instance
+
+
+class _Soi(Jpeg):
+    """Image header parser for a raw JPEG stream that lacks the usual JFIF
+    (APP0) or Exif (APP1) identifier segment.
+
+    Cameras, scanners and command-line tools regularly emit compliant JPEGs
+    whose first non-SOI marker is a quantisation table (`DQT`) or a start-of-
+    frame (`SOFn`) rather than `APP0`/`APP1`. Those files are still perfectly
+    valid JPEGs and must round-trip through python-docx.
+    """
+
+    @classmethod
+    def from_stream(cls, stream):
+        """Return a |_Soi| instance built from the SOFn marker in `stream`.
+
+        DPI defaults to 72 because a bare SOI stream carries no density
+        metadata. Orientation is always absent.
+        """
+        markers = _JfifMarkers.from_stream(stream)
+        px_width = markers.sof.px_width
+        px_height = markers.sof.px_height
+        instance = cls(px_width, px_height, 72, 72)
+        instance._orientation = None
+        return instance
 
 
 class _JfifMarkers:
@@ -336,10 +387,13 @@ class _App0Marker(_Marker):
 class _App1Marker(_Marker):
     """Represents a JFIF APP1 (Exif) marker segment."""
 
-    def __init__(self, marker_code, offset, length, horz_dpi, vert_dpi):
+    def __init__(
+        self, marker_code, offset, length, horz_dpi, vert_dpi, orientation=None
+    ):
         super().__init__(marker_code, offset, length)
         self._horz_dpi = horz_dpi
         self._vert_dpi = vert_dpi
+        self._orientation = orientation
 
     @classmethod
     def from_stream(cls, stream, marker_code, offset):
@@ -357,7 +411,15 @@ class _App1Marker(_Marker):
         if cls._is_non_Exif_APP1_segment(stream, offset):
             return cls(marker_code, offset, segment_length, 72, 72)
         tiff = cls._tiff_from_exif_segment(stream, offset, segment_length)
-        return cls(marker_code, offset, segment_length, tiff.horz_dpi, tiff.vert_dpi)
+        orientation = getattr(tiff, "orientation", None)
+        return cls(
+            marker_code,
+            offset,
+            segment_length,
+            tiff.horz_dpi,
+            tiff.vert_dpi,
+            orientation,
+        )
 
     @property
     def horz_dpi(self):
@@ -370,6 +432,12 @@ class _App1Marker(_Marker):
         """Vertical dots per inch specified in this marker, defaults to 72 if not
         specified."""
         return self._vert_dpi
+
+    @property
+    def orientation(self):
+        """EXIF ``Orientation`` tag value extracted from the Exif IFD0,
+        or |None| when the segment is non-Exif or the tag is absent."""
+        return self._orientation
 
     @classmethod
     def _is_non_Exif_APP1_segment(cls, stream, offset):
