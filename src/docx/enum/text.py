@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import enum
 
-from docx.enum.base import BaseXmlEnum
+from docx.enum.base import BaseEnum, BaseXmlEnum
 
 
 class WD_PARAGRAPH_ALIGNMENT(BaseXmlEnum):
@@ -500,6 +500,51 @@ class WD_UNDERLINE(BaseXmlEnum):
 
     DASH_LONG_HEAVY = (55, "dashLongHeavy", "Long heavy dashes.")
     """Long heavy dashes."""
+
+
+class WD_OUTLINELVL(BaseEnum):
+    """Specifies the outline level of a paragraph.
+
+    Maps to values 0..9 for heading levels and 10 for body text, matching
+    the ``w:pPr/w:outlineLvl/@w:val`` attribute semantics. Aliases such as
+    :attr:`LEVEL_1` through :attr:`LEVEL_9` may be used interchangeably with
+    the bare integer values. :attr:`BODY_TEXT` is the sentinel ``10``.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+
+    LEVEL_1 = (0, "Outline level 1 (e.g. Heading 1).")
+    """Outline level 1 (e.g. Heading 1)."""
+
+    LEVEL_2 = (1, "Outline level 2 (e.g. Heading 2).")
+    """Outline level 2 (e.g. Heading 2)."""
+
+    LEVEL_3 = (2, "Outline level 3 (e.g. Heading 3).")
+    """Outline level 3 (e.g. Heading 3)."""
+
+    LEVEL_4 = (3, "Outline level 4 (e.g. Heading 4).")
+    """Outline level 4 (e.g. Heading 4)."""
+
+    LEVEL_5 = (4, "Outline level 5 (e.g. Heading 5).")
+    """Outline level 5 (e.g. Heading 5)."""
+
+    LEVEL_6 = (5, "Outline level 6 (e.g. Heading 6).")
+    """Outline level 6 (e.g. Heading 6)."""
+
+    LEVEL_7 = (6, "Outline level 7 (e.g. Heading 7).")
+    """Outline level 7 (e.g. Heading 7)."""
+
+    LEVEL_8 = (7, "Outline level 8 (e.g. Heading 8).")
+    """Outline level 8 (e.g. Heading 8)."""
+
+    LEVEL_9 = (8, "Outline level 9 (e.g. Heading 9).")
+    """Outline level 9 (e.g. Heading 9)."""
+
+    LEVEL_10 = (9, "Outline level 10.")
+    """Outline level 10."""
+
+    BODY_TEXT = (10, "Body text (no outline level).")
+    """Body text (no outline level)."""
 
 
 class WD_NUMBER_FORMAT(BaseXmlEnum):

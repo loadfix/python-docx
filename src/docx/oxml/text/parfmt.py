@@ -39,6 +39,7 @@ from docx.shared import Length
 if TYPE_CHECKING:
     from docx.oxml.section import CT_SectPr
     from docx.oxml.shared import CT_String
+    from docx.oxml.table import CT_Shd
     from docx.shared import RGBColor
 
 
@@ -142,6 +143,9 @@ class CT_Ind(BaseOxmlElement):
     firstLine: Length | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:firstLine", ST_TwipsMeasure
     )
+    firstLineChars: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:firstLineChars", ST_DecimalNumber
+    )
     hanging: Length | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:hanging", ST_TwipsMeasure
     )
@@ -158,21 +162,31 @@ class CT_Jc(BaseOxmlElement):
 class CT_PPr(BaseOxmlElement):
     """``<w:pPr>`` element, containing the properties for a paragraph."""
 
+    get_or_add_autoSpaceDE: Callable[[], CT_OnOff]
+    get_or_add_autoSpaceDN: Callable[[], CT_OnOff]
     get_or_add_bidi: Callable[[], CT_OnOff]
+    get_or_add_contextualSpacing: Callable[[], CT_OnOff]
     get_or_add_framePr: Callable[[], CT_FramePr]
     get_or_add_ind: Callable[[], CT_Ind]
     get_or_add_kinsoku: Callable[[], CT_OnOff]
+    get_or_add_outlineLvl: Callable[[], CT_DecimalNumber]
     get_or_add_pBdr: Callable[[], CT_PBdr]
     get_or_add_pStyle: Callable[[], CT_String]
     get_or_add_sectPr: Callable[[], CT_SectPr]
+    get_or_add_shd: Callable[[], "CT_Shd"]
     get_or_add_wordWrap: Callable[[], CT_OnOff]
     _insert_sectPr: Callable[[CT_SectPr], None]
+    _remove_autoSpaceDE: Callable[[], None]
+    _remove_autoSpaceDN: Callable[[], None]
     _remove_bidi: Callable[[], None]
+    _remove_contextualSpacing: Callable[[], None]
     _remove_framePr: Callable[[], None]
     _remove_kinsoku: Callable[[], None]
+    _remove_outlineLvl: Callable[[], None]
     _remove_pBdr: Callable[[], None]
     _remove_pStyle: Callable[[], None]
     _remove_sectPr: Callable[[], None]
+    _remove_shd: Callable[[], None]
     _remove_wordWrap: Callable[[], None]
 
     _tag_seq = (
@@ -227,12 +241,21 @@ class CT_PPr(BaseOxmlElement):
     pBdr: CT_PBdr | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:pBdr", successors=_tag_seq[9:]
     )
+    shd: "CT_Shd | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:shd", successors=_tag_seq[10:]
+    )
     tabs = ZeroOrOne("w:tabs", successors=_tag_seq[11:])
     kinsoku: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:kinsoku", successors=_tag_seq[13:]
     )
     wordWrap: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:wordWrap", successors=_tag_seq[14:]
+    )
+    autoSpaceDE: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:autoSpaceDE", successors=_tag_seq[17:]
+    )
+    autoSpaceDN: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:autoSpaceDN", successors=_tag_seq[18:]
     )
     bidi: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:bidi", successors=_tag_seq[19:]
@@ -241,10 +264,14 @@ class CT_PPr(BaseOxmlElement):
     ind: CT_Ind | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:ind", successors=_tag_seq[23:]
     )
+    contextualSpacing: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:contextualSpacing", successors=_tag_seq[24:]
+    )
     jc = ZeroOrOne("w:jc", successors=_tag_seq[27:])
     outlineLvl: CT_DecimalNumber = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:outlineLvl", successors=_tag_seq[31:]
     )
+    rPr = ZeroOrOne("w:rPr", successors=_tag_seq[33:])
     sectPr = ZeroOrOne("w:sectPr", successors=_tag_seq[35:])
     pPrChange = ZeroOrOne("w:pPrChange", successors=())
     del _tag_seq
@@ -293,6 +320,81 @@ class CT_PPr(BaseOxmlElement):
             self._remove_wordWrap()
         else:
             self.get_or_add_wordWrap().val = value
+
+    @property
+    def autoSpaceDE_val(self) -> bool | None:
+        """Value of `w:autoSpaceDE/@w:val` or |None| if the child is not present."""
+        autoSpaceDE = self.autoSpaceDE
+        if autoSpaceDE is None:
+            return None
+        return autoSpaceDE.val
+
+    @autoSpaceDE_val.setter
+    def autoSpaceDE_val(self, value: bool | None):
+        if value is None:
+            self._remove_autoSpaceDE()
+        else:
+            self.get_or_add_autoSpaceDE().val = value
+
+    @property
+    def autoSpaceDN_val(self) -> bool | None:
+        """Value of `w:autoSpaceDN/@w:val` or |None| if the child is not present."""
+        autoSpaceDN = self.autoSpaceDN
+        if autoSpaceDN is None:
+            return None
+        return autoSpaceDN.val
+
+    @autoSpaceDN_val.setter
+    def autoSpaceDN_val(self, value: bool | None):
+        if value is None:
+            self._remove_autoSpaceDN()
+        else:
+            self.get_or_add_autoSpaceDN().val = value
+
+    @property
+    def contextualSpacing_val(self) -> bool | None:
+        """Value of `w:contextualSpacing/@w:val` or |None| if the child is not present."""
+        contextualSpacing = self.contextualSpacing
+        if contextualSpacing is None:
+            return None
+        return contextualSpacing.val
+
+    @contextualSpacing_val.setter
+    def contextualSpacing_val(self, value: bool | None):
+        if value is None:
+            self._remove_contextualSpacing()
+        else:
+            self.get_or_add_contextualSpacing().val = value
+
+    @property
+    def outlineLvl_val(self) -> int | None:
+        """Value of `w:outlineLvl/@w:val` or |None| if the child is not present."""
+        outlineLvl = self.outlineLvl
+        if outlineLvl is None:
+            return None
+        return outlineLvl.val
+
+    @outlineLvl_val.setter
+    def outlineLvl_val(self, value: int | None):
+        if value is None:
+            self._remove_outlineLvl()
+            return
+        self.get_or_add_outlineLvl().val = value
+
+    @property
+    def first_line_chars(self) -> int | None:
+        """The value of `w:ind/@w:firstLineChars` or |None| if not present."""
+        ind = self.ind
+        if ind is None:
+            return None
+        return ind.firstLineChars
+
+    @first_line_chars.setter
+    def first_line_chars(self, value: int | None):
+        if value is None and self.ind is None:
+            return
+        ind = self.get_or_add_ind()
+        ind.firstLineChars = value
 
     @property
     def first_line_indent(self) -> Length | None:

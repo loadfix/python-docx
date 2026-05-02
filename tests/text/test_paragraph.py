@@ -1843,3 +1843,122 @@ class DescribeParagraph_StableId:
         original_id = paragraph.stable_id
         paragraph.text = "modified"
         assert paragraph.stable_id != original_id
+
+
+class DescribeParagraph_AddTextAndFont:
+    """Unit-test suite for `Paragraph.add_text` and `Paragraph.font`."""
+
+    def _make_paragraph(
+        self, request: pytest.FixtureRequest, p_element: CT_P
+    ) -> Paragraph:
+        part_ = instance_mock(request, DocumentPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        return Paragraph(p_element, FakeParent())
+
+    def it_appends_text_to_last_run(self, request: pytest.FixtureRequest):
+        p = cast(CT_P, element('w:p/w:r/w:t"hello"'))
+        paragraph = self._make_paragraph(request, p)
+
+        paragraph.add_text(" world")
+
+        # -- both w:t siblings in same run --
+        assert paragraph.text == "hello world"
+        assert len(paragraph.runs) == 1
+
+    def it_creates_a_run_when_paragraph_has_none(
+        self, request: pytest.FixtureRequest
+    ):
+        p = cast(CT_P, element("w:p"))
+        paragraph = self._make_paragraph(request, p)
+
+        paragraph.add_text("alpha")
+
+        assert paragraph.text == "alpha"
+        assert len(paragraph.runs) == 1
+
+    def it_preserves_space_with_leading_or_trailing_whitespace(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.oxml.ns import qn
+
+        p = cast(CT_P, element('w:p/w:r/w:t"hello"'))
+        paragraph = self._make_paragraph(request, p)
+
+        paragraph.add_text(" tail")
+
+        # -- the newly added w:t should carry xml:space="preserve" --
+        ts = p.xpath(".//w:t")
+        assert ts[-1].get(qn("xml:space")) == "preserve"
+
+    def it_preserves_run_formatting_when_appending_text(
+        self, request: pytest.FixtureRequest
+    ):
+        p = cast(CT_P, element('w:p/w:r/(w:rPr/w:b,w:t"hello")'))
+        paragraph = self._make_paragraph(request, p)
+
+        paragraph.add_text(" world")
+
+        assert paragraph.text == "hello world"
+        # -- the run's bold rPr survives --
+        assert paragraph.runs[0]._r.rPr.b is not None
+
+    def it_provides_a_paragraph_mark_Font(self, request: pytest.FixtureRequest):
+        from docx.text.font import Font
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = self._make_paragraph(request, p)
+
+        font = paragraph.font
+
+        assert isinstance(font, Font)
+
+    def it_exposes_pPr_rPr_via_paragraph_font(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.shared import Pt
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = self._make_paragraph(request, p)
+
+        paragraph.font.bold = True
+        paragraph.font.size = Pt(12)
+
+        # -- rPr is now under pPr --
+        assert paragraph.font.bold is True
+        assert paragraph.font.size == Pt(12)
+
+
+class DescribeRun_CopyFormattingFrom:
+    """Unit-test suite for `Run.copy_formatting_from`."""
+
+    def _make_run(
+        self, request: pytest.FixtureRequest, r_element: CT_R
+    ) -> Run:
+        part_ = instance_mock(request, DocumentPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        return Run(r_element, FakeParent())
+
+    def it_copies_formatting_from_source_run(self, request: pytest.FixtureRequest):
+        src_r = cast(CT_R, element("w:r/w:rPr/(w:b,w:i)"))
+        dst_r = cast(CT_R, element('w:r/w:t"hello"'))
+        src = self._make_run(request, src_r)
+        dst = self._make_run(request, dst_r)
+
+        result = dst.copy_formatting_from(src)
+
+        assert result is dst
+        assert dst._r.rPr is not None
+        assert dst._r.rPr.b is not None
+        assert dst._r.rPr.i is not None
+        # -- text content preserved --
+        assert dst.text == "hello"

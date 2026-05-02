@@ -234,6 +234,30 @@ class Paragraph(StoryChild):
         _maybe_wrap_tracked_run(r, track_author, self)
         return run
 
+    def add_text(self, text: str) -> Run:
+        """Append `text` to the last run of this paragraph, or create a new run.
+
+        When the paragraph already contains at least one run, a ``w:t`` element
+        containing `text` is appended to that last run. The run's existing
+        character formatting (``w:rPr``) is preserved. When the paragraph has no
+        runs, a new run is created and `text` assigned to it. Returns the run
+        that now holds the appended text.
+
+        Unlike :meth:`add_run`, this method does not split ``\\t``, ``\\n`` or
+        ``\\r`` characters into separate elements — the entire `text` is placed
+        in a single ``w:t`` element, with ``xml:space="preserve"`` applied if
+        the text has leading or trailing whitespace.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        runs = self._p.xpath("./w:r")
+        if runs:
+            r = runs[-1]
+            r.add_t(text)
+            return Run(cast(CT_R, r), self)
+        # -- no existing run; create one and set its text --
+        return self.add_run(text)
+
     def add_content_control(
         self,
         type: ContentControlType,
@@ -996,6 +1020,27 @@ class Paragraph(StoryChild):
         """The |ParagraphFormat| object providing access to the formatting properties
         for this paragraph, such as line spacing and indentation."""
         return ParagraphFormat(self._element)
+
+    @property
+    def font(self):
+        """A |Font| object providing access to the paragraph-mark character formatting.
+
+        This exposes the ``w:pPr/w:rPr`` element — the "paragraph mark" character
+        properties that control the font used to render the pilcrow (paragraph
+        mark) itself and, in some contexts, the default run formatting for the
+        paragraph. When no ``w:pPr`` or ``w:rPr`` element is present, reads
+        return |None| for inheritable properties; writes create the chain of
+        parent elements as needed.
+
+        Note this is distinct from the per-run :attr:`Run.font`, which controls
+        the appearance of the text runs inside the paragraph.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.text.font import Font
+
+        pPr = self._p.get_or_add_pPr()
+        return Font(pPr)  # type: ignore[arg-type]
 
     @property
     def list_level(self) -> int | None:

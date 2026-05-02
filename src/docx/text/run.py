@@ -254,6 +254,18 @@ class Run(StoryChild):
         self._r.clear_content()
         return self
 
+    def copy_formatting_from(self, source: "Run") -> "Run":
+        """Replace this run's character formatting with a deep copy of `source`'s.
+
+        The source run's ``w:rPr`` is deep-copied onto this run, replacing any
+        pre-existing character formatting on this run. The run's text content
+        is untouched. Returns this run for chaining convenience.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        source.font.copy_to(self.font)
+        return self
+
     def delete(self) -> None:
         """Remove this run from its parent paragraph.
 

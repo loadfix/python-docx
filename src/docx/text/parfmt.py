@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from docx.enum.text import WD_LINE_SPACING
+from docx.enum.table import WD_SHADING_PATTERN
+from docx.enum.text import WD_LINE_SPACING, WD_OUTLINELVL
 from docx.shared import ElementProxy, Emu, Length, Pt, RGBColor, Twips, lazyproperty
 from docx.text.tabstops import TabStops
 
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
         WD_FRAME_WRAP,
     )
     from docx.oxml.text.parfmt import CT_Border, CT_FramePr
+    from docx.text.font import Font
 
 
 class ParagraphFormat(ElementProxy):
@@ -430,6 +432,160 @@ class ParagraphFormat(ElementProxy):
     @widow_control.setter
     def widow_control(self, value):
         self._element.get_or_add_pPr().widowControl_val = value
+
+    @property
+    def outline_level(self) -> WD_OUTLINELVL | None:
+        """Outline level (``w:pPr/w:outlineLvl``), or |None| if not set.
+
+        Values are members of :ref:`WdOutlineLvl` — ``LEVEL_1`` through
+        ``LEVEL_10`` for heading levels and ``BODY_TEXT`` for body text
+        (``10``). Returns |None| when the element is absent (inherited from
+        the style hierarchy).
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        pPr = self._element.pPr
+        if pPr is None:
+            return None
+        val = pPr.outlineLvl_val
+        if val is None:
+            return None
+        return WD_OUTLINELVL(val)
+
+    @outline_level.setter
+    def outline_level(self, value: WD_OUTLINELVL | int | None) -> None:
+        pPr = self._element.get_or_add_pPr()
+        if value is None:
+            pPr.outlineLvl_val = None
+            return
+        val = int(value)
+        if not 0 <= val <= 10:
+            raise ValueError(
+                "outline_level must be 0..10 or a WD_OUTLINELVL member, got %r" % (value,)
+            )
+        pPr.outlineLvl_val = val
+
+    @property
+    def contextual_spacing(self) -> bool | None:
+        """Tri-state value controlling ``w:pPr/w:contextualSpacing``.
+
+        When |True|, space above and below this paragraph is ignored when the
+        neighbouring paragraph uses the same paragraph style (typical for list
+        items). Returns |None| when the element is absent (inherited from the
+        style hierarchy).
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        pPr = self._element.pPr
+        if pPr is None:
+            return None
+        return pPr.contextualSpacing_val
+
+    @contextual_spacing.setter
+    def contextual_spacing(self, value: bool | None) -> None:
+        pPr = self._element.get_or_add_pPr()
+        pPr.contextualSpacing_val = value
+
+    @property
+    def first_line_chars(self) -> int | None:
+        """Value of ``w:pPr/w:ind/@w:firstLineChars``, or |None| if not set.
+
+        Specifies the first-line indent in units of 1/100 of a character
+        width (the "character unit" used for East-Asian layouts). Returns
+        |None| when the ``w:ind`` element or the attribute is absent.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        pPr = self._element.pPr
+        if pPr is None:
+            return None
+        return pPr.first_line_chars
+
+    @first_line_chars.setter
+    def first_line_chars(self, value: int | None) -> None:
+        if value is None and (self._element.pPr is None or self._element.pPr.ind is None):
+            return
+        pPr = self._element.get_or_add_pPr()
+        pPr.first_line_chars = value
+
+    @property
+    def auto_space_de(self) -> bool | None:
+        """Tri-state value controlling ``w:pPr/w:autoSpaceDE``.
+
+        When |True|, automatically adjusts spacing between East-Asian and
+        Latin text in this paragraph. Returns |None| when the element is
+        absent (inherited from the style hierarchy).
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        pPr = self._element.pPr
+        if pPr is None:
+            return None
+        return pPr.autoSpaceDE_val
+
+    @auto_space_de.setter
+    def auto_space_de(self, value: bool | None) -> None:
+        pPr = self._element.get_or_add_pPr()
+        pPr.autoSpaceDE_val = value
+
+    @property
+    def auto_space_dn(self) -> bool | None:
+        """Tri-state value controlling ``w:pPr/w:autoSpaceDN``.
+
+        When |True|, automatically adjusts spacing between East-Asian text
+        and numerals in this paragraph. Returns |None| when the element is
+        absent (inherited from the style hierarchy).
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        pPr = self._element.pPr
+        if pPr is None:
+            return None
+        return pPr.autoSpaceDN_val
+
+    @auto_space_dn.setter
+    def auto_space_dn(self, value: bool | None) -> None:
+        pPr = self._element.get_or_add_pPr()
+        pPr.autoSpaceDN_val = value
+
+    @property
+    def shading_color(self) -> RGBColor | None:
+        """Paragraph-level background (shading) color as an |RGBColor|, or |None|.
+
+        Read/write. Reads the ``w:fill`` attribute of ``w:pPr/w:shd``.
+        Returns |None| when ``w:shd`` is absent or its ``w:fill`` is missing
+        or set to ``"auto"``.
+
+        Assigning an |RGBColor| writes ``w:pPr/w:shd`` with ``w:val="clear"``
+        and ``w:fill="RRGGBB"``. Assigning |None| removes the ``w:shd``
+        child. Mirrors :attr:`Font.shading_color` but applies at the
+        paragraph level.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        pPr = self._element.pPr
+        if pPr is None:
+            return None
+        shd = pPr.shd
+        if shd is None:
+            return None
+        fill = shd.fill
+        if fill is None or not isinstance(fill, RGBColor):
+            return None
+        return fill
+
+    @shading_color.setter
+    def shading_color(self, value: RGBColor | None) -> None:
+        if value is None:
+            pPr = self._element.pPr
+            if pPr is None:
+                return
+            pPr._remove_shd()  # pyright: ignore[reportPrivateUsage]
+            return
+        pPr = self._element.get_or_add_pPr()
+        shd = pPr.get_or_add_shd()
+        shd.val = WD_SHADING_PATTERN.CLEAR
+        shd.fill = value
 
     @staticmethod
     def _line_spacing(spacing_line, spacing_lineRule):
