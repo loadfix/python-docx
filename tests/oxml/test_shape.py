@@ -11,8 +11,13 @@ import pytest
 from docx.oxml.ns import qn
 from docx.oxml.shape import (
     CT_Anchor,
+    CT_EffectList,
     CT_Inline,
+    CT_LineProperties,
+    CT_OuterShadow,
     CT_Picture,
+    CT_RelativeRect,
+    CT_ShapeProperties,
     _rot_for_exif_orientation,
 )
 
@@ -252,3 +257,65 @@ class DescribeCT_Inline:
         xfrm = inline.find(".//" + qn("a:xfrm"))
         assert xfrm is not None
         assert xfrm.get("rot") == str(90 * 60000)
+
+
+class DescribeCT_ShapeProperties:
+    """Unit-test suite for outline/effect children on `pic:spPr`."""
+
+    def it_can_add_a_line_properties_child_in_schema_order(self):
+        pic = CT_Picture.new(
+            pic_id=0, filename="f.png", rId="rId1", cx=1000, cy=2000
+        )
+        spPr = cast(CT_ShapeProperties, pic.spPr)
+
+        ln = spPr.get_or_add_ln()
+        ln.w = 12700
+
+        # -- `a:ln` inserted after a:prstGeom, before a:effectLst --
+        children = [c.tag for c in spPr]
+        assert children.index(qn("a:ln")) > children.index(qn("a:prstGeom"))
+        assert isinstance(ln, CT_LineProperties)
+        assert ln.w == 12700
+
+    def it_can_add_an_effect_list_child_in_schema_order(self):
+        pic = CT_Picture.new(
+            pic_id=0, filename="f.png", rId="rId1", cx=1000, cy=2000
+        )
+        spPr = cast(CT_ShapeProperties, pic.spPr)
+
+        effectLst = spPr.get_or_add_effectLst()
+
+        children = [c.tag for c in spPr]
+        assert children.index(qn("a:effectLst")) > children.index(qn("a:prstGeom"))
+        # -- and after a:ln when both present --
+        spPr.get_or_add_ln()
+        children = [c.tag for c in spPr]
+        assert children.index(qn("a:effectLst")) > children.index(qn("a:ln"))
+        assert isinstance(effectLst, CT_EffectList)
+
+
+class DescribeCT_RelativeRect:
+    """Unit-test suite for `a:srcRect` attributes."""
+
+    def it_accepts_and_exposes_l_t_r_b_attrs(self):
+        src = cast(
+            CT_RelativeRect,
+            element("a:srcRect{l=10000,t=20000,r=5000,b=15000}"),
+        )
+        assert src.l == 10000
+        assert src.t == 20000
+        assert src.r == 5000
+        assert src.b == 15000
+
+
+class DescribeCT_OuterShadow:
+    """Unit-test suite for `a:outerShdw`."""
+
+    def it_accepts_and_exposes_blurRad_dist_and_dir(self):
+        shdw = cast(
+            CT_OuterShadow,
+            element("a:outerShdw{blurRad=38100,dist=12700,dir=2700000}"),
+        )
+        assert shdw.blurRad == 38100
+        assert shdw.dist == 12700
+        assert shdw.dir == 2700000
