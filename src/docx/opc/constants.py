@@ -28,6 +28,11 @@ class CONTENT_TYPE:
     )
     OFC_OLE_OBJECT = "application/vnd.openxmlformats-officedocument.oleObject"
     OFC_PACKAGE = "application/vnd.openxmlformats-officedocument.package"
+    PDF = "application/pdf"
+    SML_SHEET = (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    ZIP = "application/zip"
     OFC_THEME = "application/vnd.openxmlformats-officedocument.theme+xml"
     OFC_THEME_OVERRIDE = "application/vnd.openxmlformats-officedocument.themeOverride+xml"
     OFC_VML_DRAWING = "application/vnd.openxmlformats-officedocument.vmlDrawing"

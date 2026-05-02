@@ -21,10 +21,42 @@ from docx.text.symbol import Symbol
 
 if TYPE_CHECKING:
     import docx.types as t
+    from docx.embedded_objects import EmbeddedObject
     from docx.enum.text import WD_UNDERLINE
     from docx.oxml.text.run import CT_R, CT_Text
     from docx.ruby import RubyAnnotation
     from docx.shared import Length
+
+
+def _content_type_for_ole(prog_id: str, ext: str, blob: bytes) -> str:
+    """Return the best content-type for an embedded OLE payload.
+
+    `prog_id` is matched first (e.g. ``Excel.Sheet.12`` → xlsx). Falls back to
+    the supplied file-extension hint (``xlsx``/``pdf``/``zip``) and finally to
+    the generic oleObject content-type.
+    """
+    from docx.opc.constants import CONTENT_TYPE as _CT
+
+    pid = (prog_id or "").lower()
+    if pid.startswith("excel.sheet") or pid.startswith("excel.sheetbinarymacro"):
+        return _CT.SML_SHEET
+    if pid.startswith("acroexch.document") or pid.startswith("pdf"):
+        return _CT.PDF
+    if ext in ("xlsx", "xlsm"):
+        return _CT.SML_SHEET
+    if ext == "pdf":
+        return _CT.PDF
+    if ext == "zip":
+        return _CT.ZIP
+    # -- magic-byte sniffing for zip / xlsx (PK header) --
+    if blob[:2] == b"PK":
+        # -- xlsx is a zip; prefer xlsx when prog_id hints at Excel --
+        if "excel" in pid or ext in ("xlsx", "xlsm"):
+            return _CT.SML_SHEET
+        return _CT.ZIP
+    if blob[:4] == b"%PDF":
+        return _CT.PDF
+    return _CT.OFC_OLE_OBJECT
 
 
 class Run(StoryChild):
@@ -154,6 +186,110 @@ class Run(StoryChild):
             ".//wp:inline/a:graphic/a:graphicData/wps:wsp"
         )[0]
         return WordprocessingShape(wsp, self)
+
+    def add_ole_object(
+        self,
+        ole_path_or_stream: str | IO[bytes],
+        prog_id: str,
+        icon_path_or_stream: str | IO[bytes] | None = None,
+    ) -> "EmbeddedObject":
+        """Embed the OLE file at `ole_path_or_stream` in this run.
+
+        Creates a new ``EmbeddedObjectPart`` holding the file bytes and appends
+        a ``<w:object>/<o:OLEObject>`` element referencing it via an ``r:id``
+        relationship. `prog_id` identifies the object's type and must match the
+        ProgID Word expects for that payload (e.g. ``"Excel.Sheet.12"`` for an
+        xlsx workbook, ``"AcroExch.Document.DC"`` for a PDF).
+
+        The content-type of the generated embedding part is chosen based on
+        `prog_id` and the file extension where possible — xlsx payloads get
+        ``application/vnd.openxmlformats-officedocument.spreadsheetml.sheet``,
+        pdf payloads get ``application/pdf``, zip archives get
+        ``application/zip`` and anything else falls back to the generic OLE
+        ``oleObject`` content-type.
+
+        `icon_path_or_stream` is optional; when provided it is added as a
+        separate image relationship and referenced by a minimal
+        ``<v:shape><v:imagedata/></v:shape>`` fallback so Word displays the
+        icon in place of the OLE payload. When omitted an empty ``v:shape``
+        placeholder is emitted; Word will still open and read the embedded
+        payload either way.
+
+        Returns an |EmbeddedObject| wrapping the newly-created ``o:OLEObject``
+        element.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.embedded_objects import EmbeddedObject
+        from docx.opc.constants import RELATIONSHIP_TYPE as _RT
+        from docx.oxml.ns import nsmap, qn
+        from docx.parts.embedded_object import EmbeddedObjectPart
+        from lxml import etree as _etree
+
+        # -- read the payload bytes --
+        if hasattr(ole_path_or_stream, "read"):
+            stream = cast("IO[bytes]", ole_path_or_stream)
+            try:
+                stream.seek(0)
+            except Exception:  # pragma: no cover - best-effort rewind
+                pass
+            blob = stream.read()
+            ext_hint = ""
+        else:
+            ole_path = cast(str, ole_path_or_stream)
+            with open(ole_path, "rb") as f:
+                blob = f.read()
+            ext_hint = ole_path.rsplit(".", 1)[-1].lower() if "." in ole_path else ""
+
+        content_type = _content_type_for_ole(prog_id, ext_hint, blob)
+
+        part = self.part
+        package = part.package
+        assert package is not None
+        partname = package.next_partname("/word/embeddings/oleObject%d.bin")
+        ole_part = EmbeddedObjectPart(partname, content_type, blob)
+        rId = part.relate_to(ole_part, _RT.OLE_OBJECT)
+
+        # -- optional icon image --
+        image_rId: str | None = None
+        if icon_path_or_stream is not None:
+            image_rId, _ = part.get_or_add_image(icon_path_or_stream)
+
+        # -- build the w:object/o:OLEObject fragment --
+        obj_elm = _etree.SubElement(self._r, qn("w:object"))
+        if image_rId is not None:
+            v_shape = _etree.SubElement(
+                obj_elm,
+                "{%s}shape" % nsmap["v"],
+            )
+            v_shape.set("style", "width:72pt;height:72pt")
+            imagedata = _etree.SubElement(
+                v_shape, "{%s}imagedata" % nsmap["v"]
+            )
+            imagedata.set(qn("r:id"), image_rId)
+            imagedata.set("{%s}title" % nsmap["o"], "")
+        ole_elm = _etree.SubElement(obj_elm, qn("o:OLEObject"))
+        ole_elm.set("Type", "Embed")
+        ole_elm.set("ProgID", prog_id)
+        ole_elm.set("ShapeType", "75")  # -- reasonable default --
+        ole_elm.set(qn("r:id"), rId)
+
+        # -- resolve the containing paragraph for the EmbeddedObject proxy --
+        # The run's parent is typically a Paragraph; fall back to the nearest
+        # w:p ancestor if not.
+        from docx.text.paragraph import Paragraph
+
+        paragraph_obj: Paragraph | None = None
+        if isinstance(self._parent, Paragraph):
+            paragraph_obj = self._parent
+        else:
+            p_elm = self._r.getparent()
+            while p_elm is not None and p_elm.tag != qn("w:p"):
+                p_elm = p_elm.getparent()
+            if p_elm is not None:
+                paragraph_obj = Paragraph(p_elm, self._parent)  # pyright: ignore[reportArgumentType]
+        assert paragraph_obj is not None
+        return EmbeddedObject(paragraph_obj, ole_elm, ole_part)  # pyright: ignore[reportArgumentType]
 
     def add_tab(self) -> None:
         """Add a ``<w:tab/>`` element at the end of the run, which Word interprets as a

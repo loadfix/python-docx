@@ -90,6 +90,77 @@ class Equation:
         """
         return self._element.tag == _M_OMATH_PARA
 
+    def set_text(self, new_text: str) -> None:
+        """Replace the equation's rendered text with `new_text`.
+
+        Concatenates all descendant ``m:t`` elements into a single leading
+        ``m:t`` and removes the rest. Run-level structure (``m:r``) is
+        preserved where possible — the first run keeps its ``m:t`` (updated to
+        carry `new_text`) and all subsequent ``m:t`` elements are emptied.
+        This is a coarse edit: callers needing precise per-run control should
+        manipulate :attr:`xml_element` directly.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        t_elms = self._element.xpath(".//m:t")
+        if not t_elms:
+            # -- build a minimal m:r/m:t into the first m:oMath we can find --
+            target = self._element
+            if target.tag == _M_OMATH_PARA:
+                inner = target.find(_M_OMATH)
+                if inner is not None:
+                    target = inner
+            fragment = parse_xml(
+                ('<m:r xmlns:m="%s"><m:t>%s</m:t></m:r>'
+                 % (_M_NS, _xml_escape(new_text))).encode("utf-8")
+            )
+            target.append(fragment)
+            return
+        t_elms[0].text = new_text
+        for t in t_elms[1:]:
+            t.text = ""
+
+    def replace_identifier(self, old: str, new: str) -> int:
+        """Replace every ``m:t`` whose text equals `old` with `new`.
+
+        Returns the number of replacements performed. Useful for swapping out
+        a single-letter variable name throughout an equation without touching
+        operators or numeric literals.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        count = 0
+        for t in self._element.xpath(".//m:t"):
+            if (t.text or "") == old:
+                t.text = new
+                count += 1
+        return count
+
+    def swap_children(self, index_a: int, index_b: int) -> None:
+        """Swap the two direct child elements at `index_a` and `index_b`.
+
+        Indices are 0-based into the direct children of the wrapped element
+        (the ``m:oMath`` or ``m:oMathPara``). Useful for reordering operands
+        of a small expression.
+
+        Raises :class:`IndexError` when either index is out of range.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        children = list(self._element)
+        n = len(children)
+        if not (0 <= index_a < n and 0 <= index_b < n):
+            raise IndexError("child index out of range")
+        if index_a == index_b:
+            return
+        # -- build the new ordering then reparent every child in that order. --
+        ordered = list(children)
+        ordered[index_a], ordered[index_b] = ordered[index_b], ordered[index_a]
+        for child in children:
+            self._element.remove(child)
+        for child in ordered:
+            self._element.append(child)
+
     @classmethod
     def from_omml_xml(cls, xml_string: str | bytes) -> Equation:
         """Return a new |Equation| parsed from an OMML XML string.

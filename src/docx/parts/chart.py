@@ -20,6 +20,7 @@ from docx.oxml.parser import parse_xml
 
 if TYPE_CHECKING:
     from docx.chart import WD_CHART_TYPE
+    from docx.oxml.xmlchemy import BaseOxmlElement
     from docx.package import Package
 
 
@@ -65,6 +66,63 @@ def _ser_xml(idx: int, name: str, categories: list[str], values: list[float]) ->
         "</c:numCache></c:numRef></c:val>"
         "</c:ser>"
     )
+
+
+_CHART_NS_URI = "http://schemas.openxmlformats.org/drawingml/2006/chart"
+
+
+def _rewrite_ser(  # pyright: ignore[reportUnusedFunction]
+    ser: BaseOxmlElement,
+    idx: int,
+    name: str,
+    categories: list[str],
+    values: list[float],
+) -> None:
+    """Rewrite the ``c:idx``, ``c:order``, ``c:tx``, ``c:cat`` and ``c:val``
+    children of `ser` in place.
+
+    Other children (``c:spPr``, ``c:marker``, ``c:dLbls``, ``c:smooth`` etc.)
+    are left untouched so chart styling is preserved. Only the data payload
+    and the series label change.
+    """
+    from docx.oxml.ns import qn as _qn
+    from docx.oxml.parser import parse_xml as _parse_xml
+
+    # -- drop children we are about to rewrite --
+    for tag_local in ("idx", "order", "tx", "cat", "val"):
+        for child in list(ser.findall(_qn("c:%s" % tag_local))):
+            ser.remove(child)
+
+    cat_pts = "".join(
+        f'<c:pt idx="{i}"><c:v>{_escape_xml(c)}</c:v></c:pt>'
+        for i, c in enumerate(categories)
+    )
+    val_pts = "".join(
+        f'<c:pt idx="{i}"><c:v>{v}</c:v></c:pt>' for i, v in enumerate(values)
+    )
+    wrapper_xml = (
+        f'<c:root xmlns:c="{_CHART_NS_URI}">'
+        f'<c:idx val="{idx}"/>'
+        f'<c:order val="{idx}"/>'
+        f"<c:tx><c:v>{_escape_xml(name)}</c:v></c:tx>"
+        "<c:cat><c:strRef>"
+        "<c:strCache>"
+        f'<c:ptCount val="{len(categories)}"/>'
+        f"{cat_pts}"
+        "</c:strCache></c:strRef></c:cat>"
+        "<c:val><c:numRef>"
+        "<c:numCache>"
+        '<c:formatCode>General</c:formatCode>'
+        f'<c:ptCount val="{len(values)}"/>'
+        f"{val_pts}"
+        "</c:numCache></c:numRef></c:val>"
+        "</c:root>"
+    )
+    wrapper = _parse_xml(wrapper_xml.encode("utf-8"))
+    # -- insert the new children at the top of ser (so schema order is
+    # -- preserved: idx, order, tx then the rest). --
+    for i, new_child in enumerate(list(wrapper)):
+        ser.insert(i, new_child)
 
 
 def _chart_kind_xml(
