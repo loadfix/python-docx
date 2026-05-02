@@ -34,9 +34,25 @@ class DescribeDocumentStatistics:
             paragraphs=1, words=2, characters=11, characters_no_spaces=10
         )
 
-        paragraphs, words, characters, characters_no_spaces = stats
+        paragraphs, words, characters, characters_no_spaces, pages = stats
 
-        assert (paragraphs, words, characters, characters_no_spaces) == (1, 2, 11, 10)
+        assert (paragraphs, words, characters, characters_no_spaces, pages) == (
+            1, 2, 11, 10, None,
+        )
+
+    def it_defaults_pages_to_None(self):
+        stats = DocumentStatistics(
+            paragraphs=1, words=2, characters=11, characters_no_spaces=10
+        )
+
+        assert stats.pages is None
+
+    def it_accepts_a_pages_value(self):
+        stats = DocumentStatistics(
+            paragraphs=1, words=2, characters=11, characters_no_spaces=10, pages=7
+        )
+
+        assert stats.pages == 7
 
 
 class DescribeComputeStatistics:

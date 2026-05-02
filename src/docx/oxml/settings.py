@@ -321,6 +321,83 @@ class CT_Rsids(BaseOxmlElement):
         return [rsid.val for rsid in self.rsid_lst if rsid.val is not None]
 
 
+class CT_DecimalNumberWithVal(BaseOxmlElement):
+    """Generic ``@w:val``-only decimal-number element used for several settings.
+
+    Used for ``w:consecutiveHyphenLimit`` (integer cap on consecutive hyphens),
+    and similar decimal-valued settings children.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+
+    val: int = RequiredAttribute("w:val", ST_DecimalNumber)  # pyright: ignore[reportAssignmentType]
+
+
+class CT_Language(BaseOxmlElement):
+    """`w:themeFontLang` element, specifying the default language tags for the theme fonts.
+
+    Carries optional ``@w:val`` (Latin), ``@w:eastAsia`` (East-Asian), and
+    ``@w:bidi`` (bidirectional / complex-script) language-tag attributes.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+
+    val: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:val", ST_String
+    )
+    eastAsia: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:eastAsia", ST_String
+    )
+    bidi: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:bidi", ST_String
+    )
+
+
+class CT_DocVar(BaseOxmlElement):
+    """`w:docVar` element, a single document variable name/value pair.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+
+    name: str = RequiredAttribute("w:name", ST_String)  # pyright: ignore[reportAssignmentType]
+    val: str = RequiredAttribute("w:val", ST_String)  # pyright: ignore[reportAssignmentType]
+
+
+class CT_DocVars(BaseOxmlElement):
+    """`w:docVars` element, container for ``w:docVar`` document-variable entries.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+
+    _add_docVar: Callable[..., CT_DocVar]
+    docVar_lst: list[CT_DocVar]
+
+    docVar = ZeroOrMore("w:docVar", successors=())
+
+    def get_var(self, name: str) -> str | None:
+        """Return the ``@w:val`` of the ``w:docVar`` whose ``@w:name == name``."""
+        for dv in self.docVar_lst:
+            if dv.name == name:
+                return dv.val
+        return None
+
+    def set_var(self, name: str, value: str) -> None:
+        """Create or update the ``w:docVar`` with ``@w:name == name``."""
+        for dv in self.docVar_lst:
+            if dv.name == name:
+                dv.val = value
+                return
+        self._add_docVar(name=name, val=value)
+
+    def remove_var(self, name: str) -> bool:
+        """Remove the ``w:docVar`` matching ``name``; return True if found."""
+        for dv in list(self.docVar_lst):
+            if dv.name == name:
+                self.remove(dv)
+                return True
+        return False
+
+
 class CT_Settings(BaseOxmlElement):
     """`w:settings` element, root element for the settings part."""
 
@@ -342,6 +419,22 @@ class CT_Settings(BaseOxmlElement):
     _remove_endnotePr: Callable[[], None]
     get_or_add_compat: Callable[[], CT_Compat]
     _remove_compat: Callable[[], None]
+    get_or_add_hideSpellingErrors: Callable[[], CT_OnOff]
+    _remove_hideSpellingErrors: Callable[[], None]
+    get_or_add_hideGrammaticalErrors: Callable[[], CT_OnOff]
+    _remove_hideGrammaticalErrors: Callable[[], None]
+    get_or_add_autoHyphenation: Callable[[], CT_OnOff]
+    _remove_autoHyphenation: Callable[[], None]
+    get_or_add_doNotHyphenateCaps: Callable[[], CT_OnOff]
+    _remove_doNotHyphenateCaps: Callable[[], None]
+    get_or_add_consecutiveHyphenLimit: Callable[[], "CT_DecimalNumberWithVal"]
+    _remove_consecutiveHyphenLimit: Callable[[], None]
+    get_or_add_hyphenationZone: Callable[[], CT_DefaultTabStop]
+    _remove_hyphenationZone: Callable[[], None]
+    get_or_add_themeFontLang: Callable[[], CT_Language]
+    _remove_themeFontLang: Callable[[], None]
+    get_or_add_docVars: Callable[[], CT_DocVars]
+    _remove_docVars: Callable[[], None]
 
     _tag_seq = (
         "w:writeProtection",
@@ -449,6 +542,12 @@ class CT_Settings(BaseOxmlElement):
     zoom: CT_Zoom | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:zoom", successors=_tag_seq[3:]
     )
+    hideSpellingErrors: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:hideSpellingErrors", successors=_tag_seq[20:]
+    )
+    hideGrammaticalErrors: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:hideGrammaticalErrors", successors=_tag_seq[21:]
+    )
     mailMerge: CT_MailMerge | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:mailMerge", successors=_tag_seq[30:]
     )
@@ -460,6 +559,18 @@ class CT_Settings(BaseOxmlElement):
     )
     defaultTabStop: CT_DefaultTabStop | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:defaultTabStop", successors=_tag_seq[39:]
+    )
+    autoHyphenation: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:autoHyphenation", successors=_tag_seq[40:]
+    )
+    consecutiveHyphenLimit: "CT_DecimalNumberWithVal | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:consecutiveHyphenLimit", successors=_tag_seq[41:]
+    )
+    hyphenationZone: CT_DefaultTabStop | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:hyphenationZone", successors=_tag_seq[42:]
+    )
+    doNotHyphenateCaps: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:doNotHyphenateCaps", successors=_tag_seq[43:]
     )
     evenAndOddHeaders: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:evenAndOddHeaders", successors=_tag_seq[48:]
@@ -473,8 +584,14 @@ class CT_Settings(BaseOxmlElement):
     compat: CT_Compat | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:compat", successors=_tag_seq[81:]
     )
+    docVars: "CT_DocVars | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:docVars", successors=_tag_seq[82:]
+    )
     rsids: "CT_Rsids | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:rsids", successors=_tag_seq[83:]
+    )
+    themeFontLang: "CT_Language | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:themeFontLang", successors=_tag_seq[85:]
     )
     del _tag_seq
 

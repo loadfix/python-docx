@@ -161,6 +161,25 @@ class DescribeComments:
         assert comment.author == "Steve Canny"
         assert comment.initials == "SJC"
 
+    def and_it_accepts_an_explicit_tz_aware_date(
+        self, comments: Comments, package_: Mock
+    ):
+        when = dt.datetime(2024, 1, 15, 10, 0, 0, tzinfo=dt.timezone.utc)
+
+        comment = comments.add_comment(author="A", date=when)
+
+        assert comment.timestamp == when
+
+    def and_it_accepts_an_explicit_date_on_add_reply(
+        self, comments: Comments, package_: Mock
+    ):
+        parent = comments.add_comment(author="A")
+        when = dt.datetime(2024, 2, 1, 9, 0, 0, tzinfo=dt.timezone.utc)
+
+        reply = parent.add_reply(author="B", date=when)
+
+        assert reply.timestamp == when
+
     # -- fixtures --------------------------------------------------------------------------------
 
     @pytest.fixture

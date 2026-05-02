@@ -146,6 +146,10 @@ from .custom_properties import CT_CustomProperties, CT_CustomProperty
 register_element_cls("custprops:Properties", CT_CustomProperties)
 register_element_cls("custprops:property", CT_CustomProperty)
 
+from .extended_properties import CT_ExtendedProperties
+
+register_element_cls("extprops:Properties", CT_ExtendedProperties)
+
 from .endnotes import CT_EdnDocProps, CT_Endnote, CT_Endnotes
 
 register_element_cls("w:endnote", CT_Endnote)
@@ -317,8 +321,12 @@ register_element_cls("w:type", CT_SectType)
 from .settings import (
     CT_Compat,
     CT_CompatSetting,
+    CT_DecimalNumberWithVal,
     CT_DefaultTabStop,
     CT_DocProtect,
+    CT_DocVar,
+    CT_DocVars,
+    CT_Language,
     CT_LongHexNumber,
     CT_MailMerge,
     CT_Rsids,
@@ -350,6 +358,15 @@ register_element_cls("w:rsid", CT_LongHexNumber)
 register_element_cls("w:rsidRoot", CT_LongHexNumber)
 register_element_cls("w:rsids", CT_Rsids)
 register_element_cls("w:settings", CT_Settings)
+register_element_cls("w:hideSpellingErrors", CT_OnOff)
+register_element_cls("w:hideGrammaticalErrors", CT_OnOff)
+register_element_cls("w:autoHyphenation", CT_OnOff)
+register_element_cls("w:doNotHyphenateCaps", CT_OnOff)
+register_element_cls("w:consecutiveHyphenLimit", CT_DecimalNumberWithVal)
+register_element_cls("w:hyphenationZone", CT_DefaultTabStop)
+register_element_cls("w:themeFontLang", CT_Language)
+register_element_cls("w:docVars", CT_DocVars)
+register_element_cls("w:docVar", CT_DocVar)
 register_element_cls("w:trackRevisions", CT_OnOff)
 register_element_cls("w:view", CT_View)
 register_element_cls("w:zoom", CT_Zoom)

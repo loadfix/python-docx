@@ -33,7 +33,13 @@ class Comments:
         """The number of comments in this collection."""
         return len(self._comments_elm.comment_lst)
 
-    def add_comment(self, text: str = "", author: str = "", initials: str | None = "") -> Comment:
+    def add_comment(
+        self,
+        text: str = "",
+        author: str = "",
+        initials: str | None = "",
+        date: dt.datetime | None = None,
+    ) -> Comment:
         """Add a new comment to the document and return it.
 
         The comment is added to the end of the comments collection and is assigned a unique
@@ -54,11 +60,20 @@ class Comments:
 
         `initials` is an optional attribute, set to the empty string by default. Passing |None|
         for the `initials` parameter causes that attribute to be omitted from the XML.
+
+        `date` is the timestamp recorded on the comment's ``w:date`` attribute. When
+        omitted, ``datetime.now(timezone.utc)`` is used. A timezone-aware datetime
+        is honoured as-is (no conversion); a naive datetime is treated as already
+        being in UTC. Pass |None| explicitly for the default behaviour.
+
+        .. versionchanged:: 1.3.0.dev0
+           Added the `date` parameter so callers can supply a timezone-aware
+           timestamp instead of the implicit ``datetime.now(UTC)``.
         """
         comment_elm = self._comments_elm.add_comment()
         comment_elm.author = author
         comment_elm.initials = initials
-        comment_elm.date = dt.datetime.now(dt.timezone.utc)
+        comment_elm.date = date if date is not None else dt.datetime.now(dt.timezone.utc)
         comment = Comment(comment_elm, self._comments_part)
 
         if text == "":
@@ -147,14 +162,21 @@ class Comment(BlockItemContainer):
         self._comment_elm.initials = value
 
     def add_reply(
-        self, text: str = "", author: str = "", initials: str | None = ""
+        self,
+        text: str = "",
+        author: str = "",
+        initials: str | None = "",
+        date: dt.datetime | None = None,
     ) -> Comment:
         """Add a reply to this comment and return it.
 
         The reply is a new comment linked to this comment via the `w16cid:paraIdParent` attribute.
-        Parameters behave identically to `Comments.add_comment()`.
+        Parameters behave identically to `Comments.add_comment()`, including the
+        optional `date` timestamp (defaults to ``datetime.now(UTC)``).
 
         .. versionadded:: 1.3.0.dev0
+        .. versionchanged:: 1.3.0.dev0
+           Added the `date` parameter.
         """
         parent_para_id = self._comment_elm.paraId
         if parent_para_id is None:
@@ -164,7 +186,7 @@ class Comment(BlockItemContainer):
         reply_elm = comments_elm.add_reply(parent_para_id)
         reply_elm.author = author
         reply_elm.initials = initials
-        reply_elm.date = dt.datetime.now(dt.timezone.utc)
+        reply_elm.date = date if date is not None else dt.datetime.now(dt.timezone.utc)
         reply = Comment(reply_elm, self._comments_part)
 
         if text == "":

@@ -874,3 +874,189 @@ class DescribeDocumentProtection:
         assert protection.password_salt is None
         assert protection.crypto_provider_type is None
         assert protection.spin_count is None
+
+
+class DescribeSettings_themeFontLanguage:
+    """Unit-test suite for :attr:`Settings.theme_font_language`."""
+
+    def it_returns_a_tuple_of_Nones_when_element_absent(self):
+        settings = Settings(element("w:settings"))
+
+        assert settings.theme_font_language == (None, None, None)
+
+    def it_reads_the_three_language_attrs(self):
+        settings = Settings(
+            element(
+                "w:settings/w:themeFontLang{w:val=en-US,w:eastAsia=zh-CN,w:bidi=ar-SA}"
+            )
+        )
+
+        assert settings.theme_font_language == ("en-US", "zh-CN", "ar-SA")
+
+    def it_sets_val_when_assigning_a_plain_string(self):
+        settings = Settings(element("w:settings"))
+
+        settings.theme_font_language = "en-GB"
+
+        assert settings.theme_font_language == ("en-GB", None, None)
+
+    def it_sets_all_three_when_assigning_a_tuple(self):
+        settings = Settings(element("w:settings"))
+
+        settings.theme_font_language = ("en-US", "zh-CN", "ar-SA")
+
+        assert settings.theme_font_language == ("en-US", "zh-CN", "ar-SA")
+
+    def it_removes_the_element_when_assigned_None(self):
+        settings = Settings(element("w:settings/w:themeFontLang{w:val=en-US}"))
+
+        settings.theme_font_language = None
+
+        assert settings.theme_font_language == (None, None, None)
+
+
+class DescribeSettings_spellAndGrammar:
+    """Unit-test suite for hide_spelling_errors / hide_grammatical_errors."""
+
+    def it_defaults_to_False_when_absent(self):
+        settings = Settings(element("w:settings"))
+
+        assert settings.hide_spelling_errors is False
+        assert settings.hide_grammatical_errors is False
+
+    def it_returns_True_when_element_present(self):
+        settings = Settings(
+            element("w:settings/(w:hideSpellingErrors,w:hideGrammaticalErrors)")
+        )
+
+        assert settings.hide_spelling_errors is True
+        assert settings.hide_grammatical_errors is True
+
+    def it_adds_and_removes_hide_spelling_errors(self):
+        settings = Settings(element("w:settings"))
+
+        settings.hide_spelling_errors = True
+        assert settings.hide_spelling_errors is True
+
+        settings.hide_spelling_errors = False
+        assert settings.hide_spelling_errors is False
+        # -- element should be removed, not merely set to 0 --
+        assert settings._settings.hideSpellingErrors is None
+
+    def it_adds_and_removes_hide_grammatical_errors(self):
+        settings = Settings(element("w:settings"))
+
+        settings.hide_grammatical_errors = True
+        assert settings.hide_grammatical_errors is True
+
+        settings.hide_grammatical_errors = False
+        assert settings.hide_grammatical_errors is False
+        assert settings._settings.hideGrammaticalErrors is None
+
+
+class DescribeSettings_autoHyphenation:
+    """Unit-test suite for auto-hyphenation related settings."""
+
+    def it_defaults_to_False_when_absent(self):
+        settings = Settings(element("w:settings"))
+
+        assert settings.auto_hyphenation is False
+        assert settings.do_not_hyphenate_caps is False
+        assert settings.consecutive_hyphen_limit is None
+        assert settings.hyphenation_zone is None
+
+    def it_reads_auto_hyphenation_presence(self):
+        settings = Settings(element("w:settings/w:autoHyphenation"))
+
+        assert settings.auto_hyphenation is True
+
+    def it_can_enable_and_disable_auto_hyphenation(self):
+        settings = Settings(element("w:settings"))
+
+        settings.auto_hyphenation = True
+        assert settings.auto_hyphenation is True
+
+        settings.auto_hyphenation = False
+        assert settings.auto_hyphenation is False
+        assert settings._settings.autoHyphenation is None
+
+    def it_can_set_consecutive_hyphen_limit(self):
+        settings = Settings(element("w:settings"))
+
+        settings.consecutive_hyphen_limit = 3
+
+        assert settings.consecutive_hyphen_limit == 3
+
+    def it_removes_consecutive_hyphen_limit_when_zero_or_None(self):
+        settings = Settings(element("w:settings/w:consecutiveHyphenLimit{w:val=5}"))
+
+        settings.consecutive_hyphen_limit = None
+
+        assert settings.consecutive_hyphen_limit is None
+
+    def it_can_roundtrip_hyphenation_zone(self):
+        settings = Settings(element("w:settings"))
+
+        settings.hyphenation_zone = Twips(720)
+
+        assert settings.hyphenation_zone == Twips(720)
+
+
+class DescribeSettings_docVars:
+    """Unit-test suite for :attr:`Settings.doc_vars`."""
+
+    def it_is_empty_when_no_container_present(self):
+        settings = Settings(element("w:settings"))
+
+        assert len(settings.doc_vars) == 0
+        assert list(settings.doc_vars) == []
+
+    def it_can_add_and_read_back_a_variable(self):
+        settings = Settings(element("w:settings"))
+
+        settings.doc_vars["project"] = "Alpha"
+
+        assert settings.doc_vars["project"] == "Alpha"
+        assert len(settings.doc_vars) == 1
+
+    def it_reads_existing_doc_vars(self):
+        settings = Settings(
+            element("w:settings/w:docVars/w:docVar{w:name=color,w:val=red}")
+        )
+
+        assert settings.doc_vars["color"] == "red"
+
+    def it_overwrites_existing_value_on_setitem(self):
+        settings = Settings(element("w:settings"))
+        settings.doc_vars["x"] = "1"
+
+        settings.doc_vars["x"] = "2"
+
+        assert settings.doc_vars["x"] == "2"
+        assert len(settings.doc_vars) == 1
+
+    def it_raises_KeyError_on_missing_name(self):
+        settings = Settings(element("w:settings"))
+
+        with pytest.raises(KeyError):
+            _ = settings.doc_vars["missing"]
+
+    def it_removes_variable_and_prunes_empty_container(self):
+        settings = Settings(element("w:settings"))
+        settings.doc_vars["x"] = "1"
+
+        del settings.doc_vars["x"]
+
+        assert len(settings.doc_vars) == 0
+        # -- the w:docVars container should be pruned on empty --
+        assert settings._settings.docVars is None
+
+    def it_supports_contains_get_and_items(self):
+        settings = Settings(element("w:settings"))
+        settings.doc_vars["a"] = "1"
+        settings.doc_vars["b"] = "2"
+
+        assert "a" in settings.doc_vars
+        assert settings.doc_vars.get("missing") is None
+        assert settings.doc_vars.get("missing", "default") == "default"
+        assert settings.doc_vars.items() == [("a", "1"), ("b", "2")]

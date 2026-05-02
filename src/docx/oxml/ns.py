@@ -10,6 +10,7 @@ nsmap = {
     "c": "http://schemas.openxmlformats.org/drawingml/2006/chart",
     "cp": "http://schemas.openxmlformats.org/package/2006/metadata/core-properties",
     "custprops": "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties",
+    "extprops": "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties",
     "dc": "http://purl.org/dc/elements/1.1/",
     "dcmitype": "http://purl.org/dc/dcmitype/",
     "dcterms": "http://purl.org/dc/terms/",

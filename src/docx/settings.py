@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.endnotes import EndnoteProperties
     from docx.footnotes import FootnoteProperties
-    from docx.oxml.settings import CT_Compat, CT_MailMerge, CT_Settings
+    from docx.oxml.settings import CT_Compat, CT_DocVars, CT_MailMerge, CT_Settings
     from docx.oxml.xmlchemy import BaseOxmlElement
     from docx.shared import Length
 
@@ -462,6 +462,192 @@ class Settings(ElementProxy):
         .. versionadded:: 1.3.0.dev0
         """
         self._settings._remove_endnotePr()  # pyright: ignore[reportPrivateUsage]
+
+    # -- theme-font language ------------------------------------------------
+
+    @property
+    def theme_font_language(self) -> tuple[str | None, str | None, str | None]:
+        """Document-level theme-font language tags.
+
+        Returns a 3-tuple ``(latin, east_asian, bidi)`` of language tags
+        (e.g. ``("en-US", None, None)``) read from
+        ``w:themeFontLang/@w:val``, ``@w:eastAsia``, and ``@w:bidi``. Each
+        component is |None| when the corresponding attribute is missing or
+        no ``w:themeFontLang`` element is present.
+
+        Assigning a plain string sets the Latin (``@w:val``) tag and clears
+        the East-Asian and bidi tags. Assigning a tuple of 1-3 strings sets
+        them in ``(latin, east_asian, bidi)`` order; shorter tuples leave
+        the trailing entries unset. Assigning |None| (or ``(None, None, None)``)
+        removes the element entirely.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        lang = self._settings.themeFontLang
+        if lang is None:
+            return (None, None, None)
+        return (lang.val, lang.eastAsia, lang.bidi)
+
+    @theme_font_language.setter
+    def theme_font_language(
+        self,
+        value: str | tuple[str | None, ...] | list[str | None] | None,
+    ) -> None:
+        if value is None:
+            self._settings._remove_themeFontLang()  # pyright: ignore[reportPrivateUsage]
+            return
+        if isinstance(value, str):
+            latin, east_asian, bidi = value, None, None
+        else:
+            parts = list(value) + [None, None, None]
+            latin, east_asian, bidi = parts[0], parts[1], parts[2]
+        if latin is None and east_asian is None and bidi is None:
+            self._settings._remove_themeFontLang()  # pyright: ignore[reportPrivateUsage]
+            return
+        lang = self._settings.get_or_add_themeFontLang()
+        lang.val = latin
+        lang.eastAsia = east_asian
+        lang.bidi = bidi
+
+    # -- spell / grammar check toggles --------------------------------------
+
+    @property
+    def hide_spelling_errors(self) -> bool:
+        """True when Word should hide red spell-check underlines in this document.
+
+        Backed by the ``w:hideSpellingErrors`` element. Read/write.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        el = self._settings.hideSpellingErrors
+        if el is None:
+            return False
+        return el.val
+
+    @hide_spelling_errors.setter
+    def hide_spelling_errors(self, value: bool) -> None:
+        if not value:
+            self._settings._remove_hideSpellingErrors()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._settings.get_or_add_hideSpellingErrors().val = True
+
+    @property
+    def hide_grammatical_errors(self) -> bool:
+        """True when Word should hide green grammar-check underlines.
+
+        Backed by the ``w:hideGrammaticalErrors`` element. Read/write.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        el = self._settings.hideGrammaticalErrors
+        if el is None:
+            return False
+        return el.val
+
+    @hide_grammatical_errors.setter
+    def hide_grammatical_errors(self, value: bool) -> None:
+        if not value:
+            self._settings._remove_hideGrammaticalErrors()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._settings.get_or_add_hideGrammaticalErrors().val = True
+
+    # -- auto-hyphenation ---------------------------------------------------
+
+    @property
+    def auto_hyphenation(self) -> bool:
+        """True when automatic hyphenation is enabled for the document.
+
+        Backed by the ``w:autoHyphenation`` element. Read/write.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        el = self._settings.autoHyphenation
+        if el is None:
+            return False
+        return el.val
+
+    @auto_hyphenation.setter
+    def auto_hyphenation(self, value: bool) -> None:
+        if not value:
+            self._settings._remove_autoHyphenation()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._settings.get_or_add_autoHyphenation().val = True
+
+    @property
+    def do_not_hyphenate_caps(self) -> bool:
+        """True when fully-capitalised words are excluded from hyphenation.
+
+        Backed by the ``w:doNotHyphenateCaps`` element. Read/write.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        el = self._settings.doNotHyphenateCaps
+        if el is None:
+            return False
+        return el.val
+
+    @do_not_hyphenate_caps.setter
+    def do_not_hyphenate_caps(self, value: bool) -> None:
+        if not value:
+            self._settings._remove_doNotHyphenateCaps()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._settings.get_or_add_doNotHyphenateCaps().val = True
+
+    @property
+    def consecutive_hyphen_limit(self) -> int | None:
+        """Maximum number of consecutive lines that may end with a hyphen, or |None|.
+
+        Backed by ``w:consecutiveHyphenLimit/@w:val``. Read/write. Assigning
+        |None| (or a value ≤ 0) removes the element.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        el = self._settings.consecutiveHyphenLimit
+        if el is None:
+            return None
+        return el.val
+
+    @consecutive_hyphen_limit.setter
+    def consecutive_hyphen_limit(self, value: int | None) -> None:
+        if value is None or value <= 0:
+            self._settings._remove_consecutiveHyphenLimit()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._settings.get_or_add_consecutiveHyphenLimit().val = int(value)
+
+    @property
+    def hyphenation_zone(self) -> Length | None:
+        """Hyphenation zone width as a |Length|, or |None| when not set.
+
+        Backed by ``w:hyphenationZone/@w:val`` (a twips measure). Read/write.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        el = self._settings.hyphenationZone
+        if el is None:
+            return None
+        return el.val
+
+    @hyphenation_zone.setter
+    def hyphenation_zone(self, value: int | Length | None) -> None:
+        if value is None:
+            self._settings._remove_hyphenationZone()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._settings.get_or_add_hyphenationZone().val = value
+
+    # -- document variables -------------------------------------------------
+
+    @property
+    def doc_vars(self) -> DocVars:
+        """A |DocVars| mapping proxy over ``w:docVars/w:docVar`` entries.
+
+        Keys are the ``@w:name`` strings; values are the ``@w:val`` strings.
+        The returned object is a live view: assignments and deletions mutate
+        the underlying XML immediately and create or remove the ``w:docVars``
+        container element as needed.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return DocVars(self._settings)
 
 
 # -- default algorithm metadata matching Word's rsaAES/SHA-1 password scheme --
@@ -943,6 +1129,98 @@ class CompatFlags:
         .. versionadded:: 1.3.0.dev0
         """
         return _KNOWN_COMPAT_FLAG_NAMES
+
+
+class DocVars:
+    """Dict-like view over ``w:docVars/w:docVar`` entries.
+
+    Obtained via :attr:`Settings.doc_vars`. Keys are the ``@w:name`` strings;
+    values are the ``@w:val`` strings. The collection is live -- assignments
+    and deletions persist to the underlying XML immediately, and the
+    ``w:docVars`` container element is created / pruned on demand.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+
+    def __init__(self, settings: CT_Settings):
+        self._settings = settings
+
+    # -- internal helpers ---------------------------------------------------
+
+    def _docVars_or_none(self) -> "CT_DocVars | None":
+        return self._settings.docVars
+
+    def _docVars_or_add(self) -> "CT_DocVars":
+        return self._settings.get_or_add_docVars()
+
+    def _prune_if_empty(self) -> None:
+        container = self._settings.docVars
+        if container is None:
+            return
+        if len(container.docVar_lst) == 0:
+            self._settings._remove_docVars()  # pyright: ignore[reportPrivateUsage]
+
+    # -- Mapping-like protocol ---------------------------------------------
+
+    def __getitem__(self, name: str) -> str:
+        container = self._docVars_or_none()
+        if container is not None:
+            val = container.get_var(name)
+            if val is not None:
+                return val
+        raise KeyError(name)
+
+    def __setitem__(self, name: str, value: str) -> None:
+        self._docVars_or_add().set_var(name, str(value))
+
+    def __delitem__(self, name: str) -> None:
+        container = self._docVars_or_none()
+        if container is None or not container.remove_var(name):
+            raise KeyError(name)
+        self._prune_if_empty()
+
+    def __contains__(self, name: object) -> bool:
+        if not isinstance(name, str):
+            return False
+        container = self._docVars_or_none()
+        if container is None:
+            return False
+        return container.get_var(name) is not None
+
+    def __iter__(self) -> Iterator[str]:
+        container = self._docVars_or_none()
+        if container is None:
+            return iter(())
+        return iter([dv.name for dv in container.docVar_lst])
+
+    def __len__(self) -> int:
+        container = self._docVars_or_none()
+        if container is None:
+            return 0
+        return len(container.docVar_lst)
+
+    # -- convenience --------------------------------------------------------
+
+    def get(self, name: str, default: str | None = None) -> str | None:
+        """Return the value for ``name`` if present, else `default`.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        container = self._docVars_or_none()
+        if container is None:
+            return default
+        val = container.get_var(name)
+        return default if val is None else val
+
+    def items(self) -> list[tuple[str, str]]:
+        """Return a list of ``(name, value)`` pairs in document order.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        container = self._docVars_or_none()
+        if container is None:
+            return []
+        return [(dv.name, dv.val) for dv in container.docVar_lst]
 
 
 class MailMerge:

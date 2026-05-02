@@ -179,6 +179,20 @@ class DescribeCoreProperties:
 
         assert core_properties._element.xml == expected_xml
 
+    def it_can_clear_all_properties(self, core_properties: CoreProperties):
+        # -- populated fixture has several children; clear_all should remove them --
+        assert core_properties.author == "python-docx"
+
+        core_properties.clear_all()
+
+        assert core_properties.author == ""
+        assert core_properties.title == ""
+        assert core_properties.subject == ""
+        assert core_properties.keywords == ""
+        assert core_properties.revision == 0
+        # -- the root element itself survives --
+        assert len(core_properties._element) == 0
+
     # fixtures -------------------------------------------------------
 
     def coreProperties(self, tagname: str, str_val: str, attrs: str = "") -> str:
