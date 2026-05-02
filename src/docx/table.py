@@ -84,13 +84,39 @@ class Table(StoryChild):
         return _Column(gridCol, self)
 
     def add_row(self):
-        """Return a |_Row| instance, newly added bottom-most to the table."""
+        """Return a |_Row| instance, newly added bottom-most to the table.
+
+        When a preceding row is present, its ``w:trPr/w:cnfStyle`` element is
+        copied onto the new row so conditional-formatting (banding,
+        first/last-row emphasis) flows to the new row as Word itself would.
+        (upstream#306)
+        """
+        from copy import deepcopy
+
+        from docx.oxml.ns import qn
+
         tbl = self._tbl
+        # -- capture the prior row (if any) before we append --
+        preceding_tr = tbl.tr_lst[-1] if tbl.tr_lst else None
         tr = tbl.add_tr()
         for gridCol in tbl.tblGrid.gridCol_lst:
             tc = tr.add_tc()
             if gridCol.w is not None:
                 tc.width = gridCol.w
+
+        if preceding_tr is not None:
+            prior_trPr = preceding_tr.trPr
+            if prior_trPr is not None:
+                prior_cnfStyle = prior_trPr.find(qn("w:cnfStyle"))
+                if prior_cnfStyle is not None:
+                    new_trPr = tr.get_or_add_trPr()
+                    # -- remove any existing cnfStyle to avoid duplicates --
+                    existing = new_trPr.find(qn("w:cnfStyle"))
+                    if existing is not None:
+                        new_trPr.remove(existing)
+                    # -- cnfStyle is the first child in w:trPr (see _tag_seq) --
+                    new_trPr.insert(0, deepcopy(prior_cnfStyle))
+
         return _Row(tr, self)
 
     def insert_paragraph_before(
@@ -492,29 +518,101 @@ class Table(StoryChild):
         self._element.bidiVisual_val = value
 
     @property
+    def direction(self) -> WD_TABLE_DIRECTION | None:
+        """Alias of :attr:`table_direction` for upstream-compat (upstream#1227).
+
+        The property was renamed to ``table_direction`` in this fork; this
+        alias preserves the original name so callers written against upstream
+        python-docx continue to work.
+        """
+        return self.table_direction
+
+    @direction.setter
+    def direction(self, value: WD_TABLE_DIRECTION | None):
+        self.table_direction = value
+
+    @property
     def _cells(self) -> list[_Cell]:
         """A sequence of |_Cell| objects, one for each cell of the layout grid.
 
         If the table contains a span, one or more |_Cell| object references are
-        repeated.
+        repeated. Per-row ``w:gridBefore`` / ``w:gridAfter`` allowances are
+        honoured so the returned sequence is always length
+        ``rows * _column_count`` and ``cell(r, c)`` / ``column_cells(c)``
+        arithmetic lines up with the declared grid. Omitted-cell slots are
+        filled with a placeholder |_Cell| (borrowing the cell directly above
+        where possible, else the nearest real ``w:tc`` in the same row) so
+        callers never encounter |None|. (upstream#939, #1367, #1334, #1193)
         """
         col_count = self._column_count
         cells: list[_Cell] = []
-        for tc in self._tbl.iter_tcs():
-            for grid_span_idx in range(tc.grid_span):
-                if tc.vMerge == ST_Merge.CONTINUE:
-                    # -- continuation cell: delegate to the cell one row above.
-                    # -- If there's no preceding row (orphan continuation in the
-                    # -- first row, malformed document), fall back to treating
-                    # -- this tc as its own cell so callers don't crash.
-                    if len(cells) >= col_count:
-                        cells.append(cells[-col_count])
+        for tr in self._tbl.tr_lst:
+            row_start = len(cells)
+            grid_before = tr.grid_before
+            grid_after = tr.grid_after
+
+            # -- build row cells first so we can fill gridBefore placeholders
+            # -- by looking at the row's own real cells when no row-above exists.
+            row_real_cells: list[_Cell] = []
+            for tc in tr.tc_lst:
+                for grid_span_idx in range(tc.grid_span):
+                    if tc.vMerge == ST_Merge.CONTINUE:
+                        # -- continuation cell: delegate to the cell one row above.
+                        # -- If there's no preceding row (orphan continuation in
+                        # -- the first row, malformed document), fall back to
+                        # -- treating this tc as its own cell.
+                        if row_start >= col_count:
+                            # -- same column in the preceding row --
+                            col = grid_before + len(row_real_cells)
+                            if col < col_count:
+                                row_real_cells.append(cells[row_start - col_count + col])
+                                continue
+                        row_real_cells.append(_Cell(tc, self))
+                    elif grid_span_idx > 0:
+                        row_real_cells.append(row_real_cells[-1])
                     else:
-                        cells.append(_Cell(tc, self))
-                elif grid_span_idx > 0:
-                    cells.append(cells[-1])
-                else:
-                    cells.append(_Cell(tc, self))
+                        row_real_cells.append(_Cell(tc, self))
+
+            # -- choose a placeholder for omitted slots: prefer the cell
+            # -- directly above, fall back to the row's first/last real cell,
+            # -- or synthesise from the first tc if the row has none. --
+            def _placeholder(col: int, fallback: _Cell | None) -> _Cell:
+                if row_start >= col_count and col < col_count:
+                    return cells[row_start - col_count + col]
+                if fallback is not None:
+                    return fallback
+                # -- absolute last resort: wrap the first tc of the row --
+                first_tc = tr.tc_lst[0] if tr.tc_lst else None
+                if first_tc is not None:
+                    return _Cell(first_tc, self)
+                # -- row is empty and no row above; return a no-op placeholder
+                # -- by wrapping the table element itself would be unsafe, so
+                # -- fall back to repeating adjacent placeholder if any. --
+                if cells:
+                    return cells[-1]
+                raise AssertionError("cannot synthesise placeholder for empty row")
+
+            # -- gridBefore slots --
+            first_real = row_real_cells[0] if row_real_cells else None
+            for i in range(grid_before):
+                cells.append(_placeholder(i, first_real))
+
+            # -- real cells --
+            cells.extend(row_real_cells)
+
+            # -- gridAfter slots --
+            last_real = row_real_cells[-1] if row_real_cells else first_real
+            start_after = grid_before + len(row_real_cells)
+            for i in range(grid_after):
+                cells.append(_placeholder(start_after + i, last_real))
+
+            # -- defensive padding: if a row still under-fills col_count
+            # -- (e.g. malformed doc missing cells without gridAfter), pad so
+            # -- downstream indexing is safe rather than mis-aligned. --
+            row_len = len(cells) - row_start
+            while row_len < col_count:
+                cells.append(_placeholder(row_len, last_real or first_real))
+                row_len += 1
         return cells
 
     @property
