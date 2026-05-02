@@ -88,6 +88,20 @@ def given_a_table_cell(context: Context):
     context.cell = table.cell(0, 0)
 
 
+@given("a document containing three tables")
+def given_a_document_containing_three_tables_step(context: Context):
+    context.document = Document(test_docx("tbl-multi"))
+
+
+@given("a detached table")
+def given_a_detached_table(context: Context):
+    from docx.oxml.table import CT_Tbl
+    from docx.shared import Inches
+
+    tbl = CT_Tbl.new_tbl(2, 2, Inches(6))
+    context.table_ = Table(tbl, None)
+
+
 @given("a table cell having a width of {width}")
 def given_a_table_cell_having_a_width_of_width(context: Context, width: str):
     table_idx = {"no explicit setting": 0, "1 inch": 1, "2 inches": 2}[width]
@@ -300,6 +314,34 @@ def when_I_set_the_table_autofit_to_setting(context: Context, setting: str):
     new_value = {"autofit": True, "fixed": False}[setting]
     table = context.table_
     table.autofit = new_value
+
+
+@when("I delete the second table")
+def when_I_delete_the_second_table(context: Context):
+    context.document.tables[1].delete()
+
+
+@when("I delete the detached table")
+def when_I_delete_the_detached_table(context: Context):
+    context.table_.delete()
+
+
+@when("I insert a paragraph after the second table")
+def when_I_insert_a_paragraph_after_the_second_table(context: Context):
+    ref = context.document.tables[1]
+    ref.insert_paragraph_after("after-table")
+
+
+@when("I insert a paragraph before the second table")
+def when_I_insert_a_paragraph_before_the_second_table(context: Context):
+    ref = context.document.tables[1]
+    ref.insert_paragraph_before("before-table")
+
+
+@when("I insert a 2x2 table after the second table")
+def when_I_insert_a_2x2_table_after_the_second_table(context: Context):
+    ref = context.document.tables[1]
+    ref.insert_table_after(rows=2, cols=2)
 
 
 # then =====================================================
@@ -958,3 +1000,86 @@ def then_cell_is_merge_origin_is(context: Context, value: str):
 def then_cell_merge_origin_text_is(context: Context, expected_text: str):
     actual = context.cell.merge_origin.text
     assert actual == expected_text, f"expected {expected_text!r}, got {actual!r}"
+@then("the document contains two tables")
+def then_the_document_contains_two_tables(context: Context):
+    assert len(context.document.tables) == 2
+
+
+@then("the document contains one table")
+def then_the_document_contains_one_table(context: Context):
+    assert len(context.document.tables) == 1
+
+
+@then("the document contains four tables")
+def then_the_document_contains_four_tables(context: Context):
+    assert len(context.document.tables) == 4
+
+
+@then('the remaining tables contain text "{first}" and "{second}"')
+def then_remaining_tables_contain_text(context: Context, first: str, second: str):
+    tables = context.document.tables
+    assert len(tables) == 2, f"expected 2 tables, got {len(tables)}"
+    table_0_first_cell = tables[0].cell(0, 0).text
+    table_1_first_cell = tables[1].cell(0, 0).text
+    assert table_0_first_cell == first, f"first table cell was {table_0_first_cell!r}"
+    assert table_1_first_cell == second, f"second table cell was {table_1_first_cell!r}"
+
+
+@then("the inserted table has two rows and two columns")
+def then_inserted_table_has_two_rows_and_two_columns(context: Context):
+    table = context.table_
+    assert len(table.rows) == 2
+    assert len(table.columns) == 2
+
+
+@then('the paragraph after the second table has text "{expected}"')
+def then_paragraph_after_second_table_has_text(context: Context, expected: str):
+    from docx.table import Table as TableCls
+    from docx.text.paragraph import Paragraph as ParagraphCls
+
+    second_tbl = context.document.tables[1]._tbl
+    next_el = second_tbl.getnext()
+    assert next_el is not None, "expected an element after the second table"
+    tag = next_el.tag.rsplit("}", 1)[-1]
+    assert tag == "p", f"expected a paragraph after the table, got {tag!r}"
+    paragraph = ParagraphCls(next_el, None)
+    actual = paragraph.text
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+    # --- sanity check that TableCls is the correct proxy type (unused import guard) ---
+    assert TableCls is not None
+
+
+@then('the paragraph before the second table has text "{expected}"')
+def then_paragraph_before_second_table_has_text(context: Context, expected: str):
+    from docx.text.paragraph import Paragraph as ParagraphCls
+
+    second_tbl = context.document.tables[1]._tbl
+    prev_el = second_tbl.getprevious()
+    assert prev_el is not None, "expected an element before the second table"
+    tag = prev_el.tag.rsplit("}", 1)[-1]
+    assert tag == "p", f"expected a paragraph before the table, got {tag!r}"
+    paragraph = ParagraphCls(prev_el, None)
+    actual = paragraph.text
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("each table stable_id is a 16-char hex string")
+def then_each_table_stable_id_is_16_char_hex(context: Context):
+    import re
+
+    hex_re = re.compile(r"^[0-9a-f]{16}$")
+    for t in context.document.tables:
+        sid = t.stable_id
+        assert hex_re.match(sid), f"table stable_id {sid!r} is not 16-char hex"
+
+
+@then("each cell stable_id is a 16-char hex string")
+def then_each_cell_stable_id_is_16_char_hex(context: Context):
+    import re
+
+    hex_re = re.compile(r"^[0-9a-f]{16}$")
+    for t in context.document.tables:
+        for row in t.rows:
+            for cell in row.cells:
+                sid = cell.stable_id
+                assert hex_re.match(sid), f"cell stable_id {sid!r} is not 16-char hex"

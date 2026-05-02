@@ -22,3 +22,16 @@ Feature: Add a document section
       And section.footer.is_linked_to_previous is True
       And section.even_page_footer.is_linked_to_previous is True
       And section.first_page_footer.is_linked_to_previous is True
+
+
+  Scenario: Paragraph.remove_section_break removes the section break
+    Given a single-section document having portrait layout
+     When I insert a section break on the first paragraph
+      And I remove the section break from the first paragraph
+     Then the first paragraph has no section break
+
+
+  Scenario: Paragraph.remove_section_break is a no-op on a paragraph without a break
+    Given a single-section document having portrait layout
+     When I remove the section break from the first paragraph
+     Then the first paragraph has no section break
