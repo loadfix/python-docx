@@ -49,7 +49,7 @@ class CT_Footnote(BaseOxmlElement):
 
 - `ZeroOrOne(tag, successors=(...))` — generates getter, `_add_*()`, `get_or_add_*()`, `_remove_*()`, `_insert_*()`
 - `ZeroOrMore(tag, successors=(...))` — generates `*_lst` property, `add_*()`, `_insert_*()`
-- `successors` tuple must match XSD schema ordering exactly
+- `successors` tuple must match XSD schema ordering exactly — consult `spec/xsd/wml.xsd` (WordprocessingML), `spec/xsd/dml-wordprocessingDrawing.xsd` (anchor/inline drawing), or `spec/xsd/shared-math.xsd` (OMML) for authoritative ordering. `spec/rnc/` has RELAX NG Compact variants that are easier to read than the XSDs.
 - Register: `register_element_cls("w:footnote", CT_Footnote)` in `oxml/__init__.py`
 
 ### Part Classes
@@ -100,6 +100,15 @@ class Footnote(BlockItemContainer):
 - Relationship types: same file — `RT.FOOTNOTES` and `RT.ENDNOTES` already defined
 - Namespaces: `src/docx/oxml/ns.py` — `qn("w:footnote")` for Clark notation
 
+## OOXML spec vs Microsoft Word reality
+
+Microsoft Word does NOT strictly implement ISO/IEC 29500 / ECMA-376. Treat the spec as a starting point, not ground truth.
+
+- Word writes the **Transitional** flavor, not **Strict**. The 4th/5th/6th editions of ISO 29500-1 tightened the spec toward Strict; Word still emits Transitional namespaces that trace back to the original 1st edition / ECMA-376 2006.
+- Word emits Microsoft extensions in the `w14:`, `w15:`, `w16:`, `w16cid:`, `w16se:` namespaces (Word 2010/2013/2016+), gated by `mc:Ignorable`. These are documented in the `[MS-DOCX]` / `[MS-OE376]` extension series, not in the ISO PDFs under `spec/`.
+- Word's reader tolerates out-of-order, extra, and missing elements that the spec forbids. Word's writer emits shapes the spec doesn't mandate. A spec-valid file is not automatically a file Word will open cleanly.
+- **When the spec and Word disagree, match Word.** The canonical way to resolve ambiguity is: save a minimal `.docx` from Word, unzip it, and inspect the XML. `spec/xsd/*.xsd` tells you what is *allowed*; Word tells you what is *interoperable*.
+
 ## Test Conventions
 
 - Framework: pytest with BDD-style naming
@@ -139,6 +148,7 @@ pip install -e ".[dev]"
 
 ## Important
 
+- Before implementing a new feature or element class, consult `spec/` for authoritative schema information: `spec/xsd/*.xsd` (W3C XSD grammars), `spec/rnc/*.rnc` (RELAX NG Compact equivalents, easier to read), `spec/ISO-IEC-29500-1.pdf` (Part 1: markup language reference prose), and `spec/ISO-IEC-29500-2.pdf` (OPC packaging). These are not runtime dependencies — they are the canonical sources for element ordering, attribute types, and cardinality.
 - Always run tests after changes: `pytest tests/ -v`
 - The successors tuple in element declarations MUST match XSD ordering
 - Footnote IDs 0 and 1 are reserved (separator, continuation separator)
