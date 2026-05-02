@@ -92,6 +92,7 @@ User Guide
    user/custom-properties
    user/document-safety
    user/endnotes
+   user/equations
    user/fields
    user/footnotes
    user/form-fields
