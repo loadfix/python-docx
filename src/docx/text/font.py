@@ -628,6 +628,11 @@ class Font(ElementProxy):
         rPr = self._element.get_or_add_rPr()
         rPr.rFonts_ascii = value
         rPr.rFonts_hAnsi = value
+        # -- mirror the ascii / hAnsi name onto the complex-script slot so
+        # -- bidi (RTL) runs use the same typeface (upstream #510, #430, #973).
+        # -- Callers that want a different CS font can explicitly set
+        # -- :attr:`Font.name_cs` afterwards. --
+        rPr.rFonts_cs = value
 
     @property
     def no_proof(self) -> bool | None:
@@ -771,7 +776,13 @@ class Font(ElementProxy):
     @size.setter
     def size(self, emu: int | Length | None) -> None:
         rPr = self._element.get_or_add_rPr()
-        rPr.sz_val = None if emu is None else Emu(emu)
+        length = None if emu is None else Emu(emu)
+        rPr.sz_val = length
+        # -- also write ``w:szCs`` so complex-script / bidi (RTL) runs inherit
+        # -- the same size. Word uses ``w:szCs`` for Arabic / Hebrew / Farsi
+        # -- glyphs and leaves them at the default when only ``w:sz`` is set
+        # -- (upstream #510, #430, #973). --
+        rPr.szCs_val = length
 
     @property
     def small_caps(self) -> bool | None:

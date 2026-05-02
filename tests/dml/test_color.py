@@ -130,3 +130,103 @@ class DescribeColorFormat:
         color_format = ColorFormat(cast(CT_R, element(r_cxml)))
         color_format.theme_color = new_value
         assert color_format._element.xml == xml(expected_cxml)
+
+
+class DescribeColorFormat_Brightness:
+    """Phase A-v2 #7: ColorFormat.brightness implementation.
+
+    See upstream #665 — the documented property used to raise AttributeError.
+    """
+
+    def it_returns_zero_when_no_color_is_set(self):
+        cf = ColorFormat(cast(CT_R, element("w:r")))
+        assert cf.brightness == 0.0
+
+    def it_returns_zero_when_no_tint_or_shade(self):
+        cf = ColorFormat(
+            cast(CT_R, element("w:r/w:rPr/w:color{w:themeColor=accent1}"))
+        )
+        assert cf.brightness == 0.0
+
+    def it_reads_a_positive_brightness_from_themeTint(self):
+        # -- themeTint=7F (≈127/255) → brightness ≈ 1 - 127/255 ≈ 0.502 --
+        cf = ColorFormat(
+            cast(
+                CT_R,
+                element(
+                    "w:r/w:rPr/w:color{w:themeColor=accent1,w:themeTint=7F}"
+                ),
+            )
+        )
+        assert 0.49 < cf.brightness < 0.51
+
+    def it_reads_a_negative_brightness_from_themeShade(self):
+        # -- themeShade=BF (≈191/255) → brightness ≈ 191/255 - 1 ≈ -0.251 --
+        cf = ColorFormat(
+            cast(
+                CT_R,
+                element(
+                    "w:r/w:rPr/w:color{w:themeColor=accent1,w:themeShade=BF}"
+                ),
+            )
+        )
+        assert -0.26 < cf.brightness < -0.24
+
+    def it_writes_themeTint_for_positive_brightness(self):
+        from docx.oxml.ns import qn
+
+        r = cast(
+            CT_R, element("w:r/w:rPr/w:color{w:val=000000,w:themeColor=accent1}")
+        )
+        cf = ColorFormat(r)
+        cf.brightness = 0.5
+        color_elm = r.find(qn("w:rPr")).find(qn("w:color"))
+        tint = color_elm.get(qn("w:themeTint"))
+        assert tint is not None
+        assert 0x7E <= int(tint, 16) <= 0x80
+        assert color_elm.get(qn("w:themeShade")) is None
+
+    def it_writes_themeShade_for_negative_brightness(self):
+        from docx.oxml.ns import qn
+
+        r = cast(
+            CT_R, element("w:r/w:rPr/w:color{w:val=000000,w:themeColor=accent1}")
+        )
+        cf = ColorFormat(r)
+        cf.brightness = -0.25
+        color_elm = r.find(qn("w:rPr")).find(qn("w:color"))
+        shade = color_elm.get(qn("w:themeShade"))
+        assert shade is not None
+        assert 0xBE <= int(shade, 16) <= 0xC0
+        assert color_elm.get(qn("w:themeTint")) is None
+
+    def it_clears_tint_and_shade_when_brightness_zero(self):
+        from docx.oxml.ns import qn
+
+        r = cast(
+            CT_R,
+            element(
+                "w:r/w:rPr/w:color{w:val=000000,w:themeColor=accent1,"
+                "w:themeTint=7F}"
+            ),
+        )
+        cf = ColorFormat(r)
+        cf.brightness = 0.0
+        color_elm = r.find(qn("w:rPr")).find(qn("w:color"))
+        assert color_elm.get(qn("w:themeTint")) is None
+        assert color_elm.get(qn("w:themeShade")) is None
+
+    def it_rejects_out_of_range_brightness(self):
+        cf = ColorFormat(
+            cast(
+                CT_R,
+                element("w:r/w:rPr/w:color{w:val=000000,w:themeColor=accent1}"),
+            )
+        )
+        with pytest.raises(ValueError, match="-1.0 .. \\+1.0"):
+            cf.brightness = 1.5
+
+    def it_rejects_brightness_assignment_without_theme_color(self):
+        cf = ColorFormat(cast(CT_R, element("w:r/w:rPr/w:color{w:val=000000}")))
+        with pytest.raises(ValueError, match="theme color"):
+            cf.brightness = 0.5

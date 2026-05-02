@@ -997,6 +997,47 @@ class DescribeParagraph:
         paragraph = Paragraph(cast(CT_P, parse_xml(xml_bytes)), None)
         assert [r.text for r in paragraph.runs] == ["a", "b", "c"]
 
+    def it_surfaces_nested_runs_via_all_runs(self):
+        # -- upstream#1370, #1021: all_runs includes runs inside hyperlink,
+        # -- fldSimple, and w:sdt so Find/Replace can see them. --
+        from docx.oxml.parser import parse_xml
+
+        xml_bytes = (
+            b'<w:p xmlns:w='
+            b'"http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+            b' xmlns:r='
+            b'"http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            b'<w:r><w:t>A</w:t></w:r>'
+            b'<w:hyperlink r:id="rId1"><w:r><w:t>B</w:t></w:r></w:hyperlink>'
+            b'<w:fldSimple w:instr="PAGE"><w:r><w:t>C</w:t></w:r></w:fldSimple>'
+            b'<w:sdt>'
+            b'<w:sdtPr/>'
+            b'<w:sdtContent><w:r><w:t>D</w:t></w:r></w:sdtContent>'
+            b'</w:sdt>'
+            b'</w:p>'
+        )
+        paragraph = Paragraph(cast(CT_P, parse_xml(xml_bytes)), None)
+        assert [r.text for r in paragraph.all_runs] == ["A", "B", "C", "D"]
+
+    def it_all_runs_excludes_field_code_instrText_runs(self):
+        # -- upstream#1370: instrText is field code, not visible content. --
+        from docx.oxml.parser import parse_xml
+
+        xml_bytes = (
+            b'<w:p xmlns:w='
+            b'"http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            b'<w:r><w:fldChar w:fldCharType="begin"/></w:r>'
+            b'<w:r><w:instrText> PAGE </w:instrText></w:r>'
+            b'<w:r><w:fldChar w:fldCharType="separate"/></w:r>'
+            b'<w:r><w:t>42</w:t></w:r>'
+            b'<w:r><w:fldChar w:fldCharType="end"/></w:r>'
+            b'</w:p>'
+        )
+        paragraph = Paragraph(cast(CT_P, parse_xml(xml_bytes)), None)
+        texts = [r.text for r in paragraph.all_runs]
+        assert "42" in texts
+        assert " PAGE " not in texts
+
     def it_can_add_a_run_to_itself(self, add_run_fixture):
         paragraph, text, style, style_prop_, expected_xml = add_run_fixture
         run = paragraph.add_run(text, style)

@@ -129,3 +129,88 @@ class DescribeCT_R:
 
         assert [s.char for s in syms] == ["F0E0", "0041"]
         assert [s.font for s in syms] == ["Wingdings", "Symbol"]
+
+
+class DescribeCT_R_TextSetterPreservesReferences:
+    """Phase A-v2 #3: Run.text setter preserves reference-carrying children.
+
+    See upstream #1519. Reassigning ``text`` must not silently delete
+    ``w:commentReference``, ``w:footnoteReference``, ``w:endnoteReference``,
+    ``w:fldChar`` marker, or ``w:instrText`` siblings.
+    """
+
+    def it_preserves_commentReference_on_text_reassignment(self):
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import parse_xml
+
+        xml_bytes = (
+            b'<w:r xmlns:w='
+            b'"http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            b'<w:t>old</w:t>'
+            b'<w:commentReference w:id="3"/>'
+            b'</w:r>'
+        )
+        r = cast(CT_R, parse_xml(xml_bytes))
+        r.text = "new"
+        assert r.find(qn("w:commentReference")) is not None
+        assert r.text == "new"
+
+    def it_preserves_footnoteReference_on_text_reassignment(self):
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import parse_xml
+
+        xml_bytes = (
+            b'<w:r xmlns:w='
+            b'"http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            b'<w:t>old</w:t>'
+            b'<w:footnoteReference w:id="2"/>'
+            b'</w:r>'
+        )
+        r = cast(CT_R, parse_xml(xml_bytes))
+        r.text = "new"
+        assert r.find(qn("w:footnoteReference")) is not None
+
+    def it_preserves_endnoteReference_on_text_reassignment(self):
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import parse_xml
+
+        xml_bytes = (
+            b'<w:r xmlns:w='
+            b'"http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            b'<w:t>old</w:t>'
+            b'<w:endnoteReference w:id="4"/>'
+            b'</w:r>'
+        )
+        r = cast(CT_R, parse_xml(xml_bytes))
+        r.text = "new"
+        assert r.find(qn("w:endnoteReference")) is not None
+
+    def it_preserves_fldChar_on_text_reassignment(self):
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import parse_xml
+
+        xml_bytes = (
+            b'<w:r xmlns:w='
+            b'"http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            b'<w:fldChar w:fldCharType="begin"/>'
+            b'<w:t>old</w:t>'
+            b'</w:r>'
+        )
+        r = cast(CT_R, parse_xml(xml_bytes))
+        r.text = "new"
+        assert r.find(qn("w:fldChar")) is not None
+
+    def it_preserves_instrText_on_text_reassignment(self):
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import parse_xml
+
+        xml_bytes = (
+            b'<w:r xmlns:w='
+            b'"http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            b'<w:instrText> REF bookmark1 </w:instrText>'
+            b'<w:t>old</w:t>'
+            b'</w:r>'
+        )
+        r = cast(CT_R, parse_xml(xml_bytes))
+        r.text = "new"
+        assert r.find(qn("w:instrText")) is not None

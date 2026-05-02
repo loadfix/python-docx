@@ -26,7 +26,15 @@ class Styles(ElementProxy):
     def __contains__(self, name):
         """Enables `in` operator on style name."""
         internal_name = BabelFish.ui2internal(name)
-        return any(style.name_val == internal_name for style in self._element.style_lst)
+        if any(style.name_val == internal_name for style in self._element.style_lst):
+            return True
+        # -- fall back to case-insensitive match (LibreOffice saves "Heading 1"
+        # -- as "heading 1" in the on-disk name; upstream #494) --
+        lowered = internal_name.lower()
+        return any(
+            (style.name_val or "").lower() == lowered
+            for style in self._element.style_lst
+        )
 
     def __getitem__(self, key):
         """Enables dictionary-style access by UI name.
@@ -34,8 +42,14 @@ class Styles(ElementProxy):
         `key` may also be a :class:`docx.enum.style.WD_BUILTIN_STYLE` member,
         in which case the member's canonical UI name is used for lookup.
 
-        Lookup by style id is deprecated, triggers a warning, and will be removed in a
-        near-future release.
+        When an exact-match lookup fails, a case-insensitive name match is
+        attempted so that documents saved by LibreOffice (which lower-cases
+        some built-in style names — e.g. ``"heading 1"`` for ``"Heading 1"``)
+        can still be looked up with their conventional UI name
+        (upstream #494, #420, PR#239).
+
+        Lookup by style id is deprecated, triggers a warning, and will be
+        removed in a near-future release.
         """
         # -- translate an enum member (e.g. `WD_STYLE.BODY_TEXT`) into its UI name --
         if isinstance(key, WD_BUILTIN_STYLE):
@@ -44,6 +58,17 @@ class Styles(ElementProxy):
         style_elm = self._element.get_by_name(BabelFish.ui2internal(key))
         if style_elm is not None:
             return StyleFactory(style_elm)
+
+        # -- case-insensitive name fallback (covers LibreOffice-cased names
+        # -- like "heading 1" and WD_BUILTIN_STYLE members whose UI name
+        # -- casing differs from the on-disk `w:name/@w:val`) --
+        if isinstance(key, str):
+            lowered = key.lower()
+            ui_lowered = BabelFish.ui2internal(key).lower()
+            for style in self._element.style_lst:
+                sv = (style.name_val or "").lower()
+                if sv == lowered or sv == ui_lowered:
+                    return StyleFactory(style)
 
         style_elm = self._element.get_by_id(key)
         if style_elm is not None:

@@ -147,7 +147,7 @@ def search_paragraphs(
     matches: list[SearchMatch] = []
 
     for para_idx, paragraph in enumerate(paragraphs):
-        full_text, char_map = _build_char_map(paragraph.runs)
+        full_text, char_map = _build_char_map(paragraph.all_runs)
         for m in pattern.finditer(full_text):
             start, end = m.start(), m.end()
             run_indices = sorted({char_map[i][0] for i in range(start, end)})
@@ -198,7 +198,7 @@ def _replace_in_paragraph(
     Processes matches from right to left so that earlier character positions remain valid
     as the text is modified.
     """
-    runs = paragraph.runs
+    runs = paragraph.all_runs
     if not runs:
         return 0
 
@@ -283,7 +283,7 @@ def search_paragraphs_regex(
     matches: list[SearchMatch] = []
 
     for para_idx, paragraph in enumerate(paragraphs):
-        full_text, char_map = _build_char_map(paragraph.runs)
+        full_text, char_map = _build_char_map(paragraph.all_runs)
         for m in compiled.finditer(full_text):
             start, end = m.start(), m.end()
             # For zero-width matches, run_indices is empty since no characters are
@@ -338,7 +338,7 @@ def _replace_in_paragraph_regex(
     are resolved. Matches are applied right-to-left so earlier character positions remain
     valid as the text is modified.
     """
-    runs = paragraph.runs
+    runs = paragraph.all_runs
     if not runs:
         return 0
 
@@ -453,7 +453,7 @@ def _search_in_story(
     """Run a compiled `pattern` across `paragraphs`, tagging each match with `location`."""
     matches: list[SearchMatch] = []
     for para_idx, paragraph in enumerate(paragraphs):
-        full_text, char_map = _build_char_map(paragraph.runs)
+        full_text, char_map = _build_char_map(paragraph.all_runs)
         for m in pattern.finditer(full_text):
             start, end = m.start(), m.end()
             run_indices = sorted({char_map[i][0] for i in range(start, end)})

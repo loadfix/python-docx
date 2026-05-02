@@ -101,6 +101,64 @@ class ColorFormat(ElementProxy):
         return MSO_COLOR_TYPE.RGB
 
     @property
+    def brightness(self) -> float:
+        """Brightness adjustment for a theme color in the range -1.0 .. +1.0.
+
+        ``0.0`` is the unadjusted theme color; positive values lighten the
+        color toward white (written as ``w:color/@w:themeTint``), negative
+        values darken it toward black (written as ``w:color/@w:themeShade``).
+        Read-only when the run has no theme color — in that case this
+        property returns ``0.0``.
+
+        Assigning a value when no theme color is set raises :class:`ValueError`
+        because shade / tint only have meaning against a theme color — set
+        :attr:`theme_color` first. Assigning ``0.0`` removes both ``themeTint``
+        and ``themeShade`` attributes (upstream #665).
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        color = self._color
+        if color is None:
+            return 0.0
+        themeTint = color.themeTint
+        if themeTint:
+            # -- tint: value=FF means no lightening (brightness 0); value=00
+            # -- means fully white (brightness 1). brightness = 1 - value/255 --
+            return 1.0 - int(themeTint, 16) / 255.0
+        themeShade = color.themeShade
+        if themeShade:
+            # -- shade: value=FF means no darkening (brightness 0); value=00
+            # -- means fully black (brightness -1). brightness = value/255 - 1 --
+            return int(themeShade, 16) / 255.0 - 1.0
+        return 0.0
+
+    @brightness.setter
+    def brightness(self, value: float) -> None:
+        if not -1.0 <= value <= 1.0:
+            raise ValueError(
+                "brightness must be in the range -1.0 .. +1.0, got %r" % (value,)
+            )
+        color = self._color
+        if color is None or color.themeColor is None:
+            raise ValueError(
+                "can't set brightness when no theme color is set; assign "
+                "theme_color first"
+            )
+        if value == 0.0:
+            color.themeTint = None
+            color.themeShade = None
+        elif value > 0:
+            # -- tint blends with white; smaller hex = more white --
+            color.themeShade = None
+            tint_int = max(0, min(255, round(255 * (1.0 - value))))
+            color.themeTint = f"{tint_int:02X}"
+        else:
+            # -- shade blends with black; smaller hex = more black --
+            color.themeTint = None
+            shade_int = max(0, min(255, round(255 * (1.0 + value))))
+            color.themeShade = f"{shade_int:02X}"
+
+    @property
     def _color(self) -> CT_Color | None:
         """Return `w:rPr/w:color` or |None| if not present.
 

@@ -85,10 +85,32 @@ class CT_R(BaseOxmlElement):
         drawing.append(inline_or_anchor)
         return drawing
 
+    # -- tags whose content represents visible run text; these are the only
+    # -- children removed by ``clear_content`` so that reference-carrying
+    # -- elements (field markers, footnote/comment references, instrText) are
+    # -- preserved when ``text`` is reassigned (upstream #1519) --
+    _TEXT_CONTENT_TAGS = (
+        "w:t",
+        "w:tab",
+        "w:br",
+        "w:cr",
+        "w:noBreakHyphen",
+        "w:ptab",
+        "w:ruby",
+        "w:drawing",
+    )
+
     def clear_content(self) -> None:
-        """Remove all child elements except a `w:rPr` element if present."""
-        # -- remove all run inner-content except a `w:rPr` when present. --
-        for e in self.xpath("./*[not(self::w:rPr)]"):
+        """Remove visible-text children, preserving ``w:rPr`` and reference siblings.
+
+        Reference-carrying elements — ``w:commentReference``,
+        ``w:footnoteReference``, ``w:endnoteReference``, ``w:fldChar``, and
+        ``w:instrText`` — remain on the element so that reassigning ``text``
+        on a run does not silently delete cross-referenced markers
+        (upstream #1519).
+        """
+        xpath_expr = " | ".join(f"./{t}" for t in self._TEXT_CONTENT_TAGS)
+        for e in self.xpath(xpath_expr):
             self.remove(e)
 
     @property
