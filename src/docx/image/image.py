@@ -211,16 +211,26 @@ def _ImageHeaderFactory(stream: IO[bytes]):
     """A |BaseImageHeader| subclass instance that can parse headers of image in `stream`."""
     from docx.image import SIGNATURES
 
-    def read_32(stream: IO[bytes]):
+    def read_header(stream: IO[bytes]):
         stream.seek(0)
-        return stream.read(32)
+        # 48 bytes covers every fixed-offset signature in the table,
+        # including the EMF ' EMF' signature at offset 0x28 (40) and
+        # the WebP "WEBP" form-type at offset 8.
+        return stream.read(48)
 
-    header = read_32(stream)
+    header = read_header(stream)
     for cls, offset, signature_bytes in SIGNATURES:
         end = offset + len(signature_bytes)
         found_bytes = header[offset:end]
         if found_bytes == signature_bytes:
             return cls.from_stream(stream)
+
+    # -- WebP: RIFF container whose form-type is "WEBP". Both markers must
+    #    be present to distinguish from AVI/WAV RIFF files. --
+    if header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        from docx.image.webp import WebP
+
+        return WebP.from_stream(stream)
 
     # -- Bare JPEG fallback: cameras / tools emit valid JPEGs whose first
     #    non-SOI marker is DQT/SOFn rather than APP0 (JFIF) or APP1 (Exif).
@@ -237,6 +247,14 @@ def _ImageHeaderFactory(stream: IO[bytes]):
 
     if is_svg_stream(stream):
         return Svg.from_stream(stream)
+
+    # -- EPS is also text-based (or DOS-EPS wrapped); detect after binary
+    #    signatures so we don't false-match image data that happens to
+    #    contain "%!PS-Adobe" as a literal. --
+    from docx.image.eps import Eps, is_eps_stream
+
+    if is_eps_stream(stream):
+        return Eps.from_stream(stream)
 
     raise UnrecognizedImageError
 
