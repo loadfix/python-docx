@@ -41,6 +41,8 @@ class WD_FIELD_TYPE:
     types are open-ended — callers can use any string (e.g. a custom field) and
     readers will correctly populate :attr:`Field.type` from whatever is found in
     the document. The enum-ish class is for autocompletion and typo avoidance.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     PAGE = "PAGE"
@@ -66,6 +68,8 @@ class Field:
     * :attr:`type` — the first whitespace-delimited token of the instruction
     * :attr:`result_text` — the most recently computed rendered result, or the
       empty string when absent
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, kind: str, element: "BaseOxmlElement"):
@@ -74,17 +78,26 @@ class Field:
 
     @classmethod
     def for_simple(cls, fldSimple: "CT_FldSimple") -> "Field":
-        """Return a :class:`Field` wrapping a ``w:fldSimple`` element."""
+        """Return a :class:`Field` wrapping a ``w:fldSimple`` element.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return cls("simple", fldSimple)
 
     @classmethod
     def for_complex(cls, begin_run: "CT_R") -> "Field":
-        """Return a :class:`Field` wrapping the ``begin`` run of a complex field."""
+        """Return a :class:`Field` wrapping the ``begin`` run of a complex field.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return cls("complex", begin_run)
 
     @property
     def is_complex(self) -> bool:
-        """``True`` for a complex (three-marker) field, ``False`` for simple."""
+        """``True`` for a complex (three-marker) field, ``False`` for simple.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._kind == "complex"
 
     @property
@@ -95,6 +108,8 @@ class Field:
         fields this is the concatenated text of all ``<w:instrText>`` runs
         between the ``begin`` and ``separate`` markers (or end-of-paragraph if
         no ``separate`` marker is present).
+
+        .. versionadded:: 1.3.0.dev0
         """
         if self._kind == "simple":
             return self._element.get(qn("w:instr")) or ""
@@ -106,6 +121,8 @@ class Field:
 
         For ``"REF bookmark1 \\h"`` this returns ``"REF"``. The empty string is
         returned when the instruction is empty or whitespace-only.
+
+        .. versionadded:: 1.3.0.dev0
         """
         instr = self.instruction.strip()
         if not instr:
@@ -121,6 +138,8 @@ class Field:
         between the ``separate`` and ``end`` markers. The empty string is
         returned when no result is available (for example a complex field with
         no ``separate`` marker).
+
+        .. versionadded:: 1.3.0.dev0
         """
         if self._kind == "simple":
             return self._read_simple_result()
@@ -196,6 +215,8 @@ class Field:
         method never raises for unresolvable references; callers can detect
         "couldn't resolve" by comparing against the field's original
         :attr:`result_text`.
+
+        .. versionadded:: 1.3.0.dev0
         """
         field_type = self.type
         if field_type == "PAGEREF":
@@ -221,6 +242,8 @@ class Field:
         between the ``separate`` and ``end`` markers are removed and replaced
         with a single new run containing `new_text`, inserted immediately
         before the ``end`` marker's run.
+
+        .. versionadded:: 1.3.0.dev0
         """
         if self._kind == "simple":
             self._update_simple_result(new_text)

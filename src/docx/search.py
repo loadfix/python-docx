@@ -25,6 +25,8 @@ class SearchMatch:
     ``"body"``, ``"table:0:row:1:col:2"``, ``"header:section0:primary"``,
     ``"footnote:2"``, ``"endnote:3"``, or ``"comment:5"``. Matches produced by the
     body-only helpers carry :attr:`location` of |None|.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(
@@ -45,7 +47,10 @@ class SearchMatch:
 
     @property
     def paragraph(self) -> Paragraph:
-        """The |Paragraph| containing this match."""
+        """The |Paragraph| containing this match.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._paragraph
 
     @property
@@ -55,22 +60,33 @@ class SearchMatch:
         For a cross-story match, the index is relative to the paragraphs of the
         specific story identified by :attr:`location` (e.g. the paragraphs of a
         particular footer or footnote), not a global document-wide index.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._paragraph_index
 
     @property
     def run_indices(self) -> list[int]:
-        """Indices of runs that span this match."""
+        """Indices of runs that span this match.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._run_indices
 
     @property
     def start(self) -> int:
-        """Character offset of match start in the paragraph's reconstructed text."""
+        """Character offset of match start in the paragraph's reconstructed text.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._start
 
     @property
     def end(self) -> int:
-        """Character offset of match end in the paragraph's reconstructed text."""
+        """Character offset of match end in the paragraph's reconstructed text.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._end
 
     @property
@@ -81,6 +97,8 @@ class SearchMatch:
         friends populate this with a string like ``"body"``, ``"table:0:row:1:col:2"``,
         ``"header:section0:primary"``, ``"footnote:2"``, ``"endnote:3"``, or
         ``"comment:5"``.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._location
 
@@ -119,6 +137,8 @@ def search_paragraphs(
     """Find all occurrences of `text` across `paragraphs`.
 
     Returns a list of |SearchMatch| objects, one for each occurrence found.
+
+    .. versionadded:: 1.3.0.dev0
     """
     if not text:
         return []
@@ -155,6 +175,8 @@ def replace_in_paragraphs(
 
     Preserves the formatting of the first character's run for each replacement. Returns
     the number of replacements made.
+
+    .. versionadded:: 1.3.0.dev0
     """
     if not old_text:
         return 0
@@ -254,6 +276,8 @@ def search_paragraphs_regex(
     `flags` (e.g. `re.IGNORECASE`) is applied when compiling. When `pattern` is already
     compiled, `flags` is ignored. Returns a list of |SearchMatch| objects, one for each
     match found.
+
+    .. versionadded:: 1.3.0.dev0
     """
     compiled = _coerce_regex(pattern, flags)
     matches: list[SearchMatch] = []
@@ -291,6 +315,8 @@ def replace_in_paragraphs_regex(
     `re.sub` semantics — backreferences such as ``\\1`` and ``\\g<name>`` are expanded
     per match. Preserves the formatting of the first character's run for each
     replacement. Returns the number of replacements made.
+
+    .. versionadded:: 1.3.0.dev0
     """
     compiled = _coerce_regex(pattern, flags)
     total_replacements = 0
@@ -456,6 +482,8 @@ def search_all_paragraphs(
     indicate which story each match came from. The stories searched include the
     body, body-level tables, non-inherited headers and footers on every section,
     footnotes, endnotes, and comments.
+
+    .. versionadded:: 1.3.0.dev0
     """
     if not text:
         return []
@@ -476,6 +504,8 @@ def search_all_paragraphs_regex(
 
     Returns a list of |SearchMatch| objects with :attr:`SearchMatch.location` populated.
     Stories searched are the same as for :func:`search_all_paragraphs`.
+
+    .. versionadded:: 1.3.0.dev0
     """
     compiled = _coerce_regex(pattern, flags)
     matches: list[SearchMatch] = []
@@ -495,6 +525,8 @@ def replace_in_all_paragraphs(
 
     Stories updated are the same as those searched by :func:`search_all_paragraphs`.
     Returns the total number of replacements made across all stories.
+
+    .. versionadded:: 1.3.0.dev0
     """
     if not old_text:
         return 0
@@ -517,6 +549,8 @@ def replace_in_all_paragraphs_regex(
 
     Stories updated are the same as those searched by :func:`search_all_paragraphs_regex`.
     Returns the total number of replacements made.
+
+    .. versionadded:: 1.3.0.dev0
     """
     compiled = _coerce_regex(pattern, flags)
     total = 0

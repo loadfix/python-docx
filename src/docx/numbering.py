@@ -120,6 +120,8 @@ class Numbering:
     """Top-level proxy for a document's numbering part.
 
     Use ``document.numbering`` to obtain this object.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, numbering_elm: "CT_Numbering", part: "NumberingPart"):
@@ -128,7 +130,10 @@ class Numbering:
 
     @property
     def definitions(self) -> list["NumberingDefinition"]:
-        """List of |NumberingDefinition| objects wrapping every ``w:abstractNum``."""
+        """List of |NumberingDefinition| objects wrapping every ``w:abstractNum``.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return [
             NumberingDefinition(elm, self)
             for elm in self._numbering.abstractNum_lst
@@ -166,6 +171,8 @@ class Numbering:
         may be a :class:`~docx.shared.Length` or a raw twips integer. `font`
         sets the ``w:rFonts`` name on the level's run properties — required
         for bullet-style levels (e.g. ``"Symbol"`` for ``•``).
+
+        .. versionadded:: 1.3.0.dev0
         """
         numbering = self._numbering
         abstractNum = numbering.add_abstractNum()
@@ -219,7 +226,10 @@ class Numbering:
 
 
 class NumberingDefinition:
-    """Proxy for a single ``w:abstractNum`` element."""
+    """Proxy for a single ``w:abstractNum`` element.
+
+    .. versionadded:: 1.3.0.dev0
+    """
 
     def __init__(
         self,
@@ -231,7 +241,10 @@ class NumberingDefinition:
 
     @property
     def abstract_num_id(self) -> int:
-        """The integer id of this abstract numbering definition."""
+        """The integer id of this abstract numbering definition.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._abstractNum.abstractNumId
 
     @property
@@ -240,11 +253,17 @@ class NumberingDefinition:
 
     @property
     def levels(self) -> list["Level"]:
-        """List of :class:`Level` objects, one per declared ``w:lvl``."""
+        """List of :class:`Level` objects, one per declared ``w:lvl``.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return [Level(lvl, self) for lvl in self._abstractNum.lvl_lst]
 
     def level(self, ilvl: int) -> "Level | None":
-        """Return the |Level| with `ilvl`, or |None| if none exists."""
+        """Return the |Level| with `ilvl`, or |None| if none exists.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         lvl = self._abstractNum.get_lvl(ilvl)
         if lvl is None:
             return None
@@ -255,6 +274,8 @@ class NumberingDefinition:
 
         Sets the paragraph's ``w:numPr`` children ``w:numId`` (resolving a
         matching ``w:num`` instance, creating one if necessary) and ``w:ilvl``.
+
+        .. versionadded:: 1.3.0.dev0
         """
         if not 0 <= level <= 8:
             raise ValueError("level must be in range 0..8, got %d" % level)
@@ -267,7 +288,10 @@ class NumberingDefinition:
 
 
 class Level:
-    """Read-only view of one ``w:lvl`` child of a ``w:abstractNum``."""
+    """Read-only view of one ``w:lvl`` child of a ``w:abstractNum``.
+
+    .. versionadded:: 1.3.0.dev0
+    """
 
     def __init__(self, lvl: "CT_Lvl", definition: "NumberingDefinition"):
         self._lvl = lvl
@@ -275,7 +299,10 @@ class Level:
 
     @property
     def ilvl(self) -> int:
-        """Zero-based indent level of this level."""
+        """Zero-based indent level of this level.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._lvl.ilvl
 
     @property
@@ -284,6 +311,8 @@ class Level:
 
         Returns |None| if no ``w:numFmt`` is present, or if the XML value is
         outside the subset of formats exposed by :class:`WD_NUMBER_FORMAT`.
+
+        .. versionadded:: 1.3.0.dev0
         """
         try:
             return self._lvl.numFmt_val
@@ -292,17 +321,26 @@ class Level:
 
     @property
     def text(self) -> str | None:
-        """The ``w:lvlText/@val`` pattern, e.g. ``"%1."`` or ``"%1.%2"``."""
+        """The ``w:lvlText/@val`` pattern, e.g. ``"%1."`` or ``"%1.%2"``.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._lvl.lvlText_val
 
     @property
     def start(self) -> int:
-        """The starting value (``w:start/@val``), defaulting to ``1``."""
+        """The starting value (``w:start/@val``), defaulting to ``1``.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._lvl.start_val
 
     @property
     def indent(self) -> Length | None:
-        """The ``w:left`` indent declared on this level, or |None|."""
+        """The ``w:left`` indent declared on this level, or |None|.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         pPr = self._lvl.pPr
         if pPr is None:
             return None

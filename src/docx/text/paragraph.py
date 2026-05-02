@@ -67,6 +67,8 @@ class Paragraph(StoryChild):
         paragraph content. When `start_run` is provided, the bookmark starts before that
         run. When `end_run` is provided, the bookmark ends after that run. When only
         `start_run` is provided, `end_run` defaults to `start_run`.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.bookmarks import Bookmark
 
@@ -103,6 +105,8 @@ class Paragraph(StoryChild):
         `name` is accepted for symmetry with ``add_bookmark()`` but is not
         persisted on the element — `w:permStart` has no `@w:name` attribute in
         OOXML; it is kept in the signature purely for call-site readability.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.permissions import PermissionRange
         from docx.oxml.permissions import CT_PermStart
@@ -117,7 +121,12 @@ class Paragraph(StoryChild):
 
     @property
     def permission_ranges(self) -> list[PermissionRange]:
-        """List of |PermissionRange| objects rooted at `w:permStart` in this paragraph."""
+        """List of |PermissionRange| objects rooted at `w:permStart` in this paragraph.
+
+
+.. versionadded:: 1.3.0.dev0
+
+"""
         from docx.permissions import PermissionRange
         from docx.oxml.permissions import CT_PermStart
 
@@ -165,6 +174,8 @@ class Paragraph(StoryChild):
         `anchor` is a bookmark name for an internal document link.
 
         Either `url` or `anchor` must be provided, but not both.
+
+        .. versionadded:: 1.3.0.dev0
         """
         if url is None and anchor is None:
             raise ValueError("Either url or anchor must be provided")
@@ -219,6 +230,8 @@ class Paragraph(StoryChild):
         `type` is a :class:`ContentControlType` member. `tag` becomes the programmatic
         `w:sdtPr/w:tag/@w:val` value, and `title` becomes `w:sdtPr/w:alias/@w:val`.
         Returns the newly appended |ContentControl|.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.content_controls import ContentControl, new_sdt
 
@@ -227,7 +240,10 @@ class Paragraph(StoryChild):
         return ContentControl(sdt)
 
     def add_page_break(self) -> Paragraph:
-        """Append a page-break run to this paragraph and return self."""
+        """Append a page-break run to this paragraph and return self.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         run = self.add_run()
         run.add_break(WD_BREAK.PAGE)
         return self
@@ -238,6 +254,8 @@ class Paragraph(StoryChild):
         `instr` is the field instruction (e.g. ``"PAGE"`` or ``"REF bookmark1 \\h"``).
         `text` is the optional current rendered result, added as a single run
         inside the fldSimple element.
+
+        .. versionadded:: 1.3.0.dev0
         """
         fldSimple = self._p.add_fldSimple(instr, text)
         return Field.for_simple(fldSimple)
@@ -249,6 +267,8 @@ class Paragraph(StoryChild):
         ``<w:fldChar>`` marker. `instr` is the field instruction (e.g.
         ``"PAGE"``) and `result_text`, if provided, is added as a plain
         ``<w:r><w:t>`` run between the ``separate`` and ``end`` markers.
+
+        .. versionadded:: 1.3.0.dev0
         """
         begin_run = self._p.add_complex_field(instr, result_text)
         return Field.for_complex(begin_run)
@@ -267,6 +287,8 @@ class Paragraph(StoryChild):
         ``w:textInput/w:default`` and used as the rendered result text so
         Word displays it immediately without a field update. `maxlength` is
         the character limit (|None| means no limit).
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.form_fields import _append_form_field, new_text_form_field_ffData
 
@@ -287,6 +309,8 @@ class Paragraph(StoryChild):
         the default and current checked state. The rendered result region of
         the complex field is left empty — Word shows a checkbox glyph for
         ``FORMCHECKBOX`` regardless of the result runs.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.form_fields import _append_form_field, new_checkbox_form_field_ffData
 
@@ -308,6 +332,8 @@ class Paragraph(StoryChild):
         written to both ``w:default`` and ``w:result``. The rendered result
         text is set to the option at `default_index` when that index is in
         range, so Word displays the initial value immediately.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.form_fields import _append_form_field, new_dropdown_form_field_ffData
 
@@ -337,6 +363,8 @@ class Paragraph(StoryChild):
 
         Raises :class:`ValueError` when the root element is neither
         ``m:oMath`` nor ``m:oMathPara``.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.equations import Equation, _make_equation_element
 
@@ -352,6 +380,8 @@ class Paragraph(StoryChild):
         inline ``m:oMath`` descendants. Each ``m:oMath`` nested inside an
         ``m:oMathPara`` is represented once — by the enclosing
         ``m:oMathPara`` — so an equation is not counted twice.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.equations import Equation
 
@@ -379,6 +409,8 @@ class Paragraph(StoryChild):
 
         Returns a :class:`docx.drawing.WordprocessingShape` proxy for the newly
         created shape.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.drawing import WordprocessingShape
         from docx.oxml.drawing import new_inline_shape_drawing
@@ -425,6 +457,8 @@ class Paragraph(StoryChild):
         - `h_anchor`: |WD_ANCHOR_H| member (defaults to `COLUMN`)
         - `v_anchor`: |WD_ANCHOR_V| member (defaults to `PARAGRAPH`)
         - `wrap`: |WD_WRAP_TYPE| member (defaults to `SQUARE`)
+
+        .. versionadded:: 1.3.0.dev0
         """
         anchor = self.part.new_pic_anchor(image_path_or_stream, width, height)
 
@@ -464,6 +498,8 @@ class Paragraph(StoryChild):
 
         Includes both simple (``w:fldSimple``) and complex (``w:fldChar``)
         fields, in document order.
+
+        .. versionadded:: 1.3.0.dev0
         """
         result: list[Field] = []
         for kind, el in self._p.iter_field_elements():
@@ -481,6 +517,8 @@ class Paragraph(StoryChild):
         carries a ``w:ffData`` child. Returned in document order. Complex
         fields without ``w:ffData`` (e.g. ``PAGE``, ``REF``) are ignored —
         those remain accessible via :attr:`fields`.
+
+        .. versionadded:: 1.3.0.dev0
         """
         result: list[FormField] = []
         begin_runs = self._p.xpath(
@@ -492,7 +530,10 @@ class Paragraph(StoryChild):
 
     @property
     def floating_images(self) -> list[FloatingImage]:
-        """A |FloatingImage| instance for each `wp:anchor` in this paragraph."""
+        """A |FloatingImage| instance for each `wp:anchor` in this paragraph.
+
+    .. versionadded:: 1.3.0.dev0
+    """
         return [
             FloatingImage(cast(CT_Anchor, a))
             for a in self._p.xpath(".//w:r/w:drawing/wp:anchor")
@@ -500,7 +541,10 @@ class Paragraph(StoryChild):
 
     @property
     def content_controls(self) -> list[ContentControl]:
-        """List of inline |ContentControl| objects in this paragraph, in document order."""
+        """List of inline |ContentControl| objects in this paragraph, in document order.
+
+    .. versionadded:: 1.3.0.dev0
+    """
         from docx.content_controls import ContentControl
 
         return [
@@ -535,6 +579,8 @@ class Paragraph(StoryChild):
 
         The paragraph element is removed from its parent. After calling this method,
         this |Paragraph| object is "defunct" and should not be used further.
+
+        .. versionadded:: 1.3.0.dev0
         """
         p = self._p
         parent = p.getparent()
@@ -548,6 +594,8 @@ class Paragraph(StoryChild):
         If a run contains only a page break and no other content, the entire run is
         removed. If a run contains other content alongside the page break, only the
         ``<w:br>`` element is removed. Does nothing when no page breaks are present.
+
+        .. versionadded:: 1.3.0.dev0
         """
         for br in self._p.xpath('.//w:br[@w:type="page"]'):
             r = br.getparent()
@@ -559,7 +607,10 @@ class Paragraph(StoryChild):
     @property
     def has_section_break(self) -> bool:
         """``True`` if this paragraph contains a section break (``<w:sectPr>`` in its
-        ``<w:pPr>``)."""
+        ``<w:pPr>``).
+
+        .. versionadded:: 1.3.0.dev0
+        """
         pPr = self._p.pPr
         if pPr is None:
             return False
@@ -572,12 +623,18 @@ class Paragraph(StoryChild):
 
     @property
     def has_page_break(self) -> bool:
-        """`True` if this paragraph contains at least one ``<w:br w:type="page"/>``."""
+        """`True` if this paragraph contains at least one ``<w:br w:type="page"/>``.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return bool(self._p.xpath('.//w:br[@w:type="page"]'))
 
     @property
     def drawings(self) -> list[Drawing]:
-        """A |Drawing| instance for each `<w:drawing>` element in this paragraph."""
+        """A |Drawing| instance for each `<w:drawing>` element in this paragraph.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return [
             Drawing(cast(CT_Drawing, d), self)
             for d in self._p.xpath(".//w:drawing")
@@ -593,6 +650,8 @@ class Paragraph(StoryChild):
         A ``w:contentPart`` whose relationship cannot be resolved (for example because
         the referenced part is missing from the package) is silently skipped rather
         than raising.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.ink import InkAnnotation
         from docx.oxml.ns import qn
@@ -626,6 +685,8 @@ class Paragraph(StoryChild):
         type) still produces an |EmbeddedObject|, but its
         :attr:`EmbeddedObject.blob` returns ``b""`` and
         :attr:`EmbeddedObject.embedded_partname` returns |None|.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.embedded_objects import EmbeddedObject
         from docx.oxml.ns import qn
@@ -656,6 +717,8 @@ class Paragraph(StoryChild):
         `start_type` is a member of :ref:`WdSectionStart` and defaults to
         ``WD_SECTION.NEW_PAGE``. If this paragraph already contains a section break,
         its type is replaced rather than a new one being added.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.section import Section as SectionCls
 
@@ -668,6 +731,8 @@ class Paragraph(StoryChild):
         """Remove the section break from this paragraph, if one is present.
 
         Calling this on a paragraph that has no section break is a no-op.
+
+        .. versionadded:: 1.3.0.dev0
         """
         pPr = self._p.pPr
         if pPr is None:
@@ -699,6 +764,8 @@ class Paragraph(StoryChild):
         `style` is provided, that style is assigned to the new paragraph. The new
         paragraph is inserted into the same parent element as this paragraph (which
         may be a body, cell, header/footer, or other block-level container).
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.oxml.parser import OxmlElement
 
@@ -724,6 +791,8 @@ class Paragraph(StoryChild):
         ``"{label} N: {text}"`` where ``N`` is produced by a
         ``SEQ {label} \\* ARABIC`` field. See
         :meth:`docx.document.Document.add_caption` for details.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.captions import new_caption_paragraph
 
@@ -743,6 +812,8 @@ class Paragraph(StoryChild):
         ``"{label} N: {text}"`` where ``N`` is produced by a
         ``SEQ {label} \\* ARABIC`` field. See
         :meth:`docx.document.Document.add_caption` for details.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.captions import new_caption_paragraph
 
@@ -764,6 +835,8 @@ class Paragraph(StoryChild):
         The preview scans the document body for headings; the headings that
         appear *before* or *after* this paragraph are both included, since
         Word will rebuild the real TOC on open.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.toc import populate_toc_paragraph
 
@@ -779,6 +852,8 @@ class Paragraph(StoryChild):
 
         See :meth:`insert_table_of_contents_before` for the full contract;
         this variant places the TOC paragraph immediately after this one.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.toc import populate_toc_paragraph
 
@@ -801,6 +876,8 @@ class Paragraph(StoryChild):
         table is inserted as a sibling of this paragraph in its parent element.
         `width` is an optional total table width; if not provided it defaults to 6
         inches (a reasonable default for a US-Letter page with 1" margins).
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.table import Table
 
@@ -826,6 +903,8 @@ class Paragraph(StoryChild):
         table is inserted as a sibling of this paragraph in its parent element.
         `width` is an optional total table width; if not provided it defaults to 6
         inches.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.table import Table
 
@@ -867,6 +946,8 @@ class Paragraph(StoryChild):
 
         Assigning |None| removes the ``w:ilvl`` child. Assigning an integer
         outside the range 0..8 raises ``ValueError``.
+
+        .. versionadded:: 1.3.0.dev0
         """
         pPr = self._p.pPr
         if pPr is None or pPr.numPr is None:
@@ -895,6 +976,8 @@ class Paragraph(StoryChild):
 
         To set a paragraph's list format, use
         :meth:`NumberingDefinition.apply_to`.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.numbering import ListFormat, Numbering, NumberingDefinition
 
@@ -937,6 +1020,8 @@ class Paragraph(StoryChild):
 
         Returns |None| if the paragraph is not part of a numbered list, or if the
         list-level entry cannot be found in the document's numbering part.
+
+        .. versionadded:: 1.3.0.dev0
         """
         list_format = self.list_format
         if list_format.numbering_definition is None:
@@ -955,6 +1040,8 @@ class Paragraph(StoryChild):
 
         Raises ``ValueError`` when the paragraph is not currently part of a
         numbered list.
+
+        .. versionadded:: 1.3.0.dev0
         """
         pPr = self._p.pPr
         if pPr is None or pPr.numPr is None or pPr.numPr.numId_val is None:
@@ -995,6 +1082,8 @@ class Paragraph(StoryChild):
         Read-only. Returns the 8-character hex string Word assigns to mark the
         editing session in which this paragraph was last modified, or |None|
         when the ``@w:rsidR`` attribute is not present.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._p.rsidR
 
@@ -1011,6 +1100,8 @@ class Paragraph(StoryChild):
         This is intended for tools that need to correlate paragraphs across a
         save/reload cycle in a single editing session. For more robust cross-
         session tracking, compare :attr:`rsid` combined with :attr:`text`.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.ids import compute_stable_id
 
@@ -1057,6 +1148,8 @@ class Paragraph(StoryChild):
         Present when the paragraph's formatting (its `w:pPr`) has been edited while
         track-changes is enabled. The returned object exposes the author, date, and
         the prior `w:pPr` via ``old_properties``.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.tracked_changes import FormattingChange
 
@@ -1076,6 +1169,8 @@ class Paragraph(StoryChild):
         of this paragraph in document order. Move-revision elements are wrapped
         in |MoveRevision|, exposing the `@w:name` pairing attribute and
         ``.peer`` lookup.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.oxml.tracked_changes import CT_MoveFrom, CT_MoveTo
 
@@ -1104,6 +1199,8 @@ class Paragraph(StoryChild):
         :attr:`text`. The defaults are CLI-friendly square-bracket markers; callers
         can pass ANSI escape sequences (e.g. ``"\\033[4m"`` / ``"\\033[0m"``) to
         style terminal output instead.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.tracked_changes import _render_paragraph_marks
 

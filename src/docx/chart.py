@@ -22,6 +22,8 @@ class WD_CHART_TYPE(enum.Enum):
 
     Only the chart types supported by the create API (and a superset for
     reads) are included.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     BAR = "bar"
@@ -71,25 +73,37 @@ def _chart_type_for(chartSpace: CT_ChartSpace) -> WD_CHART_TYPE | None:
 
 
 class ChartSeries:
-    """Read-only proxy for a single series (`c:ser`) within a chart."""
+    """Read-only proxy for a single series (`c:ser`) within a chart.
+
+    .. versionadded:: 1.3.0.dev0
+    """
 
     def __init__(self, ser: CT_Ser):
         self._ser = ser
 
     @property
     def name(self) -> str:
-        """Series name; empty string when not set."""
+        """Series name; empty string when not set.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         value = self._ser.tx_name
         return value or ""
 
     @property
     def values(self) -> list[float]:
-        """Series values as a list of floats (empty if none cached)."""
+        """Series values as a list of floats (empty if none cached).
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._ser.val_values
 
     @property
     def categories(self) -> list[str]:
-        """Category labels associated with this series."""
+        """Category labels associated with this series.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._ser.cat_values
 
 
@@ -98,6 +112,8 @@ class Chart:
 
     The chart is backed by a `docx.parts.chart.ChartPart` which owns the
     `c:chartSpace` XML tree.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, chart_part: ChartPart):
@@ -112,12 +128,18 @@ class Chart:
 
     @property
     def chart_type(self) -> WD_CHART_TYPE | None:
-        """The chart's type, or |None| if not recognized."""
+        """The chart's type, or |None| if not recognized.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return _chart_type_for(self._chartSpace)
 
     @property
     def title(self) -> str | None:
-        """Chart title text, or None if no title is set."""
+        """Chart title text, or None if no title is set.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         chart = self._chartSpace.chart
         if chart is None:
             return None
@@ -125,7 +147,10 @@ class Chart:
 
     @property
     def has_legend(self) -> bool:
-        """True when the chart has a `c:legend` element."""
+        """True when the chart has a `c:legend` element.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         chart = self._chartSpace.chart
         if chart is None:
             return False
@@ -133,7 +158,10 @@ class Chart:
 
     @property
     def series(self) -> list[ChartSeries]:
-        """All `ChartSeries` for this chart, in document order."""
+        """All `ChartSeries` for this chart, in document order.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         chart = self._chartSpace.chart
         if chart is None:
             return []
@@ -144,7 +172,10 @@ class Chart:
 
     @property
     def categories(self) -> list[str]:
-        """Categories from the first series, or empty list when none."""
+        """Categories from the first series, or empty list when none.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         ser_list = self.series
         if not ser_list:
             return []

@@ -15,6 +15,8 @@ class Symbol:
     characters whose glyph is taken from a font like "Wingdings" where the
     glyph at a given code point isn't the normal Unicode character at that
     code point.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, sym: CT_Sym):
@@ -27,6 +29,8 @@ class Symbol:
 
         The ``w:char`` attribute stores this value as a hex string in the XML
         (e.g. ``"F0E0"``); this property returns it as an ``int``.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return int(self._sym.char, 16)
 
@@ -35,6 +39,8 @@ class Symbol:
         """The 4-character uppercase hex string representation of the code point.
 
         This is the form used by Word to serialize the ``w:char`` attribute.
+
+        .. versionadded:: 1.3.0.dev0
         """
         # -- normalise whatever the XML actually stored so the value returned
         # -- is always 4+ uppercase hex digits, padded to at least 4 chars --
@@ -42,7 +48,10 @@ class Symbol:
 
     @property
     def font(self) -> str:
-        """The font the glyph is rendered from, e.g. ``"Wingdings"``."""
+        """The font the glyph is rendered from, e.g. ``"Wingdings"``.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._sym.font
 
     def delete(self) -> None:
@@ -50,6 +59,8 @@ class Symbol:
 
         After calling this method, this |Symbol| object is "defunct" and
         should not be used further.
+
+        .. versionadded:: 1.3.0.dev0
         """
         sym = self._sym
         parent = sym.getparent()

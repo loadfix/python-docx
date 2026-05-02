@@ -20,7 +20,12 @@ WD_INLINE_SHAPE = WD_INLINE_SHAPE_TYPE
 
 
 class WD_DRAWING_TYPE(enum.Enum):
-    """Type of content contained in a `<w:drawing>` element."""
+    """Type of content contained in a `<w:drawing>` element.
+
+
+.. versionadded:: 1.3.0.dev0
+
+"""
 
     SHAPE = 1
     TEXT_BOX = 2
@@ -34,6 +39,8 @@ class WD_ANCHOR_H(enum.Enum):
     """Horizontal anchor frame-of-reference for a floating image.
 
     Maps to `wp:positionH/@relativeFrom` attribute on a `wp:anchor` element.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     PAGE = "page"
@@ -46,6 +53,8 @@ class WD_ANCHOR_V(enum.Enum):
     """Vertical anchor frame-of-reference for a floating image.
 
     Maps to `wp:positionV/@relativeFrom` attribute on a `wp:anchor` element.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     PAGE = "page"
@@ -61,6 +70,8 @@ class WD_WRAP_TYPE(enum.Enum):
     `wp:wrapTight`, `wp:wrapThrough`, and `wp:wrapTopAndBottom` respectively.
     BEHIND and IN_FRONT are both `wp:wrapNone`, distinguished by the `behindDoc`
     attribute on the parent `wp:anchor` element.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     SQUARE = "square"
@@ -78,6 +89,8 @@ class WD_SHAPE(enum.Enum):
     the preset geometry of the shape. Only a small subset of the full
     ``ST_ShapeType`` catalog is implemented for create; all preset names that
     appear in a document round-trip correctly regardless.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     RECTANGLE = "rect"

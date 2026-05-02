@@ -29,6 +29,8 @@ class DocumentStatistics(NamedTuple):
     """Summary of text statistics for a document's body.
 
     Returned by :attr:`docx.document.Document.statistics`.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     paragraphs: int
@@ -49,6 +51,8 @@ def compute_statistics(body: CT_Body) -> DocumentStatistics:
 
     Descends into tables and other block containers so all paragraphs in the body
     story contribute to the counts.
+
+    .. versionadded:: 1.3.0.dev0
     """
     # -- collect every paragraph in the body, including those nested inside tables
     # -- and block-level structured-document tags

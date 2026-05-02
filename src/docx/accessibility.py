@@ -36,6 +36,8 @@ class HeadingIssue:
     identifier (one of ``"skipped_level"``, ``"multiple_h1"``, ``"empty_heading"``, or
     ``"no_h1"``). `message` is a human-readable description of the problem suitable for
     display to the author.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     paragraph: Paragraph
@@ -79,6 +81,8 @@ def validate_heading_structure(
       (e.g. starts at "Heading 2"). The offending heading paragraph is flagged.
 
     Non-heading paragraphs are ignored. Issues are returned in document order.
+
+    .. versionadded:: 1.3.0.dev0
     """
     issues: list[HeadingIssue] = []
     previous_level: int | None = None

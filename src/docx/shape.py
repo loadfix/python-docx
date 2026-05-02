@@ -108,6 +108,8 @@ class InlineShape:
 
         Maps to ``wp:inline/wp:docPr/@descr``. Returns |None| when the attribute
         is not present. Assigning |None| removes the attribute.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._inline.docPr.descr
 
@@ -121,6 +123,8 @@ class InlineShape:
 
         Maps to ``wp:inline/wp:docPr/@title``. Returns |None| when the attribute
         is not present. Assigning |None| removes the attribute.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._inline.docPr.title
 
@@ -134,6 +138,8 @@ class FloatingImage:
 
     Provides read-access to the anchor's positioning, wrap type, and offset, and is
     returned by :func:`docx.text.paragraph.Paragraph.add_floating_image`.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, anchor: CT_Anchor):
@@ -142,24 +148,36 @@ class FloatingImage:
 
     @property
     def width(self) -> Length:
-        """Display width of this floating image as an |Emu| instance."""
+        """Display width of this floating image as an |Emu| instance.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._anchor.extent.cx
 
     @property
     def height(self) -> Length:
-        """Display height of this floating image as an |Emu| instance."""
+        """Display height of this floating image as an |Emu| instance.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._anchor.extent.cy
 
     @property
     def horizontal_anchor(self) -> WD_ANCHOR_H:
-        """The horizontal frame-of-reference for the image's position."""
+        """The horizontal frame-of-reference for the image's position.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         positionH = self._anchor.positionH
         value = positionH.relativeFrom if positionH is not None else "column"
         return WD_ANCHOR_H(value)
 
     @property
     def vertical_anchor(self) -> WD_ANCHOR_V:
-        """The vertical frame-of-reference for the image's position."""
+        """The vertical frame-of-reference for the image's position.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         positionV = self._anchor.positionV
         value = positionV.relativeFrom if positionV is not None else "paragraph"
         return WD_ANCHOR_V(value)
@@ -169,6 +187,8 @@ class FloatingImage:
         """Horizontal offset (EMU) from the horizontal anchor.
 
         Zero when not specified in the XML.
+
+        .. versionadded:: 1.3.0.dev0
         """
         positionH = self._anchor.positionH
         if positionH is None or positionH.posOffset is None:
@@ -183,6 +203,8 @@ class FloatingImage:
         """Vertical offset (EMU) from the vertical anchor.
 
         Zero when not specified in the XML.
+
+        .. versionadded:: 1.3.0.dev0
         """
         positionV = self._anchor.positionV
         if positionV is None or positionV.posOffset is None:
@@ -194,7 +216,12 @@ class FloatingImage:
 
     @property
     def offset(self) -> tuple[Length, Length]:
-        """Tuple ``(horizontal_offset, vertical_offset)`` in EMU."""
+        """Tuple ``(horizontal_offset, vertical_offset)`` in EMU.
+
+
+.. versionadded:: 1.3.0.dev0
+
+"""
         return self.horizontal_offset, self.vertical_offset
 
     @property
@@ -203,6 +230,8 @@ class FloatingImage:
 
         Keys: ``h_anchor`` (WD_ANCHOR_H), ``v_anchor`` (WD_ANCHOR_V),
         ``horizontal`` (EMU offset), ``vertical`` (EMU offset).
+
+        .. versionadded:: 1.3.0.dev0
         """
         return {
             "h_anchor": self.horizontal_anchor,
@@ -213,7 +242,10 @@ class FloatingImage:
 
     @property
     def wrap_type(self) -> WD_WRAP_TYPE:
-        """The text-wrap style of this floating image, a |WD_WRAP_TYPE| member."""
+        """The text-wrap style of this floating image, a |WD_WRAP_TYPE| member.
+
+    .. versionadded:: 1.3.0.dev0
+    """
         return WD_WRAP_TYPE(self._anchor.wrap_type)
 
     @property
@@ -223,6 +255,8 @@ class FloatingImage:
         Maps to ``wp:anchor/wp:docPr/@descr``. Returns |None| when the attribute
         (or the ``wp:docPr`` element) is not present. Assigning |None| removes
         the attribute.
+
+        .. versionadded:: 1.3.0.dev0
         """
         docPr = self._anchor.docPr
         if docPr is None:
@@ -241,6 +275,8 @@ class FloatingImage:
         Maps to ``wp:anchor/wp:docPr/@title``. Returns |None| when the attribute
         (or the ``wp:docPr`` element) is not present. Assigning |None| removes
         the attribute.
+
+        .. versionadded:: 1.3.0.dev0
         """
         docPr = self._anchor.docPr
         if docPr is None:
@@ -254,7 +290,10 @@ class FloatingImage:
 
     @property
     def type(self):
-        """The type of this floating shape, a member of `WD_INLINE_SHAPE`."""
+        """The type of this floating shape, a member of `WD_INLINE_SHAPE`.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         graphic = self._anchor.graphic
         if graphic is None:
             return WD_INLINE_SHAPE.NOT_IMPLEMENTED

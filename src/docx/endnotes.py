@@ -17,7 +17,10 @@ if TYPE_CHECKING:
 
 
 class Endnotes:
-    """Collection containing the endnotes in this document."""
+    """Collection containing the endnotes in this document.
+
+    .. versionadded:: 1.3.0.dev0
+    """
 
     def __init__(self, endnotes_elm: CT_Endnotes, endnotes_part: EndnotesPart):
         self._endnotes_elm = endnotes_elm
@@ -40,6 +43,8 @@ class Endnotes:
         "EndnoteReference" character style. The new endnote contains a single paragraph
         with the "EndnoteText" style. If `text` is provided, it is added as a run in that
         paragraph following the endnote reference mark.
+
+        .. versionadded:: 1.3.0.dev0
         """
         endnote_elm = self._endnotes_elm.add_endnote()
         endnote = Endnote(endnote_elm, self._endnotes_part)
@@ -60,6 +65,8 @@ class Endnote(BlockItemContainer):
 
     An endnote is a block-item container, similar to a table cell, so it can contain both
     paragraphs and tables.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, endnote_elm: CT_Endnote, endnotes_part: EndnotesPart):
@@ -71,6 +78,8 @@ class Endnote(BlockItemContainer):
 
         The empty paragraph has the "EndnoteText" style. Returns this same endnote
         object for fluent use.
+
+        .. versionadded:: 1.3.0.dev0
         """
         self._endnote_elm.clear_content()
         return self
@@ -84,6 +93,8 @@ class Endnote(BlockItemContainer):
 
         After calling this method, this |Endnote| object is "defunct" and should not be
         used further.
+
+        .. versionadded:: 1.3.0.dev0
         """
         endnote_id = self.endnote_id
         # -- remove endnoteReference(s) from the document body --
@@ -112,6 +123,8 @@ class Endnote(BlockItemContainer):
         The paragraph has `text` in a single run if present, and is given paragraph style `style`.
         When `style` is |None| or omitted, the "EndnoteText" paragraph style is applied, which is
         the default style for endnotes.
+
+        .. versionadded:: 1.3.0.dev0
         """
         paragraph = super().add_paragraph(text, style)
 
@@ -122,7 +135,10 @@ class Endnote(BlockItemContainer):
 
     @property
     def endnote_id(self) -> int:
-        """The unique identifier of this endnote."""
+        """The unique identifier of this endnote.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._endnote_elm.id
 
     @property
@@ -132,6 +148,8 @@ class Endnote(BlockItemContainer):
         Only content in paragraphs is included and all emphasis and styling is stripped.
 
         Paragraph boundaries are indicated with a newline (`"\\n"`).
+
+        .. versionadded:: 1.3.0.dev0
         """
         return "\n".join(p.text for p in self.paragraphs)
 
@@ -146,6 +164,8 @@ class EndnoteProperties:
 
     All properties return `None` when the corresponding child element is absent.
     Assigning `None` to a property removes the corresponding child element.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, endnotePr: "CT_EdnDocProps"):
@@ -153,7 +173,10 @@ class EndnoteProperties:
 
     @property
     def element(self) -> "CT_EdnDocProps":
-        """The underlying ``<w:endnotePr>`` XML element."""
+        """The underlying ``<w:endnotePr>`` XML element.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._endnotePr
 
     @property
@@ -161,6 +184,8 @@ class EndnoteProperties:
         """The :ref:`WdNumberFormat` member corresponding to ``w:numFmt/@w:val``.
 
         Read/write. Returns |None| when no ``w:numFmt`` child is present.
+
+        .. versionadded:: 1.3.0.dev0
         """
         numFmt = self._endnotePr.numFmt
         if numFmt is None:
@@ -180,6 +205,8 @@ class EndnoteProperties:
         """The initial endnote number from ``w:numStart/@w:val`` as an int.
 
         Read/write. Returns |None| when no ``w:numStart`` child is present.
+
+        .. versionadded:: 1.3.0.dev0
         """
         numStart = self._endnotePr.numStart
         if numStart is None:
@@ -201,6 +228,8 @@ class EndnoteProperties:
         Read/write. Corresponds to ``w:numRestart/@w:val``. Returns |None| when no
         ``w:numRestart`` child is present. Note that only ``CONTINUOUS`` and
         ``EACH_SECTION`` are meaningful for endnote numbering.
+
+        .. versionadded:: 1.3.0.dev0
         """
         numRestart = self._endnotePr.numRestart
         if numRestart is None:
@@ -221,6 +250,8 @@ class EndnoteProperties:
 
         Read/write. Corresponds to ``w:pos/@w:val``. Returns |None| when no ``w:pos``
         child is present.
+
+        .. versionadded:: 1.3.0.dev0
         """
         pos = self._endnotePr.pos
         if pos is None or pos.val is None:

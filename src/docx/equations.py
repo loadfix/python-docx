@@ -39,6 +39,8 @@ class Equation:
     Wraps either a top-level ``m:oMath`` element (inline) or an
     ``m:oMathPara`` element (display-mode paragraph). The wrapped element is
     accessible via :attr:`xml_element` for advanced use cases.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, element: CT_OMath | CT_OMathPara):
@@ -51,7 +53,10 @@ class Equation:
 
     @property
     def xml_element(self) -> CT_OMath | CT_OMathPara:
-        """The raw lxml element (``m:oMath`` or ``m:oMathPara``)."""
+        """The raw lxml element (``m:oMath`` or ``m:oMathPara``).
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._element
 
     @property
@@ -60,6 +65,8 @@ class Equation:
 
         Namespaces are preserved; callers can hand this to their own XML
         parser for deeper inspection.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return etree.tostring(self._element, encoding="utf-8")
 
@@ -70,12 +77,17 @@ class Equation:
         Concatenates the text of every descendant ``<m:t>`` element. Structure
         (fractions, superscripts, radicals, …) is flattened, which is usually
         good enough for search or preview display.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return "".join(t.text or "" for t in self._element.xpath(".//m:t"))
 
     @property
     def is_display_mode(self) -> bool:
-        """|True| when the equation is wrapped in ``m:oMathPara`` (display mode)."""
+        """|True| when the equation is wrapped in ``m:oMathPara`` (display mode).
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._element.tag == _M_OMATH_PARA
 
     @classmethod
@@ -88,6 +100,8 @@ class Equation:
         caller is responsible for including them.
 
         Raises :class:`ValueError` when the root element has a different tag.
+
+        .. versionadded:: 1.3.0.dev0
         """
         if isinstance(xml_string, str):
             xml_string = xml_string.encode("utf-8")
@@ -126,6 +140,8 @@ def build_identifier(text: str) -> str:
     `text` is XML-escaped. Produces::
 
         <m:oMath><m:r><m:t>text</m:t></m:r></m:oMath>
+
+    .. versionadded:: 1.3.0.dev0
     """
     return "%s%s</m:oMath>" % (_omath_open(), _run(text))
 
@@ -136,6 +152,8 @@ def build_fraction(numerator_text: str, denominator_text: str) -> str:
     Produces a stacked fraction with a horizontal bar (``m:type=bar``). Both
     arguments are wrapped as a single ``m:r``/``m:t`` run — use
     :meth:`Equation.from_omml_xml` directly if you need nested structure.
+
+    .. versionadded:: 1.3.0.dev0
     """
     return (
         "%s<m:f>"
@@ -150,6 +168,8 @@ def build_superscript(base_text: str, exponent_text: str) -> str:
     """Return an ``m:oMath`` expressing ``base_text`` raised to ``exponent_text``.
 
     Uses the ``m:sSup`` element.
+
+    .. versionadded:: 1.3.0.dev0
     """
     return (
         "%s<m:sSup>"
@@ -163,6 +183,8 @@ def build_subscript(base_text: str, subscript_text: str) -> str:
     """Return an ``m:oMath`` expressing ``base_text`` with a subscript.
 
     Uses the ``m:sSub`` element.
+
+    .. versionadded:: 1.3.0.dev0
     """
     return (
         "%s<m:sSub>"
@@ -178,6 +200,8 @@ def build_radical(expr_text: str, degree_text: str | None = None) -> str:
     When `degree_text` is |None|, a square-root (no degree) is emitted. When
     given, a degree run is added inside ``m:deg`` to produce e.g. ∛ for a
     degree of ``"3"``.
+
+    .. versionadded:: 1.3.0.dev0
     """
     deg_xml = "<m:deg>%s</m:deg>" % _run(degree_text) if degree_text else "<m:deg/>"
     return (

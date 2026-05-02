@@ -16,6 +16,8 @@ class PermissionRange:
     A permission range marks a portion of the document as editable by particular
     users or groups while the rest of the document is locked by document
     protection. See `ECMA-376 §17.13.2.17–18` for `w:permStart` / `w:permEnd`.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, permStart: CT_PermStart, body: CT_Body):
@@ -24,7 +26,10 @@ class PermissionRange:
 
     @property
     def id(self) -> int:
-        """The integer identifier linking this start to its matching `w:permEnd`."""
+        """The integer identifier linking this start to its matching `w:permEnd`.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._permStart.id
 
     @property
@@ -32,12 +37,17 @@ class PermissionRange:
         """The group that may edit this range (`@w:edGrp`), or |None|.
 
         Common values include ``"everyone"`` and ``"current"``.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._permStart.edit_group
 
     @property
     def user(self) -> str | None:
-        """The single user who may edit this range (`@w:ed`), or |None|."""
+        """The single user who may edit this range (`@w:ed`), or |None|.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._permStart.user
 
     @property
@@ -46,11 +56,16 @@ class PermissionRange:
 
         Present when Word has displaced this range marker to a different spot
         because of a surrounding custom-XML element.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._permStart.displaced_by_custom_xml
 
     def delete(self) -> None:
-        """Remove this permission range (start and matching end) from the document."""
+        """Remove this permission range (start and matching end) from the document.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         perm_id = str(self._permStart.id)
         # -- find and remove the matching permEnd --
         ends = self._body.xpath(f".//w:permEnd[@w:id='{perm_id}']")

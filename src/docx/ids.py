@@ -64,6 +64,8 @@ def compute_stable_id(
 
     The function is pure — it does not modify `element` — and deterministic:
     the same inputs always yield the same output string.
+
+    .. versionadded:: 1.3.0.dev0
     """
     components: list[str] = [
         rsid or "",

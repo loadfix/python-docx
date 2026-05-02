@@ -37,6 +37,8 @@ class CustomXmlPart:
     describe one ``/customXml/item{N}.xml`` data part. :attr:`item_id` and
     :attr:`schema_refs` come from the related ``itemProps{N}.xml`` part when
     present; :attr:`root_element` and :attr:`blob` come from the data part.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, data_part: "_CustomXmlDataPart"):
@@ -44,17 +46,26 @@ class CustomXmlPart:
 
     @property
     def part(self) -> "_CustomXmlDataPart":
-        """The underlying custom XML data |Part|."""
+        """The underlying custom XML data |Part|.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._data_part
 
     @property
     def partname(self) -> str:
-        """The pack URI of the data part, e.g. ``"/customXml/item1.xml"``."""
+        """The pack URI of the data part, e.g. ``"/customXml/item1.xml"``.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return str(self._data_part.partname)
 
     @property
     def blob(self) -> bytes:
-        """Raw bytes of the data part."""
+        """Raw bytes of the data part.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._data_part.blob
 
     @property
@@ -64,6 +75,8 @@ class CustomXmlPart:
         The data part is parsed lazily. Returns |None| when the payload is not
         well-formed XML — python-docx does not raise for broken custom-XML
         parts.
+
+        .. versionadded:: 1.3.0.dev0
         """
         try:
             return etree.fromstring(self.blob)
@@ -78,6 +91,8 @@ class CustomXmlPart:
         from the ``ds:datastoreItem/@ds:itemID`` attribute. Returns |None| when
         the data part has no properties part, the properties part cannot be
         parsed, or the attribute is missing.
+
+        .. versionadded:: 1.3.0.dev0
         """
         props_elm = self._itemProps_root()
         if props_elm is None:
@@ -92,6 +107,8 @@ class CustomXmlPart:
         ``ds:schemaRefs``. Returns an empty list when there is no properties
         part, when it cannot be parsed, or when no schema references are
         declared.
+
+        .. versionadded:: 1.3.0.dev0
         """
         props_elm = self._itemProps_root()
         if props_elm is None:
@@ -133,6 +150,8 @@ def iter_custom_xml_parts(document_part: "Part") -> list[CustomXmlPart]:
     the main document part. Properties parts (``customXmlProps``) are not
     surfaced as separate entries — they are accessed via
     :attr:`CustomXmlPart.item_id` and :attr:`CustomXmlPart.schema_refs`.
+
+    .. versionadded:: 1.3.0.dev0
     """
     from docx.parts.custom_xml import CustomXmlPart as _DataPart
 

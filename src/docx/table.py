@@ -64,6 +64,8 @@ class Table(StoryChild):
 
         The table element is removed from its parent. After calling this method,
         this |Table| object is "defunct" and should not be used further.
+
+        .. versionadded:: 1.3.0.dev0
         """
         tbl = self._tbl
         parent = tbl.getparent()
@@ -99,6 +101,8 @@ class Table(StoryChild):
         If `text` is supplied, the new paragraph contains that text in a single run. If
         `style` is provided, that paragraph style is assigned to the new paragraph.
         The new paragraph is inserted as a sibling of this table in its parent element.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.oxml.parser import OxmlElement
 
@@ -119,6 +123,8 @@ class Table(StoryChild):
         If `text` is supplied, the new paragraph contains that text in a single run. If
         `style` is provided, that paragraph style is assigned to the new paragraph.
         The new paragraph is inserted as a sibling of this table in its parent element.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.oxml.parser import OxmlElement
 
@@ -144,6 +150,8 @@ class Table(StoryChild):
         If `style` is supplied, that style is assigned to the new table. The new
         table is inserted as a sibling of this table in its parent element. `width`
         is an optional total table width; if not provided it defaults to 6 inches.
+
+        .. versionadded:: 1.3.0.dev0
         """
         table_width = width if width is not None else Inches(6)
         tbl = CT_Tbl.new_tbl(rows, cols, table_width)
@@ -166,6 +174,8 @@ class Table(StoryChild):
         If `style` is supplied, that style is assigned to the new table. The new
         table is inserted as a sibling of this table in its parent element. `width`
         is an optional total table width; if not provided it defaults to 6 inches.
+
+        .. versionadded:: 1.3.0.dev0
         """
         table_width = width if width is not None else Inches(6)
         tbl = CT_Tbl.new_tbl(rows, cols, table_width)
@@ -219,6 +229,8 @@ class Table(StoryChild):
         :attr:`autofit_behavior` for that). Assigning |True| removes any explicit
         ``w:tblLayout`` rather than writing ``w:type="autofit"`` so the table falls
         back to the OOXML default.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._tblPr.autofit
 
@@ -244,6 +256,8 @@ class Table(StoryChild):
 
         Read/write. Assigning a new value rewrites both ``w:tblLayout`` and
         ``w:tblW`` to a consistent state.
+
+        .. versionadded:: 1.3.0.dev0
         """
         tblPr = self._tblPr
         if not tblPr.autofit:
@@ -278,6 +292,8 @@ class Table(StoryChild):
         the table width is declared as a percentage or ``auto``).
 
         Read/write. Assigning |None| removes ``w:tblW`` entirely.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._tblPr.preferred_width
 
@@ -291,6 +307,8 @@ class Table(StoryChild):
 
         Always returns a |TableBorders| object; setting border properties on it will
         create the required XML elements on demand.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return TableBorders(self._tbl)
 
@@ -301,6 +319,8 @@ class Table(StoryChild):
         Always returns a |TableStyleFlags| object. Reading a flag when the
         `w:tblLook` child is absent yields |False|; writing to any flag creates
         the `w:tblLook` element on demand.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return TableStyleFlags(self._tbl)
 
@@ -325,6 +345,8 @@ class Table(StoryChild):
         Example for APA 7 tables (horizontal-only borders)::
 
             table.set_borders(top=True, bottom=True, inside_h=True)
+
+        .. versionadded:: 1.3.0.dev0
         """
         border_width = width if width is not None else Pt(0.5)
         border_color = color if color is not None else RGBColor(0, 0, 0)
@@ -425,6 +447,8 @@ class Table(StoryChild):
         exposing the prior table properties (`w:tblPr`) when this table carries
         a `w:tblPr/w:tblPrChange` tracked-revision marker. Returns |None| when
         the table has no `w:tblPrChange` child.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.tracked_changes import FormattingChange
 
@@ -446,6 +470,8 @@ class Table(StoryChild):
         The ``w:tbl`` element itself has no ``@w:rsidR``, so only the
         structural hash is used. For more robust cross-session tracking,
         compare the table's content directly.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.ids import compute_stable_id
 
@@ -528,6 +554,8 @@ class _Cell(BlockItemContainer):
 
         Always returns a |CellBorders| object; setting border properties on it will
         create the required XML elements on demand.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return CellBorders(self._tc)
 
@@ -554,6 +582,8 @@ class _Cell(BlockItemContainer):
         exposing the prior cell properties (`w:tcPr`) when this cell carries
         a `w:tcPr/w:tcPrChange` tracked-revision marker. Returns |None| when
         the cell has no `w:tcPr` or no `w:tcPrChange` child.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.tracked_changes import FormattingChange
 
@@ -588,6 +618,8 @@ class _Cell(BlockItemContainer):
         The ``w:tc`` element itself has no ``@w:rsidR``, so only the
         structural hash is used. For more robust cross-session tracking,
         compare the cell's content directly.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.ids import compute_stable_id
 
@@ -600,6 +632,8 @@ class _Cell(BlockItemContainer):
         A `w:cellIns` element indicates the cell was inserted by a tracked
         change. Returns |False| when the cell has no `w:tcPr` or no `w:cellIns`
         child.
+
+        .. versionadded:: 1.3.0.dev0
         """
         tcPr = self._tc.tcPr
         if tcPr is None:
@@ -613,6 +647,8 @@ class _Cell(BlockItemContainer):
         A `w:cellDel` element indicates the cell was deleted by a tracked
         change. Returns |False| when the cell has no `w:tcPr` or no `w:cellDel`
         child.
+
+        .. versionadded:: 1.3.0.dev0
         """
         tcPr = self._tc.tcPr
         if tcPr is None:
@@ -633,6 +669,8 @@ class _Cell(BlockItemContainer):
           ``"continue"`` value).
 
         Read-only.
+
+        .. versionadded:: 1.3.0.dev0
         """
         tc = self._tc
         vMerge = tc.vMerge
@@ -657,6 +695,8 @@ class _Cell(BlockItemContainer):
         Raises |ValueError| if this cell is an orphan continuation — i.e. it has
         ``w:vMerge`` but no ancestor row contains a corresponding
         ``w:vMerge="restart"`` cell.
+
+        .. versionadded:: 1.3.0.dev0
         """
         tc = self._tc
         if tc.vMerge != ST_Merge.CONTINUE:
@@ -732,6 +772,8 @@ class _Cell(BlockItemContainer):
 
         Always returns a |CellShading| object; setting shading properties on it will
         create the required XML elements on demand.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return CellShading(self._tc)
 
@@ -742,6 +784,8 @@ class _Cell(BlockItemContainer):
         Always returns a |CellMargins| object. When no ``w:tcMar`` element is
         present, each edge reads as |None|; assigning to an edge creates the
         ``w:tcPr/w:tcMar`` structure on demand.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return CellMargins(self._tc)
 
@@ -758,6 +802,8 @@ class _Cell(BlockItemContainer):
         edges not mentioned in the call are left unchanged. To explicitly clear
         an edge, assign |None| directly via the |CellMargins| proxy or call
         :meth:`remove_margins`. Returns the |CellMargins| proxy.
+
+        .. versionadded:: 1.3.0.dev0
         """
         margins = self.margins
         if top is not None:
@@ -772,7 +818,10 @@ class _Cell(BlockItemContainer):
 
     def remove_margins(self) -> None:
         """Remove any ``w:tcMar`` element from this cell, clearing all per-cell
-        margin overrides. Leaves the cell inheriting table-level cell margins."""
+        margin overrides. Leaves the cell inheriting table-level cell margins.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         tcPr = self._tc.tcPr
         if tcPr is None:
             return
@@ -790,6 +839,8 @@ class _Cell(BlockItemContainer):
         The common cell-rotation cases are ``WD_TEXT_DIRECTION.TB_RL`` (rotate
         90 degrees clockwise) and ``WD_TEXT_DIRECTION.BT_LR`` (rotate 90 degrees
         counter-clockwise).
+
+        .. versionadded:: 1.3.0.dev0
         """
         tcPr = self._element.tcPr
         if tcPr is None:
@@ -833,6 +884,8 @@ class CellShading:
     """Provides access to shading properties for a table cell.
 
     Accessed via ``_Cell.shading``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, tc: CT_Tc):
@@ -843,6 +896,8 @@ class CellShading:
         """The background fill color as an |RGBColor| value, or |None| if not set.
 
         Note: returns |None| when the fill attribute is ``"auto"`` (foreground-dependent).
+
+        .. versionadded:: 1.3.0.dev0
         """
         shd = self._shd
         if shd is None:
@@ -864,7 +919,10 @@ class CellShading:
 
     @property
     def pattern(self) -> WD_SHADING_PATTERN | None:
-        """The shading pattern as a |WD_SHADING_PATTERN| value, or |None| if not set."""
+        """The shading pattern as a |WD_SHADING_PATTERN| value, or |None| if not set.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         shd = self._shd
         if shd is None:
             return None
@@ -899,6 +957,8 @@ class BorderElement:
     """Provides access to properties of a single border edge.
 
     Wraps a ``CT_Border`` element (e.g. ``<w:top>``, ``<w:bottom>``).
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, border: CT_Border | None, get_or_add: Callable[[], CT_Border]):
@@ -907,7 +967,10 @@ class BorderElement:
 
     @property
     def style(self) -> WD_BORDER_STYLE | None:
-        """The border style as a |WD_BORDER_STYLE| value, or |None| if not set."""
+        """The border style as a |WD_BORDER_STYLE| value, or |None| if not set.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         border = self._border
         if border is None:
             return None
@@ -931,6 +994,8 @@ class BorderElement:
         The ``w:sz`` attribute stores the width in eighths of a point; the
         underlying element class already converts that to a |Length| (EMU) on
         read, so it is returned as-is here.
+
+        .. versionadded:: 1.3.0.dev0
         """
         border = self._border
         if border is None:
@@ -950,7 +1015,10 @@ class BorderElement:
 
     @property
     def color(self) -> RGBColor | None:
-        """The border color as an |RGBColor| value, or |None| if not set."""
+        """The border color as an |RGBColor| value, or |None| if not set.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         border = self._border
         if border is None:
             return None
@@ -976,6 +1044,8 @@ class BorderElement:
 
         The ``w:space`` attribute stores whole points; the underlying element
         class converts that to a |Length| on read.
+
+        .. versionadded:: 1.3.0.dev0
         """
         border = self._border
         if border is None:
@@ -998,6 +1068,8 @@ class TableBorders:
     """Provides access to border properties for a table.
 
     Accessed via ``Table.borders``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, tbl: CT_Tbl):
@@ -1005,7 +1077,10 @@ class TableBorders:
 
     @property
     def top(self) -> BorderElement:
-        """The top border of the table."""
+        """The top border of the table.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         tblBorders = self._tblBorders
         return BorderElement(
             tblBorders.top if tblBorders is not None else None,
@@ -1014,7 +1089,10 @@ class TableBorders:
 
     @property
     def bottom(self) -> BorderElement:
-        """The bottom border of the table."""
+        """The bottom border of the table.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         tblBorders = self._tblBorders
         return BorderElement(
             tblBorders.bottom if tblBorders is not None else None,
@@ -1023,7 +1101,10 @@ class TableBorders:
 
     @property
     def left(self) -> BorderElement:
-        """The left border of the table."""
+        """The left border of the table.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         tblBorders = self._tblBorders
         return BorderElement(
             tblBorders.left if tblBorders is not None else None,
@@ -1032,7 +1113,10 @@ class TableBorders:
 
     @property
     def right(self) -> BorderElement:
-        """The right border of the table."""
+        """The right border of the table.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         tblBorders = self._tblBorders
         return BorderElement(
             tblBorders.right if tblBorders is not None else None,
@@ -1041,7 +1125,10 @@ class TableBorders:
 
     @property
     def inside_h(self) -> BorderElement:
-        """The inside horizontal border of the table."""
+        """The inside horizontal border of the table.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         tblBorders = self._tblBorders
         return BorderElement(
             tblBorders.insideH if tblBorders is not None else None,
@@ -1050,7 +1137,10 @@ class TableBorders:
 
     @property
     def inside_v(self) -> BorderElement:
-        """The inside vertical border of the table."""
+        """The inside vertical border of the table.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         tblBorders = self._tblBorders
         return BorderElement(
             tblBorders.insideV if tblBorders is not None else None,
@@ -1075,6 +1165,8 @@ class TableStyleFlags:
     Accessed via ``Table.style_flags``. When the underlying `w:tblLook` element
     is absent, reading a flag returns |False|; writing any flag creates the
     `w:tblLook` element on demand.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, tbl: CT_Tbl):
@@ -1082,7 +1174,10 @@ class TableStyleFlags:
 
     @property
     def first_row(self) -> bool:
-        """|True| when the table-style formatting for the first row is applied."""
+        """|True| when the table-style formatting for the first row is applied.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._get_flag("firstRow")
 
     @first_row.setter
@@ -1091,7 +1186,10 @@ class TableStyleFlags:
 
     @property
     def last_row(self) -> bool:
-        """|True| when the table-style formatting for the last row is applied."""
+        """|True| when the table-style formatting for the last row is applied.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._get_flag("lastRow")
 
     @last_row.setter
@@ -1100,7 +1198,10 @@ class TableStyleFlags:
 
     @property
     def first_column(self) -> bool:
-        """|True| when table-style formatting for the first column is applied."""
+        """|True| when table-style formatting for the first column is applied.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._get_flag("firstColumn")
 
     @first_column.setter
@@ -1109,7 +1210,10 @@ class TableStyleFlags:
 
     @property
     def last_column(self) -> bool:
-        """|True| when table-style formatting for the last column is applied."""
+        """|True| when table-style formatting for the last column is applied.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._get_flag("lastColumn")
 
     @last_column.setter
@@ -1118,7 +1222,10 @@ class TableStyleFlags:
 
     @property
     def no_horizontal_banding(self) -> bool:
-        """|True| when row-banding formatting is suppressed (``@w:noHBand="1"``)."""
+        """|True| when row-banding formatting is suppressed (``@w:noHBand="1"``).
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._get_flag("noHBand")
 
     @no_horizontal_banding.setter
@@ -1127,7 +1234,10 @@ class TableStyleFlags:
 
     @property
     def no_vertical_banding(self) -> bool:
-        """|True| when column-banding formatting is suppressed (``@w:noVBand="1"``)."""
+        """|True| when column-banding formatting is suppressed (``@w:noVBand="1"``).
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._get_flag("noVBand")
 
     @no_vertical_banding.setter
@@ -1149,6 +1259,8 @@ class CellBorders:
     """Provides access to border properties for a table cell.
 
     Accessed via ``_Cell.borders``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, tc: CT_Tc):
@@ -1156,7 +1268,10 @@ class CellBorders:
 
     @property
     def top(self) -> BorderElement:
-        """The top border of the cell."""
+        """The top border of the cell.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         tcBorders = self._tcBorders
         return BorderElement(
             tcBorders.top if tcBorders is not None else None,
@@ -1165,7 +1280,10 @@ class CellBorders:
 
     @property
     def bottom(self) -> BorderElement:
-        """The bottom border of the cell."""
+        """The bottom border of the cell.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         tcBorders = self._tcBorders
         return BorderElement(
             tcBorders.bottom if tcBorders is not None else None,
@@ -1174,7 +1292,10 @@ class CellBorders:
 
     @property
     def left(self) -> BorderElement:
-        """The left border of the cell."""
+        """The left border of the cell.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         tcBorders = self._tcBorders
         return BorderElement(
             tcBorders.left if tcBorders is not None else None,
@@ -1183,7 +1304,10 @@ class CellBorders:
 
     @property
     def right(self) -> BorderElement:
-        """The right border of the cell."""
+        """The right border of the cell.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         tcBorders = self._tcBorders
         return BorderElement(
             tcBorders.right if tcBorders is not None else None,
@@ -1212,6 +1336,8 @@ class CellMargins:
     The edge names ``start`` and ``end`` map to either the modern ``w:start`` /
     ``w:end`` tags or the legacy ``w:left`` / ``w:right`` tags. Reads accept
     either form; writes produce ``w:start`` / ``w:end``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, tc: CT_Tc):
@@ -1249,7 +1375,10 @@ class CellMargins:
 
     @property
     def top(self) -> "Length | None":
-        """Top cell-margin as a |Length|, or |None| when not set."""
+        """Top cell-margin as a |Length|, or |None| when not set.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._get_edge("top")
 
     @top.setter
@@ -1258,7 +1387,10 @@ class CellMargins:
 
     @property
     def bottom(self) -> "Length | None":
-        """Bottom cell-margin as a |Length|, or |None| when not set."""
+        """Bottom cell-margin as a |Length|, or |None| when not set.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._get_edge("bottom")
 
     @bottom.setter
@@ -1271,6 +1403,8 @@ class CellMargins:
 
         Reads ``w:start`` when present, otherwise the legacy ``w:left``. Writes
         always produce ``w:start``.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._get_edge("start")
 
@@ -1284,6 +1418,8 @@ class CellMargins:
 
         Reads ``w:end`` when present, otherwise the legacy ``w:right``. Writes
         always produce ``w:end``.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._get_edge("end")
 
@@ -1411,6 +1547,8 @@ class _Row(Parented):
 
         When set to |False|, the entire row is moved to the next page rather than
         allowing it to be split across a page break. Defaults to |True|.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._tr.allow_break_across_pages
 
@@ -1479,6 +1617,8 @@ class _Row(Parented):
         exposing the prior row properties (`w:trPr`) when this row carries a
         `w:trPr/w:trPrChange` tracked-revision marker. Returns |None| when
         the row has no `w:trPr` or no `w:trPrChange` child.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.tracked_changes import FormattingChange
 
@@ -1535,6 +1675,8 @@ class _Row(Parented):
         """True when this row is a header row that repeats at the top of each page.
 
         Read/write. Only the first N consecutive rows can be header rows (Word limitation).
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._tr.is_header
 

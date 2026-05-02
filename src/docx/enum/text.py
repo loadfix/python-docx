@@ -280,6 +280,8 @@ class WD_BORDER_STYLE(BaseXmlEnum):
 
         paragraph = document.add_paragraph()
         paragraph.paragraph_format.borders.bottom.style = WD_BORDER_STYLE.SINGLE
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     NIL = (0, "nil", "No border.")
@@ -485,6 +487,8 @@ class WD_NUMBER_FORMAT(BaseXmlEnum):
     Only the most common members are exposed; the full OOXML enumeration is large
     and rarely needed. Use :meth:`from_xml` to convert a raw ``w:numFmt/@w:val``
     string to an enumeration member.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     DECIMAL = (0, "decimal", "Decimal numbers (1, 2, 3 ...).")
@@ -532,6 +536,8 @@ class WD_FOOTNOTE_RESTART(BaseXmlEnum):
     """Specifies when footnote numbering restarts.
 
     Maps to the ``w:numRestart`` child element of ``w:footnotePr``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     CONTINUOUS = (0, "continuous", "Continuous numbering throughout the document.")
@@ -548,6 +554,8 @@ class WD_FOOTNOTE_POSITION(BaseXmlEnum):
     """Specifies the position of footnotes on the page.
 
     Maps to the ``w:pos`` child element of ``w:footnotePr``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     BOTTOM_OF_PAGE = (0, "pageBottom", "Footnotes appear at the bottom of the page.")
@@ -565,6 +573,8 @@ class WD_ENDNOTE_POSITION(BaseXmlEnum):
     """Specifies the position of endnotes in the document.
 
     Maps to the ``w:pos`` child element of ``w:endnotePr``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     END_OF_DOCUMENT = (0, "docEnd", "Endnotes appear at the end of the document.")
@@ -578,6 +588,8 @@ class WD_VIEW(BaseXmlEnum):
     """Specifies the preferred view mode for displaying the document.
 
     Maps to the ``w:val`` attribute of the ``w:view`` child of ``w:settings``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     NONE = (0, "none", "No view mode is specified.")
@@ -610,6 +622,8 @@ class WD_PROTECTION(BaseXmlEnum):
     user from editing the document in ways other than those permitted by the
     selected mode. For example, :attr:`COMMENTS` allows inserting comments but
     not modifying paragraph text.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     READ_ONLY = (0, "readOnly", "The document is read-only; no edits are permitted.")
@@ -633,6 +647,8 @@ class WD_FRAME_H_ANCHOR(BaseXmlEnum):
     """Specifies the base from which a text frame's horizontal position is measured.
 
     Maps to the ``w:hAnchor`` attribute of ``w:framePr``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     TEXT = (0, "text", "Horizontal position is relative to the text of the paragraph.")
@@ -649,6 +665,8 @@ class WD_FRAME_V_ANCHOR(BaseXmlEnum):
     """Specifies the base from which a text frame's vertical position is measured.
 
     Maps to the ``w:vAnchor`` attribute of ``w:framePr``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     TEXT = (0, "text", "Vertical position is relative to the text of the paragraph.")
@@ -665,6 +683,8 @@ class WD_FRAME_WRAP(BaseXmlEnum):
     """Specifies how text wraps around a text frame.
 
     Maps to the ``w:wrap`` attribute of ``w:framePr``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     AUTO = (0, "auto", "Text wraps around the frame on all sides.")
@@ -690,6 +710,8 @@ class WD_FRAME_DROP_CAP(BaseXmlEnum):
     """Specifies how a drop-cap text frame is positioned relative to the paragraph.
 
     Maps to the ``w:dropCap`` attribute of ``w:framePr``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     NONE = (0, "none", "Not a drop-cap frame.")
@@ -706,6 +728,8 @@ class WD_FRAME_H_ALIGN(BaseXmlEnum):
     """Specifies the horizontal alignment of a text frame.
 
     Maps to the ``w:xAlign`` attribute of ``w:framePr``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     LEFT = (0, "left", "Frame is left-aligned.")
@@ -728,6 +752,8 @@ class WD_FRAME_V_ALIGN(BaseXmlEnum):
     """Specifies the vertical alignment of a text frame.
 
     Maps to the ``w:yAlign`` attribute of ``w:framePr``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     INLINE = (0, "inline", "Frame is positioned inline with the surrounding text.")
@@ -764,6 +790,8 @@ class WD_BUILDING_BLOCK_GALLERY(BaseXmlEnum):
 
         gallery = WD_BUILDING_BLOCK_GALLERY.from_xml_safe("quickParts")
         assert gallery is WD_BUILDING_BLOCK_GALLERY.QUICK_PARTS
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     PLACEHOLDER = (0, "placeholder", "Placeholder gallery.")
@@ -888,6 +916,8 @@ class WD_BUILDING_BLOCK_GALLERY(BaseXmlEnum):
         Mirrors :meth:`BaseXmlEnum.from_xml` but never raises — callers that
         want permissive decoding of building-block galleries should use this
         entry point rather than the strict one.
+
+        .. versionadded:: 1.3.0.dev0
         """
         if xml_value is None:
             return None
@@ -901,6 +931,8 @@ class WD_MAIL_MERGE_TYPE(BaseXmlEnum):
     """Specifies the mail-merge main document type.
 
     Maps to ``w:mailMerge/w:mainDocumentType/@w:val``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     CATALOG = (0, "catalog", "Catalog-style merge (all records on one page).")
@@ -926,6 +958,8 @@ class WD_MAIL_MERGE_DESTINATION(BaseXmlEnum):
     """Specifies where merged output is sent.
 
     Maps to ``w:mailMerge/w:destination/@w:val``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     NEW_DOCUMENT = (0, "newDocument", "Produce a new Word document containing the merged output.")
@@ -945,6 +979,8 @@ class WD_MAIL_MERGE_DATA_TYPE(BaseXmlEnum):
     """Specifies the data-source kind for a mail merge.
 
     Maps to ``w:mailMerge/w:dataType/@w:val``.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     TEXT_FILE = (0, "textFile", "Delimited text file (CSV / TSV).")

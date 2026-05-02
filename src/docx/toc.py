@@ -113,6 +113,8 @@ def build_toc_instruction(levels: tuple[int, int] = (1, 3)) -> str:
 
     The returned string is wrapped in single spaces, matching the form Word
     writes when it inserts a TOC via the Ribbon.
+
+    .. versionadded:: 1.3.0.dev0
     """
     min_level, max_level = _validate_levels(levels)
     return f' TOC \\o "{min_level}-{max_level}" \\h \\z \\u '
@@ -166,6 +168,8 @@ def populate_toc_paragraph(
     defined. Word rebuilds the TOC on open or field-update, so the cached
     result added here is intended only as a preview for consumers that do
     not themselves evaluate fields.
+
+    .. versionadded:: 1.3.0.dev0
     """
     levels = _validate_levels(levels)
     entries = _collect_entries(source_paragraphs, levels)
