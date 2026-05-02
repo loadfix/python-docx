@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.accessibility import HeadingIssue
     from docx.alt_chunk import AltChunk
+    from docx.attachments import Attachment
     from docx.bookmarks import Bookmarks
     from docx.chart import Chart, WD_CHART_TYPE
     from docx.comments import Comment, Comments
@@ -1217,6 +1218,34 @@ class Document(ElementProxy):
         for p in self._element.body.xpath(".//w:p[.//w:contentPart]"):
             paragraph = Paragraph(p, self._body)
             result.extend(paragraph.ink_annotations)
+        return result
+
+    @property
+    def attachments(self) -> list[Attachment]:
+        """List of |Attachment| for each ``w:altChunk`` in the document body.
+
+        An ``altChunk`` is an arbitrary foreign payload (HTML, RTF, another
+        docx, etc.) that Word merges into the document on open. python-docx
+        exposes them read-only: callers can iterate the altChunk elements,
+        inspect their content-type (via the related part), and retrieve the
+        raw payload bytes for further processing.
+
+        Returns an empty list when the document has no altChunks.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.attachments import Attachment
+
+        result: list[Attachment] = []
+        doc_part = self._part
+        for alt_elm in self._element.body.xpath(".//w:altChunk"):
+            rId = alt_elm.get(
+                "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+            )
+            target_part = None
+            if rId is not None:
+                target_part = doc_part.related_parts.get(rId)
+            result.append(Attachment(alt_elm, target_part))
         return result
 
     @property

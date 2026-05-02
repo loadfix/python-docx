@@ -53,6 +53,11 @@ def part_class_selector(content_type: str, reltype: str) -> type[Part] | None:
         return ImagePart
     if reltype == RT.A_F_CHUNK:
         return AltChunkPart
+    if reltype == RT.OLE_OBJECT:
+        # -- any target of an OLE-object relationship is an embedded binary,
+        # -- regardless of whether its content-type is the generic oleObject
+        # -- mime or something more specific (xlsx, pdf, zip, etc.). --
+        return EmbeddedObjectPart
     return None
 
 
@@ -91,7 +96,6 @@ del (
     CustomXmlPart,
     DiagramDataPart,
     DocumentPart,
-    EmbeddedObjectPart,
     EndnotesPart,
     ExtendedPropertiesPart,
     FontPart,

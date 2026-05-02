@@ -860,5 +860,48 @@ def then_run_inline_svg_content_type(context, mime):
     )
 
 
+# -- OLE embedded-object write scenarios --
+
+# -- a minimal fake xlsx payload; a real xlsx starts with a PK zip header so
+# -- this mirrors what Word's content-type sniffing would see. --
+_FAKE_XLSX_BLOB = b"PK\x03\x04" + bytes(24) + b"FAKE-XLSX-FOR-BEHAVE"
+
+
+@given("a fresh empty document")
+def given_a_fresh_empty_document(context):
+    context.document = Document()
+
+
+@when('I add an OLE object for an xlsx payload with prog_id "{prog_id}"')
+def when_i_add_ole_object_for_xlsx(context, prog_id: str):
+    import io
+
+    run = context.document.add_paragraph().add_run()
+    context.ole_bytes = _FAKE_XLSX_BLOB
+    context.added_ole = run.add_ole_object(
+        io.BytesIO(_FAKE_XLSX_BLOB), prog_id=prog_id
+    )
+
+
+@when("I save and reload the document to a BytesIO buffer")
+def when_i_save_and_reload_to_buffer(context):
+    import io
+
+    buf = io.BytesIO()
+    context.document.save(buf)
+    buf.seek(0)
+    context.document = Document(buf)
+
+
+@then("the resolved embedded object blob round-trips the original bytes")
+def then_ole_blob_round_trips(context):
+    resolved = [o for o in context.document.embedded_objects if o.blob]
+    assert resolved, "no resolved embedded objects found"
+    assert resolved[0].blob == context.ole_bytes, (
+        f"blob mismatch: expected {len(context.ole_bytes)} bytes, "
+        f"got {len(resolved[0].blob)}"
+    )
+
+
 # -- reference assert for unused helpers (keep linter quiet) --
 _ = _strip_quotes  # noqa: F841

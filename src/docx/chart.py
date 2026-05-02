@@ -180,3 +180,74 @@ class Chart:
         if not ser_list:
             return []
         return ser_list[0].categories
+
+    def replace_data(
+        self,
+        categories: list[str],
+        series: dict[str, list[float]],
+    ) -> None:
+        """Overwrite this chart's categories and series values in place.
+
+        `categories` is the list of category (x-axis) labels. `series` maps
+        each series name to its list of values; all value lists must have the
+        same length as `categories`. The chart type, title, legend and series
+        styling are preserved — only the ``c:cat`` and ``c:val`` payloads and
+        the ``c:tx`` series name are rewritten. When the series-name mapping
+        contains more entries than the chart currently has ``c:ser`` children,
+        new series are cloned from the last existing series (so their styling
+        is inherited). When there are fewer, the excess ``c:ser`` elements are
+        removed.
+
+        This mutates the backing `ChartPart` XML directly and does not
+        trigger a rebuild of any workbook-formula references — callers that
+        need Word to re-open the embedded workbook should drop the
+        ``c:externalData`` element separately.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.parts.chart import _rewrite_ser  # pyright: ignore[reportPrivateUsage]
+
+        chart_elm = self._chartSpace.chart
+        if chart_elm is None:
+            raise ValueError("chart has no c:chart element")
+        plotArea = chart_elm.plotArea
+        if plotArea is None:
+            raise ValueError("chart has no c:plotArea element")
+
+        ser_list = plotArea.ser_lst
+        if not ser_list:
+            raise ValueError(
+                "Chart.replace_data requires at least one existing c:ser; "
+                "build a new chart via DocumentPart.new_chart() instead."
+            )
+
+        names = list(series.keys())
+        values_list = list(series.values())
+        for name, vals in series.items():
+            if len(vals) != len(categories):
+                raise ValueError(
+                    "series %r has %d values but %d categories given"
+                    % (name, len(vals), len(categories))
+                )
+
+        # -- ensure there are exactly len(names) c:ser children, cloning or
+        # -- removing as needed so styling is preserved --
+        template = ser_list[-1]
+        while len(ser_list) < len(names):
+            from copy import deepcopy
+
+            clone = deepcopy(template)
+            template.addnext(clone)
+            ser_list = plotArea.ser_lst
+        while len(ser_list) > len(names):
+            victim = ser_list[-1]
+            parent = victim.getparent()
+            if parent is None:  # pragma: no cover - defensive
+                break
+            parent.remove(victim)
+            ser_list = plotArea.ser_lst
+
+        for idx, (ser, name, values) in enumerate(
+            zip(ser_list, names, values_list)
+        ):
+            _rewrite_ser(ser, idx, name, categories, values)

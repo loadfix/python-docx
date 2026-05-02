@@ -245,6 +245,71 @@ class DescribeRunEquations:
         assert run.equations == []
 
 
+class DescribeEquation_edit_helpers:
+    """Unit-test suite for `Equation.set_text`, `.replace_identifier`, `.swap_children`."""
+
+    def it_replaces_every_m_t_text_via_set_text(self):
+        el = cast(
+            CT_OMath,
+            element('m:oMath/(m:r/m:t"foo",m:r/m:t"bar")'),
+        )
+        eq = Equation(el)
+        eq.set_text("qux")
+        # -- only the first m:t keeps the new text, the rest are emptied --
+        assert eq.text == "qux"
+
+    def it_inserts_an_m_r_when_no_m_t_exists_yet(self):
+        # -- bare m:oMath with no runs: set_text creates one --
+        el = cast(CT_OMath, element("m:oMath"))
+        eq = Equation(el)
+        eq.set_text("hello")
+        assert eq.text == "hello"
+
+    def it_replaces_identifier_matching_exact_text(self):
+        el = cast(
+            CT_OMath,
+            element('m:oMath/(m:r/m:t"x",m:r/m:t"+",m:r/m:t"x")'),
+        )
+        eq = Equation(el)
+        n = eq.replace_identifier("x", "y")
+        assert n == 2
+        assert eq.text == "y+y"
+
+    def it_leaves_non_matching_identifiers_alone(self):
+        el = cast(
+            CT_OMath,
+            element('m:oMath/(m:r/m:t"alpha",m:r/m:t"beta")'),
+        )
+        eq = Equation(el)
+        n = eq.replace_identifier("gamma", "delta")
+        assert n == 0
+        assert eq.text == "alphabeta"
+
+    def it_swaps_two_direct_children(self):
+        el = cast(
+            CT_OMath,
+            element('m:oMath/(m:r/m:t"A",m:r/m:t"B",m:r/m:t"C")'),
+        )
+        eq = Equation(el)
+        eq.swap_children(0, 2)
+        assert eq.text == "CBA"
+
+    def it_is_a_noop_when_swap_indices_are_equal(self):
+        el = cast(
+            CT_OMath,
+            element('m:oMath/(m:r/m:t"X",m:r/m:t"Y")'),
+        )
+        eq = Equation(el)
+        eq.swap_children(1, 1)
+        assert eq.text == "XY"
+
+    def it_raises_on_out_of_range_swap_indices(self):
+        el = cast(CT_OMath, element('m:oMath/m:r/m:t"X"'))
+        eq = Equation(el)
+        with pytest.raises(IndexError):
+            eq.swap_children(0, 5)
+
+
 class _FakeStoryParent:
     """Minimal stand-in for a StoryPart-providing parent."""
 
