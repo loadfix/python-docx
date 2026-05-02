@@ -101,6 +101,35 @@ API Documentation
    api/shape
    api/dml
    api/shared
+   api/accessibility
+   api/bookmarks
+   api/captions
+   api/chart
+   api/content-controls
+   api/custom-properties
+   api/custom-xml
+   api/embedded-objects
+   api/endnotes
+   api/equations
+   api/fields
+   api/font-table
+   api/footnotes
+   api/form-fields
+   api/glossary
+   api/ink
+   api/numbering
+   api/permissions
+   api/ruby
+   api/search
+   api/signatures
+   api/smart-art
+   api/stable-ids
+   api/statistics
+   api/theme
+   api/toc
+   api/tracked-changes
+   api/watermark
+   api/web-settings
    api/enum/index
 
 

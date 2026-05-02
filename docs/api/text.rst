@@ -9,49 +9,72 @@ Text-related objects
 -------------------
 
 .. autoclass:: docx.text.paragraph.Paragraph()
-   :members:
 
 
 |ParagraphFormat| objects
 -------------------------
 
 .. autoclass:: docx.text.parfmt.ParagraphFormat()
-   :members:
+
+
+|ParagraphBorders| objects
+--------------------------
+
+.. autoclass:: docx.text.parfmt.ParagraphBorders()
+
+
+Border objects
+--------------
+
+.. autoclass:: docx.text.parfmt.Border()
+
+
+|TextFrame| objects
+-------------------
+
+.. autoclass:: docx.text.parfmt.TextFrame()
 
 
 |Hyperlink| objects
 -------------------
 
 .. autoclass:: docx.text.hyperlink.Hyperlink()
-   :members:
 
 
 |Run| objects
 -------------
 
 .. autoclass:: docx.text.run.Run()
-   :members:
 
 
 |Font| objects
 --------------
 
 .. autoclass:: docx.text.run.Font()
-   :members:
+
+
+|EastAsianLayout| objects
+-------------------------
+
+.. autoclass:: docx.text.font.EastAsianLayout()
+
+
+|Symbol| objects
+----------------
+
+.. autoclass:: docx.text.symbol.Symbol()
 
 
 |RenderedPageBreak| objects
 ---------------------------
 
 .. autoclass:: docx.text.pagebreak.RenderedPageBreak()
-   :members:
 
 
 |TabStop| objects
 -----------------
 
 .. autoclass:: docx.text.tabstops.TabStop()
-   :members:
 
 
 |TabStops| objects
@@ -61,3 +84,4 @@ Text-related objects
    :members: clear_all
 
    .. automethod:: docx.text.tabstops.TabStops.add_tab_stop(position, alignment=WD_TAB_ALIGNMENT.LEFT, leader=WD_TAB_LEADER.SPACES)
+      :no-index:

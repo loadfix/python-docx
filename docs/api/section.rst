@@ -14,7 +14,6 @@ Provides access to section properties such as margins and page orientation.
 .. currentmodule:: docx.section
 
 .. autoclass:: Sections
-   :members:
 
 
 |Section| objects
@@ -22,7 +21,6 @@ Provides access to section properties such as margins and page orientation.
 
 
 .. autoclass:: Section
-   :members: 
 
 
 |_Header| and |_Footer| objects
@@ -30,12 +28,46 @@ Provides access to section properties such as margins and page orientation.
 
 
 .. autoclass:: _Header()
-   :inherited-members: 
-   :members: 
+   :inherited-members:
    :exclude-members: part
 
 
 .. autoclass:: _Footer()
-   :inherited-members: 
-   :members: 
+   :inherited-members:
    :exclude-members: part
+
+
+|Column| objects
+----------------
+
+.. autoclass:: Column
+
+
+|SectionColumns| objects
+------------------------
+
+.. autoclass:: SectionColumns
+
+
+|PageBorder| objects
+--------------------
+
+.. autoclass:: PageBorder
+
+
+|PageBorders| objects
+---------------------
+
+.. autoclass:: PageBorders
+
+
+|LineNumbering| objects
+-----------------------
+
+.. autoclass:: LineNumbering
+
+
+|DocumentGrid| objects
+----------------------
+
+.. autoclass:: DocumentGrid

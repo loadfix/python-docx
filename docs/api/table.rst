@@ -14,7 +14,6 @@ Table objects are constructed using the ``add_table()`` method on |Document|.
 ---------------
 
 .. autoclass:: Table
-   :members:
    :exclude-members: table
 
 
@@ -22,8 +21,7 @@ Table objects are constructed using the ``add_table()`` method on |Document|.
 ------------------------
 
 .. autoclass:: _Cell
-   :inherited-members: 
-   :members:
+   :inherited-members:
    :exclude-members: part
 
 
@@ -31,25 +29,57 @@ Table objects are constructed using the ``add_table()`` method on |Document|.
 --------------
 
 .. autoclass:: _Row
-   :members:
 
 
 |_Column| objects
 -----------------
 
 .. autoclass:: _Column
-   :members:
 
 
 |_Rows| objects
 ---------------
 
 .. autoclass:: _Rows
-   :members:
 
 
 |_Columns| objects
 ------------------
 
 .. autoclass:: _Columns
-   :members:
+
+
+|CellShading| objects
+---------------------
+
+.. autoclass:: CellShading
+
+
+|TableBorders| objects
+----------------------
+
+.. autoclass:: TableBorders
+
+
+BorderElement objects
+---------------------
+
+.. autoclass:: BorderElement
+
+
+|TableStyleFlags| objects
+-------------------------
+
+.. autoclass:: TableStyleFlags
+
+
+|CellBorders| objects
+---------------------
+
+.. autoclass:: CellBorders
+
+
+|CellMargins| objects
+---------------------
+
+.. autoclass:: CellMargins

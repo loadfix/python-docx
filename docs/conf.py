@@ -77,15 +77,35 @@ rst_epilog = """
 
 .. |_Body| replace:: :class:`._Body`
 
+.. |Bookmark| replace:: :class:`.Bookmark`
+
+.. |Bookmarks| replace:: :class:`.Bookmarks`
+
+.. |Border| replace:: :class:`.Border`
+
+.. |BuildingBlock| replace:: :class:`.BuildingBlock`
+
+.. |BuildingBlockCategory| replace:: :class:`.BuildingBlockCategory`
+
 .. |_Cell| replace:: :class:`._Cell`
+
+.. |CellBorders| replace:: :class:`.CellBorders`
+
+.. |CellMargins| replace:: :class:`.CellMargins`
+
+.. |CellShading| replace:: :class:`.CellShading`
 
 .. |_CharacterStyle| replace:: :class:`.CharacterStyle`
 
 .. |CharacterStyle| replace:: :class:`.CharacterStyle`
 
+.. |Chart| replace:: :class:`.Chart`
+
 .. |Cm| replace:: :class:`.Cm`
 
 .. |ColorFormat| replace:: :class:`.ColorFormat`
+
+.. |Column| replace:: :class:`.Column`
 
 .. |_Column| replace:: :class:`._Column`
 
@@ -95,37 +115,91 @@ rst_epilog = """
 
 .. |Comments| replace:: :class:`.Comments`
 
+.. |CompatFlags| replace:: :class:`.CompatFlags`
+
+.. |CompatSettings| replace:: :class:`.CompatSettings`
+
+.. |ContentControl| replace:: :class:`.ContentControl`
+
+.. |DataBinding| replace:: :class:`.DataBinding`
+
+.. |DocumentProtection| replace:: :class:`.DocumentProtection`
+
 .. |CoreProperties| replace:: :class:`.CoreProperties`
+
+.. |CustomProperties| replace:: :class:`.CustomProperties`
+
+.. |CustomXmlPart| replace:: :class:`.CustomXmlPart`
 
 .. |datetime| replace:: :class:`.datetime.datetime`
 
 .. |Document| replace:: :class:`.Document`
 
+.. |DocumentGrid| replace:: :class:`.DocumentGrid`
+
 .. |DocumentPart| replace:: :class:`.DocumentPart`
+
+.. |DocumentStatistics| replace:: :class:`.DocumentStatistics`
 
 .. |docx| replace:: ``python-docx``
 
+.. |Drawing| replace:: :class:`.Drawing`
+
+.. |EastAsianLayout| replace:: :class:`.EastAsianLayout`
+
+.. |EmbeddedObject| replace:: :class:`.EmbeddedObject`
+
+.. |EndnoteProperties| replace:: :class:`.EndnoteProperties`
+
+.. |Endnote| replace:: :class:`.Endnote`
+
+.. |Endnotes| replace:: :class:`.Endnotes`
+
 .. |Emu| replace:: :class:`.Emu`
+
+.. |Equation| replace:: :class:`.Equation`
 
 .. |False| replace:: :class:`False`
 
+.. |Field| replace:: :class:`.Field`
+
 .. |float| replace:: :class:`.float`
 
+.. |FloatingImage| replace:: :class:`.FloatingImage`
+
 .. |Font| replace:: :class:`.Font`
+
+.. |FontTable| replace:: :class:`.FontTable`
 
 .. |_Footer| replace:: :class:`._Footer`
 
 .. |FooterPart| replace:: :class:`.FooterPart`
 
+.. |FootnoteProperties| replace:: :class:`.FootnoteProperties`
+
+.. |Footnote| replace:: :class:`.Footnote`
+
+.. |Footnotes| replace:: :class:`.Footnotes`
+
+.. |FormattingChange| replace:: :class:`.FormattingChange`
+
+.. |FormField| replace:: :class:`.FormField`
+
+.. |Glossary| replace:: :class:`.Glossary`
+
 .. |_Header| replace:: :class:`._Header`
 
 .. |HeaderPart| replace:: :class:`.HeaderPart`
+
+.. |HeadingIssue| replace:: :class:`.HeadingIssue`
 
 .. |Hyperlink| replace:: :class:`.Hyperlink`
 
 .. |ImageParts| replace:: :class:`.ImageParts`
 
 .. |Inches| replace:: :class:`.Inches`
+
+.. |InkAnnotation| replace:: :class:`.InkAnnotation`
 
 .. |InlineShape| replace:: :class:`.InlineShape`
 
@@ -135,13 +209,27 @@ rst_epilog = """
 
 .. |int| replace:: :class:`.int`
 
+.. |KeyError| replace:: :exc:`.KeyError`
+
 .. |_LatentStyle| replace:: :class:`._LatentStyle`
 
 .. |LatentStyles| replace:: :class:`.LatentStyles`
 
 .. |Length| replace:: :class:`.Length`
 
+.. |Level| replace:: :class:`.Level`
+
+.. |LineNumbering| replace:: :class:`.LineNumbering`
+
+.. |MailMerge| replace:: :class:`.MailMerge`
+
+.. |MoveRevision| replace:: :class:`.MoveRevision`
+
 .. |None| replace:: :class:`.None`
+
+.. |Numbering| replace:: :class:`.Numbering`
+
+.. |NumberingDefinition| replace:: :class:`.NumberingDefinition`
 
 .. |NumberingPart| replace:: :class:`.NumberingPart`
 
@@ -149,7 +237,13 @@ rst_epilog = """
 
 .. |OpcPackage| replace:: :class:`.OpcPackage`
 
+.. |PageBorder| replace:: :class:`.PageBorder`
+
+.. |PageBorders| replace:: :class:`.PageBorders`
+
 .. |Paragraph| replace:: :class:`.Paragraph`
+
+.. |ParagraphBorders| replace:: :class:`.ParagraphBorders`
 
 .. |ParagraphFormat| replace:: :class:`.ParagraphFormat`
 
@@ -158,6 +252,8 @@ rst_epilog = """
 .. |ParagraphStyle| replace:: :class:`.ParagraphStyle`
 
 .. |Part| replace:: :class:`.Part`
+
+.. |PermissionRange| replace:: :class:`.PermissionRange`
 
 .. |Pt| replace:: :class:`.Pt`
 
@@ -173,13 +269,23 @@ rst_epilog = """
 
 .. |_Rows| replace:: :class:`._Rows`
 
+.. |RubyAnnotation| replace:: :class:`.RubyAnnotation`
+
 .. |Run| replace:: :class:`.Run`
 
+.. |SearchMatch| replace:: :class:`.SearchMatch`
+
 .. |Section| replace:: :class:`.Section`
+
+.. |SectionColumns| replace:: :class:`.SectionColumns`
 
 .. |Sections| replace:: :class:`.Sections`
 
 .. |Settings| replace:: :class:`.Settings`
+
+.. |SignatureInfo| replace:: :class:`.SignatureInfo`
+
+.. |SmartArt| replace:: :class:`.SmartArt`
 
 .. |str| replace:: :class:`.str`
 
@@ -187,7 +293,13 @@ rst_epilog = """
 
 .. |StylesPart| replace:: :class:`.StylesPart`
 
+.. |Symbol| replace:: :class:`.Symbol`
+
 .. |Table| replace:: :class:`.Table`
+
+.. |TableBorders| replace:: :class:`.TableBorders`
+
+.. |TableStyleFlags| replace:: :class:`.TableStyleFlags`
 
 .. |_TableStyle| replace:: :class:`._TableStyle`
 
@@ -197,15 +309,61 @@ rst_epilog = """
 
 .. |_Text| replace:: :class:`._Text`
 
+.. |TextFrame| replace:: :class:`.TextFrame`
+
+.. |Theme| replace:: :class:`.Theme`
+
+.. |ThemeColors| replace:: :class:`.ThemeColors`
+
+.. |ThemeFonts| replace:: :class:`.ThemeFonts`
+
+.. |TrackedChange| replace:: :class:`.TrackedChange`
+
 .. |True| replace:: :class:`True`
 
 .. |ValueError| replace:: :class:`ValueError`
+
+.. |Watermark| replace:: :class:`.Watermark`
+
+.. |WD_ANCHOR_H| replace:: :class:`.WD_ANCHOR_H`
+
+.. |WD_ANCHOR_V| replace:: :class:`.WD_ANCHOR_V`
+
+.. |WD_BORDER_STYLE| replace:: :class:`.WD_BORDER_STYLE`
+
+.. |WD_BUILDING_BLOCK_GALLERY| replace:: :class:`.WD_BUILDING_BLOCK_GALLERY`
+
+.. |WD_DOC_GRID_TYPE| replace:: :class:`.WD_DOC_GRID_TYPE`
+
+.. |WD_LINE_NUMBERING_RESTART| replace:: :class:`.WD_LINE_NUMBERING_RESTART`
+
+.. |WD_PROTECTION| replace:: :class:`.WD_PROTECTION`
+
+.. |WD_SHADING_PATTERN| replace:: :class:`.WD_SHADING_PATTERN`
+
+.. |WD_TABLE_AUTOFIT| replace:: :class:`.WD_TABLE_AUTOFIT`
+
+.. |WD_VIEW| replace:: :class:`.WD_VIEW`
+
+.. |WD_WRAP_TYPE| replace:: :class:`.WD_WRAP_TYPE`
+
+.. |WebSettings| replace:: :class:`.WebSettings`
 """
 
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = [".build"]
+exclude_patterns = ["_build"]
+
+# -- Autodoc -----------------------------------------------------------------
+
+# Default options applied to every ``.. autoclass::`` / ``.. automodule::``
+# directive. Individual directives can still override these with their own
+# option list.
+autodoc_default_options = {
+    "members": True,
+    "show-inheritance": True,
+}
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -390,4 +548,4 @@ texinfo_documents = [
 
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {"http://docs.python.org/3/": None}
+intersphinx_mapping = {"python": ("https://docs.python.org/3/", None)}

@@ -3,6 +3,110 @@
 Release History
 ---------------
 
+1.3.0.dev0 (unreleased)
++++++++++++++++++++++++
+
+Phase A — Footnotes and endnotes
+  - Add Document.footnotes and Footnotes / Footnote / FootnoteProperties (#1, #3, #17, #46, #48, #56, #82)
+  - Add Document.endnotes mirror API (#17, #96)
+  - Add Section.footnote_properties / endnote_properties (#17)
+
+Phase B — Tracked changes
+  - Add read of tracked insertions and deletions (#53)
+  - Add accept / reject tracked changes (#7)
+  - Add read of formatting changes (#8)
+  - Add move revisions (w:moveFrom / w:moveTo) (#134)
+  - Add cell and row-level tracked changes (#135)
+  - Add revision_marks_text() for CLI previews (#163)
+
+Phase C — Bookmarks and fields
+  - Add bookmarks create / read / delete (#52)
+  - Add simple and complex field codes (#10)
+  - Add REF / PAGEREF cross-reference resolution (#115)
+
+Phase D — Miscellaneous OOXML feature coverage
+  - D.1  Hyperlink creation API (#97)
+  - D.2  Comment replies (threaded) (#67)
+  - D.3  Extended document settings + DocumentProtection (#66, #125)
+  - D.4  Custom document properties (#14)
+  - D.6  Cell shading and background color (#63)
+  - D.7  Paragraph borders (#109)
+  - D.9  Numbering style control (#22)
+  - D.10 Search and replace with formatting preservation (#91)
+  - D.13 Insert paragraph / table at arbitrary position (#26)
+  - D.14 Content controls (SDTs) (#27)
+  - D.15 Row.height setter (#28)
+  - D.16 Row.allow_break_across_pages (#51)
+  - D.17 Floating images with wp:anchor positioning (#30)
+  - D.19 Multi-column section layout (#60)
+  - D.20 Font.shading — run-level background color (#33)
+  - D.22 SVG image support (#76)
+  - D.23 Watermark support (text and image) (#36)
+  - D.24 .docm macro-enabled file support (#65)
+  - D.26 Table autofit and column-width control (#39)
+  - D.27 DrawingML shapes and text-box content access (#75)
+
+Other feature additions
+  - Charts read + add_chart() (#111)
+  - SmartArt detection and node text (#112)
+  - Equation read + minimal create API (#113)
+  - Add Run.add_symbol and Run.symbols (#114)
+  - Add Section.page_borders (#121)
+  - Add Section.line_numbering (#122)
+  - Add Section.document_grid (#147)
+  - Add Section.first_page / other_pages_paper_source (#146)
+  - Add Section.text_direction / right_to_left (#148)
+  - Add Section odd/even page header-footer (#149)
+  - Add Font.border_* properties (#120)
+  - Add Font.language / east_asian_language / bidi_language (#160)
+  - Add East Asian typography (kinsoku, word_wrap, east_asian_layout) (#128)
+  - Add RTL / bidi on Paragraph and Run (#127)
+  - Add paragraph_format.frame for text frames (#126)
+  - Add ParagraphBorders / Border (#109)
+  - Add read-only ruby (#129)
+  - Add read-only ink (#139)
+  - Add read-only embedded OLE objects (#140)
+  - Add read-only grouped shapes (#138)
+  - Add read-only SmartArt (#112)
+  - Add read-only Document.glossary (#132, #133)
+  - Add read-only Document.theme (#117)
+  - Add read-only Document.web_settings (#157)
+  - Add Document.font_table (#119)
+  - Add Document.background_color (#118)
+  - Add Document.statistics (#161)
+  - Add Document.search_regex / replace_regex / search_all / replace_all (#153, #154)
+  - Add Document.add_table_of_contents (#116)
+  - Add caption helpers (#141)
+  - Add permission ranges (#124)
+  - Add Settings.mail_merge (#130)
+  - Add Settings.compat_flags / compat_settings (#156)
+  - Add Settings.view (#164)
+  - Add Style.link_style / next_style / is_redefined (#162)
+  - Add Table.borders / _Cell.borders (#102)
+  - Add Cell.margins (#143)
+  - Add Table.style_flags (#144)
+  - Add Cell.text_direction (#142)
+  - Add Cell.is_merge_origin / merge_origin (#145)
+  - Add _Row.is_header (#93)
+  - Add Run.split (#94)
+  - Add Paragraph.delete / Run.delete / Table.delete (#50)
+  - Add alt_text / title on InlineShape and FloatingImage (#158)
+  - Add stable_id on Paragraph / Run / Table / Cell (#155)
+  - Add Paragraph.insert_paragraph_before arbitrary positioning (#26)
+  - Add legacy form fields (#123)
+  - Add heading-structure accessibility validator (#159)
+
+Reliability / safety
+  - Add recover=True mode for malformed .docx (#151)
+  - Add EncryptedDocumentError for password-protected .docx (#152)
+  - Add digital signature detection (#150)
+
+Dev / tooling
+  - Add py.typed, improve public types
+  - Add AI-agent CI pipeline (Product / Develop / Review / Security / Revise
+    / Merge / Debug / Watchdog)
+
+
 1.2.0 (2025-06-16)
 ++++++++++++++++++
 
