@@ -66,6 +66,28 @@ If you specify a level of 0, a "Title" paragraph is added. This can be handy to
 start a relatively short document that doesn't have a separate title page.
 
 
+Adding a bookmark
+-----------------
+
+Bookmarks let you name a location (or a range) in the document so that
+hyperlinks, cross-references, and fields can target it later. |docx| exposes
+:meth:`Paragraph.add_bookmark`, which inserts ``<w:bookmarkStart>`` /
+``<w:bookmarkEnd>`` markers and returns a |Bookmark| proxy. The bookmark ID is
+allocated automatically so you don't have to track ``@w:id`` values yourself::
+
+    from docx import Document
+
+    document = Document()
+    paragraph = document.add_paragraph('See the appendix for details.')
+
+    bookmark = paragraph.add_bookmark('appendix_intro')
+    print(bookmark.name)  # -> 'appendix_intro'
+
+With no ``start_run`` / ``end_run`` arguments, the bookmark wraps the entire
+paragraph. Pass runs explicitly to anchor the bookmark to a specific range.
+See :ref:`bookmarks` for the full API.
+
+
 Adding a page break
 -------------------
 
@@ -301,6 +323,31 @@ make your code simpler if you're building the paragraph up from runs anyway::
     paragraph.add_run(' sit amet.')
 
 
+Adding a footnote
+-----------------
+
+A footnote is a small superscript marker in the body paired with commentary
+that Word renders at the bottom of the page. In |docx|, footnotes hang off a
+run: you choose which run the reference mark is inserted into, and optionally
+pass the footnote body as a string::
+
+    from docx import Document
+
+    document = Document()
+    paragraph = document.add_paragraph('The rain in Spain.')
+
+    footnote = document.footnotes.add(
+        paragraph.runs[0],
+        'A common saying about Iberian weather.',
+    )
+    print(footnote.footnote_id)  # -> 2 (ids 0/1 are reserved)
+
+The call creates the ``word/footnotes.xml`` part on demand, assigns the next
+available id, and inserts a ``<w:footnoteReference>`` inside the anchoring
+run. For richer footnote content (extra paragraphs, formatting, tables), use
+the returned |Footnote| object — see :ref:`footnotes`.
+
+
 Applying a character style
 --------------------------
 
@@ -326,3 +373,110 @@ the same result as the lines above::
     run.style = 'Emphasis'
 
 As with a paragraph style, the style name is as it appears in the Word UI.
+
+
+Adding a comment
+----------------
+
+Word comments annotate a range of runs with a side-margin note carrying an
+author, initials, and timestamp. The fork adds :meth:`Document.add_comment`,
+which takes either a single run or a sequence of runs as the comment's
+anchor. Only the first and last run of a sequence are used to delimit the
+range, so ``paragraph.runs`` is a convenient input::
+
+    from docx import Document
+
+    document = Document()
+    paragraph = document.add_paragraph('The rain in Spain falls mainly in the plain.')
+
+    comment = document.add_comment(
+        paragraph.runs,
+        text='Check the citation for this claim.',
+        author='Jane Reviewer',
+        initials='JR',
+    )
+    print(comment.comment_id)  # -> 0
+
+The comment text argument handles the common single-sentence case inline.
+For richer comment bodies (multiple paragraphs, formatting, replies), drive
+the returned |Comment| object with ``.add_paragraph()`` / ``.add_run()`` —
+see :ref:`comments`.
+
+
+Searching and replacing text
+----------------------------
+
+When generating output from a template, a surprisingly large share of the
+work is "find this placeholder and swap in a value". |docx| provides
+:meth:`Document.search` / :meth:`Document.replace` for top-level body
+paragraphs, and :meth:`Document.search_all` / :meth:`Document.replace_all`
+which additionally walk tables, headers and footers, footnotes, endnotes,
+and comments::
+
+    from docx import Document
+
+    document = Document()
+    document.add_paragraph('Hello {{NAME}}, welcome to {{COMPANY}}.')
+
+    replaced = document.replace_all('{{NAME}}', 'Ada')
+    replaced += document.replace_all('{{COMPANY}}', 'Analytical Engines Ltd.')
+    print(replaced)  # -> 2
+
+Both methods preserve the run formatting of the first matched character, so
+bold or styled placeholders keep their look after substitution. Regex
+variants (:meth:`Document.replace_regex`, :meth:`Document.replace_regex_all`)
+are available for pattern-based work; see :ref:`search_replace`.
+
+
+Reading tracked changes
+-----------------------
+
+When a document has been edited with *Track Changes* turned on, Word records
+each insertion, deletion, and move as a revision element inside the affected
+paragraph. |docx| exposes those as :attr:`Paragraph.tracked_changes`, a list
+of |TrackedChange| proxies carrying the author, date, and inserted/deleted
+text::
+
+    from docx import Document
+
+    document = Document('reviewed.docx')
+
+    for paragraph in document.paragraphs:
+        for change in paragraph.tracked_changes:
+            print(change.type, change.author, repr(change.text))
+
+Once you've inspected the revisions, resolve them in bulk with
+:meth:`Document.accept_all_changes` or :meth:`Document.reject_all_changes`,
+which flatten ``w:ins`` / ``w:del`` / ``w:*Change`` markup into plain
+content. See :ref:`track_changes` for move-revision pairing and formatting
+changes.
+
+
+Computing a stable paragraph ID
+-------------------------------
+
+Word does not attach a durable identifier to paragraphs, which makes it
+awkward to correlate the same paragraph across a save/reload cycle.
+:attr:`Paragraph.stable_id` computes a 16-character hex digest derived from
+the paragraph's ``w:rsidR``, its position within its parent, and its text
+content — so it survives a round-trip as long as the paragraph keeps the
+same position and text::
+
+    import io
+    from docx import Document
+
+    document = Document()
+    paragraph = document.add_paragraph('Lorem ipsum dolor sit amet.')
+    before = paragraph.stable_id
+
+    buffer = io.BytesIO()
+    document.save(buffer)
+    buffer.seek(0)
+
+    reloaded = Document(buffer)
+    assert reloaded.paragraphs[0].stable_id == before
+
+The value is recomputed on each access and is never persisted on the
+element, so editing the paragraph's text or moving it to a different parent
+will change the result. Treat ``stable_id`` as a within-session correlator,
+not a permanent document ID.
