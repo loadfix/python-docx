@@ -210,6 +210,12 @@ class Field:
         because there is no layout engine; this method returns the cached
         :attr:`result_text` when present, otherwise ``"?"``.
 
+        For property-lookup fields — ``DOCPROPERTY``, ``AUTHOR``, ``TITLE``,
+        ``SUBJECT``, ``KEYWORDS``, ``COMMENTS``, ``LASTSAVEDBY`` — the value
+        is resolved against the document's :class:`CoreProperties` (for the
+        well-known names) and :class:`CustomProperties` (for ``DOCPROPERTY``
+        with a custom name). Closes upstream#1482.
+
         For any other field type (including ``PAGE``, ``DATE``, ``SEQ``,
         etc.), the existing :attr:`result_text` is returned unchanged. This
         method never raises for unresolvable references; callers can detect
@@ -222,6 +228,11 @@ class Field:
         if field_type == "PAGEREF":
             cached = self.result_text
             return cached if cached else "?"
+        if field_type in _PROPERTY_FIELD_TYPES:
+            resolved = _resolve_property_field(self, document)
+            if resolved is not None:
+                return resolved
+            return self.result_text
         if field_type != "REF":
             return self.result_text
 
@@ -345,6 +356,105 @@ def _parse_ref_bookmark_name(instruction: str) -> str | None:
         # -- strip surrounding quotes if present --
         return token.strip('"')
     return None
+
+
+_PROPERTY_FIELD_TYPES = frozenset(
+    {
+        "DOCPROPERTY",
+        "AUTHOR",
+        "TITLE",
+        "SUBJECT",
+        "KEYWORDS",
+        "COMMENTS",
+        "LASTSAVEDBY",
+    }
+)
+
+# -- mapping: DOCPROPERTY name (Word's built-in labels) -> CoreProperties attr --
+_CORE_PROPERTY_ATTR_MAP = {
+    "Author": "author",
+    "Title": "title",
+    "Subject": "subject",
+    "Keywords": "keywords",
+    "Comments": "comments",
+    "Category": "category",
+    "LastSavedBy": "last_modified_by",
+    "ContentStatus": "content_status",
+    "Language": "language",
+    "Version": "version",
+    "RevisionNumber": "revision",
+}
+
+# -- field-type-token -> CoreProperties attribute for bare-name fields --
+_CORE_FIELD_TYPE_ATTR_MAP = {
+    "AUTHOR": "author",
+    "TITLE": "title",
+    "SUBJECT": "subject",
+    "KEYWORDS": "keywords",
+    "COMMENTS": "comments",
+    "LASTSAVEDBY": "last_modified_by",
+}
+
+
+def _parse_docproperty_name(instruction: str) -> str | None:
+    """Return the property name argument from a ``DOCPROPERTY`` instruction.
+
+    Walks the whitespace-split tokens after ``DOCPROPERTY``, skipping
+    formatting switches and reassembling quoted multi-word names. Returns
+    |None| when no name is found.
+    """
+    # -- extract the substring after "DOCPROPERTY" --
+    stripped = instruction.strip()
+    if not stripped.upper().startswith("DOCPROPERTY"):
+        return None
+    remainder = stripped[len("DOCPROPERTY") :].strip()
+    if not remainder:
+        return None
+
+    # -- quoted form: "Some Name" [switches...] --
+    if remainder.startswith('"'):
+        end = remainder.find('"', 1)
+        if end == -1:
+            return None
+        return remainder[1:end]
+
+    # -- otherwise, split on whitespace; first non-switch token is the name --
+    tokens = remainder.split()
+    for token in tokens:
+        if token.startswith("\\"):
+            continue
+        return token
+    return None
+
+
+def _resolve_property_field(field: "Field", document: "Document") -> str | None:
+    """Return the resolved value for a property field, or |None| when unresolved."""
+    field_type = field.type
+    if field_type == "DOCPROPERTY":
+        prop_name = _parse_docproperty_name(field.instruction)
+        if not prop_name:
+            return None
+        # -- try CoreProperties aliases first --
+        core_attr = _CORE_PROPERTY_ATTR_MAP.get(prop_name)
+        if core_attr is not None:
+            value = getattr(document.core_properties, core_attr, None)
+            if value is not None:
+                return str(value)
+        # -- fall back to CustomProperties --
+        try:
+            custom = document.custom_properties
+        except Exception:
+            return None
+        value = custom.get(prop_name)
+        if value is None:
+            return None
+        return str(value)
+
+    core_attr = _CORE_FIELD_TYPE_ATTR_MAP.get(field_type)
+    if core_attr is None:
+        return None
+    value = getattr(document.core_properties, core_attr, None)
+    return None if value is None else str(value)
 
 
 def _bookmark_text(document: "Document", name: str) -> str | None:

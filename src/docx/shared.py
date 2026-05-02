@@ -132,7 +132,26 @@ class RGBColor(tuple[int, int, int]):
 
     @classmethod
     def from_string(cls, rgb_hex_str: str) -> RGBColor:
-        """Return a new instance from an RGB color hex string like ``'3C2F80'``."""
+        """Return a new instance from an RGB color hex string like ``'3C2F80'``.
+
+        Also accepts a 3-character shorthand form where each hex digit is
+        expanded by doubling (``"F0A"`` → ``"FF00AA"``), mirroring the CSS
+        short-hex convention. A leading ``"#"`` is tolerated (e.g. ``"#F0A"``
+        or ``"#3C2F80"``).
+
+        .. versionchanged:: 1.3.0.dev0
+            3-character shorthand form accepted (closes upstream#1466).
+        """
+        if rgb_hex_str.startswith("#"):
+            rgb_hex_str = rgb_hex_str[1:]
+        if len(rgb_hex_str) == 3:
+            # -- expand each hex digit: "F0A" -> "FF00AA" --
+            rgb_hex_str = "".join(ch * 2 for ch in rgb_hex_str)
+        if len(rgb_hex_str) != 6:
+            raise ValueError(
+                "RGBColor.from_string() requires a 3- or 6-character hex "
+                "string, got %r" % (rgb_hex_str,)
+            )
         r = int(rgb_hex_str[:2], 16)
         g = int(rgb_hex_str[2:4], 16)
         b = int(rgb_hex_str[4:], 16)

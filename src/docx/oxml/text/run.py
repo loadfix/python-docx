@@ -198,12 +198,14 @@ class CT_R(BaseOxmlElement):
         """The textual content of this run.
 
         Inner-content child elements like `w:tab` are translated to their text
-        equivalent.
+        equivalent. ``w:sym`` elements contribute the single character derived
+        from their ``@w:char`` attribute (closes upstream#1528).
         """
         return "".join(
             str(e)
             for e in self.xpath(
-                "w:br | w:cr | w:noBreakHyphen | w:ptab | w:ruby | w:t | w:tab"
+                "w:br | w:cr | w:noBreakHyphen | w:ptab | w:ruby | w:sym | "
+                "w:t | w:tab"
             )
         )
 
@@ -389,6 +391,21 @@ class CT_Sym(BaseOxmlElement):
     char: str = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
         "w:char", ST_String
     )
+
+    def __str__(self) -> str:
+        """Return the single character represented by this ``w:sym`` element.
+
+        The ``w:char`` attribute carries the glyph's Unicode code point as a
+        hex string (e.g. ``"F0E0"``); this method returns the corresponding
+        ``chr(int(char, 16))`` character. Returns the empty string when the
+        hex value is invalid or out of range (closes upstream#1528).
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        try:
+            return chr(int(self.char, 16))
+        except (TypeError, ValueError, OverflowError):
+            return ""
 
 
 class CT_Text(BaseOxmlElement):

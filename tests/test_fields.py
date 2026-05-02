@@ -492,3 +492,90 @@ class DescribeDocument_resolve_cross_references:
             if fs.get(qn("w:instr")) == "PAGEREF Ref1"
         ][0]
         assert Field.for_simple(fs).result_text == "?"
+
+
+class DescribeField_DocPropertyResolution:
+    """Closes upstream#1482 — resolve DOCPROPERTY / AUTHOR / TITLE / SUBJECT."""
+
+    def _make_doc(self, body_cxml: str):
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        doc_elm = cast(CT_Document, element(body_cxml))
+        return Document(doc_elm, None)  # type: ignore[arg-type]
+
+    def it_resolves_AUTHOR_from_core_properties(self, request: pytest.FixtureRequest):
+        from unittest.mock import PropertyMock
+
+        from docx.opc.coreprops import CoreProperties
+
+        doc = self._make_doc(
+            'w:document/w:body/w:p/w:fldSimple{w:instr=AUTHOR}/w:r/w:t"OLD"'
+        )
+        core = CoreProperties(None)  # type: ignore[arg-type]
+        pm = PropertyMock(return_value="Ada Lovelace")
+        type(core).author = pm  # pyright: ignore[reportAttributeAccessIssue]
+        request.addfinalizer(
+            lambda: delattr(type(core), "author")
+            if "author" in type(core).__dict__
+            else None
+        )
+
+        fs = doc._element.body.xpath(".//w:fldSimple")[0]  # pyright: ignore[reportPrivateUsage]
+
+        class _FakePart:
+            core_properties = core
+
+        doc._part = _FakePart()  # type: ignore[assignment]
+        assert Field.for_simple(fs).resolve(doc) == "Ada Lovelace"
+
+    def it_resolves_DOCPROPERTY_Author(self):
+        from unittest.mock import PropertyMock
+        from docx.opc.coreprops import CoreProperties
+
+        doc = self._make_doc(
+            "w:document/w:body/w:p/w:fldSimple"
+            '{w:instr=DOCPROPERTY Author}/w:r/w:t"OLD"'
+        )
+        core = CoreProperties(None)  # type: ignore[arg-type]
+        type(core).author = PropertyMock(return_value="Grace Hopper")
+
+        class _FakePart:
+            core_properties = core
+
+        doc._part = _FakePart()  # type: ignore[assignment]
+        fs = doc._element.body.xpath(".//w:fldSimple")[0]  # pyright: ignore[reportPrivateUsage]
+        assert Field.for_simple(fs).resolve(doc) == "Grace Hopper"
+
+    def it_resolves_DOCPROPERTY_custom_name(self):
+        doc = self._make_doc(
+            "w:document/w:body/w:p/w:fldSimple"
+            '{w:instr=DOCPROPERTY Project}/w:r/w:t"OLD"'
+        )
+
+        class _FakeCustom:
+            def get(self, name, default=None):
+                return {"Project": "Apollo 11"}.get(name, default)
+
+        class _FakeCore:
+            pass
+
+        class _FakePart:
+            core_properties = _FakeCore()
+            custom_properties = _FakeCustom()
+
+        doc._part = _FakePart()  # type: ignore[assignment]
+        fs = doc._element.body.xpath(".//w:fldSimple")[0]  # pyright: ignore[reportPrivateUsage]
+        assert Field.for_simple(fs).resolve(doc) == "Apollo 11"
+
+    def it_parses_quoted_docproperty_name(self):
+        from docx.fields import _parse_docproperty_name
+
+        assert _parse_docproperty_name('DOCPROPERTY "Some Multi Word"') == (
+            "Some Multi Word"
+        )
+        assert _parse_docproperty_name("DOCPROPERTY Title") == "Title"
+        assert _parse_docproperty_name("DOCPROPERTY") is None
+        assert _parse_docproperty_name(
+            'DOCPROPERTY "Simple" \\* MERGEFORMAT'
+        ) == "Simple"

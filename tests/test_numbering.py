@@ -160,6 +160,28 @@ class DescribeNumberingDefinition:
 
         assert defn.level(5) is None
 
+    def it_creates_a_new_instance_sharing_the_abstract_definition(
+        self, request: pytest.FixtureRequest
+    ):
+        """Closes upstream#25 — `NumberingDefinition.new_instance()`."""
+        numbering_elm = cast(CT_Numbering, element("w:numbering"))
+        numbering = Numbering(numbering_elm, instance_mock(request, NumberingPart))
+        defn = numbering.add_numbering_definition(
+            levels=[{"format": WD_NUMBER_FORMAT.DECIMAL, "text": "%1."}]
+        )
+
+        # -- baseline: one w:num created alongside the abstract definition --
+        assert len(numbering_elm.num_lst) == 1
+        first_num_id = numbering_elm.num_lst[0].numId
+
+        new_num_id = defn.new_instance()
+
+        assert new_num_id != first_num_id
+        assert len(numbering_elm.num_lst) == 2
+        # -- the new w:num references the same abstractNumId --
+        new_num = numbering_elm.num_having_numId(new_num_id)
+        assert new_num.abstractNumId.val == defn.abstract_num_id
+
 
 class DescribeLevel:
     """Unit-test suite for `docx.numbering.Level`."""

@@ -1132,9 +1132,38 @@ class Document(ElementProxy):
         """
         return self._part.inline_shapes
 
-    def iter_inner_content(self) -> Iterator[Paragraph | Table]:
-        """Generate each `Paragraph` or `Table` in this document in document order."""
-        return self._body.iter_inner_content()
+    def iter_inner_content(
+        self, include_sdt_flat: bool = False
+    ) -> Iterator[Paragraph | Table]:
+        """Generate each `Paragraph` or `Table` in this document in document order.
+
+        When `include_sdt_flat` is |True|, any block-level ``w:sdt`` wrapper
+        found in the body is flattened: the paragraphs and tables inside the
+        sdt's ``w:sdtContent`` are yielded in place, as if the wrapper were
+        transparent. This surfaces paragraphs that live inside content
+        controls (including a TOC's own ``w:sdt`` wrapper), which the default
+        iteration does not reach — closes upstream#1280.
+
+        .. versionchanged:: 1.3.0.dev0
+            Added ``include_sdt_flat`` parameter.
+        """
+        if not include_sdt_flat:
+            return self._body.iter_inner_content()
+        return self._body._iter_inner_content_flat_sdt()
+
+    @property
+    def text(self) -> str:
+        """Concatenated text of every top-level paragraph in the document body.
+
+        Paragraphs are joined with a single ``"\\n"`` separator; tables in the
+        body are skipped. This is the quick "give me the body text" helper
+        requested in upstream#252 / upstream#72. For a breakdown that walks
+        tables or non-body stories, iterate :attr:`paragraphs` /
+        :attr:`tables` manually.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return "\n".join(p.text for p in self.paragraphs)
 
     @property
     def recovery_warnings(self) -> list[str]:
@@ -1296,7 +1325,17 @@ class Document(ElementProxy):
             field = (
                 Field.for_simple(el) if tag == "fldSimple" else Field.for_complex(el)
             )
-            if field.type not in ("REF", "PAGEREF"):
+            if field.type not in (
+                "REF",
+                "PAGEREF",
+                "DOCPROPERTY",
+                "AUTHOR",
+                "TITLE",
+                "SUBJECT",
+                "KEYWORDS",
+                "COMMENTS",
+                "LASTSAVEDBY",
+            ):
                 continue
             resolved = field.resolve(self)
             if resolved == field.result_text:
@@ -1592,6 +1631,37 @@ class _Body(BlockItemContainer):
     def __init__(self, body_elm: CT_Body, parent: t.ProvidesStoryPart):
         super().__init__(body_elm, parent)
         self._body = body_elm
+
+    def _iter_inner_content_flat_sdt(self) -> Iterator[Paragraph | Table]:
+        """Yield `Paragraph`/`Table` walking into `w:sdt/w:sdtContent` wrappers.
+
+        Block-level ``w:sdt`` elements have a ``w:sdtContent`` child holding
+        the wrapped paragraphs and tables; descend into it so those items
+        surface in the iteration. Non-block-level `w:sdt` elements (inline
+        inside a paragraph) are not reached here because they are not direct
+        children of the body.
+        """
+        from docx.oxml.ns import qn
+        from docx.oxml.text.paragraph import CT_P as _CT_P
+        from docx.oxml.table import CT_Tbl as _CT_Tbl
+        from docx.table import Table as _Table
+        from docx.text.paragraph import Paragraph as _Paragraph
+
+        for child in self._body:
+            tag = child.tag
+            if isinstance(child, _CT_P):
+                yield _Paragraph(child, self)
+            elif isinstance(child, _CT_Tbl):
+                yield _Table(child, self)
+            elif tag == qn("w:sdt"):
+                for sub in child:
+                    if sub.tag != qn("w:sdtContent"):
+                        continue
+                    for inner in sub:
+                        if isinstance(inner, _CT_P):
+                            yield _Paragraph(inner, self)
+                        elif isinstance(inner, _CT_Tbl):
+                            yield _Table(inner, self)
 
     def add_content_control(
         self,

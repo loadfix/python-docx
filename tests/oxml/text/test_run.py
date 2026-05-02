@@ -130,6 +130,29 @@ class DescribeCT_R:
         assert [s.char for s in syms] == ["F0E0", "0041"]
         assert [s.font for s in syms] == ["Wingdings", "Symbol"]
 
+    def it_renders_w_sym_as_char_in_run_text(self):
+        """Closes upstream#1528 — ``w:sym`` contributes ``chr(@w:char)``."""
+        r = cast(
+            CT_R,
+            element(
+                "w:r/(w:t\"a\",w:sym{w:font=Wingdings,w:char=F0E0},w:t\"b\")"
+            ),
+        )
+
+        assert r.text == "a" + chr(0xF0E0) + "b"
+
+
+class DescribeCT_Sym:
+    """Unit-test suite for :class:`docx.oxml.text.run.CT_Sym`."""
+
+    def it_renders_as_the_derived_character(self):
+        sym = cast(CT_Sym, element("w:sym{w:font=Wingdings,w:char=F0E0}"))
+        assert str(sym) == chr(0xF0E0)
+
+    def it_returns_empty_string_on_invalid_hex(self):
+        sym = cast(CT_Sym, element("w:sym{w:font=Wingdings,w:char=notHex}"))
+        assert str(sym) == ""
+
 
 class DescribeCT_R_TextSetterPreservesReferences:
     """Phase A-v2 #3: Run.text setter preserves reference-carrying children.
