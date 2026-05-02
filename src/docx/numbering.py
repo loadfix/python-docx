@@ -26,6 +26,7 @@ This module exposes three proxies:
 
 from __future__ import annotations
 
+import re
 from collections import namedtuple
 from typing import TYPE_CHECKING, Any
 from collections.abc import Iterator, Mapping, Sequence
@@ -37,6 +38,7 @@ from docx.shared import Length, Twips
 
 if TYPE_CHECKING:
     from docx.oxml.numbering import CT_AbstractNum, CT_Lvl, CT_Numbering
+    from docx.oxml.text.paragraph import CT_P
     from docx.parts.numbering import NumberingPart
     from docx.text.paragraph import Paragraph
 
@@ -352,3 +354,352 @@ class Level:
     @property
     def element(self) -> "CT_Lvl":
         return self._lvl
+
+
+# -- lvlText placeholder parser: matches %1, %2, ... through %9 --
+_LVLTEXT_TOKEN_RE = re.compile(r"%([1-9])")
+
+
+def _format_decimal(n: int) -> str:
+    return str(n)
+
+
+def _format_decimal_zero(n: int) -> str:
+    # -- Word renders single digits with a leading zero (01, 02, ..., 09, 10, 11) --
+    return "%02d" % n if n < 10 else str(n)
+
+
+_ROMAN_PAIRS = (
+    (1000, "M"),
+    (900, "CM"),
+    (500, "D"),
+    (400, "CD"),
+    (100, "C"),
+    (90, "XC"),
+    (50, "L"),
+    (40, "XL"),
+    (10, "X"),
+    (9, "IX"),
+    (5, "V"),
+    (4, "IV"),
+    (1, "I"),
+)
+
+
+def _format_upper_roman(n: int) -> str:
+    if n <= 0:
+        return str(n)
+    out: list[str] = []
+    remaining = n
+    for value, numeral in _ROMAN_PAIRS:
+        while remaining >= value:
+            out.append(numeral)
+            remaining -= value
+    return "".join(out)
+
+
+def _format_lower_roman(n: int) -> str:
+    return _format_upper_roman(n).lower()
+
+
+def _format_letter(n: int, base: str) -> str:
+    """Return the ``n``-th letter sequence using `base` as the starting letter.
+
+    Word's ``lowerLetter`` / ``upperLetter`` use spreadsheet-column semantics:
+    1->a, 2->b, ..., 26->z, 27->aa, 28->ab, ..., 52->az, 53->ba, etc.
+    """
+    if n <= 0:
+        return str(n)
+    # -- treat as base-26 with no zero digit; convert via the classic "while n > 0" --
+    result = ""
+    remaining = n
+    base_ord = ord(base)
+    while remaining > 0:
+        remaining, rem = divmod(remaining - 1, 26)
+        result = chr(base_ord + rem) + result
+    return result
+
+
+def _format_upper_letter(n: int) -> str:
+    return _format_letter(n, "A")
+
+
+def _format_lower_letter(n: int) -> str:
+    return _format_letter(n, "a")
+
+
+_NUMFMT_FORMATTERS: dict[WD_NUMBER_FORMAT, Any] = {
+    WD_NUMBER_FORMAT.DECIMAL: _format_decimal,
+    WD_NUMBER_FORMAT.UPPER_ROMAN: _format_upper_roman,
+    WD_NUMBER_FORMAT.LOWER_ROMAN: _format_lower_roman,
+    WD_NUMBER_FORMAT.UPPER_LETTER: _format_upper_letter,
+    WD_NUMBER_FORMAT.LOWER_LETTER: _format_lower_letter,
+}
+# -- decimalZero isn't exposed on WD_NUMBER_FORMAT; handled by raw-XML lookup. --
+
+
+def _format_counter(fmt: WD_NUMBER_FORMAT | None, raw_fmt: str | None, n: int) -> str:
+    """Return the rendered string for counter `n` given its format.
+
+    `fmt` is the :class:`WD_NUMBER_FORMAT` member (or |None| when the XML
+    ``w:numFmt/@val`` isn't in our enum subset); `raw_fmt` is the raw
+    ``w:numFmt/@val`` string — used to pick up formats the enum doesn't
+    cover (e.g. ``decimalZero``).
+    """
+    if raw_fmt == "decimalZero":
+        return _format_decimal_zero(n)
+    if fmt is None:
+        # -- unknown format: fall back to decimal --
+        return _format_decimal(n)
+    formatter = _NUMFMT_FORMATTERS.get(fmt)
+    if formatter is not None:
+        return formatter(n)
+    # TODO: cardinalText / ordinalText / ordinal / chicago — fall back to decimal.
+    return _format_decimal(n)
+
+
+class ListLabelRenderer:
+    """Stateful walker that renders the Word-style label for each numbered paragraph.
+
+    A new renderer is created per document (or per traversal). It walks the
+    document body in order, maintaining per-``abstractNum`` counters keyed by
+    level, and produces the rendered label string (``"1."``, ``"a)"``,
+    ``"•"``, etc.) for each paragraph.
+
+    The class is intentionally standalone — it accepts the ``CT_Numbering``
+    element and paragraph elements directly, so it can be used both from
+    :attr:`Paragraph.list_label` (lazily, for a single paragraph) and from
+    :meth:`Document.list_labels` (eagerly, for every paragraph).
+
+    .. versionadded:: 1.3.0.dev0
+    """
+
+    def __init__(
+        self,
+        numbering_elm: "CT_Numbering | None",
+        styles_elm: Any | None = None,
+    ):
+        self._numbering = numbering_elm
+        self._styles = styles_elm
+        # -- per-abstractNum counter state: {abstract_num_id: {ilvl: count}} --
+        self._counters: dict[int, dict[int, int]] = {}
+        # -- cached numId -> abstractNumId resolution --
+        self._num_to_abstract: dict[int, int] = {}
+        # -- cached abstractNum element lookup --
+        self._abstract_cache: dict[int, "CT_AbstractNum | None"] = {}
+        # -- cached style numId inheritance: {styleId: (numId, ilvl)} --
+        self._style_num_cache: dict[str, tuple[int | None, int | None]] = {}
+        # -- cached rendered labels keyed by paragraph element id (for repeat lookups) --
+        self._rendered: dict[int, str | None] = {}
+
+    def label_for(self, p: "CT_P") -> str | None:
+        """Return the rendered list label for paragraph element `p`, or |None|.
+
+        Returns |None| when `p` is not part of any numbered list (no
+        ``w:numPr/w:numId`` directly or via its style), when the referenced
+        ``w:num``/``w:abstractNum`` cannot be resolved, or when the level's
+        ``w:lvlText`` is absent.
+
+        Each call advances the per-abstract counter state, so callers must
+        invoke ``label_for`` for every paragraph *in document order* or use
+        :meth:`label_map` which does that for them.
+        """
+        key = id(p)
+        if key in self._rendered:
+            return self._rendered[key]
+        label = self._compute_label(p)
+        self._rendered[key] = label
+        return label
+
+    def label_map(self, paragraphs: Iterator["CT_P"]) -> dict[int, str]:
+        """Walk `paragraphs` in order and return ``{id(p): label}`` for labelled paragraphs.
+
+        Only paragraphs that resolve to a non-None label are included.
+        """
+        result: dict[int, str] = {}
+        for p in paragraphs:
+            label = self.label_for(p)
+            if label is not None:
+                result[id(p)] = label
+        return result
+
+    # -- internal helpers ------------------------------------------------
+
+    def _compute_label(self, p: "CT_P") -> str | None:
+        num_id, ilvl = self._resolve_numPr(p)
+        if num_id is None or ilvl is None:
+            return None
+        if self._numbering is None:
+            return None
+
+        abstract_id = self._abstract_num_id_for(num_id)
+        if abstract_id is None:
+            return None
+
+        abstractNum = self._get_abstractNum(abstract_id)
+        if abstractNum is None:
+            return None
+
+        lvl = abstractNum.get_lvl(ilvl)
+        if lvl is None:
+            return None
+
+        # -- bump counter for current level and reset deeper levels --
+        self._advance_counter(abstract_id, ilvl, abstractNum)
+
+        # -- render the lvlText, substituting %N with the appropriate counter --
+        lvlText = lvl.lvlText_val
+        if lvlText is None:
+            return None
+
+        return self._render_lvlText(lvlText, abstract_id, abstractNum)
+
+    def _resolve_numPr(self, p: "CT_P") -> tuple[int | None, int | None]:
+        """Return ``(numId, ilvl)`` for paragraph `p`, consulting its style if necessary."""
+        pPr = p.pPr
+        num_id: int | None = None
+        ilvl: int | None = None
+        if pPr is not None and pPr.numPr is not None:
+            num_id = pPr.numPr.numId_val
+            ilvl = pPr.numPr.ilvl_val
+        if num_id is not None:
+            if ilvl is None:
+                ilvl = 0
+            return num_id, ilvl
+        # -- direct numPr absent or missing numId: consult style chain --
+        style_id = None
+        if pPr is not None:
+            pStyle = pPr.style
+            if pStyle is not None:
+                style_id = pStyle
+        if style_id is None:
+            return None, None
+        style_num = self._numPr_from_style(style_id)
+        if style_num is None:
+            return None, None
+        s_num_id, s_ilvl = style_num
+        if s_num_id is None:
+            return None, None
+        # -- direct ilvl (if any) wins over style-inherited --
+        return s_num_id, ilvl if ilvl is not None else (s_ilvl or 0)
+
+    def _numPr_from_style(self, style_id: str) -> tuple[int | None, int | None] | None:
+        """Walk style → basedOn chain looking for a w:pPr/w:numPr.
+
+        Returns ``(numId, ilvl)`` or |None| when no style in the chain declares
+        numbering. Uses a seen-set to guard against a cyclic basedOn chain.
+        """
+        if self._styles is None:
+            return None
+        if style_id in self._style_num_cache:
+            return self._style_num_cache[style_id]
+
+        seen: set[str] = set()
+        cur = style_id
+        while cur is not None and cur not in seen:
+            seen.add(cur)
+            style = self._styles.get_by_id(cur)
+            if style is None:
+                break
+            pPr = getattr(style, "pPr", None)
+            if pPr is not None and pPr.numPr is not None:
+                num_id = pPr.numPr.numId_val
+                ilvl = pPr.numPr.ilvl_val
+                self._style_num_cache[style_id] = (num_id, ilvl)
+                return num_id, ilvl
+            basedOn = style.basedOn_val
+            if basedOn is None:
+                break
+            cur = basedOn
+        self._style_num_cache[style_id] = (None, None)
+        return None
+
+    def _abstract_num_id_for(self, num_id: int) -> int | None:
+        """Resolve ``w:num`` → ``w:abstractNumId`` for `num_id`."""
+        if num_id in self._num_to_abstract:
+            return self._num_to_abstract[num_id]
+        assert self._numbering is not None
+        try:
+            num = self._numbering.num_having_numId(num_id)
+        except KeyError:
+            return None
+        try:
+            abstract_id = num.abstractNumId.val
+        except AttributeError:
+            return None
+        self._num_to_abstract[num_id] = abstract_id
+        return abstract_id
+
+    def _get_abstractNum(self, abstract_id: int) -> "CT_AbstractNum | None":
+        if abstract_id in self._abstract_cache:
+            return self._abstract_cache[abstract_id]
+        assert self._numbering is not None
+        try:
+            abstractNum = self._numbering.abstractNum_having_abstractNumId(abstract_id)
+        except KeyError:
+            abstractNum = None
+        self._abstract_cache[abstract_id] = abstractNum
+        return abstractNum
+
+    def _advance_counter(
+        self, abstract_id: int, ilvl: int, abstractNum: "CT_AbstractNum"
+    ) -> None:
+        """Increment the counter at `ilvl` and reset deeper levels to their start.
+
+        The start value for each level is read from the level's ``w:start``
+        value (defaulting to 1). When the paragraph's level is deeper than
+        any level previously visited in this abstractNum, all shallower
+        counters remain at their current value.
+        """
+        counters = self._counters.setdefault(abstract_id, {})
+        # -- reset any deeper levels so a subsequent return to a deeper level restarts --
+        for deeper_ilvl in list(counters.keys()):
+            if deeper_ilvl > ilvl:
+                del counters[deeper_ilvl]
+        # -- increment (or initialise) the current level --
+        if ilvl in counters:
+            counters[ilvl] += 1
+        else:
+            lvl = abstractNum.get_lvl(ilvl)
+            start = lvl.start_val if lvl is not None else 1
+            counters[ilvl] = start
+
+    def _render_lvlText(
+        self, lvlText: str, abstract_id: int, abstractNum: "CT_AbstractNum"
+    ) -> str:
+        """Substitute ``%N`` placeholders in `lvlText` with formatted counters."""
+        counters = self._counters.get(abstract_id, {})
+
+        def replace(match: re.Match[str]) -> str:
+            level_index = int(match.group(1)) - 1  # %1 is level 0
+            n = counters.get(level_index)
+            if n is None:
+                # -- counter for a level we haven't entered yet (rare but possible
+                # -- when a list starts at a deeper level): fall back to the
+                # -- declared start value for that level.
+                lvl = abstractNum.get_lvl(level_index)
+                n = lvl.start_val if lvl is not None else 1
+            lvl = abstractNum.get_lvl(level_index)
+            if lvl is None:
+                return _format_decimal(n)
+            raw_fmt = None
+            numFmt_elm = lvl.numFmt
+            if numFmt_elm is not None:
+                raw_fmt = numFmt_elm.get(qn("w:val"))
+            try:
+                fmt = lvl.numFmt_val
+            except ValueError:
+                # -- w:numFmt/@val is outside the WD_NUMBER_FORMAT subset
+                # -- (e.g. ``decimalZero``); rely on ``raw_fmt`` lookup below --
+                fmt = None
+            # -- bullet-in-lvlText is a malformed case; emit empty so the
+            # -- surrounding verbatim text is preserved --
+            if fmt == WD_NUMBER_FORMAT.BULLET:
+                return ""
+            return _format_counter(fmt, raw_fmt, n)
+
+        # -- short-circuit: if the lvlText contains no %N tokens (the common
+        # -- case for bullets), return it verbatim. --
+        if not _LVLTEXT_TOKEN_RE.search(lvlText):
+            return lvlText
+        return _LVLTEXT_TOKEN_RE.sub(replace, lvlText)
