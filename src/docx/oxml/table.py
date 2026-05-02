@@ -358,23 +358,30 @@ class CT_Row(BaseOxmlElement):
         trPr.is_header = value
 
     def tc_at_grid_offset(self, grid_offset: int) -> CT_Tc:
-        """The `tc` element in this tr at exact `grid offset`.
+        """The `tc` element in this tr covering the layout-grid column `grid_offset`.
 
-        Raises ValueError when this `w:tr` contains no `w:tc` with exact starting `grid_offset`.
+        A `w:tc` "covers" any grid column in the range ``[start, start + grid_span)``
+        where ``start`` is the tc's own ``grid_offset``. This range-based match is
+        important for rows that use ``w:gridBefore`` to omit leading cells or rows
+        where a horizontally-spanned cell straddles the requested offset — both of
+        which can arise when resolving a ``bottom``/``_tc_below`` lookup on a
+        ``w:vMerge`` continuation.
+
+        Raises |ValueError| when no `w:tc` in this row covers `grid_offset` (for
+        example, when the offset falls within the ``w:gridBefore``/``w:gridAfter``
+        omitted range or is beyond the last cell).
         """
         # -- account for omitted cells at the start of the row --
-        remaining_offset = grid_offset - self.grid_before
+        current_offset = self.grid_before
+        if grid_offset < current_offset:
+            raise ValueError(f"no `tc` element at grid_offset={grid_offset}")
 
         for tc in self.tc_lst:
-            # -- We've gone past grid_offset without finding a tc, no sense searching further. --
-            if remaining_offset < 0:
-                break
-            # -- We've arrived at grid_offset, this is the `w:tc` we're looking for. --
-            if remaining_offset == 0:
+            span = tc.grid_span
+            # -- grid_offset lies within [current_offset, current_offset + span) --
+            if current_offset <= grid_offset < current_offset + span:
                 return tc
-            # -- We're not there yet, skip forward the number of layout-grid cells this cell
-            # -- occupies.
-            remaining_offset -= tc.grid_span
+            current_offset += span
 
         raise ValueError(f"no `tc` element at grid_offset={grid_offset}")
 
@@ -846,12 +853,24 @@ class CT_Tc(BaseOxmlElement):
 
         This is one greater than the index of the bottom-most row of the span, similar
         to how a slice of the cell's rows would be specified.
+
+        Implemented iteratively so very tall vertical merges do not exceed the
+        Python recursion limit; see upstream#1208.
         """
-        if self.vMerge is not None:
-            tc_below = self._tc_below
-            if tc_below is not None and tc_below.vMerge == ST_Merge.CONTINUE:
-                return tc_below.bottom
-        return self._tr_idx + 1
+        current = self
+        # -- only walk forward if this cell participates in a vMerge at all --
+        if current.vMerge is None:
+            return current._tr_idx + 1
+        while True:
+            try:
+                tc_below = current._tc_below
+            except ValueError:
+                # -- row below lacks a covering tc (e.g. gridBefore gap) --
+                break
+            if tc_below is None or tc_below.vMerge != ST_Merge.CONTINUE:
+                break
+            current = tc_below
+        return current._tr_idx + 1
 
     def clear_content(self):
         """Remove all content elements, preserving `w:tcPr` element if present.
@@ -984,23 +1003,27 @@ class CT_Tc(BaseOxmlElement):
 
         This is accomplished by expanding horizontal spans and creating continuation
         cells to form vertical spans.
+
+        Implemented iteratively (walking down the vertical span one row at a time)
+        to avoid Python recursion-depth limits on large merges; see upstream#1208.
         """
-
-        def vMerge_val(top_tc: CT_Tc):
-            return (
-                ST_Merge.CONTINUE
-                if top_tc is not self
-                else None
-                if height == 1
-                else ST_Merge.RESTART
-            )
-
         top_tc = self if top_tc is None else top_tc
-        self._span_to_width(width, top_tc, vMerge_val(top_tc))
-        if height > 1:
-            tc_below = self._tc_below
+
+        current = self
+        remaining = height
+        while remaining > 0:
+            # -- vMerge value for the current row --
+            if current is top_tc:
+                vMerge = None if height == 1 else ST_Merge.RESTART
+            else:
+                vMerge = ST_Merge.CONTINUE
+            current._span_to_width(width, top_tc, vMerge)
+            remaining -= 1
+            if remaining <= 0:
+                break
+            tc_below = current._tc_below
             assert tc_below is not None
-            tc_below._grow_to(width, height - 1, top_tc)
+            current = tc_below
 
     def _insert_tcPr(self, tcPr: CT_TcPr) -> CT_TcPr:
         """Override default `._insert_tcPr()`."""

@@ -301,9 +301,20 @@ class Document(ElementProxy):
 
         `style` may be a table style object or a table style name. If `style` is |None|,
         the table inherits the default table style of the document.
+
+        Raises |KeyError| (or whatever the style lookup surfaces) when `style`
+        names a style that does not exist or is of the wrong type. In that case
+        no ``w:tbl`` element is left behind in the body — the freshly-appended
+        table is rolled back before the exception propagates. See upstream#563.
         """
         table = self._body.add_table(rows, cols, self._block_width)
-        table.style = style
+        try:
+            table.style = style
+        except Exception:
+            # -- rollback: remove the freshly-added w:tbl so a bad style name
+            # -- doesn't leave an orphan table in the body. --
+            table.delete()
+            raise
         return table
 
     @property
@@ -1105,8 +1116,17 @@ class Document(ElementProxy):
 
     @property
     def _block_width(self) -> Length:
-        """A |Length| object specifying the space between margins in last section."""
-        section = self.sections[-1]
+        """A |Length| object specifying the space between margins in last section.
+
+        Falls back to the US-Letter default (8.5" page width, 1" margins — a
+        6.5" usable block) when the document body contains no ``w:sectPr``,
+        which some third-party generators emit. See upstream#514.
+        """
+        sections = self.sections
+        if len(sections) == 0:
+            # -- no sectPr present: use standard US-Letter defaults --
+            return Emu(Inches(8.5) - Inches(1) - Inches(1))
+        section = sections[-1]
         page_width = section.page_width or Inches(8.5)
         left_margin = section.left_margin or Inches(1)
         right_margin = section.right_margin or Inches(1)
