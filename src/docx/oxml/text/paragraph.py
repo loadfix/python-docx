@@ -24,32 +24,147 @@ if TYPE_CHECKING:
     from docx.oxml.text.font import CT_RPr
 
 
-_TRANSPARENT_WRAPPERS = frozenset({qn("w:smartTag"), qn("w:customXml")})
+_TRANSPARENT_WRAPPERS = frozenset(
+    {
+        qn("w:smartTag"),
+        qn("w:customXml"),
+        # -- tracked-insertion / move-destination are present in the final doc --
+        qn("w:ins"),
+        qn("w:moveTo"),
+    }
+)
 _RUN_LIKE_TAGS = frozenset(
     {qn("w:r"), qn("w:hyperlink"), qn("w:fldSimple"), qn("w:sdt")}
 )
+
+# -- pre-computed Clark names used by _iter_run_like for sdt/AlternateContent --
+_W_SDT = qn("w:sdt")
+_W_SDT_CONTENT = qn("w:sdtContent")
+_MC_ALTERNATE_CONTENT = qn("mc:AlternateContent")
+_MC_CHOICE = qn("mc:Choice")
+_MC_FALLBACK = qn("mc:Fallback")
+
+
+def _has_run_like_descendant(container: BaseOxmlElement) -> bool:
+    """Return True when ``container`` yields any run-like element."""
+    for _ in _iter_run_like(container):
+        return True
+    return False
 
 
 def _iter_run_like(container: BaseOxmlElement):
     """Yield run-like children of ``container`` in document order.
 
     ``w:r``, ``w:hyperlink``, ``w:fldSimple``, and ``w:sdt`` are yielded
-    directly. ``w:smartTag`` and ``w:customXml`` wrappers are transparent —
-    the iterator descends into them recursively and yields their run-like
-    descendants in place, so callers see a flat run-list regardless of
-    whether the runs are wrapped in smart-tag or custom-XML scaffolding.
+    directly. Several wrapper elements are transparent — the iterator descends
+    into them recursively and yields their run-like descendants in place so
+    callers see a flat run-list regardless of the wrapper scaffolding:
 
-    This is the lightweight fix for upstream issues #932 / #225 (runs inside
-    ``w:smartTag`` being dropped by ``Paragraph.runs`` and ``CT_P.text``).
-    Descent into ``w:sdt`` (content controls) is *not* transparent here —
-    that is tracked separately in Phase B text cluster.
+    - ``w:smartTag`` / ``w:customXml`` — generic run wrappers.
+    - ``w:ins`` / ``w:moveTo`` — tracked-insertion and move-destination;
+      their run content *is* present in the final document and must be
+      visible to Find/Replace and text accessors.
+    - ``w:sdt`` — yielded directly so that higher-level iterators that want
+      content-control boundaries can see them; but note ``CT_P.text`` descends
+      one level further so the inner text surfaces (see handling below).
+    - ``mc:AlternateContent`` — the choose-one multi-markup element. Prefer
+      ``mc:Choice``; fall back to ``mc:Fallback`` when Choice has no run-like
+      descendants.
+
+    This is the fix for upstream #932 / #225 (smartTag), #1327 / #1389 / #335
+    / PR#1538 / PR#734 (sdt / AlternateContent / ins / moveTo).
     """
     for child in container:
         tag = child.tag
         if tag in _TRANSPARENT_WRAPPERS:
             yield from _iter_run_like(child)
+        elif tag == _MC_ALTERNATE_CONTENT:
+            # -- prefer the first Choice that has run-like content; otherwise
+            # -- fall back to Fallback. This matches how Word resolves
+            # -- mc:AlternateContent when opening documents that contain
+            # -- alternative renderings for newer features. --
+            chosen = None
+            fallback = None
+            for branch in child:
+                btag = branch.tag
+                if btag == _MC_CHOICE and chosen is None:
+                    if _has_run_like_descendant(branch):
+                        chosen = branch
+                elif btag == _MC_FALLBACK and fallback is None:
+                    fallback = branch
+            target = chosen if chosen is not None else fallback
+            if target is not None:
+                yield from _iter_run_like(target)
+        elif tag == _W_SDT:
+            # -- yield the w:sdt itself (callers treat it as run-like);
+            #    its inner text still surfaces via CT_Sdt.text --
+            yield child
         elif tag in _RUN_LIKE_TAGS:
             yield child
+
+
+def _iter_sdt_content(sdt: BaseOxmlElement):
+    """Yield run-like descendants inside a ``w:sdt/w:sdtContent`` element.
+
+    Skips ``w:sdtPr`` / ``w:sdtEndPr`` siblings which are property metadata
+    rather than visible content.
+    """
+    for child in sdt:
+        if child.tag == _W_SDT_CONTENT:
+            yield from _iter_run_like(child)
+
+
+def _run_is_field_code_only(r: BaseOxmlElement) -> bool:
+    """Return True when a ``w:r`` contains only field-code (`w:instrText`).
+
+    Such runs carry the field instruction (the code), not the rendered text
+    the user sees, and should be excluded from text-visible iteration used by
+    Find/Replace.
+    """
+    # -- a run is "code-only" when all its children are instrText or rPr,
+    #    *and* at least one instrText is present --
+    has_instr = False
+    for child in r:
+        tag = child.tag
+        if tag == qn("w:instrText"):
+            has_instr = True
+            continue
+        if tag == qn("w:rPr"):
+            continue
+        # -- any other child means there is visible content too --
+        return False
+    return has_instr
+
+
+def _iter_r_descendants(container: BaseOxmlElement):
+    """Yield visible ``w:r`` elements under ``container``.
+
+    Descends through ``w:hyperlink``, ``w:fldSimple``, transparent wrappers,
+    and nested ``w:sdt/w:sdtContent``. Skips ``w:r`` elements that carry only
+    ``w:instrText`` (the field code).
+    """
+    for child in _iter_run_like(container):
+        tag = child.tag
+        if tag == qn("w:r"):
+            if not _run_is_field_code_only(child):
+                yield child
+        elif tag in (qn("w:hyperlink"), qn("w:fldSimple")):
+            yield from _iter_r_descendants(child)
+        elif tag == _W_SDT:
+            yield from _iter_all_r_elements_in(child)
+
+
+def _iter_all_r_elements_in(sdt: BaseOxmlElement):
+    """Yield visible ``w:r`` elements nested inside an ``w:sdt`` element."""
+    for inner in _iter_sdt_content(sdt):
+        itag = inner.tag
+        if itag == qn("w:r"):
+            if not _run_is_field_code_only(inner):
+                yield inner
+        elif itag in (qn("w:hyperlink"), qn("w:fldSimple")):
+            yield from _iter_r_descendants(inner)
+        elif itag == _W_SDT:
+            yield from _iter_all_r_elements_in(inner)
 
 
 class CT_P(BaseOxmlElement):
@@ -314,6 +429,42 @@ class CT_P(BaseOxmlElement):
         for el in _iter_run_like(self):
             if el.tag == qn("w:r"):
                 yield el
+
+    def iter_all_r_elements(self):
+        """Yield every visible ``w:r`` descendant, including those nested inside
+        ``w:hyperlink``, ``w:fldSimple``, and ``w:sdt/w:sdtContent`` wrappers.
+
+        This is the content-visible run iterator used by Find/Replace and
+        formatting loops (upstream #1370, #1021). ``w:instrText`` content —
+        the field *code*, not the rendered result — is intentionally *not*
+        yielded: runs whose sole content is ``w:instrText`` are skipped.
+
+        Runs appearing between a complex-field ``separate`` marker and its
+        ``end`` marker *are* yielded because they contain the rendered result
+        that the user sees and would expect to search.
+        """
+        for el in _iter_run_like(self):
+            tag = el.tag
+            if tag == qn("w:r"):
+                if _run_is_field_code_only(el):
+                    continue
+                yield el
+            elif tag == qn("w:hyperlink"):
+                yield from _iter_r_descendants(el)
+            elif tag == qn("w:fldSimple"):
+                yield from _iter_r_descendants(el)
+            elif tag == _W_SDT:
+                for inner in _iter_sdt_content(el):
+                    itag = inner.tag
+                    if itag == qn("w:r"):
+                        if _run_is_field_code_only(inner):
+                            continue
+                        yield inner
+                    elif itag in (qn("w:hyperlink"), qn("w:fldSimple")):
+                        yield from _iter_r_descendants(inner)
+                    elif itag == _W_SDT:
+                        # -- nested sdt: recurse via temporary iterator --
+                        yield from _iter_all_r_elements_in(inner)
 
     @property
     def tracked_change_elements(

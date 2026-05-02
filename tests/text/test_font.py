@@ -114,21 +114,31 @@ class DescribeFont:
     @pytest.mark.parametrize(
         ("r_cxml", "value", "expected_r_cxml"),
         [
-            ("w:r", "Foo", "w:r/w:rPr/w:rFonts{w:ascii=Foo,w:hAnsi=Foo}"),
-            ("w:r/w:rPr", "Foo", "w:r/w:rPr/w:rFonts{w:ascii=Foo,w:hAnsi=Foo}"),
+            (
+                "w:r",
+                "Foo",
+                "w:r/w:rPr/w:rFonts{w:ascii=Foo,w:hAnsi=Foo,w:cs=Foo}",
+            ),
+            (
+                "w:r/w:rPr",
+                "Foo",
+                "w:r/w:rPr/w:rFonts{w:ascii=Foo,w:hAnsi=Foo,w:cs=Foo}",
+            ),
             (
                 "w:r/w:rPr/w:rFonts{w:hAnsi=Foo}",
                 "Bar",
-                "w:r/w:rPr/w:rFonts{w:ascii=Bar,w:hAnsi=Bar}",
+                "w:r/w:rPr/w:rFonts{w:ascii=Bar,w:hAnsi=Bar,w:cs=Bar}",
             ),
             (
                 "w:r/w:rPr/w:rFonts{w:ascii=Foo,w:hAnsi=Foo}",
                 "Bar",
-                "w:r/w:rPr/w:rFonts{w:ascii=Bar,w:hAnsi=Bar}",
+                "w:r/w:rPr/w:rFonts{w:ascii=Bar,w:hAnsi=Bar,w:cs=Bar}",
             ),
         ],
     )
     def it_can_change_its_typeface_name(self, r_cxml: str, value: str, expected_r_cxml: str):
+        # -- Font.name setter mirrors onto w:cs so RTL/bidi runs inherit the
+        # -- same typeface (upstream #510, #430, #973). --
         r = cast(CT_R, element(r_cxml))
         font = Font(r)
         expected_xml = xml(expected_r_cxml)
@@ -247,13 +257,23 @@ class DescribeFont:
     @pytest.mark.parametrize(
         ("r_cxml", "value", "expected_r_cxml"),
         [
-            ("w:r", Pt(12), "w:r/w:rPr/w:sz{w:val=24}"),
-            ("w:r/w:rPr", Pt(12), "w:r/w:rPr/w:sz{w:val=24}"),
-            ("w:r/w:rPr/w:sz{w:val=24}", Pt(18), "w:r/w:rPr/w:sz{w:val=36}"),
-            ("w:r/w:rPr/w:sz{w:val=36}", None, "w:r/w:rPr"),
+            ("w:r", Pt(12), "w:r/w:rPr/(w:sz{w:val=24},w:szCs{w:val=24})"),
+            ("w:r/w:rPr", Pt(12), "w:r/w:rPr/(w:sz{w:val=24},w:szCs{w:val=24})"),
+            (
+                "w:r/w:rPr/w:sz{w:val=24}",
+                Pt(18),
+                "w:r/w:rPr/(w:sz{w:val=36},w:szCs{w:val=36})",
+            ),
+            (
+                "w:r/w:rPr/(w:sz{w:val=36},w:szCs{w:val=36})",
+                None,
+                "w:r/w:rPr",
+            ),
         ],
     )
     def it_can_change_its_size(self, r_cxml: str, value: Length | None, expected_r_cxml: str):
+        # -- Font.size setter also writes w:szCs so bidi/RTL runs take the same
+        # -- size (upstream #510, #430, #973). --
         r = cast(CT_R, element(r_cxml))
         font = Font(r)
         expected_xml = xml(expected_r_cxml)
@@ -1357,3 +1377,67 @@ class DescribeEastAsianLayout:
         layout.two_lines_in_one = None
 
         assert eal.xml == xml("w:eastAsianLayout{w:id=1}")
+
+
+class DescribeFont_RtlSizeAndName:
+    """Phase A-v2 #4/#5: Font.size writes szCs and Font.name writes cs + clears theme.
+
+    See upstream #510, #430, #973 (size/name mirroring); #366 (theme clearing).
+    """
+
+    def it_writes_szCs_alongside_sz_on_size_assignment(self):
+        from docx.oxml.ns import qn
+
+        r = cast(CT_R, element("w:r"))
+        Font(r).size = Pt(12)
+        rPr = r.find(qn("w:rPr"))
+        assert rPr is not None
+        sz = rPr.find(qn("w:sz"))
+        szCs = rPr.find(qn("w:szCs"))
+        assert sz is not None and szCs is not None
+        assert sz.get(qn("w:val")) == "24"
+        assert szCs.get(qn("w:val")) == "24"
+
+    def it_removes_szCs_when_size_is_None(self):
+        from docx.oxml.ns import qn
+
+        r = cast(CT_R, element("w:r/w:rPr/(w:sz{w:val=24},w:szCs{w:val=24})"))
+        Font(r).size = None
+        rPr = r.find(qn("w:rPr"))
+        assert rPr.find(qn("w:sz")) is None
+        assert rPr.find(qn("w:szCs")) is None
+
+    def it_writes_cs_alongside_ascii_hAnsi_on_name_assignment(self):
+        from docx.oxml.ns import qn
+
+        r = cast(CT_R, element("w:r"))
+        Font(r).name = "Arial"
+        rFonts = r.find(qn("w:rPr")).find(qn("w:rFonts"))
+        assert rFonts.get(qn("w:ascii")) == "Arial"
+        assert rFonts.get(qn("w:hAnsi")) == "Arial"
+        assert rFonts.get(qn("w:cs")) == "Arial"
+
+    def it_clears_theme_font_attributes_when_name_is_assigned(self):
+        # -- upstream #366: assigning a concrete typeface must not leave
+        # -- w:asciiTheme / w:hAnsiTheme / w:eastAsiaTheme / w:cstheme in
+        # -- place, or Word will prefer the theme value over the name. --
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import parse_xml
+
+        xml_bytes = (
+            b'<w:r xmlns:w='
+            b'"http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            b'<w:rPr>'
+            b'<w:rFonts w:asciiTheme="majorHAnsi" w:hAnsiTheme="majorHAnsi"'
+            b' w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>'
+            b'</w:rPr>'
+            b'</w:r>'
+        )
+        r = cast(CT_R, parse_xml(xml_bytes))
+        Font(r).name = "Calibri"
+        rFonts = r.find(qn("w:rPr")).find(qn("w:rFonts"))
+        assert rFonts.get(qn("w:asciiTheme")) is None
+        assert rFonts.get(qn("w:hAnsiTheme")) is None
+        assert rFonts.get(qn("w:eastAsiaTheme")) is None
+        assert rFonts.get(qn("w:cstheme")) is None
+        assert rFonts.get(qn("w:ascii")) == "Calibri"

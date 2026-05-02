@@ -39,6 +39,13 @@ class CT_Color(BaseOxmlElement):
 
     val: RGBColor | str = RequiredAttribute("w:val", ST_HexColor)
     themeColor: MSO_THEME_COLOR | None = OptionalAttribute("w:themeColor", MSO_THEME_COLOR)
+    # -- `w:themeTint` and `w:themeShade` are two-digit hex strings (00..FF)
+    # -- encoding how much white (tint; higher brightness) or black (shade;
+    # -- lower brightness) is blended with the theme color. Documented in
+    # -- ECMA-376 as ST_UcharHexNumber. Only meaningful when `w:themeColor`
+    # -- is also present. --
+    themeTint: str | None = OptionalAttribute("w:themeTint", ST_String)
+    themeShade: str | None = OptionalAttribute("w:themeShade", ST_String)
 
 
 class CT_Fonts(BaseOxmlElement):
@@ -51,6 +58,10 @@ class CT_Fonts(BaseOxmlElement):
     hAnsi: str | None = OptionalAttribute("w:hAnsi", ST_String)
     eastAsia: str | None = OptionalAttribute("w:eastAsia", ST_String)
     cs: str | None = OptionalAttribute("w:cs", ST_String)
+    asciiTheme: str | None = OptionalAttribute("w:asciiTheme", ST_String)
+    hAnsiTheme: str | None = OptionalAttribute("w:hAnsiTheme", ST_String)
+    eastAsiaTheme: str | None = OptionalAttribute("w:eastAsiaTheme", ST_String)
+    cstheme: str | None = OptionalAttribute("w:cstheme", ST_String)
 
 
 class CT_Highlight(BaseOxmlElement):
@@ -104,6 +115,7 @@ class CT_RPr(BaseOxmlElement):
     get_or_add_shd: Callable[[], "CT_Shd"]
     get_or_add_spacing: Callable[[], BaseOxmlElement]
     get_or_add_sz: Callable[[], CT_HpsMeasure]
+    get_or_add_szCs: Callable[[], CT_HpsMeasure]
     get_or_add_vertAlign: Callable[[], CT_VerticalAlignRun]
     _add_rStyle: Callable[..., CT_String]
     _add_u: Callable[[], CT_Underline]
@@ -118,6 +130,7 @@ class CT_RPr(BaseOxmlElement):
     _remove_shd: Callable[[], None]
     _remove_spacing: Callable[[], None]
     _remove_sz: Callable[[], None]
+    _remove_szCs: Callable[[], None]
     _remove_u: Callable[[], None]
     _remove_vertAlign: Callable[[], None]
 
@@ -185,6 +198,9 @@ class CT_RPr(BaseOxmlElement):
     spacing = ZeroOrOne("w:spacing", successors=_tag_seq[20:])
     kern: CT_HpsMeasure | None = ZeroOrOne("w:kern", successors=_tag_seq[22:])
     sz: CT_HpsMeasure | None = ZeroOrOne("w:sz", successors=_tag_seq[24:])
+    szCs: CT_HpsMeasure | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:szCs", successors=_tag_seq[25:]
+    )
     highlight: CT_Highlight | None = ZeroOrOne("w:highlight", successors=_tag_seq[26:])
     u: CT_Underline | None = ZeroOrOne("w:u", successors=_tag_seq[27:])
     bdr: "CT_Border | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
@@ -250,6 +266,14 @@ class CT_RPr(BaseOxmlElement):
             return
         rFonts = self.get_or_add_rFonts()
         rFonts.ascii = value
+        # -- when an explicit typeface is assigned, clear theme-font siblings so
+        # -- the explicit name wins (upstream #366). Theme-font attributes
+        # -- (``w:asciiTheme``, ``w:hAnsiTheme``, ``w:eastAsiaTheme``,
+        # -- ``w:cstheme``) would otherwise override the concrete name in Word. --
+        rFonts.asciiTheme = None
+        rFonts.hAnsiTheme = None
+        rFonts.eastAsiaTheme = None
+        rFonts.cstheme = None
 
     @property
     def rFonts_hAnsi(self) -> str | None:
@@ -408,6 +432,25 @@ class CT_RPr(BaseOxmlElement):
             return
         sz = self.get_or_add_sz()
         sz.val = value
+
+    @property
+    def szCs_val(self) -> Length | None:
+        """The value of `w:szCs/@w:val` or |None| if not present.
+
+        Specifies the complex-script (RTL / bidi) font size in half-points.
+        """
+        szCs = self.szCs
+        if szCs is None:
+            return None
+        return szCs.val
+
+    @szCs_val.setter
+    def szCs_val(self, value: Length | None):
+        if value is None:
+            self._remove_szCs()
+            return
+        szCs = self.get_or_add_szCs()
+        szCs.val = value
 
     @property
     def u_val(self) -> WD_UNDERLINE | None:

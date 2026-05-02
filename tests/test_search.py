@@ -210,6 +210,34 @@ class DescribeSearch:
 
         assert matches == []
 
+    def it_finds_text_nested_inside_a_hyperlink(self):
+        # -- upstream#1370: Find/Replace used to skip runs inside w:hyperlink.
+        from docx.oxml.parser import parse_xml
+
+        xml = (
+            b'<w:document xmlns:w='
+            b'"http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+            b' xmlns:r='
+            b'"http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            b'<w:body>'
+            b'<w:p>'
+            b'<w:r><w:t>pre </w:t></w:r>'
+            b'<w:hyperlink r:id="rId1">'
+            b'<w:r><w:t>target</w:t></w:r>'
+            b'</w:hyperlink>'
+            b'<w:r><w:t> post</w:t></w:r>'
+            b'</w:p>'
+            b'</w:body>'
+            b'</w:document>'
+        )
+        doc = Document(cast(CT_Document, parse_xml(xml)), Mock())
+        matches = search_paragraphs(doc.paragraphs, "target")
+        assert len(matches) == 1
+        # -- run-indices now index into all_runs, where the hyperlink run is
+        # -- the second element (pre / hyperlink-inner / post). --
+        assert matches[0].start == 4
+        assert matches[0].end == 10
+
 
 class DescribeReplace:
     """Unit-test suite for `docx.search.replace_in_paragraphs`."""

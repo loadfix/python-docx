@@ -1126,9 +1126,27 @@ class Paragraph(StoryChild):
         direct-child runs (upstream #932, #225). Runs nested inside
         ``w:hyperlink``, ``w:fldSimple``, or ``w:sdt`` are not included here
         (they surface via :attr:`hyperlinks`, :attr:`fields`, and
-        :attr:`content_controls` respectively).
+        :attr:`content_controls` respectively); use :attr:`all_runs` when a
+        flat view over *every* visible run is needed.
         """
         return [Run(r, self) for r in self._p.iter_r_elements()]
+
+    @property
+    def all_runs(self) -> list[Run]:
+        """Every visible |Run| in this paragraph, including those nested inside
+        ``w:hyperlink``, ``w:fldSimple``, ``w:sdt/w:sdtContent``, complex-field
+        ``separate``..``end`` regions, tracked insertions (``w:ins``), move-
+        destinations (``w:moveTo``), and smartTag / customXml wrappers.
+
+        Runs whose only content is ``w:instrText`` (the field *code*, not the
+        rendered result) are excluded. This is the iterator routed through by
+        the Find/Replace helpers in :mod:`docx.search` so that search and
+        replace work on the text the user actually sees (upstream #1370,
+        #1021).
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return [Run(r, self) for r in self._p.iter_all_r_elements()]
 
     @property
     def style(self) -> ParagraphStyle | None:

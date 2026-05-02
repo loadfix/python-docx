@@ -459,6 +459,74 @@ class DescribeStyles:
         return instance_mock(request, CT_Styles)
 
 
+class DescribeStyles_CaseInsensitiveLookup:
+    """Phase A-v2 #6: Styles.__getitem__ case-insensitive fallback.
+
+    See upstream #494, #420, PR#239. LibreOffice saves built-in style names
+    in lower-case on disk; the UI name lookup must still resolve them.
+    """
+
+    def it_looks_up_a_style_by_exact_ui_name(self):
+        styles = Styles(
+            element(
+                "w:styles/w:style{w:type=paragraph}/w:name{w:val=Heading 1}"
+            )
+        )
+        expected_element = styles._element[0]
+
+        # -- exact match: on-disk name "Heading 1" matches "Heading 1" --
+        style = styles["Heading 1"]
+        assert style._element is expected_element
+
+    def it_finds_a_libreoffice_cased_style_by_its_ui_name(self):
+        # -- upstream#494: LibreOffice saves "Heading 1" as "Heading 1"
+        # -- with lower-case variants like "heading 1"; the fallback should
+        # -- also match oddly-cased on-disk names. --
+        styles = Styles(
+            element(
+                "w:styles/w:style{w:type=paragraph}/w:name{w:val=HEADING 1}"
+            )
+        )
+        expected_element = styles._element[0]
+
+        style = styles["Heading 1"]
+        assert style._element is expected_element
+
+    def it_case_insensitively_matches_custom_names(self):
+        styles = Styles(
+            element(
+                "w:styles/w:style{w:type=paragraph}/w:name{w:val=My Style}"
+            )
+        )
+        expected_element = styles._element[0]
+
+        style = styles["MY STYLE"]
+        assert style._element is expected_element
+
+    def it_supports_in_operator_case_insensitively(self):
+        styles = Styles(
+            element(
+                "w:styles/w:style{w:type=paragraph}/w:name{w:val=HEADING 1}"
+            )
+        )
+        assert "Heading 1" in styles
+
+    def it_can_lookup_various_WD_BUILTIN_STYLE_members(self):
+        # -- upstream#420: full WD_BUILTIN_STYLE → UI-name translation. --
+        styles = Styles(
+            element(
+                "w:styles/"
+                "(w:style{w:type=paragraph}/w:name{w:val=Caption},"
+                "w:style{w:type=paragraph}/w:name{w:val=Body Text 2},"
+                "w:style{w:type=character}/w:name{w:val=Emphasis})"
+            )
+        )
+
+        assert styles[WD_STYLE.CAPTION]._element is styles._element[0]
+        assert styles[WD_STYLE.BODY_TEXT_2]._element is styles._element[1]
+        assert styles[WD_STYLE.EMPHASIS]._element is styles._element[2]
+
+
 class DescribeBuiltinStyleUiName:
     """Unit-test suite for `_builtin_style_ui_name` helper."""
 
