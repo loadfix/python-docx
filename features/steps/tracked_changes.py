@@ -1,4 +1,4 @@
-"""Step implementations for tracked-changes features (read-side).
+"""Step implementations for tracked-changes features.
 
 Covers:
 * trk-read-ins-del — iterating Paragraph.tracked_changes
@@ -8,9 +8,8 @@ Covers:
   tblPrChange)
 * trk-rsid — revision-save IDs (rsidRoot + per-run/paragraph rsid)
 * trk-marks-text — revision_marks_text() preview output
-
-Accept/reject is deferred to a later phase; these steps only exercise the
-read-side proxies.
+* trk-accept-insertions — Document.accept_all_changes and per-change
+  TrackedChange.accept on w:ins / w:cellIns wrappers
 """
 
 from __future__ import annotations
@@ -394,4 +393,99 @@ def then_document_revision_marks_text_contains_insertion_only(context: Context):
     full = context.document.revision_marks_text()
     assert "[+kindly +]" in full, (
         f"expected insertion marker in document preview, got {full!r}"
+    )
+
+
+# -- accept-insertions steps ================================
+
+
+@given("the trk-accept-ins document")
+def given_the_trk_accept_ins_document(context: Context):
+    context.document = Document(test_docx("trk-accept-ins"))
+
+
+@when("I call document.accept_all_changes()")
+def when_i_call_document_accept_all_changes(context: Context):
+    context.accept_count = context.document.accept_all_changes()
+
+
+@when("I accept the first tracked change of paragraph {p_idx:d}")
+def when_i_accept_first_tracked_change_of_paragraph(context: Context, p_idx: int):
+    paragraph = context.document.paragraphs[p_idx]
+    paragraph.tracked_changes[0].accept()
+
+
+@then("the document body has {count:d} w:ins elements")
+def then_document_body_has_count_w_ins(context: Context, count: int):
+    actual = len(context.document.element.body.xpath(".//w:ins"))
+    assert actual == count, f"expected {count} w:ins, got {actual}"
+
+
+@then("the document body has {count:d} w:del elements")
+def then_document_body_has_count_w_del(context: Context, count: int):
+    actual = len(context.document.element.body.xpath(".//w:del"))
+    assert actual == count, f"expected {count} w:del, got {actual}"
+
+
+@then("the document body has {count:d} w:cellIns elements")
+def then_document_body_has_count_w_cell_ins(context: Context, count: int):
+    actual = len(context.document.element.body.xpath(".//w:cellIns"))
+    assert actual == count, f"expected {count} w:cellIns, got {actual}"
+
+
+@then('paragraph {p_idx:d} text == "{expected}"')
+def then_paragraph_text_eq(context: Context, p_idx: int, expected: str):
+    actual = context.document.paragraphs[p_idx].text
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("paragraph {p_idx:d} has {count:d} direct w:r children")
+def then_paragraph_has_count_direct_w_r(context: Context, p_idx: int, count: int):
+    actual = len(context.document.paragraphs[p_idx]._p.xpath("./w:r"))
+    assert actual == count, f"expected {count} direct w:r, got {actual}"
+
+
+@then("paragraph {p_idx:d} has {count:d} tracked change remaining")
+@then("paragraph {p_idx:d} has {count:d} tracked changes remaining")
+def then_paragraph_has_count_tracked_changes_remaining(
+    context: Context, p_idx: int, count: int
+):
+    actual = len(context.document.paragraphs[p_idx].tracked_changes)
+    assert actual == count, (
+        f"expected {count} tracked changes remaining, got {actual}"
+    )
+
+
+@then('paragraph {p_idx:d} tracked_change[{idx:d}].author == "{expected}"')
+def then_paragraph_tracked_change_author_eq(
+    context: Context, p_idx: int, idx: int, expected: str
+):
+    actual = context.document.paragraphs[p_idx].tracked_changes[idx].author
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then('table {t_idx:d} cell ({r:d}, {c:d}) text == "{expected}"')
+def then_table_cell_text_eq(
+    context: Context, t_idx: int, r: int, c: int, expected: str
+):
+    actual = context.document.tables[t_idx].cell(r, c).text
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("table {t_idx:d} cell ({r:d}, {c:d}).is_tracked_insertion is {flag}")
+def then_table_cell_is_tracked_insertion(
+    context: Context, t_idx: int, r: int, c: int, flag: str
+):
+    expected = {"True": True, "False": False}[flag]
+    actual = context.document.tables[t_idx].cell(r, c).is_tracked_insertion
+    assert actual is expected, (
+        f"cell({r},{c}).is_tracked_insertion expected {expected}, got {actual}"
+    )
+
+
+@then("the accept_all_changes return value is {count:d}")
+def then_accept_all_changes_return_value_is(context: Context, count: int):
+    actual = context.accept_count
+    assert actual == count, (
+        f"expected accept_all_changes() == {count}, got {actual}"
     )
