@@ -91,7 +91,7 @@ Register in `src/docx/__init__.py`:
 PartFactory.part_type_for[CT.WML_FOOTNOTES] = FootnotesPart
 ```
 
-### Proxy Objects (Document API)
+### Proxy Objects
 
 Wrap CT_ elements. Inherit from `ElementProxy`, `StoryChild`, or `BlockItemContainer`:
 
@@ -125,6 +125,7 @@ Microsoft Word does NOT strictly implement ISO/IEC 29500 / ECMA-376. Treat the s
 - Test XML: `cxml.element("w:footnotes/(w:footnote{w:id=1})")` — compact XML expression language
 - Mocks: `class_mock(request, "dotted.path")`, `instance_mock(request, Class)`, `method_mock(request, Class, "name")`
 - Test utilities in `tests/unitutil/`
+- Acceptance tests live under `features/` (behave, Gherkin `.feature` files plus step modules).
 
 Example:
 ```python
@@ -153,6 +154,36 @@ pyright src/
 # Install in dev mode
 pip install -e ".[dev]"
 ```
+
+## What NOT to do
+
+- Don't amend or force-push to `master`, and never force-push to an upstream remote under any circumstance.
+- Don't commit secrets, API tokens, local scratch output, or generated docs.
+- Don't add runtime dependencies lightly — every new dep affects a large user base. If you must, raise it first.
+- Don't introduce backwards-incompatible API changes without a HISTORY/FEATURES note and a transition plan (deprecation warning where possible).
+- Don't silence warnings with broad `filterwarnings` ignores — they exist to catch real problems.
+- Don't delete `py.typed`; removing it silently breaks downstream type-checking.
+- Don't "fix" code inside `spec/` just because lint would catch it elsewhere — it's an intentionally undisciplined reference archive.
+- Don't bypass the xmlchemy descriptor layer with raw `lxml.etree` access in production code — the descriptors carry namespace, type, and default semantics.
+- Don't move unit tests out of their current location or rename test methods away from the `Describe*` / `it_*` BDD convention — test discovery relies on it.
+
+## Common workflows
+
+### Adding a new public method on an existing class
+1. Implement in the appropriate `src/docx/…` module.
+2. Add unit tests in the mirrored test file under `tests/`.
+3. Add a behave scenario under `features/` if the capability is user-visible.
+4. Update `FEATURES.md` — refresh the entry and snippet, verify the snippet runs against a fresh `Document()`.
+
+### Adding a new enum value
+- Enums live in `src/docx/enum/`. Read a neighboring enum first to see the XML-mapping pattern.
+- Update any doc reference that enumerates the valid values.
+
+### Adding a new XML element class
+- Custom element classes live in `src/docx/oxml/…`. They use the `xmlchemy` descriptor layer (`ZeroOrOne`, `OneAndOnlyOne`, `ZeroOrMore`, `RequiredAttribute`, `OptionalAttribute`, …).
+- Consult `spec/xsd/*.xsd` (or the easier-to-read `spec/rnc/*.rnc`) for authoritative element ordering before declaring `successors`.
+- Register the class with `register_element_cls("w:tag", CT_Tag)` at the bottom of `src/docx/oxml/__init__.py`.
+- Save a minimal `.docx` from Word that exercises the element, unzip it, and compare — **when the spec and Word disagree, match Word**.
 
 ## Important
 
