@@ -148,5 +148,110 @@ def then_apply_to_raises_valueerror(context: Context, level: int):
     raise AssertionError(f"expected ValueError for level {level}")
 
 
+# -- list-label rendering steps ---------------------------------------
+
+
+@given(
+    "a document with a decimal-then-letter multi-level numbering and "
+    "{count:d} nested paragraphs"
+)
+def given_decimal_letter_multilevel_document(context: Context, count: int):
+    document = Document()
+    defn = document.numbering.add_numbering_definition(
+        [
+            {"format": WD_NUMBER_FORMAT.DECIMAL, "text": "%1."},
+            {"format": WD_NUMBER_FORMAT.LOWER_LETTER, "text": "%2)"},
+        ]
+    )
+    # -- 1., a), b), 2., 3., a) when count == 6 --
+    assert count >= 4, "scenario expects at least 4 paragraphs"
+    pattern = [0, 1, 1, 0, 0, 1]
+    context.document = document
+    context.definition = defn
+    context.paragraphs = []
+    for i in range(count):
+        ilvl = pattern[i % len(pattern)]
+        p = document.add_paragraph(f"item {i}")
+        defn.apply_to(p, ilvl)
+        context.paragraphs.append(p)
+
+
+@given("a document with a single-level bullet numbering and {count:d} bullet paragraphs")
+def given_bullet_document(context: Context, count: int):
+    document = Document()
+    defn = document.numbering.add_numbering_definition(
+        [
+            {
+                "format": WD_NUMBER_FORMAT.BULLET,
+                "text": "•",
+                "indent": Inches(0.25),
+                "font": "Symbol",
+            }
+        ]
+    )
+    context.document = document
+    context.paragraphs = []
+    for i in range(count):
+        p = document.add_paragraph(f"bullet {i}")
+        defn.apply_to(p, 0)
+        context.paragraphs.append(p)
+
+
+@given("a trailing plain paragraph is appended")
+def given_trailing_plain_paragraph(context: Context):
+    context.trailing_paragraph = context.document.add_paragraph("plain item")
+
+
+@then("the paragraph's list_label is None")
+def then_paragraph_list_label_is_none(context: Context):
+    assert context.paragraph.list_label is None, (
+        f"expected None, got {context.paragraph.list_label!r}"
+    )
+
+
+@then('the list labels for the {count:d} paragraphs are "{expected}"')
+def then_list_labels_match(context: Context, count: int, expected: str):
+    paragraphs = context.paragraphs[:count]
+    actual = [p.list_label for p in paragraphs]
+    expected_labels = [s.strip() for s in expected.split(",")]
+    assert len(actual) == len(expected_labels), (
+        f"expected {len(expected_labels)} paragraphs, got {len(actual)}"
+    )
+    assert actual == expected_labels, (
+        f"expected {expected_labels!r}, got {actual!r}"
+    )
+
+
+@then("document.list_labels has an entry for each of the {count:d} paragraphs")
+def then_document_list_labels_size(context: Context, count: int):
+    labels = context.document.list_labels()
+    numbered = [p for p in context.paragraphs if p.list_label is not None]
+    assert len(numbered) == count, (
+        f"expected {count} numbered paragraphs, got {len(numbered)}"
+    )
+    for p in numbered:
+        assert id(p._p) in labels, (
+            f"paragraph {p.text!r} missing from document.list_labels"
+        )
+
+
+@then('the list_labels entry for paragraph {index:d} is "{expected}"')
+def then_list_labels_entry(context: Context, index: int, expected: str):
+    labels = context.document.list_labels()
+    p = context.paragraphs[index - 1]
+    actual = labels.get(id(p._p))
+    assert actual == expected, (
+        f"paragraph {index}: expected {expected!r}, got {actual!r}"
+    )
+
+
+@then("document.list_labels has no entry for the trailing paragraph")
+def then_document_list_labels_no_trailing(context: Context):
+    labels = context.document.list_labels()
+    assert id(context.trailing_paragraph._p) not in labels, (
+        "trailing plain paragraph unexpectedly appears in list_labels"
+    )
+
+
 # -- expose qn for debugging --
 _ = qn  # avoid lint "unused import" when refactoring

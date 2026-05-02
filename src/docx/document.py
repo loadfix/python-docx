@@ -1020,6 +1020,45 @@ class Document(ElementProxy):
         """
         return self._part.numbering_part.numbering
 
+    def list_labels(self) -> dict[int, str]:
+        """Return ``{id(p_element): label}`` for every numbered paragraph in the body.
+
+        Walks the document body top-to-bottom exactly once and, for each
+        paragraph that resolves to a list (via a direct ``w:numPr`` or a
+        paragraph style that declares one), computes the Word-rendered label
+        (``"1."``, ``"a)"``, ``"I."``, ``"•"``, ``"1.1."``, ...) using the
+        level's ``w:lvlText`` pattern and ``w:numFmt`` value.
+        Paragraphs that are not part of any list are omitted.
+        The mapping key is ``id(paragraph._p)`` — stable for the lifetime
+        of the underlying element. To look up by |Paragraph| use
+        ``labels[id(paragraph._p)]`` or use :attr:`Paragraph.list_label`.
+        Returns an empty mapping when the document has no numbering part or
+        no paragraph resolves to a list.
+
+        Supported ``numFmt`` values: ``decimal``, ``decimalZero``,
+        ``upperRoman``, ``lowerRoman``, ``upperLetter``, ``lowerLetter``,
+        ``bullet``. Other formats (``cardinalText``, ``ordinalText``, ...)
+        fall back to decimal.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.numbering import ListLabelRenderer
+
+        numbering_part = getattr(self._part, "numbering_part", None)
+        numbering_elm = (
+            numbering_part.numbering_element if numbering_part is not None else None
+        )
+        styles_elm = None
+        try:
+            styles_part = self._part.part_related_by(RT.STYLES)
+        except (KeyError, AttributeError):
+            styles_part = None
+        if styles_part is not None:
+            styles_elm = getattr(styles_part, "element", None)
+
+        renderer = ListLabelRenderer(numbering_elm, styles_elm)
+        return renderer.label_map(self._element.body.xpath(".//w:p"))
+
     @property
     def ink_annotations(self) -> list[InkAnnotation]:
         """List of |InkAnnotation| objects for each ink annotation in the body.

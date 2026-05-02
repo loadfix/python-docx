@@ -1075,6 +1075,67 @@ class Paragraph(StoryChild):
         )
 
     @property
+    def list_label(self) -> str | None:
+        """The rendered number/bullet string Word would display for this paragraph.
+
+        Resolves this paragraph's ``numId`` and ``ilvl`` (directly or
+        style-inherited), walks the document body from the start, and returns
+        the formatted label — for example ``"1."``, ``"a)"``, ``"I."``,
+        ``"1.1."``, or ``"•"`` — computed from the level's ``lvlText``
+        pattern and ``numFmt`` (``decimal``, ``decimalZero``, ``upperRoman``,
+        ``lowerRoman``, ``upperLetter``, ``lowerLetter``, ``bullet``).
+        Returns |None| when this paragraph is not part of any numbered list
+        or the referenced numbering cannot be resolved.
+
+        Note that the returned label reflects the paragraph's *current*
+        position in the document body. Counters propagate across siblings at
+        the same level and reset when a deeper level is entered. This
+        property walks the full body on each access — cache the result on
+        the caller's side, or use :meth:`Document.list_labels` for a single
+        bulk traversal, when label lookup is hot.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.numbering import ListLabelRenderer
+
+        pPr = self._p.pPr
+        has_direct_numPr = pPr is not None and pPr.numPr is not None
+        # -- quickly bail out when neither direct numPr nor a pStyle pointing at
+        # -- a numbered style is present: avoids walking the body unnecessarily --
+        has_pStyle = pPr is not None and pPr.style is not None
+        if not has_direct_numPr and not has_pStyle:
+            return None
+
+        # -- locate the body element that contains this paragraph --
+        try:
+            body = self._get_body()
+        except ValueError:
+            return None
+
+        numbering_part = getattr(self.part, "numbering_part", None)
+        numbering_elm = (
+            numbering_part.numbering_element if numbering_part is not None else None
+        )
+
+        styles_elm = None
+        try:
+            styles_part = self.part.part_related_by(RT.STYLES)
+        except (KeyError, AttributeError):
+            styles_part = None
+        if styles_part is not None:
+            styles_elm = getattr(styles_part, "element", None)
+
+        renderer = ListLabelRenderer(numbering_elm, styles_elm)
+
+        # -- walk body paragraphs in order until we hit self --
+        target_id = id(self._p)
+        for p in body.xpath(".//w:p"):
+            label = renderer.label_for(cast("CT_P", p))
+            if id(p) == target_id:
+                return label
+        return None
+
+    @property
     def numbering_format(self):
         """Read-only |Level| describing this paragraph's current level in its list.
 
