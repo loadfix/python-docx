@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from docx.ink import InkAnnotation
     from docx.oxml.content_controls import CT_Sdt
     from docx.oxml.document import CT_Body, CT_Document
+    from docx.oxml.table import CT_Tbl
     from docx.parts.document import DocumentPart
     from docx.permissions import PermissionRange
     from docx.search import SearchMatch
@@ -510,6 +511,144 @@ class Document(ElementProxy):
         source_paragraphs = list(self.paragraphs)
         paragraph = self.add_paragraph()
         return populate_toc_paragraph(paragraph, source_paragraphs, levels)
+
+    def add_table_copy(self, other_table: Table) -> Table:
+        """Append a deep copy of `other_table` (possibly from another document) to this body.
+
+        The entire ``w:tbl`` element is deep-copied, then scanned for
+        cross-document references that must be rewired into this document's
+        package:
+
+        - Embedded images: every ``a:blip/@r:embed`` (plus SVG sibling references
+          via ``asvg:svgBlip/@r:embed``) is resolved against `other_table`'s
+          document part. The image part is copied into this document's package
+          (de-duplicated by SHA-1) and the ``r:embed`` attribute is rewritten to
+          the freshly-minted ``rId`` in this part's relationships.
+        - Table-style reference: when ``w:tblStyle/@w:val`` names a style that
+          does not yet exist in this document, the source style's ``w:style``
+          element is deep-copied into this document's styles part. *Advanced
+          style cascades (``w:basedOn`` / ``w:link`` / ``w:next`` chains),
+          numbering references, and conditional table-style formatting are
+          not recursively imported; those remain TODO.*
+
+        Returns the |Table| wrapping the inserted ``w:tbl``. When `other_table`
+        belongs to this same document the copy is inserted without any rewiring
+        (rIds are already valid in the current part).
+
+        Closes upstream#612, #270.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from copy import deepcopy
+
+        from docx.table import Table
+
+        src_tbl = other_table._tbl
+        src_part = other_table.part
+        dest_part = self._part
+
+        new_tbl = deepcopy(src_tbl)
+
+        # -- rewire image references (a:blip and asvg:svgBlip @r:embed) --
+        if src_part is not dest_part:
+            self._rewire_blip_refs(new_tbl, src_part)
+            self._import_table_style(new_tbl, src_part)
+
+        # -- insert the copied w:tbl at the end of the body (before sectPr) --
+        body = self._element.body
+        body._insert_tbl(new_tbl)  # pyright: ignore[reportPrivateUsage]
+
+        return Table(new_tbl, self._body)
+
+    def add_table_from(self, other_table: Table) -> Table:
+        """Alias for :meth:`add_table_copy`.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self.add_table_copy(other_table)
+
+    def _rewire_blip_refs(self, tbl: "CT_Tbl", src_part: DocumentPart) -> None:
+        """Rewire ``a:blip/@r:embed`` refs on ``tbl`` to this document's rels.
+
+        Copies the referenced image parts into this document's package
+        (de-duplicating by SHA-1 via
+        :meth:`docx.package.Package.get_or_add_image_part`) and rewrites every
+        matching ``r:embed`` attribute on the copied tree. Unresolvable refs
+        (the source rId is missing or points to a non-image part) are left
+        untouched so Word still reads the file; the caller can flag them.
+
+        Not a public API.
+        """
+        from docx.opc.constants import RELATIONSHIP_TYPE as _RT
+        from docx.oxml.ns import qn
+        from docx.parts.image import ImagePart
+
+        dest_part = self._part
+        package = dest_part.package
+
+        # -- collect every blip-style element with @r:embed --
+        embed_attr = qn("r:embed")
+        blips = tbl.xpath(
+            ".//a:blip[@r:embed] | .//asvg:svgBlip[@r:embed]"
+        )
+        rid_map: dict[str, str] = {}
+        for blip in blips:
+            old_rid = blip.get(embed_attr)
+            if old_rid is None:
+                continue
+            new_rid = rid_map.get(old_rid)
+            if new_rid is None:
+                try:
+                    src_img_part = src_part.related_parts[old_rid]
+                except KeyError:
+                    continue
+                if not isinstance(src_img_part, ImagePart):
+                    continue
+                # -- copy blob into this package's image_parts (dedup by sha1) --
+                import io as _io
+
+                new_img_part = package.get_or_add_image_part(
+                    _io.BytesIO(src_img_part.blob)
+                )
+                new_rid = dest_part.relate_to(new_img_part, _RT.IMAGE)
+                rid_map[old_rid] = new_rid
+            blip.set(embed_attr, new_rid)
+
+    def _import_table_style(self, tbl: "CT_Tbl", src_part: DocumentPart) -> None:
+        """Ensure the table's ``w:tblStyle/@w:val`` exists in this document.
+
+        If the referenced styleId is not already defined in this document's
+        styles part, deep-copy the source ``w:style`` element across. Styles
+        that cascade through ``w:basedOn`` / ``w:link`` / ``w:next`` are *not*
+        imported recursively — a V1 limitation noted in the method's caller.
+
+        Not a public API.
+        """
+        from copy import deepcopy
+
+        from docx.oxml.ns import qn
+
+        styleId = tbl.xpath("string(./w:tblPr/w:tblStyle/@w:val)")
+        if not styleId:
+            return
+        # -- resolve styles parts on both sides (create empty one on dest if needed) --
+        dest_styles_part = self._part._styles_part  # pyright: ignore[reportPrivateUsage]
+        dest_styles_elm = dest_styles_part.element
+        if dest_styles_elm.get_by_id(styleId) is not None:
+            return
+        try:
+            src_styles_part = src_part._styles_part  # pyright: ignore[reportPrivateUsage]
+        except Exception:
+            try:
+                from docx.opc.constants import RELATIONSHIP_TYPE as _RT
+
+                src_styles_part = src_part.part_related_by(_RT.STYLES)
+            except Exception:
+                return
+        src_style = src_styles_part.element.get_by_id(styleId)
+        if src_style is None:
+            return
+        dest_styles_elm.append(deepcopy(src_style))
 
     def add_table(self, rows: int, cols: int, style: str | _TableStyle | None = None):
         """Add a table having row and column counts of `rows` and `cols` respectively.

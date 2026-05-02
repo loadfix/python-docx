@@ -1169,6 +1169,88 @@ class DescribeTable:
         for desc in new_row._tr.iter():
             assert desc.get(qn("w:id")) is None
 
+    # -- Phase C: cached-cells + fast iteration (upstream#1209, #1516) ----
+
+    def it_caches_the_cells_list_across_accesses(self, document_: Mock):
+        tbl_cxml = (
+            "w:tbl/(w:tblGrid/(w:gridCol,w:gridCol),"
+            "w:tr/(w:tc/w:p,w:tc/w:p),"
+            "w:tr/(w:tc/w:p,w:tc/w:p))"
+        )
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+
+        first = table.cells
+        second = table.cells
+
+        assert first is second
+        # _cells is the same cached list
+        assert table._cells is first
+
+    def it_invalidates_cells_cache_when_add_row_is_called(self, document_: Mock):
+        snippets = snippet_seq("add-row-col")
+        tbl = cast(CT_Tbl, parse_xml(snippets[0]))
+        table = Table(tbl, document_)
+
+        before = table.cells
+        table.add_row()
+        after = table.cells
+
+        assert before is not after
+        assert len(after) > len(before)
+
+    def it_invalidates_cells_cache_when_add_column_is_called(self, document_: Mock):
+        snippets = snippet_seq("add-row-col")
+        tbl = cast(CT_Tbl, parse_xml(snippets[0]))
+        table = Table(tbl, document_)
+
+        before = table.cells
+        table.add_column(Inches(1))
+        after = table.cells
+
+        assert before is not after
+
+    def it_invalidates_cells_cache_when_cells_are_merged(self, document_: Mock):
+        tbl_cxml = (
+            "w:tbl/(w:tblGrid/(w:gridCol,w:gridCol),"
+            "w:tr/(w:tc/w:p,w:tc/w:p))"
+        )
+        tbl = cast(CT_Tbl, element(tbl_cxml))
+        table = Table(tbl, document_)
+        cell_a = table.cell(0, 0)
+        cell_b = table.cell(0, 1)
+
+        before = table.cells
+        cell_a.merge(cell_b)
+        after = table.cells
+
+        assert before is not after
+
+    def it_iter_rows_fast_yields_row_objects_without_building_grid(
+        self, document_: Mock
+    ):
+        tbl_cxml = (
+            "w:tbl/(w:tblGrid/(w:gridCol,w:gridCol),"
+            "w:tr/(w:tc/w:p,w:tc/w:p),"
+            "w:tr/(w:tc/w:p,w:tc/w:p),"
+            "w:tr/(w:tc/w:p,w:tc/w:p))"
+        )
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+
+        # -- iter_rows_fast is lazy: it must be a generator --
+        it = table.iter_rows_fast()
+        import types as _types
+
+        assert isinstance(it, _types.GeneratorType)
+
+        # -- no cached cells materialised just by obtaining the iterator --
+        assert "_cells_cache" not in table.__dict__
+
+        rows = list(it)
+        assert len(rows) == 3
+        assert all(isinstance(r, _Row) for r in rows)
+        # -- still no cached cells: fast iter must not compute the grid --
+        assert "_cells_cache" not in table.__dict__
+
     # fixtures -------------------------------------------------------
 
     @pytest.fixture

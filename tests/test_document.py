@@ -1121,6 +1121,77 @@ class DescribeDocument:
         ]
         assert len(set(ids)) == 2
 
+    # -- Phase C: cross-document table copy (upstream#612, #270) -----------
+
+    def it_can_add_a_cross_document_table_copy(self):
+        """``add_table_copy`` deep-copies another document's ``w:tbl`` into this body."""
+        import docx as _docx
+
+        source = _docx.Document()
+        src_table = source.add_table(rows=2, cols=2)
+        src_table.cell(0, 0).text = "hello"
+        src_table.cell(1, 1).text = "world"
+
+        dest = _docx.Document()
+        initial_table_count = len(dest.tables)
+
+        copied = dest.add_table_copy(src_table)
+
+        assert len(dest.tables) == initial_table_count + 1
+        # -- copied is a distinct XML subtree --
+        assert copied._tbl is not src_table._tbl
+        # -- text preserved --
+        assert copied.cell(0, 0).text == "hello"
+        assert copied.cell(1, 1).text == "world"
+
+    def it_rewires_embedded_images_across_documents(self):
+        """``a:blip/@r:embed`` refs must be rewritten to point at the dest's rIds."""
+        import docx as _docx
+        from docx.opc.constants import RELATIONSHIP_TYPE as _RT
+        from docx.oxml.ns import qn as _qn
+        from docx.shared import Inches as _Inches
+
+        source = _docx.Document()
+        src_table = source.add_table(rows=1, cols=1)
+        src_cell = src_table.cell(0, 0)
+        src_cell.paragraphs[0].add_run().add_picture(
+            "tests/test_files/monty-truth.png", width=_Inches(1)
+        )
+
+        # -- record the src-side rId --
+        src_blips = src_table._tbl.xpath(".//a:blip")
+        src_rids = [b.get(_qn("r:embed")) for b in src_blips]
+        assert src_rids and all(src_rids)
+
+        dest = _docx.Document()
+        copied = dest.add_table_copy(src_table)
+
+        dest_blips = copied._tbl.xpath(".//a:blip")
+        dest_rids = [b.get(_qn("r:embed")) for b in dest_blips]
+        assert dest_rids and all(dest_rids)
+        # -- each dest rId must resolve to an image part in the dest's rels --
+        for rid in dest_rids:
+            dest_part = dest.part.related_parts[rid]
+            assert dest_part.content_type.startswith("image/")
+        # -- dest now has an image rel that source (may) not (and vice versa
+        # -- we can assert the rId is *present* at least) --
+        image_rels = [
+            r for r in dest.part.rels.values() if r.reltype == _RT.IMAGE
+        ]
+        assert len(image_rels) >= 1
+
+    def it_add_table_from_is_an_alias(self):
+        import docx as _docx
+
+        source = _docx.Document()
+        src_table = source.add_table(rows=1, cols=1)
+        src_table.cell(0, 0).text = "aliased"
+
+        dest = _docx.Document()
+        copied = dest.add_table_from(src_table)
+
+        assert copied.cell(0, 0).text == "aliased"
+
     # -- fixtures --------------------------------------------------------------------------------
 
     @pytest.fixture
