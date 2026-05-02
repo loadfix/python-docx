@@ -184,3 +184,65 @@ Feature: Get and set style properties
       | setting    | new-value | value |
       | no setting | True      | True  |
       | on         | False     | False |
+
+
+  Scenario Outline: Get link_style
+    Given a linked/next/redefined styles document
+     Then styles[<name>].link_style is <expected>
+
+    Examples: Style.link_style values
+      | name       | expected  |
+      | "Body"     | "BodyChar"|
+      | "BodyChar" | "Body"    |
+      | "Solo"     | None      |
+
+
+  Scenario: Set link_style by style object
+    Given a linked/next/redefined styles document
+     When I assign styles["Body"] to styles["Solo"].link_style
+     Then styles["Solo"].link_style is "Body"
+
+
+  Scenario: Set link_style by style id string
+    Given a linked/next/redefined styles document
+     When I assign "Body" to styles["Solo"].link_style
+     Then styles["Solo"].link_style is "Body"
+
+
+  Scenario: Clear link_style
+    Given a linked/next/redefined styles document
+     When I assign None to styles["Body"].link_style
+     Then styles["Body"].link_style is None
+
+
+  Scenario Outline: Get next_style
+    Given a linked/next/redefined styles document
+     Then styles[<name>].next_style is <expected>
+
+    Examples: Style.next_style values
+      | name    | expected |
+      | "Intro" | "Body"   |
+      | "Solo"  | None     |
+
+
+  Scenario: Set next_style by style object
+    Given a linked/next/redefined styles document
+     When I assign styles["Body"] to styles["Solo"].next_style
+     Then styles["Solo"].next_style is "Body"
+
+
+  Scenario: Clear next_style
+    Given a linked/next/redefined styles document
+     When I assign None to styles["Intro"].next_style
+     Then styles["Intro"].next_style is None
+
+
+  Scenario Outline: Get is_redefined
+    Given a linked/next/redefined styles document
+     Then styles[<name>].is_redefined is <value>
+
+    Examples: Style.is_redefined values
+      | name    | value |
+      | "Intro" | True  |
+      | "Body"  | False |
+      | "Solo"  | False |

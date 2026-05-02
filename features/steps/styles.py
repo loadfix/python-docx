@@ -1,5 +1,7 @@
 """Step implementations for styles-related features."""
 
+from __future__ import annotations
+
 from behave import given, then, when
 
 from docx import Document
@@ -188,6 +190,13 @@ def given_the_style_collection_of_a_document(context):
     context.styles = document.styles
 
 
+@given("a linked/next/redefined styles document")
+def given_a_linked_next_redefined_styles_document(context):
+    document = Document(test_docx("sty-link-next"))
+    context.document = document
+    context.styles = document.styles
+
+
 # when =====================================================
 
 
@@ -290,6 +299,43 @@ def when_I_delete_a_latent_style(context):
 @when("I delete a style")
 def when_I_delete_a_style(context):
     context.document.styles["No List"].delete()
+
+
+@when('I assign styles[{ref}] to styles[{target}].link_style')
+def when_I_assign_styles_ref_to_styles_target_link_style(context, ref, target):
+    styles = context.styles
+    ref_name = ref.strip("\"'")
+    target_name = target.strip("\"'")
+    styles[target_name].link_style = styles[ref_name]
+
+
+@when('I assign {value} to styles[{target}].link_style')
+def when_I_assign_value_to_styles_target_link_style(context, value, target):
+    target_name = target.strip("\"'")
+    if value == "None":
+        new_value = None
+    else:
+        # -- string form: a style id literal (e.g. "Body") --
+        new_value = value.strip("\"'")
+    context.styles[target_name].link_style = new_value
+
+
+@when('I assign styles[{ref}] to styles[{target}].next_style')
+def when_I_assign_styles_ref_to_styles_target_next_style(context, ref, target):
+    styles = context.styles
+    ref_name = ref.strip("\"'")
+    target_name = target.strip("\"'")
+    styles[target_name].next_style = styles[ref_name]
+
+
+@when('I assign {value} to styles[{target}].next_style')
+def when_I_assign_value_to_styles_target_next_style(context, value, target):
+    target_name = target.strip("\"'")
+    if value == "None":
+        new_value = None
+    else:
+        new_value = value.strip("\"'")
+    context.styles[target_name].next_style = new_value
 
 
 # then =====================================================
@@ -546,3 +592,44 @@ def then_the_document_has_one_fewer_styles(context):
     style_count = len(document.styles)
     expected_style_count = context.style_count - 1
     assert style_count == expected_style_count
+
+
+@then('styles[{name}].link_style is {expected}')
+def then_styles_name_link_style_is(context, name, expected):
+    target_name = name.strip("\"'")
+    style = context.styles[target_name]
+    actual = style.link_style
+    if expected == "None":
+        assert actual is None, f"expected None, got {actual!r}"
+        return
+    expected_name = expected.strip("\"'")
+    assert actual is not None, f"expected link_style {expected_name!r}, got None"
+    assert actual.name == expected_name, (
+        f"expected link_style.name == {expected_name!r}, got {actual.name!r}"
+    )
+
+
+@then('styles[{name}].next_style is {expected}')
+def then_styles_name_next_style_is(context, name, expected):
+    target_name = name.strip("\"'")
+    style = context.styles[target_name]
+    actual = style.next_style
+    if expected == "None":
+        assert actual is None, f"expected None, got {actual!r}"
+        return
+    expected_name = expected.strip("\"'")
+    assert actual is not None, f"expected next_style {expected_name!r}, got None"
+    assert actual.name == expected_name, (
+        f"expected next_style.name == {expected_name!r}, got {actual.name!r}"
+    )
+
+
+@then('styles[{name}].is_redefined is {value}')
+def then_styles_name_is_redefined_is(context, name, value):
+    target_name = name.strip("\"'")
+    style = context.styles[target_name]
+    expected = bool_vals[value]
+    actual = style.is_redefined
+    assert actual is expected, (
+        f"styles[{target_name!r}].is_redefined = {actual!r}, expected {expected!r}"
+    )

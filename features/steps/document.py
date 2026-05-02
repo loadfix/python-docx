@@ -1,17 +1,19 @@
 """Step implementations for document-related features."""
 
+from __future__ import annotations
+
 from behave import given, then, when
 
 from docx import Document
 from docx.enum.section import WD_ORIENT, WD_SECTION
 from docx.section import Sections
 from docx.shape import InlineShapes
-from docx.shared import Inches
+from docx.shared import Inches, RGBColor
 from docx.styles.styles import Styles
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
-from helpers import test_docx, test_file
+from helpers import saved_docx_path, test_docx, test_file
 
 # given ===================================================
 
@@ -19,6 +21,11 @@ from helpers import test_docx, test_file
 @given("a blank document")
 def given_a_blank_document(context):
     context.document = Document(test_docx("doc-word-default-blank"))
+
+
+@given("a document having a background color")
+def given_a_document_having_a_background_color(context):
+    context.document = Document(test_docx("doc-background"))
 
 
 @given("a document having built-in styles")
@@ -160,7 +167,41 @@ def when_I_execute_section_eq_document_add_section(context):
     context.section = context.document.add_section()
 
 
+@when("I assign RGBColor({hex_spec}) to document.background_color")
+def when_I_assign_RGBColor_to_document_background_color(context, hex_spec):
+    context.document.background_color = _parse_rgbcolor(hex_spec)
+
+
+@when("I assign None to document.background_color")
+def when_I_assign_None_to_document_background_color(context):
+    context.document.background_color = None
+
+
+@when("I save and reload the document to scratch")
+def when_I_save_and_reload_the_document_to_scratch(context):
+    import os
+
+    os.makedirs(os.path.dirname(saved_docx_path), exist_ok=True)
+    context.document.save(saved_docx_path)
+    context.document = Document(saved_docx_path)
+
+
 # then ====================================================
+
+
+@then("document.background_color is None")
+def then_document_background_color_is_None(context):
+    actual = context.document.background_color
+    assert actual is None, f"document.background_color = {actual!r}, expected None"
+
+
+@then("document.background_color is RGBColor({hex_spec})")
+def then_document_background_color_is_RGBColor(context, hex_spec):
+    expected = _parse_rgbcolor(hex_spec)
+    actual = context.document.background_color
+    assert actual == expected, (
+        f"document.background_color = {actual!r}, expected {expected!r}"
+    )
 
 
 @then("document.inline_shapes is an InlineShapes object")
@@ -257,3 +298,17 @@ def then_the_style_of_the_last_paragraph_is_style(context, style_name):
     document = context.document
     paragraph = document.paragraphs[-1]
     assert paragraph.style.name == style_name, "got %s" % paragraph.style.name
+
+
+# helpers =================================================
+
+
+def _parse_rgbcolor(spec: str) -> RGBColor:
+    """Parse a ``"FF, A5, 00"`` (or ``"FFA500"``) spec into |RGBColor|."""
+    parts = [p.strip() for p in spec.split(",")]
+    if len(parts) == 1:
+        return RGBColor.from_string(parts[0])
+    if len(parts) != 3:
+        raise ValueError(f"unrecognized RGBColor spec: {spec!r}")
+    r, g, b = (int(p, 16) for p in parts)
+    return RGBColor(r, g, b)

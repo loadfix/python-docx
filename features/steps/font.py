@@ -1,5 +1,7 @@
 """Step implementations for font-related features."""
 
+from __future__ import annotations
+
 from behave import given, then, when
 
 from docx import Document
@@ -112,6 +114,18 @@ def when_I_assign_value_to_font_name(context, value):
     font.name = value
 
 
+@when("I assign {value} to font.name_far_east")
+def when_I_assign_value_to_font_name_far_east(context, value):
+    font = context.font
+    font.name_far_east = None if value == "None" else value
+
+
+@when("I assign {value} to font.name_east_asia")
+def when_I_assign_value_to_font_name_east_asia(context, value):
+    font = context.font
+    font.name_east_asia = None if value == "None" else value
+
+
 @when("I assign {value} to font.size")
 def when_I_assign_value_str_to_font_size(context, value):
     value = None if value == "None" else int(value)
@@ -190,6 +204,24 @@ def then_font_name_is_value(context, value):
     font = context.font
     value = None if value == "None" else value
     assert font.name == value
+
+
+@then("font.name_far_east is {value}")
+def then_font_name_far_east_is_value(context, value):
+    font = context.font
+    expected = None if value == "None" else value
+    assert font.name_far_east == expected, (
+        f"font.name_far_east = {font.name_far_east!r}, expected {expected!r}"
+    )
+
+
+@then("font.name_east_asia is {value}")
+def then_font_name_east_asia_is_value(context, value):
+    font = context.font
+    expected = None if value == "None" else value
+    assert font.name_east_asia == expected, (
+        f"font.name_east_asia = {font.name_east_asia!r}, expected {expected!r}"
+    )
 
 
 @then("font.size is {value}")

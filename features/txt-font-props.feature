@@ -231,3 +231,29 @@ Feature: Get or set font properties
       | spec_vanish       |
       | strike            |
       | web_hidden        |
+
+
+  Scenario: Get East Asian typeface name when not specified
+    Given a font
+     Then font.name_far_east is None
+      And font.name_east_asia is None
+
+
+  Scenario Outline: Set East Asian typeface name round-trip
+    Given a font
+     When I assign <value> to font.name_far_east
+     Then font.name_far_east is <value>
+      And font.name_east_asia is <value>
+
+    Examples: font.name_far_east assignment cases
+      | value      |
+      | MS Mincho  |
+      | SimSun     |
+      | None       |
+
+
+  Scenario: name_east_asia is a writable alias for name_far_east
+    Given a font
+     When I assign MS Gothic to font.name_east_asia
+     Then font.name_far_east is MS Gothic
+      And font.name_east_asia is MS Gothic
