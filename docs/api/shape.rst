@@ -11,7 +11,6 @@ Shape-related objects
 ----------------------
 
 .. autoclass:: InlineShapes
-   :members:
    :exclude-members: add_picture
 
 
@@ -28,4 +27,9 @@ have built-in units conversion properties, e.g.::
     1.0
 
 .. autoclass:: InlineShape
-   :members: height, type, width
+
+
+|FloatingImage| objects
+-----------------------
+
+.. autoclass:: FloatingImage

@@ -11,16 +11,48 @@ can be found here:
    MsoColorType
    MsoThemeColorIndex
    WdAlignParagraph
+   WdAnchorH
+   WdAnchorV
+   WdBorderDisplay
+   WdBorderOffsetFrom
+   WdBorderStyle
+   WdBreakType
+   WdBuildingBlockGallery
    WdBuiltinStyle
    WdCellVerticalAlignment
    WdColorIndex
+   WdDocGridType
+   WdDrawingType
+   WdEndnotePosition
+   WdFootnotePosition
+   WdFootnoteRestart
+   WdFrameDropCap
+   WdFrameHAlign
+   WdFrameHAnchor
+   WdFrameVAlign
+   WdFrameVAnchor
+   WdFrameWrap
+   WdHeaderFooterIndex
+   WdInlineShapeType
+   WdLineNumberingRestart
    WdLineSpacing
+   WdMailMergeDataType
+   WdMailMergeDestination
+   WdMailMergeType
+   WdNumberFormat
    WdOrientation
+   WdProtection
    WdRowAlignment
    WdRowHeightRule
    WdSectionStart
+   WdShadingPattern
+   WdShape
    WdStyleType
    WdTabAlignment
-   WdTabLeader
+   WdTableAutofit
    WdTableDirection
+   WdTabLeader
+   WdTextDirection
    WdUnderline
+   WdView
+   WdWrapType
