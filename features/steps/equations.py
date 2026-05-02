@@ -6,6 +6,15 @@ other equation agents will add for superscript, subscript and radical
 builders. Steps here MUST remain idempotent and free of feature-specific
 coupling so the cherry-pick merge from separate agent branches composes
 cleanly.
+"""Step implementations for OMML equation behave features.
+
+Covers :func:`docx.equations.build_superscript` and
+:func:`docx.equations.build_subscript` along with round-trips through
+:meth:`Paragraph.add_equation` and fixture-driven read-back scenarios.
+
+Some ``Given`` phrasings (for example ``a fresh default document``) are
+registered elsewhere in the steps package and are re-used here by keeping the
+wording identical.
 """
 
 from __future__ import annotations
@@ -139,6 +148,84 @@ def then_xml_contains(context: Context, fragment: str):
     assert fragment in context.xml, (
         f"expected {fragment!r} in xml, got {context.xml!r}"
     )
+from docx.equations import Equation, build_subscript, build_superscript
+
+from helpers import test_docx
+
+
+# given ===================================================
+
+
+@given("a document having two superscript equations")
+def given_document_having_two_superscript_equations(context: Context):
+    context.document = Document(test_docx("equ-superscript"))
+
+
+@given("a document having chained subscript equations")
+def given_document_having_chained_subscript_equations(context: Context):
+    context.document = Document(test_docx("equ-subscript"))
+
+
+# when ====================================================
+
+
+@when('I call build_superscript("{base}", "{exponent}")')
+def when_call_build_superscript(context: Context, base: str, exponent: str):
+    xml_str = build_superscript(base, exponent)
+    context.built_xml = xml_str
+    context.built_equation = Equation.from_omml_xml(xml_str)
+
+
+@when('I call build_subscript("{base}", "{subscript}")')
+def when_call_build_subscript(context: Context, base: str, subscript: str):
+    xml_str = build_subscript(base, subscript)
+    context.built_xml = xml_str
+    context.built_equation = Equation.from_omml_xml(xml_str)
+
+
+@when('I add a superscript equation "{base}" "{exponent}" to a new paragraph')
+def when_add_superscript_to_new_paragraph(
+    context: Context, base: str, exponent: str
+):
+    context.paragraph = context.document.add_paragraph()
+    context.paragraph.add_equation(build_superscript(base, exponent))
+
+
+@when('I add a subscript equation "{base}" "{sub}" to a new paragraph')
+def when_add_subscript_to_new_paragraph(
+    context: Context, base: str, sub: str
+):
+    context.paragraph = context.document.add_paragraph()
+    context.paragraph.add_equation(build_subscript(base, sub))
+
+
+@when('I add a subscript equation "{base}" "{sub}" to the same paragraph')
+def when_add_subscript_to_same_paragraph(
+    context: Context, base: str, sub: str
+):
+    context.paragraph.add_equation(build_subscript(base, sub))
+
+
+# then ====================================================
+
+
+@then('the built equation text is "{text}"')
+def then_built_equation_text(context: Context, text: str):
+    actual = context.built_equation.text
+    assert actual == text, f"expected {text!r}, got {actual!r}"
+
+
+@then('the built equation raw_xml contains "{fragment}"')
+def then_built_equation_raw_xml_contains(context: Context, fragment: str):
+    raw = context.built_equation.raw_xml.decode("utf-8")
+    assert fragment in raw, f"{fragment!r} not found in {raw!r}"
+
+
+@then("the built equation is_display_mode is {value}")
+def then_built_equation_is_display_mode(context: Context, value: str):
+    expected = {"True": True, "False": False}[value]
+    actual = context.built_equation.is_display_mode
+    assert actual is expected, f"expected {expected!r}, got {actual!r}"
 
 
 @then("the paragraph has {count:d} equation")
@@ -164,3 +251,78 @@ def then_appended_equation_text(context: Context, text: str):
     assert actual == text, (
         f"expected appended equation.text {text!r}, got {actual!r}"
     )
+def then_paragraph_has_n_equations(context: Context, count: int):
+    actual = len(context.paragraph.equations)
+    assert actual == count, f"expected {count} equations, got {actual}"
+
+
+@then('the paragraph first equation text is "{text}"')
+def then_paragraph_first_equation_text(context: Context, text: str):
+    actual = context.paragraph.equations[0].text
+    assert actual == text, f"expected {text!r}, got {actual!r}"
+
+
+@then('the paragraph second equation text is "{text}"')
+def then_paragraph_second_equation_text(context: Context, text: str):
+    actual = context.paragraph.equations[1].text
+    assert actual == text, f"expected {text!r}, got {actual!r}"
+
+
+@then('the paragraph first equation raw_xml contains "{fragment}"')
+def then_paragraph_first_equation_raw_xml_contains(
+    context: Context, fragment: str
+):
+    raw = context.paragraph.equations[0].raw_xml.decode("utf-8")
+    assert fragment in raw, f"{fragment!r} not found in {raw!r}"
+
+
+@then('every paragraph equation raw_xml contains "{fragment}"')
+def then_every_paragraph_equation_raw_xml_contains(
+    context: Context, fragment: str
+):
+    for eq in context.paragraph.equations:
+        raw = eq.raw_xml.decode("utf-8")
+        assert fragment in raw, f"{fragment!r} not found in {raw!r}"
+
+
+def _doc_equations(context: Context) -> list:
+    return [eq for p in context.document.paragraphs for eq in p.equations]
+
+
+@then("the document has {count:d} superscript equations")
+@then("the document has {count:d} subscript equations")
+def then_document_has_n_equations(context: Context, count: int):
+    equations = _doc_equations(context)
+    assert len(equations) == count, (
+        f"expected {count} equations, got {len(equations)}"
+    )
+
+
+@then('the first superscript equation text is "{text}"')
+@then('the first subscript equation text is "{text}"')
+def then_first_document_equation_text(context: Context, text: str):
+    actual = _doc_equations(context)[0].text
+    assert actual == text, f"expected {text!r}, got {actual!r}"
+
+
+@then('the second superscript equation text is "{text}"')
+@then('the second subscript equation text is "{text}"')
+def then_second_document_equation_text(context: Context, text: str):
+    actual = _doc_equations(context)[1].text
+    assert actual == text, f"expected {text!r}, got {actual!r}"
+
+
+@then('the third subscript equation text is "{text}"')
+def then_third_document_equation_text(context: Context, text: str):
+    actual = _doc_equations(context)[2].text
+    assert actual == text, f"expected {text!r}, got {actual!r}"
+
+
+@then('every superscript equation raw_xml contains "{fragment}"')
+@then('every subscript equation raw_xml contains "{fragment}"')
+def then_every_document_equation_raw_xml_contains(
+    context: Context, fragment: str
+):
+    for eq in _doc_equations(context):
+        raw = eq.raw_xml.decode("utf-8")
+        assert fragment in raw, f"{fragment!r} not found in {raw!r}"
