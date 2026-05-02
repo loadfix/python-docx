@@ -120,6 +120,45 @@ class DescribeParseXmlRecovery:
             parse_xml(b"<root>unclosed")
 
 
+class DescribeParseXmlHugeTree:
+    def it_rejects_attvalue_over_10mb_by_default(self):
+        # -- libxml2's default AttValue cap is 10 MB. Building a 12 MB attvalue
+        # -- triggers the "AttValue length too long" XMLSyntaxError — that's
+        # -- the exact failure mode upstream#1086 describes.
+        from lxml import etree as _etree
+
+        big = "x" * (12 * 1024 * 1024)
+        xml = '<root a="%s"/>' % big
+        with pytest.raises(_etree.XMLSyntaxError):
+            parse_xml(xml.encode("utf-8"))
+
+    def it_parses_attvalue_over_10mb_when_huge_tree_active(self):
+        from docx.oxml.parser import huge_tree_mode
+
+        big = "x" * (12 * 1024 * 1024)
+        xml = '<root a="%s"/>' % big
+        with huge_tree_mode():
+            element = parse_xml(xml.encode("utf-8"))
+        assert element is not None
+        assert element.get("a") == big
+
+    def it_deactivates_huge_tree_after_context_exits(self):
+        from docx.oxml.parser import _huge_tree_state, huge_tree_mode
+
+        with huge_tree_mode():
+            assert _huge_tree_state.active is True
+        assert _huge_tree_state.active is False
+
+    def it_composes_with_recovery_mode(self):
+        from docx.oxml.parser import huge_tree_mode, recovery_mode
+
+        with huge_tree_mode(), recovery_mode() as warnings:
+            element = parse_xml(b"<w:p>unclosed")
+        # -- malformed + huge-tree must still recover, not crash --
+        assert element is not None
+        assert isinstance(warnings, list)
+
+
 class DescribeRegisterElementCls:
     def it_determines_class_used_for_elements_with_matching_tagname(self, xml_text):
         register_element_cls("a:foo", CustElmCls)

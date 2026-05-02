@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import posixpath
 from typing import IO, TYPE_CHECKING, cast
 from collections.abc import Iterator
 
@@ -20,6 +22,43 @@ if TYPE_CHECKING:
     from docx.opc.coreprops import CoreProperties
     from docx.opc.part import Part
     from docx.opc.rel import _Relationship  # pyright: ignore[reportPrivateUsage]
+
+
+#: Characters Windows disallows in file names (drive-letter colons are allowed
+#: in the path prefix but not inside the filename itself). ``/`` and ``\`` are
+#: directory separators and are intentionally omitted from this set.
+_WINDOWS_INVALID_FILENAME_CHARS = frozenset('<>:"|?*')
+
+
+def _validate_save_path(path: str) -> None:
+    """Raise :class:`OSError` when `path`'s filename contains Windows-invalid chars.
+
+    Only the basename portion is inspected — ``C:/foo/bar.docx`` is fine on
+    every platform because the drive-letter colon is part of the path prefix,
+    not the filename. Control characters (``\\x00``-``\\x1f``) are also
+    rejected. The check runs on every platform so that scripts developed on
+    POSIX surface the problem early rather than silently producing a file that
+    Windows consumers can't open. Closes upstream#1111.
+    """
+    # -- split on both forward and backward slashes so Windows-style paths
+    # -- work on POSIX and vice-versa. --
+    basename = os.path.basename(path.replace("\\", "/"))
+    basename = posixpath.basename(basename)
+    if not basename:
+        raise OSError(
+            "invalid save path %r: no filename component" % path
+        )
+    bad = sorted({ch for ch in basename if ch in _WINDOWS_INVALID_FILENAME_CHARS})
+    if bad:
+        raise OSError(
+            "invalid character(s) %s in filename %r (Windows-invalid)"
+            % (", ".join(repr(c) for c in bad), basename)
+        )
+    ctrl = sorted({ch for ch in basename if ord(ch) < 0x20})
+    if ctrl:
+        raise OSError(
+            "control character(s) in filename %r are not permitted" % basename
+        )
 
 
 class OpcPackage:
@@ -127,7 +166,12 @@ class OpcPackage:
                 return PackURI(candidate_partname)
 
     @classmethod
-    def open(cls, pkg_file: str | IO[bytes], recover: bool = False) -> Self:
+    def open(
+        cls,
+        pkg_file: str | IO[bytes],
+        recover: bool = False,
+        huge_tree: bool = False,
+    ) -> Self:
         """Return an |OpcPackage| instance loaded with the contents of `pkg_file`.
 
         When `recover` is True, XML parsing falls back to lxml's recovering
@@ -135,21 +179,38 @@ class OpcPackage:
         accumulated on ``package.recovery_warnings`` instead of raising
         :class:`lxml.etree.XMLSyntaxError`. Default behaviour (``recover=False``)
         is unchanged.
-        """
-        from docx.oxml.parser import recovery_mode
 
-        if recover:
-            with recovery_mode() as warnings:
-                pkg_reader = PackageReader.from_file(pkg_file)
-                package = cls()
-                Unmarshaller.unmarshal(pkg_reader, package, PartFactory)
+        When `huge_tree` is True, the lxml ``huge_tree=True`` parser variant is
+        used for every part in the package. This lifts libxml2's default
+        10 MB-per-AttValue and 256-deep nesting limits so extremely large
+        documents can be parsed (upstream#1086). Only enable for trusted
+        input — the default parser's XML-bomb protections no longer apply.
+        """
+        from docx.oxml.parser import huge_tree_mode, recovery_mode
+
+        def _load() -> Self:
+            pkg_reader = PackageReader.from_file(pkg_file)
+            package = cls()
+            Unmarshaller.unmarshal(pkg_reader, package, PartFactory)
+            return package
+
+        if recover and huge_tree:
+            with huge_tree_mode(), recovery_mode() as warnings:
+                package = _load()
             package._recovery_warnings = list(warnings)
             return package
 
-        pkg_reader = PackageReader.from_file(pkg_file)
-        package = cls()
-        Unmarshaller.unmarshal(pkg_reader, package, PartFactory)
-        return package
+        if recover:
+            with recovery_mode() as warnings:
+                package = _load()
+            package._recovery_warnings = list(warnings)
+            return package
+
+        if huge_tree:
+            with huge_tree_mode():
+                return _load()
+
+        return _load()
 
     @property
     def recovery_warnings(self) -> list[str]:
@@ -192,7 +253,15 @@ class OpcPackage:
         """Save this package to `pkg_file`.
 
         `pkg_file` can be either a file-path or a file-like object.
+
+        When `pkg_file` is a string, the filename component is validated against
+        the characters Windows disallows in filenames (``< > : " | ? *``). A
+        mismatch raises :class:`OSError`. This avoids the silently-truncated /
+        no-file-created failure mode reported in upstream#1111 when callers
+        pass e.g. ``"my:file.docx"`` as the save target.
         """
+        if isinstance(pkg_file, str):
+            _validate_save_path(pkg_file)
         for part in self.parts:
             part.before_marshal()
         PackageWriter.write(pkg_file, self.rels, self.parts)
@@ -202,9 +271,17 @@ class OpcPackage:
         """|CorePropertiesPart| object related to this package.
 
         Creates a default core properties part if one is not present (not common).
+        Honours both the canonical ``package/2006`` core-properties reltype and
+        the ``officeDocument/2006`` alternate emitted by some producers
+        (upstream-PR#1436) so a duplicate ``docProps/core.xml`` isn't created
+        when the existing rel uses the alternate form.
         """
         try:
             return cast(CorePropertiesPart, self.part_related_by(RT.CORE_PROPERTIES))
+        except KeyError:
+            pass
+        try:
+            return cast(CorePropertiesPart, self.part_related_by(RT.CORE_PROPERTIES_ALT))
         except KeyError:
             core_properties_part = CorePropertiesPart.default(self)
             self.relate_to(core_properties_part, RT.CORE_PROPERTIES)

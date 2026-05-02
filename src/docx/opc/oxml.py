@@ -197,9 +197,20 @@ class CT_Relationship(BaseOxmlElement):
         """String held in the ``TargetMode`` attribute of this ``<Relationship>``
         element, either ``Internal`` or ``External``.
 
-        Defaults to ``Internal``.
+        Defaults to ``Internal``. Relationships whose ``Target`` is a pure
+        in-document fragment (e.g. ``"#bookmark1"``, emitted by Word for
+        internal-bookmark hyperlinks) or NULL/empty are reported as
+        ``External`` even when no explicit ``TargetMode="External"`` is set,
+        so downstream consumers skip the part-name lookup that would
+        otherwise fail. upstream#902, #1349, #678, PR#1498, PR#1518, PR#1350.
         """
-        return self.get("TargetMode", RTM.INTERNAL)
+        declared = self.get("TargetMode", RTM.INTERNAL)
+        if declared == RTM.EXTERNAL:
+            return RTM.EXTERNAL
+        target = self.get("Target")
+        if target is None or target == "" or target.startswith("#"):
+            return RTM.EXTERNAL
+        return declared
 
 
 class CT_Relationships(BaseOxmlElement):

@@ -204,6 +204,12 @@ class RELATIONSHIP_TYPE:
     CORE_PROPERTIES = (
         "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties"
     )
+    # -- Some DOCX producers (and older Office builds) use the `officeDocument`
+    # -- namespace variant for the core-properties reltype. Readers should
+    # -- treat both as equivalent. upstream-PR#1436.
+    CORE_PROPERTIES_ALT = (
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/metadata/core-properties"
+    )
     CUSTOM_PROPERTIES = (
         "http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties"
     )

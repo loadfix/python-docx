@@ -70,13 +70,27 @@ class PackageReader:
         for srel in srels:
             if srel.is_external:
                 continue
+            # -- Skip relationships whose target is a pure in-document fragment
+            # -- (e.g. "#bookmark1") or a NULL/empty target. Such relationships
+            # -- describe internal bookmark hyperlinks and don't refer to any
+            # -- package part. upstream#902, #1349, #678, PR#1498, PR#1518, PR#1350.
+            target_ref = srel.target_ref
+            if not target_ref or target_ref.startswith("#"):
+                continue
             partname = srel.target_partname
             if partname in visited_partnames:
                 continue
             visited_partnames.append(partname)
             reltype = srel.reltype
             part_srels = PackageReader._srels_for(phys_reader, partname)
-            blob = phys_reader.blob_for(partname)
+            # -- Tolerate rels that point at a part which is not present in the
+            # -- package. Word itself emits such "dangling" rels in some loose
+            # -- / partially-repaired documents; we skip them so the rest of
+            # -- the package still loads. upstream-PR#1219.
+            try:
+                blob = phys_reader.blob_for(partname)
+            except KeyError:
+                continue
             yield (partname, blob, reltype, part_srels)
             next_walker = PackageReader._walk_phys_parts(phys_reader, part_srels, visited_partnames)
             for partname, blob, reltype, srels in next_walker:
@@ -177,7 +191,14 @@ class _SerializedRelationship:
         self._rId = rel_elm.rId
         self._reltype = rel_elm.reltype
         self._target_mode = rel_elm.target_mode
-        self._target_ref = rel_elm.target_ref
+        # -- Normalise Windows-style backslashes to forward slashes. Some
+        # -- third-party DOCX producers write `Target="media\image1.png"`
+        # -- which, left as-is, breaks `PackURI.from_rel_ref()`'s posixpath
+        # -- join and yields a bogus part-name. upstream-PR#1205.
+        target_ref = rel_elm.target_ref
+        if target_ref is not None and "\\" in target_ref:
+            target_ref = target_ref.replace("\\", "/")
+        self._target_ref = target_ref
 
     @property
     def is_external(self):

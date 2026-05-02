@@ -42,6 +42,26 @@ class DescribeOpcPackage:
         Unmarshaller_.unmarshal.assert_called_once_with(pkg_reader, pkg, PartFactory_)
         assert isinstance(pkg, OpcPackage)
 
+    def it_activates_huge_tree_mode_when_requested(
+        self, PackageReader_, PartFactory_, Unmarshaller_
+    ):
+        # -- upstream#1086: `huge_tree=True` must be plumbed through Package.open
+        # -- so that extremely large documents parse without raising on
+        # -- AttValue>10MB or 256-deep nesting.
+        from docx.oxml.parser import _huge_tree_state
+
+        seen_states: list[bool] = []
+
+        def _record_state(pkg_reader, pkg, part_factory):
+            seen_states.append(_huge_tree_state.active)
+
+        Unmarshaller_.unmarshal.side_effect = _record_state
+        OpcPackage.open(Mock(name="pkg_file"), huge_tree=True)
+
+        assert seen_states == [True]
+        # -- and the state is reset after the call --
+        assert _huge_tree_state.active is False
+
     def it_initializes_its_rels_collection_on_first_reference(self, Relationships_):
         pkg = OpcPackage()
         rels = pkg.rels
@@ -129,6 +149,42 @@ class DescribeOpcPackage:
             part.before_marshal.assert_called_once_with()
         PackageWriter_.write.assert_called_once_with(pkg_file_, pkg.rels, parts_)
 
+    def it_raises_on_save_path_with_windows_invalid_chars(self):
+        # -- upstream#1111: historically `Document.save("foo:bar.docx")` silently
+        # -- produced no file / an empty file on Windows. Raise instead.
+        pkg = OpcPackage()
+        invalid_names = [
+            "foo:bar.docx",
+            "foo|bar.docx",
+            'foo"bar.docx',
+            "foo?bar.docx",
+            "foo*bar.docx",
+            "foo<bar.docx",
+            "foo>bar.docx",
+        ]
+        for path in invalid_names:
+            with pytest.raises(OSError, match="Windows-invalid"):
+                pkg.save(path)
+
+    def it_accepts_drive_letter_colons_on_save(
+        self, PackageWriter_: Mock, parts_prop_: Mock, parts_: list[Mock]
+    ):
+        parts_prop_.return_value = parts_
+        pkg = OpcPackage()
+        # -- drive-letter colon is in the path prefix, not the filename. Valid. --
+        pkg.save("C:/tmp/foo.docx")
+        PackageWriter_.write.assert_called_once_with("C:/tmp/foo.docx", pkg.rels, parts_)
+
+    def it_raises_on_save_path_with_embedded_control_chars(self):
+        pkg = OpcPackage()
+        with pytest.raises(OSError, match="control character"):
+            pkg.save("foo\x01bar.docx")
+
+    def it_raises_on_save_path_with_no_filename(self):
+        pkg = OpcPackage()
+        with pytest.raises(OSError, match="no filename component"):
+            pkg.save("/tmp/")
+
     def it_provides_access_to_the_core_properties(self, core_props_fixture):
         opc_package, core_properties_ = core_props_fixture
         core_properties = opc_package.core_properties
@@ -151,6 +207,28 @@ class DescribeOpcPackage:
         CorePropertiesPart_.default.assert_called_once_with(opc_package)
         relate_to_.assert_called_once_with(opc_package, core_properties_part_, RT.CORE_PROPERTIES)
         assert core_properties_part is core_properties_part_
+
+    def it_finds_core_props_part_via_alternate_reltype(
+        self, part_related_by_, CorePropertiesPart_, relate_to_, core_properties_part_
+    ):
+        # -- upstream-PR#1436: some producers declare the core-properties rel
+        # -- under the `officeDocument/2006/.../core-properties` alternate
+        # -- reltype. We must discover it rather than creating a duplicate.
+        def _lookup(self, reltype):
+            if reltype == RT.CORE_PROPERTIES:
+                raise KeyError
+            if reltype == RT.CORE_PROPERTIES_ALT:
+                return core_properties_part_
+            raise KeyError
+
+        part_related_by_.side_effect = _lookup
+        opc_package = OpcPackage()
+
+        core_properties_part = opc_package._core_properties_part
+
+        assert core_properties_part is core_properties_part_
+        CorePropertiesPart_.default.assert_not_called()
+        relate_to_.assert_not_called()
 
     # fixtures ---------------------------------------------
 

@@ -119,29 +119,33 @@ class DescribePackageReader:
         part_1_blob, part_2_blob, part_3_blob = ("<Part_1/>", "<Part_2/>", "<Part_3/>")
         reltype1, reltype2, reltype3 = ("reltype1", "reltype2", "reltype3")
         srels = [
-            Mock(name="rId1", is_external=True),
+            Mock(name="rId1", is_external=True, target_ref="http://external/"),
             Mock(
                 name="rId2",
                 is_external=False,
                 reltype=reltype1,
+                target_ref="name1.xml",
                 target_partname=partname_1,
             ),
             Mock(
                 name="rId3",
                 is_external=False,
                 reltype=reltype2,
+                target_ref="name2.xml",
                 target_partname=partname_2,
             ),
             Mock(
                 name="rId4",
                 is_external=False,
                 reltype=reltype1,
+                target_ref="name1.xml",
                 target_partname=partname_1,
             ),
             Mock(
                 name="rId5",
                 is_external=False,
                 reltype=reltype3,
+                target_ref="name3.xml",
                 target_partname=partname_3,
             ),
         ]
@@ -162,6 +166,50 @@ class DescribePackageReader:
             (partname_3, part_3_blob, reltype3, part_3_srels),
         ]
         assert generated_tuples == expected_tuples
+
+    def it_skips_rels_whose_target_is_a_pure_fragment(self, _srels_for):
+        # -- Internal-bookmark hyperlinks emit `Target="#bookmark1"` with
+        # -- TargetMode="Internal". Those rels must not cause a part lookup —
+        # -- they have no backing package part. upstream#902 / #1349 / #678.
+        fragment_srel = Mock(
+            name="fragment_srel",
+            is_external=False,
+            target_ref="#bookmark1",
+        )
+        phys_reader = Mock(name="phys_reader")
+        generated = list(PackageReader._walk_phys_parts(phys_reader, [fragment_srel]))
+        assert generated == []
+        phys_reader.blob_for.assert_not_called()
+
+    def it_skips_rels_whose_target_is_null_or_empty(self, _srels_for):
+        phys_reader = Mock(name="phys_reader")
+        cases = ("", None)
+        for target_ref in cases:
+            srel = Mock(
+                name="empty_srel",
+                is_external=False,
+                target_ref=target_ref,
+            )
+            generated = list(PackageReader._walk_phys_parts(phys_reader, [srel]))
+            assert generated == []
+        phys_reader.blob_for.assert_not_called()
+
+    def it_tolerates_rels_pointing_at_missing_parts(self, _srels_for):
+        # -- Word-style loose docs sometimes declare a rel whose target zip
+        # -- entry has been dropped. Don't crash the entire package load on a
+        # -- single dangling rel. upstream-PR#1219.
+        missing_srel = Mock(
+            name="missing_srel",
+            is_external=False,
+            reltype="rt1",
+            target_ref="ghost.xml",
+            target_partname="/ghost.xml",
+        )
+        _srels_for.return_value = []
+        phys_reader = Mock(name="phys_reader")
+        phys_reader.blob_for.side_effect = KeyError("ghost.xml")
+        generated = list(PackageReader._walk_phys_parts(phys_reader, [missing_srel]))
+        assert generated == []
 
     def it_can_retrieve_srels_for_a_source_uri(self, _SerializedRelationships_):
         # mockery ----------------------
@@ -438,6 +486,21 @@ class Describe_SerializedRelationship:
             srel = _SerializedRelationship(baseURI, rel_elm)
             # verify -------------------
             assert srel.target_partname == expected_partname
+
+    def it_normalises_windows_backslashes_in_target_ref(self):
+        # -- upstream-PR#1205: some DOCX producers emit `Target="media\image1.png"`
+        # -- which must be normalised to `media/image1.png` so PackURI.from_rel_ref
+        # -- produces the correct partname.
+        rel_elm = Mock(
+            name="rel_elm",
+            rId="rId1",
+            reltype="ReLtYpE",
+            target_ref="media\\image1.png",
+            target_mode=RTM.INTERNAL,
+        )
+        srel = _SerializedRelationship("/word", rel_elm)
+        assert srel.target_ref == "media/image1.png"
+        assert srel.target_partname == "/word/media/image1.png"
 
     def it_raises_on_target_partname_when_external(self):
         rel_elm = Mock(
