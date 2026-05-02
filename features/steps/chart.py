@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import io
 
 from behave import given, then, when
 from behave.runner import Context
@@ -228,6 +229,104 @@ def then_chart_type_of_first_chart_is_WD_CHART_TYPE_member(
     context: Context, member: str
 ):
     chart = context.document.charts[0]
+# -- chart-create-line steps --------------------------------------------------
+
+
+@given("a blank chart-create-line base document")
+def given_a_blank_chart_create_line_base_document(context: Context):
+    context.document = Document(test_docx("chart-create-line-base"))
+    # -- sanity: fixture must start with zero charts so the assertions below
+    # -- about "document.charts has 1 chart" are meaningful.
+    assert context.document.charts == [], (
+        f"fixture must have no charts, found {len(context.document.charts)}"
+    )
+
+
+@when(
+    "I add a LINE chart with categories {categories_expr} and series {series_expr}"
+)
+def when_I_add_a_LINE_chart_with_categories_and_series(
+    context: Context, categories_expr: str, series_expr: str
+):
+    categories = ast.literal_eval(categories_expr)
+    series_data = ast.literal_eval(series_expr)
+    context.added_chart = context.document.add_chart(
+        WD_CHART_TYPE.LINE, categories, series_data
+    )
+
+
+@when("I save and reopen the chart-create-line document")
+def when_I_save_and_reopen_the_chart_create_line_document(context: Context):
+    buf = io.BytesIO()
+    context.document.save(buf)
+    buf.seek(0)
+    context.document = Document(buf)
+    # -- the added_chart reference is from the pre-save document; drop it so
+    # -- later steps reach for document.charts[...] instead.
+    context.added_chart = None
+
+
+@then("document.charts has {count:d} chart")
+@then("document.charts has {count:d} charts")
+def then_document_charts_has_n_charts(context: Context, count: int):
+    charts = context.document.charts
+    assert len(charts) == count, f"expected {count} charts, got {len(charts)}"
+
+
+@then("the added chart is the last embedded chart in the document")
+def then_added_chart_is_last_in_document(context: Context):
+    charts = context.document.charts
+    assert len(charts) >= 1, "expected at least one chart in document"
+    last = charts[-1]
+    # -- Compare the underlying chart part; proxy identity is not preserved --
+    assert last.part is context.added_chart.part, (
+        "added chart does not match document.charts[-1]"
+    )
+
+
+@then("the added chart.chart_type == WD_CHART_TYPE.{member}")
+def then_added_chart_chart_type_eq(context: Context, member: str):
+    expected = WD_CHART_TYPE[member]
+    actual = context.added_chart.chart_type
+    assert actual == expected, f"expected {expected}, got {actual}"
+
+
+@then("the added chart has {count:d} series")
+def then_added_chart_has_n_series(context: Context, count: int):
+    series = context.added_chart.series
+    assert len(series) == count, f"expected {count} series, got {len(series)}"
+
+
+@then("[s.name for s in added_chart.series] == {names_expr}")
+def then_added_chart_series_names_eq(context: Context, names_expr: str):
+    expected = ast.literal_eval(names_expr)
+    actual = [s.name for s in context.added_chart.series]
+    assert actual == expected, f"expected series names {expected}, got {actual}"
+
+
+@then("added_chart.series[{ser_idx:d}].values == {values_expr}")
+def then_added_chart_series_values_eq(
+    context: Context, ser_idx: int, values_expr: str
+):
+    expected = ast.literal_eval(values_expr)
+    actual = context.added_chart.series[ser_idx].values
+    assert actual == expected, f"expected values {expected}, got {actual}"
+
+
+@then("added_chart.series[{ser_idx:d}].categories == {categories_expr}")
+def then_added_chart_series_categories_eq(
+    context: Context, ser_idx: int, categories_expr: str
+):
+    expected = ast.literal_eval(categories_expr)
+    actual = context.added_chart.series[ser_idx].categories
+    assert actual == expected, f"expected categories {expected}, got {actual}"
+
+
+@then("document.charts[{idx:d}].chart_type == WD_CHART_TYPE.{member}")
+def then_document_charts_idx_chart_type_eq(
+    context: Context, idx: int, member: str
+):
+    chart = context.document.charts[idx]
     expected = WD_CHART_TYPE[member]
     assert chart.chart_type == expected, (
         f"expected {expected}, got {chart.chart_type}"
@@ -327,3 +426,47 @@ def then_every_chart_has_chart_type_WD_CHART_TYPE_member(
         assert chart.chart_type == expected, (
             f"chart {idx}: expected {expected}, got {chart.chart_type}"
         )
+@then("document.charts[{idx:d}].series[{ser_idx:d}].values == {values_expr}")
+def then_document_charts_idx_series_values_eq(
+    context: Context, idx: int, ser_idx: int, values_expr: str
+):
+    expected = ast.literal_eval(values_expr)
+    actual = context.document.charts[idx].series[ser_idx].values
+    assert actual == expected, f"expected values {expected}, got {actual}"
+
+
+@then(
+    "document.charts[{idx:d}].series[{ser_idx:d}].categories == {categories_expr}"
+)
+def then_document_charts_idx_series_categories_eq(
+    context: Context, idx: int, ser_idx: int, categories_expr: str
+):
+    expected = ast.literal_eval(categories_expr)
+    actual = context.document.charts[idx].series[ser_idx].categories
+    assert actual == expected, f"expected categories {expected}, got {actual}"
+
+
+@then("the chart part XML contains a c:lineChart element")
+def then_chart_part_xml_contains_lineChart(context: Context):
+    # -- `added_chart` may have been cleared by save-and-reopen; fall back to
+    # -- the first chart in the document in that case.
+    chart = context.added_chart or context.document.charts[0]
+    from docx.oxml.ns import qn
+
+    chartSpace = chart.part.element
+    matches = chartSpace.findall(f".//{qn('c:lineChart')}")
+    assert len(matches) == 1, (
+        f"expected exactly 1 c:lineChart element, found {len(matches)}"
+    )
+
+
+@then("the chart part XML contains {count:d} c:ser elements")
+def then_chart_part_xml_contains_n_ser(context: Context, count: int):
+    chart = context.added_chart or context.document.charts[0]
+    from docx.oxml.ns import qn
+
+    chartSpace = chart.part.element
+    matches = chartSpace.findall(f".//{qn('c:ser')}")
+    assert len(matches) == count, (
+        f"expected {count} c:ser elements, found {len(matches)}"
+    )
