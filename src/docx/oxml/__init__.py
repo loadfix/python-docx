@@ -393,10 +393,18 @@ register_element_cls("w:updateFields", CT_OnOff)
 register_element_cls("w:view", CT_View)
 register_element_cls("w:zoom", CT_Zoom)
 
-from .styles import CT_LatentStyles, CT_LsdException, CT_Style, CT_Styles
+from .styles import (
+    CT_DocDefaults,
+    CT_LatentStyles,
+    CT_LsdException,
+    CT_RPrDefault,
+    CT_Style,
+    CT_Styles,
+)
 
 register_element_cls("w:autoRedefine", CT_OnOff)
 register_element_cls("w:basedOn", CT_String)
+register_element_cls("w:docDefaults", CT_DocDefaults)
 register_element_cls("w:latentStyles", CT_LatentStyles)
 register_element_cls("w:link", CT_String)
 register_element_cls("w:locked", CT_OnOff)
@@ -404,6 +412,7 @@ register_element_cls("w:lsdException", CT_LsdException)
 register_element_cls("w:name", CT_String)
 register_element_cls("w:next", CT_String)
 register_element_cls("w:qFormat", CT_OnOff)
+register_element_cls("w:rPrDefault", CT_RPrDefault)
 register_element_cls("w:semiHidden", CT_OnOff)
 register_element_cls("w:style", CT_Style)
 register_element_cls("w:styles", CT_Styles)

@@ -68,6 +68,11 @@ class Document(ElementProxy):
         self._element = element
         self._part = part
         self.__body = None
+        # -- Name of the style queued for the *next* ``add_paragraph`` call
+        # -- that doesn't pass an explicit `style`. Set when the previous
+        # -- paragraph was added with a style whose ``w:next`` points at
+        # -- another style. See :meth:`add_paragraph`. upstream#888.
+        self._pending_next_style: str | None = None
         # -- active `tracked_changes()` context, if any. Stored as a simple
         # -- LIFO stack so nested `with document.tracked_changes(...)` blocks
         # -- shadow outer ones.
@@ -238,12 +243,59 @@ class Document(ElementProxy):
         author of the innermost context; pass ``track_author=""`` explicitly
         if you need to opt out of the active context for one call.
 
+        If the previously-added paragraph had a style whose ``w:next`` pointed
+        at another style, and `style` is |None| on this call, that "next"
+        style is applied automatically — mirroring the behaviour Word exhibits
+        when the user presses Enter. An explicit `style` argument (including
+        an explicit ``style=None`` passed positionally) always takes
+        precedence. Closes upstream#888.
+
         .. versionadded:: 1.3.0.dev0
            Added ``track_author`` keyword argument.
         """
+        effective_style = style
+        if effective_style is None and self._pending_next_style is not None:
+            effective_style = self._pending_next_style
+        # -- reset pending before recomputing to avoid runaway chains --
+        self._pending_next_style = None
+
         if track_author is None:
-            return self._body.add_paragraph(text, style)
-        return self._body.add_paragraph(text, style, track_author=track_author)
+            paragraph = self._body.add_paragraph(text, effective_style)
+        else:
+            paragraph = self._body.add_paragraph(
+                text, effective_style, track_author=track_author
+            )
+
+        # -- queue the `w:next` style, if any, for the subsequent call --
+        if effective_style is not None:
+            next_style_id = self._resolve_next_style_id(effective_style)
+            if next_style_id is not None:
+                self._pending_next_style = next_style_id
+
+        return paragraph
+
+    def _resolve_next_style_id(self, style: str | ParagraphStyle) -> str | None:
+        """Return the ``w:styleId`` of `style`'s ``w:next`` style, if any.
+
+        `style` may be a style name, a style id, or a |ParagraphStyle| proxy.
+        Returns |None| when the style is not found, has no ``w:next``
+        element, or ``w:next`` points at an undefined style id.
+        """
+        from docx.styles.style import BaseStyle
+
+        if isinstance(style, BaseStyle):
+            style_elm = style._element
+        else:
+            # -- try name first, fall back to style_id lookup --
+            styles = self._part.styles
+            try:
+                resolved = styles[style]
+            except KeyError:
+                resolved = None
+            if resolved is None:
+                return None
+            style_elm = resolved._element
+        return style_elm.next_val
 
     def tracked_changes(
         self, author: str, date: "dt.datetime | None" = None
@@ -941,14 +993,26 @@ class Document(ElementProxy):
     def font_table(self) -> FontTable | None:
         """A |FontTable| collection, or |None| if no font-table part is related.
 
-        The font-table part is owned by Word, so python-docx exposes it read-only.
-        Returns |None| when the document has no ``fontTable`` relationship — for
-        example, when the document was created via :func:`docx.Document` with no
-        template.
+        Returns |None| when the document has no ``fontTable`` relationship. For
+        authoring workflows that need to embed a font use
+        :attr:`font_table_or_new` instead, which materialises an empty
+        ``fontTable.xml`` on demand.
 
         .. versionadded:: 1.3.0.dev0
         """
         return self._part.font_table
+
+    @property
+    def font_table_or_new(self) -> FontTable:
+        """A |FontTable| collection, creating an empty ``fontTable.xml`` if needed.
+
+        Use this when the caller intends to *add* to the font table (e.g. via
+        :meth:`FontTable.add_embedded_font`) — unlike :attr:`font_table` it
+        never returns |None|.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self._part.font_table_or_new
 
     @property
     def footnotes(self) -> Footnotes:

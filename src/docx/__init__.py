@@ -34,7 +34,7 @@ from docx.parts.extended_properties import ExtendedPropertiesPart
 from docx.parts.document import DocumentPart
 from docx.parts.embedded_object import EmbeddedObjectPart
 from docx.parts.endnotes import EndnotesPart
-from docx.parts.font_table import FontTablePart
+from docx.parts.font_table import FontPart, FontTablePart
 from docx.parts.footnotes import FootnotesPart
 from docx.parts.glossary import GlossaryPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
@@ -67,6 +67,8 @@ PartFactory.part_type_for[CT.WML_DOCUMENT_MAIN] = DocumentPart
 PartFactory.part_type_for[CT.WML_DOCUMENT_MACRO] = DocumentPart
 PartFactory.part_type_for[CT.WML_ENDNOTES] = EndnotesPart
 PartFactory.part_type_for[CT.WML_FONT_TABLE] = FontTablePart
+PartFactory.part_type_for[CT.X_FONTDATA] = FontPart
+PartFactory.part_type_for[CT.X_FONT_TTF] = FontPart
 PartFactory.part_type_for[CT.WML_FOOTER] = FooterPart
 PartFactory.part_type_for[CT.WML_FOOTNOTES] = FootnotesPart
 PartFactory.part_type_for[CT.WML_DOCUMENT_GLOSSARY] = GlossaryPart
@@ -92,6 +94,7 @@ del (
     EmbeddedObjectPart,
     EndnotesPart,
     ExtendedPropertiesPart,
+    FontPart,
     FontTablePart,
     FooterPart,
     FootnotesPart,

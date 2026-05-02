@@ -333,10 +333,37 @@ class CT_Style(BaseOxmlElement):
             unhideWhenUsed.val = value
 
 
+class CT_DocDefaults(BaseOxmlElement):
+    """``<w:docDefaults>`` element, root of document-wide paragraph and run defaults.
+
+    Contains at most one ``<w:rPrDefault>`` and at most one ``<w:pPrDefault>`` child.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+
+    _tag_seq = ("w:rPrDefault", "w:pPrDefault")
+    rPrDefault = ZeroOrOne("w:rPrDefault", successors=_tag_seq[1:])
+    pPrDefault = ZeroOrOne("w:pPrDefault", successors=())
+    del _tag_seq
+
+
+class CT_RPrDefault(BaseOxmlElement):
+    """``<w:rPrDefault>`` element, holding the document-default ``<w:rPr>``.
+
+    Parent for a single optional ``<w:rPr>`` whose formatting applies to every
+    run by default (subject to style overrides).
+
+    .. versionadded:: 1.3.0.dev0
+    """
+
+    rPr = ZeroOrOne("w:rPr", successors=())
+
+
 class CT_Styles(BaseOxmlElement):
     """``<w:styles>`` element, the root element of a styles part, i.e. styles.xml."""
 
     _tag_seq = ("w:docDefaults", "w:latentStyles", "w:style")
+    docDefaults = ZeroOrOne("w:docDefaults", successors=_tag_seq[1:])
     latentStyles = ZeroOrOne("w:latentStyles", successors=_tag_seq[2:])
     style = ZeroOrMore("w:style", successors=())
     del _tag_seq
