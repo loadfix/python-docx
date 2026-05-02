@@ -1,5 +1,8 @@
 """Step implementations for text-related features."""
 
+from __future__ import annotations
+
+import re
 
 from behave import given, then, when
 from behave.runner import Context
@@ -88,6 +91,44 @@ def given_a_run_having_rendered_page_breaks(context: Context, zero_or_more: str)
     document = Document(test_docx("par-rendered-page-breaks"))
     paragraph = document.paragraphs[paragraph_idx]
     context.run = paragraph.runs[0]
+
+
+@given("a paragraph with three runs from par-multi.docx")
+def given_a_paragraph_with_three_runs_from_par_multi(context: Context):
+    document = Document(test_docx("par-multi"))
+    context.document = document
+    # --- paragraph index 1 holds the "Alpha ", "Beta ", "Gamma" runs. ---
+    context.paragraph = document.paragraphs[1]
+
+
+@given("a detached run")
+def given_a_detached_run(context: Context):
+    from docx.oxml.parser import OxmlElement
+
+    r = OxmlElement("w:r")
+    context.run = Run(r, None)
+
+
+@given('a run containing the text "{text}"')
+def given_a_run_containing_text(context: Context, text: str):
+    document = Document()
+    paragraph = document.add_paragraph()
+    run = paragraph.add_run(text)
+    context.document = document
+    context.paragraph = paragraph
+    context.run = run
+
+
+@given('a bold italic run containing the text "{text}"')
+def given_a_bold_italic_run_containing_text(context: Context, text: str):
+    document = Document()
+    paragraph = document.add_paragraph()
+    run = paragraph.add_run(text)
+    run.bold = True
+    run.italic = True
+    context.document = document
+    context.paragraph = paragraph
+    context.run = run
 
 
 @given("a run inside a table cell retrieved from {cell_source}")
@@ -179,6 +220,28 @@ def when_I_assign_value_to_run_style(context, value):
 @when("I clear the run")
 def when_I_clear_the_run(context):
     context.run.clear()
+
+
+@when("I delete the first run")
+def when_I_delete_the_first_run(context: Context):
+    context.paragraph.runs[0].delete()
+
+
+@when("I delete the second run")
+def when_I_delete_the_second_run(context: Context):
+    context.paragraph.runs[1].delete()
+
+
+@when("I delete the detached run")
+def when_I_delete_the_detached_run(context: Context):
+    context.run.delete()
+
+
+@when("I split the run at offset {offset:d}")
+def when_I_split_the_run_at_offset(context: Context, offset: int):
+    left, right = context.run.split(offset)
+    context.left_run = left
+    context.right_run = right
 
 
 @when("I set the run underline to {underline_value}")
@@ -320,3 +383,61 @@ def then_the_tab_appears_at_the_end_of_the_run(context):
     r = context.run._r
     tab = r.find(qn("w:tab"))
     assert tab is not None
+
+
+@then("the paragraph contains two runs")
+def then_the_paragraph_contains_two_runs(context: Context):
+    assert len(context.paragraph.runs) == 2
+
+
+@then('the paragraph run text sequence is "{expected}"')
+def then_paragraph_run_text_sequence_is(context: Context, expected: str):
+    # --- split on "|" so run-internal whitespace is preserved verbatim ---
+    expected_list = expected.split("|")
+    actual = [r.text for r in context.paragraph.runs]
+    assert actual == expected_list, f"expected {expected_list!r}, got {actual!r}"
+
+
+@then('the paragraph text is "{expected}"')
+def then_paragraph_text_is(context: Context, expected: str):
+    actual = context.paragraph.text
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then('the left run text is "{expected}"')
+def then_left_run_text_is(context: Context, expected: str):
+    actual = context.left_run.text
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("the left run text is empty")
+def then_left_run_text_is_empty(context: Context):
+    actual = context.left_run.text
+    assert actual == "", f"expected empty, got {actual!r}"
+
+
+@then('the right run text is "{expected}"')
+def then_right_run_text_is(context: Context, expected: str):
+    actual = context.right_run.text
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("the right run text is empty")
+def then_right_run_text_is_empty(context: Context):
+    actual = context.right_run.text
+    assert actual == "", f"expected empty, got {actual!r}"
+
+
+@then("both runs are bold and italic")
+def then_both_runs_are_bold_and_italic(context: Context):
+    for label, run in (("left", context.left_run), ("right", context.right_run)):
+        assert run.bold is True, f"{label} run bold is {run.bold!r}"
+        assert run.italic is True, f"{label} run italic is {run.italic!r}"
+
+
+@then("each run stable_id is a 16-char hex string")
+def then_each_run_stable_id_is_16_char_hex(context: Context):
+    hex_re = re.compile(r"^[0-9a-f]{16}$")
+    for r in context.paragraph.runs:
+        sid = r.stable_id
+        assert hex_re.match(sid), f"run stable_id {sid!r} is not 16-char hex"

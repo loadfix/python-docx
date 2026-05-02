@@ -25,6 +25,21 @@ def given_a_document_containing_three_paragraphs(context: Context):
     context.document = document
 
 
+@given("a document containing five paragraphs")
+def given_a_document_containing_five_paragraphs(context: Context):
+    context.document = Document(test_docx("par-multi"))
+
+
+@given("a detached paragraph")
+def given_a_detached_paragraph(context: Context):
+    from docx.oxml.parser import OxmlElement
+    from docx.oxml.text.paragraph import CT_P  # noqa: F401
+    from docx.text.paragraph import Paragraph
+
+    p = OxmlElement("w:p")
+    context.paragraph = Paragraph(p, None)
+
+
 @given("a paragraph having {align_type} alignment")
 def given_a_paragraph_align_type_alignment(context: Context, align_type: str):
     paragraph_idx = {
@@ -111,6 +126,60 @@ def when_I_insert_a_paragraph_above_the_second_paragraph(context: Context):
 @when("I set the paragraph text")
 def when_I_set_the_paragraph_text(context: Context):
     context.paragraph.text = "bar\tfoo\r"
+
+
+@when("I delete the third paragraph")
+def when_I_delete_the_third_paragraph(context: Context):
+    context.document.paragraphs[2].delete()
+
+
+@when("I delete the detached paragraph")
+def when_I_delete_the_detached_paragraph(context: Context):
+    context.paragraph.delete()
+
+
+@when("I insert a paragraph after the third paragraph")
+def when_I_insert_a_paragraph_after_the_third_paragraph(context: Context):
+    ref = context.document.paragraphs[2]
+    ref.insert_paragraph_after("inserted-after")
+
+
+@when("I insert a paragraph before the fourth paragraph")
+def when_I_insert_a_paragraph_before_the_fourth_paragraph(context: Context):
+    ref = context.document.paragraphs[3]
+    ref.insert_paragraph_before("inserted-before")
+
+
+@when("I insert a 2x2 table after the third paragraph")
+def when_I_insert_a_2x2_table_after_the_third_paragraph(context: Context):
+    ref = context.document.paragraphs[2]
+    context.table_ = ref.insert_table_after(rows=2, cols=2)
+
+
+@when("I insert a 2x2 table before the fourth paragraph")
+def when_I_insert_a_2x2_table_before_the_fourth_paragraph(context: Context):
+    ref = context.document.paragraphs[3]
+    context.table_ = ref.insert_table_before(rows=2, cols=2)
+
+
+@when("I clear page breaks on the last paragraph")
+def when_I_clear_page_breaks_on_the_last_paragraph(context: Context):
+    context.document.paragraphs[-1].clear_page_breaks()
+
+
+@when("I clear page breaks on the third paragraph")
+def when_I_clear_page_breaks_on_the_third_paragraph(context: Context):
+    context.document.paragraphs[2].clear_page_breaks()
+
+
+@when("I insert a section break on the first paragraph")
+def when_I_insert_a_section_break_on_the_first_paragraph(context: Context):
+    context.document.paragraphs[0].insert_section_break()
+
+
+@when("I remove the section break from the first paragraph")
+def when_I_remove_the_section_break_from_the_first_paragraph(context: Context):
+    context.document.paragraphs[0].remove_section_break()
 
 
 # then =====================================================
@@ -254,3 +323,96 @@ def then_the_style_of_the_second_paragraph_matches_the_style_I_set(context: Cont
 def then_the_text_of_the_second_paragraph_matches_the_text_I_set(context: Context):
     second_paragraph = context.document.paragraphs[1]
     assert second_paragraph.text == "foobar"
+
+
+@then("the document contains five paragraphs")
+def then_the_document_contains_five_paragraphs(context: Context):
+    assert len(context.document.paragraphs) == 5
+
+
+@then("the document contains six paragraphs")
+def then_the_document_contains_six_paragraphs(context: Context):
+    assert len(context.document.paragraphs) == 6
+
+
+@then('the document paragraph text sequence is "{expected}"')
+def then_document_paragraph_text_sequence(context: Context, expected: str):
+    expected_list = [s.strip() for s in expected.split(",")]
+    actual = [p.text for p in context.document.paragraphs]
+    assert actual == expected_list, f"expected {expected_list!r}, got {actual!r}"
+
+
+@then('the first paragraph has style "{style_name}"')
+def then_first_paragraph_has_style(context: Context, style_name: str):
+    actual = context.document.paragraphs[0].style.name
+    assert actual == style_name, f"expected {style_name!r}, got {actual!r}"
+
+
+@then('the fourth paragraph has style "{style_name}"')
+def then_fourth_paragraph_has_style(context: Context, style_name: str):
+    actual = context.document.paragraphs[3].style.name
+    assert actual == style_name, f"expected {style_name!r}, got {actual!r}"
+
+
+@then('the third paragraph has style "{style_name}"')
+def then_third_paragraph_has_style(context: Context, style_name: str):
+    actual = context.document.paragraphs[2].style.name
+    assert actual == style_name, f"expected {style_name!r}, got {actual!r}"
+
+
+@then('the fourth paragraph text is "{expected}"')
+def then_fourth_paragraph_text_is(context: Context, expected: str):
+    actual = context.document.paragraphs[3].text
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("no error is raised")
+def then_no_error_is_raised(context: Context):
+    # --- Reaching this step without an exception is success. ---
+    assert True
+
+
+@then('the document paragraph text contains "{needle}"')
+def then_document_paragraph_text_contains(context: Context, needle: str):
+    texts = [p.text for p in context.document.paragraphs]
+    assert any(needle in t for t in texts), f"{needle!r} not found in {texts!r}"
+
+
+@then("the last paragraph has no page break")
+def then_last_paragraph_has_no_page_break(context: Context):
+    paragraph = context.document.paragraphs[-1]
+    assert paragraph.has_page_break is False
+
+
+@then("the third paragraph has no page break")
+def then_third_paragraph_has_no_page_break(context: Context):
+    paragraph = context.document.paragraphs[2]
+    assert paragraph.has_page_break is False
+
+
+@then("the first paragraph has no section break")
+def then_first_paragraph_has_no_section_break(context: Context):
+    paragraph = context.document.paragraphs[0]
+    assert paragraph.has_section_break is False
+
+
+@then("each paragraph stable_id is a 16-char hex string")
+def then_each_paragraph_stable_id_is_16_char_hex(context: Context):
+    import re
+
+    hex_re = re.compile(r"^[0-9a-f]{16}$")
+    for p in context.document.paragraphs:
+        sid = p.stable_id
+        assert hex_re.match(sid), f"paragraph stable_id {sid!r} is not 16-char hex"
+
+
+@then("all paragraph stable_ids are unique")
+def then_all_paragraph_stable_ids_unique(context: Context):
+    ids = [p.stable_id for p in context.document.paragraphs]
+    assert len(set(ids)) == len(ids), f"duplicate stable_ids: {ids!r}"
+
+
+@then("every paragraph stable_id is stable under repeated access")
+def then_every_paragraph_stable_id_is_stable(context: Context):
+    for p in context.document.paragraphs:
+        assert p.stable_id == p.stable_id
