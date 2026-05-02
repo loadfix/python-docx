@@ -82,6 +82,7 @@ User Guide
    user/styles-understanding
    user/styles-using
    user/comments
+   user/bookmarks
    user/shapes
    user/accessibility
    user/statistics
