@@ -64,6 +64,36 @@ class Section:
         """
         return SectionColumns(self._sectPr)
 
+    def set_columns(
+        self,
+        count: int,
+        space: "Length | None" = None,
+        equal_width: bool | None = None,
+    ) -> SectionColumns:
+        """Set column layout for this section in one call.
+
+        `count` is written to ``w:cols/@w:num``. When `space` is supplied it
+        is written to ``w:cols/@w:space``; when |None| the attribute is left
+        unchanged. `equal_width` maps to ``w:cols/@w:equalWidth`` the same
+        way. Returns the |SectionColumns| proxy for the resulting element.
+
+        Mirrors the ``set_page_border`` / ``set_line_numbering`` /
+        ``set_document_grid`` convenience pattern — equivalent to::
+
+            section.columns.count = count
+            section.columns.space = space
+            section.columns.equal_width = equal_width
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        columns = self.columns
+        columns.count = count
+        if space is not None:
+            columns.space = space
+        if equal_width is not None:
+            columns.equal_width = equal_width
+        return columns
+
     @property
     def bottom_margin(self) -> Length | None:
         """Read/write. Bottom margin for pages in this section, in EMU.

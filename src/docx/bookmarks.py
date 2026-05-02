@@ -59,6 +59,18 @@ class Bookmark:
     def name(self) -> str:
         return self._bookmarkStart.name
 
+    @name.setter
+    def name(self, value: str) -> None:
+        """Rename this bookmark.
+
+        Writes the new value to the ``w:bookmarkStart/@w:name`` attribute.
+        The matching ``w:bookmarkEnd`` is identified by ``@w:id`` and does
+        not carry a name, so no further update is needed.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        self._bookmarkStart.name = value
+
     @property
     def bookmark_id(self) -> int:
         return self._bookmarkStart.id

@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from docx.accessibility import HeadingIssue
     from docx.alt_chunk import AltChunk
     from docx.attachments import Attachment
-    from docx.bookmarks import Bookmarks
+    from docx.bookmarks import Bookmark, Bookmarks
     from docx.chart import Chart, WD_CHART_TYPE
     from docx.comments import Comment, Comments
     from docx.content_controls import ContentControl, ContentControlType
@@ -177,6 +177,46 @@ class Document(ElementProxy):
         first_run.mark_comment_range(last_run, comment.comment_id)
 
         return comment
+
+    def add_bookmark(self, runs: Run | Sequence[Run], name: str) -> Bookmark:
+        """Add a bookmark spanning `runs`, and return the |Bookmark| proxy.
+
+        `runs` may be a single |Run| or a non-empty sequence of |Run| objects.
+        Only the first and last run of a sequence are used — just as with
+        :meth:`add_comment` — so the caller can pass a whole
+        ``paragraph.runs`` or a selection that spans paragraphs.
+
+        A ``w:bookmarkStart`` element is inserted immediately before the
+        first run and a matching ``w:bookmarkEnd`` is inserted immediately
+        after the last run. A fresh ``@w:id`` is allocated from the body's
+        existing bookmark ids; `name` must be unique within the document
+        (caller enforced — Word accepts duplicates silently but treats
+        them as ambiguous cross-reference targets).
+
+        This is the symmetric counterpart to :meth:`Paragraph.add_bookmark`
+        — use that helper for a single-paragraph bookmark and this one when
+        the range must span multiple paragraphs without dropping into the
+        oxml layer.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.bookmarks import Bookmark
+        from docx.text.paragraph import Paragraph
+
+        runs = [runs] if isinstance(runs, Run) else list(runs)
+        if not runs:
+            raise ValueError("runs must be a non-empty sequence of Run objects")
+        first_run = runs[0]
+        last_run = runs[-1]
+
+        body = self._element.body
+        bookmark_id = Paragraph._next_bookmark_id(body)
+
+        first_run._r.insert_bookmark_start_before(bookmark_id, name)
+        last_run._r.insert_bookmark_end_after(bookmark_id)
+
+        bookmarkStart = body.xpath(f".//w:bookmarkStart[@w:id='{bookmark_id}']")[0]
+        return Bookmark(bookmarkStart, body)
 
     def add_caption(
         self,
