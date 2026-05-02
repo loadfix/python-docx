@@ -1539,7 +1539,61 @@ class Document(ElementProxy):
             for p in self.paragraphs
         )
 
-    def save(self, path_or_stream: str | IO[bytes], flat_opc: bool = False):
+    def append_document(self, other: Document) -> int:
+        """Append the body of `other` to this document and return the number of
+        block elements copied.
+
+        Paragraphs, tables, and block-level SDT (structured document tag) elements
+        from ``other`` are deep-copied into this document's body, inserted before
+        the current section's sentinel ``w:sectPr`` so the destination's page
+        setup is preserved. Relationships carried by the copied content —
+        images, embedded objects, hyperlinks, charts, etc. — are imported into
+        this document's package and rewritten to point at the new destination
+        rIds. Paragraph / run styles referenced by the copied content are
+        likewise copied (plus any ``basedOn`` / ``next`` / ``link`` dependencies).
+        List numbering definitions referenced by the copied content are cloned
+        under fresh numIds.
+
+        Closes upstream#1457, upstream#558, upstream#543, upstream#437,
+        upstream#460, upstream#44, upstream#709.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.append_document import append_document
+
+        return append_document(self, other)
+
+    def append_body(self, other: Document) -> int:
+        """Alias for :meth:`append_document`.
+
+        Provided as a second entry-point for users who think of the operation
+        as "append the body" rather than "append the document".
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.append_document import append_body
+
+        return append_body(self, other)
+
+    def append_paragraph(self, paragraph: Paragraph) -> Paragraph:
+        """Copy `paragraph` from its owning document into this one and return the new paragraph.
+
+        Any relationships referenced by the paragraph (images, hyperlinks,
+        embedded objects) and any style / numbering references it carries are
+        imported into this document the same way as for :meth:`append_document`.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.append_document import append_paragraph
+
+        return append_paragraph(self, paragraph)
+
+    def save(
+        self,
+        path_or_stream: str | IO[bytes],
+        flat_opc: bool = False,
+        reproducible: bool = False,
+    ):
         """Save this document to `path_or_stream`.
 
         `path_or_stream` can be either a path to a filesystem location (a string) or a
@@ -1557,8 +1611,14 @@ class Document(ElementProxy):
         ``<pkg:package>`` single-XML-file representation defined in ECMA-376
         Part 2 — rather than a zip package. Closes upstream#892.
 
+        When `reproducible` is True, the emitted zip archive uses a fixed
+        timestamp for every member and writes members in sorted order, so
+        repeated saves of the same content produce byte-identical output.
+        This is the single bit of plumbing that closes upstream#1042 and
+        upstream-PR#810.
+
         .. versionadded:: 1.3.0.dev0
-           The `flat_opc` parameter.
+           The `flat_opc` and `reproducible` parameters.
         """
         if flat_opc:
             import io as _io
@@ -1566,10 +1626,10 @@ class Document(ElementProxy):
             from docx.opc.flat_opc import write_flat_opc
 
             buf = _io.BytesIO()
-            self._part.save(buf)
+            self._part.save(buf, reproducible=reproducible)
             write_flat_opc(path_or_stream, buf.getvalue())
             return
-        self._part.save(path_or_stream)
+        self._part.save(path_or_stream, reproducible=reproducible)
 
     def search(
         self,

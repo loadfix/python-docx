@@ -147,7 +147,9 @@ class DescribeOpcPackage:
         pkg.save(pkg_file_)
         for part in parts_:
             part.before_marshal.assert_called_once_with()
-        PackageWriter_.write.assert_called_once_with(pkg_file_, pkg.rels, parts_)
+        PackageWriter_.write.assert_called_once_with(
+            pkg_file_, pkg.rels, parts_, reproducible=False
+        )
 
     def it_raises_on_save_path_with_windows_invalid_chars(self):
         # -- upstream#1111: historically `Document.save("foo:bar.docx")` silently
@@ -173,7 +175,9 @@ class DescribeOpcPackage:
         pkg = OpcPackage()
         # -- drive-letter colon is in the path prefix, not the filename. Valid. --
         pkg.save("C:/tmp/foo.docx")
-        PackageWriter_.write.assert_called_once_with("C:/tmp/foo.docx", pkg.rels, parts_)
+        PackageWriter_.write.assert_called_once_with(
+            "C:/tmp/foo.docx", pkg.rels, parts_, reproducible=False
+        )
 
     def it_raises_on_save_path_with_embedded_control_chars(self):
         pkg = OpcPackage()

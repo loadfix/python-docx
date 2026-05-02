@@ -296,10 +296,18 @@ class DocumentPart(StoryPart):
             self.relate_to(numbering_part, RT.NUMBERING)
             return numbering_part
 
-    def save(self, path_or_stream: str | IO[bytes]):
+    def save(self, path_or_stream: str | IO[bytes], reproducible: bool = False):
         """Save this document to `path_or_stream`, which can be either a path to a
-        filesystem location (a string) or a file-like object."""
-        self.package.save(path_or_stream)
+        filesystem location (a string) or a file-like object.
+
+        When `reproducible` is True the underlying zip writer emits fixed
+        timestamps and sorted member names so repeated saves yield byte-identical
+        output (closes upstream#1042 / upstream-PR#810).
+
+        .. versionadded:: 1.3.0.dev0
+           The `reproducible` parameter.
+        """
+        self.package.save(path_or_stream, reproducible=reproducible)
 
     @property
     def settings(self) -> Settings:

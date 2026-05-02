@@ -4,12 +4,22 @@ from __future__ import annotations
 
 import os
 from typing import IO
-from zipfile import ZIP_DEFLATED, ZipFile, is_zipfile
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo, is_zipfile
 
 from docx.exceptions import EncryptedDocumentError
-from docx.opc.exceptions import PackageNotFoundError
+from docx.opc.exceptions import (  # noqa: F401 -- PackageNotFoundError re-export
+    MissingDocxFileError,
+    NotADocxError,
+    PackageNotFoundError,
+)
 from docx.opc.packuri import CONTENT_TYPES_URI
 from docx.opc.strict import STRICT_SENTINEL, translate_strict_blob
+
+#: Fixed timestamp used when writing a reproducible package. The 1980-01-01 epoch
+#: is the minimum the ZIP format can express; any ``ZipInfo.date_time`` earlier
+#: than that is silently clamped by :mod:`zipfile`. Matches the convention used by
+#: reproducible-build tooling (e.g. `SOURCE_DATE_EPOCH`-aware writers).
+REPRODUCIBLE_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 
 #: OLE compound file (CFBF) binary signature. Encrypted Office documents are wrapped
 #: in this container rather than the usual ZIP package.
@@ -81,7 +91,17 @@ class PhysPkgReader:
                 # -- check for password-encrypted .docx (OLE compound file) before
                 # -- reporting "not found", so users get an actionable error message.
                 _raise_if_encrypted_path(pkg_file)
-                raise PackageNotFoundError("Package not found at '%s'" % pkg_file)
+                # -- distinguish missing file from wrong-format file
+                # -- (closes upstream#1410). Both subclass PackageNotFoundError for
+                # -- backward-compatibility. --
+                if not os.path.exists(pkg_file):
+                    raise MissingDocxFileError(
+                        "Package not found at '%s'" % pkg_file
+                    )
+                raise NotADocxError(
+                    "File '%s' is not a valid Word (.docx) package "
+                    "(not a ZIP archive)." % pkg_file
+                )
         else:  # assume it's a stream and pass it to Zip reader to sort out
             _raise_if_encrypted_stream(pkg_file)
             reader_cls = _ZipPkgReader
@@ -160,10 +180,20 @@ class _StrictTranslatingPkgReader:
 
 
 class PhysPkgWriter:
-    """Factory for physical package writer objects."""
+    """Factory for physical package writer objects.
 
-    def __new__(cls, pkg_file):
-        return super(PhysPkgWriter, cls).__new__(_ZipPkgWriter)
+    When `reproducible` is True, the returned writer emits a deterministic zip
+    archive — fixed timestamps, sorted member names, and normalized external
+    attributes — so repeated saves of the same content produce byte-identical
+    output. See upstream#1042 / upstream-PR#810.
+
+    .. versionadded:: 1.3.0.dev0
+       The `reproducible` parameter.
+    """
+
+    def __new__(cls, pkg_file, reproducible: bool = False):
+        writer_cls = _ReproducibleZipPkgWriter if reproducible else _ZipPkgWriter
+        return super(PhysPkgWriter, cls).__new__(writer_cls)
 
 
 class _DirPkgReader(PhysPkgReader):
@@ -245,7 +275,10 @@ class _ZipPkgReader(PhysPkgReader):
 class _ZipPkgWriter(PhysPkgWriter):
     """Implements |PhysPkgWriter| interface for a zip file OPC package."""
 
-    def __init__(self, pkg_file):
+    def __init__(self, pkg_file, reproducible: bool = False):
+        # -- `reproducible` is consumed by the `PhysPkgWriter.__new__` dispatch to
+        # -- select `_ReproducibleZipPkgWriter`; accepted here only so Python's
+        # -- default ``type(...).__init__`` handling works with the selector kwarg. --
         super().__init__()
         self._zipf = ZipFile(pkg_file, "w", compression=ZIP_DEFLATED)
 
@@ -258,3 +291,37 @@ class _ZipPkgWriter(PhysPkgWriter):
         """Write `blob` to this zip package with the membername corresponding to
         `pack_uri`."""
         self._zipf.writestr(pack_uri.membername, blob)
+
+
+class _ReproducibleZipPkgWriter(_ZipPkgWriter):
+    """Zip writer that produces byte-identical output for identical inputs.
+
+    Buffers every ``(pack_uri, blob)`` pair and flushes them to the underlying
+    archive in sorted membername order at ``close()``. Each member is written
+    with a fixed timestamp (:data:`REPRODUCIBLE_TIMESTAMP`) and normalized
+    external attributes (0o644, regular file). Closes upstream#1042,
+    upstream-PR#810.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+
+    def __init__(self, pkg_file, reproducible: bool = True):
+        # -- ``reproducible`` is how the factory chose this subclass; accept it
+        # -- for signature uniformity. --
+        super().__init__(pkg_file)
+        self._pending: list[tuple[str, bytes]] = []
+
+    def write(self, pack_uri, blob):
+        self._pending.append((pack_uri.membername, blob))
+
+    def close(self):
+        for membername, blob in sorted(self._pending, key=lambda item: item[0]):
+            # -- ZipInfo normalises header fields; use it to fix timestamps and
+            # -- external_attr so subsequent saves produce identical bytes. --
+            info = ZipInfo(filename=membername, date_time=REPRODUCIBLE_TIMESTAMP)
+            info.compress_type = ZIP_DEFLATED
+            info.external_attr = (0o644 & 0xFFFF) << 16  # -- rw-r--r--, regular file --
+            info.create_system = 3  # -- Unix; stable across platforms --
+            self._zipf.writestr(info, blob)
+        self._pending = []
+        super().close()

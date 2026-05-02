@@ -38,9 +38,9 @@ class DescribePackageWriter:
         expected_calls = [
             call._write_content_types_stream(phys_writer, parts),
             call._write_pkg_rels(phys_writer, pkg_rels),
-            call._write_parts(phys_writer, parts),
+            call._write_parts(phys_writer, parts, reproducible=False),
         ]
-        PhysPkgWriter_.assert_called_once_with(pkg_file)
+        PhysPkgWriter_.assert_called_once_with(pkg_file, reproducible=False)
         assert _write_methods.mock_calls == expected_calls
         phys_writer.close.assert_called_once_with()
 
