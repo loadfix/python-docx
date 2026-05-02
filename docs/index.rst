@@ -83,6 +83,7 @@ User Guide
    user/styles-using
    user/comments
    user/bookmarks
+   user/charts
    user/shapes
    user/accessibility
    user/statistics
