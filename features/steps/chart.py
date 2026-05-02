@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import ast
 import io
+import os
+import zipfile
 
 from behave import given, then, when
 from behave.runner import Context
@@ -11,8 +13,9 @@ from behave.runner import Context
 from docx import Document
 from docx.chart import Chart, WD_CHART_TYPE
 from docx.parts.chart import ChartPart
+from docx.oxml.ns import qn
 
-from helpers import test_docx
+from helpers import saved_docx_path, test_docx
 
 # given ====================================================
 
@@ -257,6 +260,48 @@ def when_I_add_a_LINE_chart_with_categories_and_series(
 
 @when("I save and reopen the chart-create-line document")
 def when_I_save_and_reopen_the_chart_create_line_document(context: Context):
+# -- chart-create-pie steps -------------------------------------------------
+
+
+@given("a base document for pie-chart creation")
+def given_a_base_document_for_pie_chart_creation(context: Context):
+    context.document = Document(test_docx("chart-create-pie-base"))
+
+
+@when(
+    'I add a pie chart with slices "{a}","{b}","{c}" '
+    "valued {v1:g},{v2:g},{v3:g}"
+)
+def when_I_add_a_pie_chart_with_slices(
+    context: Context,
+    a: str,
+    b: str,
+    c: str,
+    v1: float,
+    v2: float,
+    v3: float,
+):
+    context.categories = [a, b, c]
+    context.series_name = "Slices"
+    context.values = [float(v1), float(v2), float(v3)]
+    context.chart = context.document.add_chart(
+        WD_CHART_TYPE.PIE,
+        context.categories,
+        {context.series_name: context.values},
+    )
+
+
+@when("I save the pie-chart document to scratch")
+def when_I_save_the_pie_chart_document_to_scratch(context: Context):
+    os.makedirs(os.path.dirname(saved_docx_path), exist_ok=True)
+    if os.path.isfile(saved_docx_path):
+        os.remove(saved_docx_path)
+    context.document.save(saved_docx_path)
+    context.saved_path = saved_docx_path
+
+
+@when("I save and reopen the pie-chart document")
+def when_I_save_and_reopen_the_pie_chart_document(context: Context):
     buf = io.BytesIO()
     context.document.save(buf)
     buf.seek(0)
@@ -469,4 +514,77 @@ def then_chart_part_xml_contains_n_ser(context: Context, count: int):
     matches = chartSpace.findall(f".//{qn('c:ser')}")
     assert len(matches) == count, (
         f"expected {count} c:ser elements, found {len(matches)}"
+
+
+@then("document.charts has length {n:d}")
+def then_document_charts_has_length(context: Context, n: int):
+    charts = context.document.charts
+    assert len(charts) == n, f"expected {n} chart(s), got {len(charts)}"
+
+
+@then("the last paragraph in the document contains the new chart")
+def then_last_paragraph_contains_the_new_chart(context: Context):
+    last_para = context.document.paragraphs[-1]
+    # -- a chart is wrapped in a w:drawing inside a w:r inside the paragraph --
+    drawings = last_para._p.findall(qn("w:r") + "/" + qn("w:drawing"))
+    assert drawings, (
+        "expected the last paragraph to contain a w:drawing element, "
+        f"found {len(drawings)}"
+    )
+    # -- the drawing should reference a c:chart element via graphicData --
+    chart_refs = last_para._p.xpath(".//c:chart")
+    assert chart_refs, (
+        "expected the last paragraph's drawing to reference a c:chart element"
+    )
+
+
+@then("document.charts[{idx:d}] has {n:d} series")
+def then_document_charts_idx_has_n_series(context: Context, idx: int, n: int):
+    chart = context.document.charts[idx]
+    assert len(chart.series) == n, (
+        f"expected chart {idx} to have {n} series, got {len(chart.series)}"
+    )
+
+
+@then('document.charts[{idx:d}].series[{ser_idx:d}].name == "{name}"')
+def then_document_charts_series_name_eq(
+    context: Context, idx: int, ser_idx: int, name: str
+):
+    actual = context.document.charts[idx].series[ser_idx].name
+    assert actual == name, f"expected series name {name!r}, got {actual!r}"
+
+
+@then("the sum of charts[{idx:d}].series[{ser_idx:d}].values is {expected:g}")
+def then_sum_of_series_values_is(
+    context: Context, idx: int, ser_idx: int, expected: float
+):
+    values = context.document.charts[idx].series[ser_idx].values
+    total = float(sum(values))
+    assert total == float(expected), (
+        f"expected sum of values to be {expected}, got {total} (values={values})"
+    )
+
+
+@then("word/charts/chart1.xml contains a c:pieChart element")
+def then_chart1_xml_contains_pieChart(context: Context):
+    path = getattr(context, "saved_path", saved_docx_path)
+    with zipfile.ZipFile(path, "r") as zf:
+        blob = zf.read("word/charts/chart1.xml")
+    assert b"<c:pieChart" in blob, (
+        "expected <c:pieChart> in word/charts/chart1.xml; "
+        f"first 400 bytes: {blob[:400]!r}"
+    )
+
+
+@then("word/charts/chart1.xml contains exactly {n:d} c:ser element")
+@then("word/charts/chart1.xml contains exactly {n:d} c:ser elements")
+def then_chart1_xml_has_n_ser_elements(context: Context, n: int):
+    path = getattr(context, "saved_path", saved_docx_path)
+    with zipfile.ZipFile(path, "r") as zf:
+        blob = zf.read("word/charts/chart1.xml")
+    # -- count opening c:ser tags; the c:ser element always appears as
+    #    "<c:ser>" (no attributes) in the python-docx-generated chart. --
+    count = blob.count(b"<c:ser>")
+    assert count == n, (
+        f"expected {n} <c:ser> element(s) in chart1.xml, got {count}"
     )
