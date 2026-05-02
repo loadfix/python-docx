@@ -23,6 +23,7 @@ from docx.oxml.table import (
     CT_Shd,
     CT_Tbl,
     CT_TblBorders,
+    CT_TblCellMar,
     CT_TblLook,
     CT_TblPr,
     CT_TblWidth,
@@ -165,6 +166,71 @@ class DescribeCT_TblPr_borders:
         tblPr = cast(CT_TblPr, element("w:tblPr/(w:tblStyle,w:tblLayout)"))
         tblPr.get_or_add_tblBorders()
         expected = xml("w:tblPr/(w:tblStyle,w:tblBorders,w:tblLayout)")
+        assert tblPr.xml == expected
+
+
+class DescribeCT_TblPr_tblInd:
+    """Unit-test suite for `w:tblInd` access on CT_TblPr."""
+
+    def it_is_None_when_no_tblInd_child_is_present(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        assert tblPr.tblInd is None
+
+    def it_can_add_tblInd(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        tblInd = tblPr.get_or_add_tblInd()
+        assert isinstance(tblInd, CT_TblWidth)
+        assert tblPr.tblInd is tblInd
+
+    def it_inserts_tblInd_in_the_right_position(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr/(w:tblStyle,w:tblBorders)"))
+        tblPr.get_or_add_tblInd()
+        expected = xml("w:tblPr/(w:tblStyle,w:tblInd,w:tblBorders)")
+        assert tblPr.xml == expected
+
+
+class DescribeCT_TblPr_tblCellMar:
+    """Unit-test suite for `w:tblCellMar` access on CT_TblPr."""
+
+    def it_is_None_when_no_tblCellMar_child_is_present(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        assert tblPr.tblCellMar is None
+
+    def it_can_add_tblCellMar(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        tblCellMar = tblPr.get_or_add_tblCellMar()
+        assert isinstance(tblCellMar, CT_TblCellMar)
+        assert tblPr.tblCellMar is tblCellMar
+
+    def it_inserts_tblCellMar_in_the_right_position(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr/(w:tblStyle,w:tblLook)"))
+        tblPr.get_or_add_tblCellMar()
+        expected = xml("w:tblPr/(w:tblStyle,w:tblCellMar,w:tblLook)")
+        assert tblPr.xml == expected
+
+
+class DescribeCT_TblPr_tblCaption:
+    """Unit-test suite for `w:tblCaption`/`w:tblDescription` on CT_TblPr."""
+
+    def it_is_None_when_no_tblCaption_child_is_present(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr"))
+        assert tblPr.tblCaption is None
+        assert tblPr.tblDescription is None
+
+    def it_inserts_tblCaption_after_tblLook(self):
+        tblPr = cast(CT_TblPr, element("w:tblPr/(w:tblStyle,w:tblLook)"))
+        tblPr._add_tblCaption().val = "foo"
+        expected = xml("w:tblPr/(w:tblStyle,w:tblLook,w:tblCaption{w:val=foo})")
+        assert tblPr.xml == expected
+
+    def it_inserts_tblDescription_after_tblCaption(self):
+        tblPr = cast(
+            CT_TblPr, element("w:tblPr/(w:tblStyle,w:tblCaption{w:val=c})")
+        )
+        tblPr._add_tblDescription().val = "d"
+        expected = xml(
+            "w:tblPr/(w:tblStyle,w:tblCaption{w:val=c},w:tblDescription{w:val=d})"
+        )
         assert tblPr.xml == expected
 
 

@@ -35,6 +35,7 @@ if TYPE_CHECKING:
         CT_Row,
         CT_Shd,
         CT_TblBorders,
+        CT_TblCellMar,
         CT_TblLook,
         CT_TblPr,
         CT_Tc,
@@ -435,6 +436,174 @@ class Table(StoryChild):
     @preferred_width.setter
     def preferred_width(self, value: Length | None):
         self._tblPr.preferred_width = value
+
+    @property
+    def alt_text(self) -> str | None:
+        """The table's accessibility "caption" (alt-text title), or |None|.
+
+        Maps to ``w:tblPr/w:tblCaption/@w:val``. This is the short
+        accessibility label Word exposes in the **Table Properties -> Alt Text**
+        dialog as *Title*. Assigning |None| removes the ``w:tblCaption`` child.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        tblCaption = self._tblPr.tblCaption
+        return None if tblCaption is None else tblCaption.val
+
+    @alt_text.setter
+    def alt_text(self, value: str | None):
+        tblPr = self._tblPr
+        tblPr._remove_tblCaption()  # pyright: ignore[reportPrivateUsage]
+        if value is None:
+            return
+        tblPr._add_tblCaption().val = value  # pyright: ignore[reportPrivateUsage]
+
+    @property
+    def alt_description(self) -> str | None:
+        """The table's accessibility description (long alt-text), or |None|.
+
+        Maps to ``w:tblPr/w:tblDescription/@w:val``. This is the longer
+        accessibility description Word exposes in the **Table Properties ->
+        Alt Text** dialog. Assigning |None| removes the ``w:tblDescription``
+        child.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        tblDescription = self._tblPr.tblDescription
+        return None if tblDescription is None else tblDescription.val
+
+    @alt_description.setter
+    def alt_description(self, value: str | None):
+        tblPr = self._tblPr
+        tblPr._remove_tblDescription()  # pyright: ignore[reportPrivateUsage]
+        if value is None:
+            return
+        tblPr._add_tblDescription().val = value  # pyright: ignore[reportPrivateUsage]
+
+    @property
+    def indent(self) -> Length | None:
+        """The left-indent of this table as an EMU |Length|, or |None|.
+
+        Maps to ``w:tblPr/w:tblInd``. Returns |None| when the ``w:tblInd``
+        child is absent or when its ``w:type`` is not ``"dxa"`` (e.g. when
+        the indent is expressed as a percentage). Read/write. Assigning
+        |None| removes ``w:tblInd`` entirely.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        tblInd = self._tblPr.tblInd
+        if tblInd is None:
+            return None
+        return tblInd.width
+
+    @indent.setter
+    def indent(self, value: Length | None):
+        tblPr = self._tblPr
+        if value is None:
+            tblPr._remove_tblInd()  # pyright: ignore[reportPrivateUsage]
+            return
+        tblPr.get_or_add_tblInd().width = value
+
+    # -- upstream-compat alias (upstream#586) --
+    @property
+    def left_indent(self) -> Length | None:
+        """Alias of :attr:`indent` for upstream-compat (upstream#586).
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self.indent
+
+    @left_indent.setter
+    def left_indent(self, value: Length | None):
+        self.indent = value
+
+    @property
+    def cell_margins(self) -> TableCellMargins:
+        """Read-only. |TableCellMargins| proxy for table-level default cell margins.
+
+        Always returns a |TableCellMargins| object. When no ``w:tblCellMar``
+        element is present, each edge reads as |None|; assigning to an edge
+        creates the ``w:tblPr/w:tblCellMar`` structure on demand. Mirrors
+        :attr:`_Cell.margins` but operates at the table level, setting the
+        default cell margins inherited by every cell that doesn't override
+        them via ``w:tcMar``.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return TableCellMargins(self._tbl)
+
+    def merged_cell_ranges(self) -> list[tuple[int, int, int, int]]:
+        """Return a list of rectangular merged-cell regions in this table.
+
+        Each entry is a ``(row_start, row_end_exclusive, col_start,
+        col_end_exclusive)`` 4-tuple describing a merged region. A cell is
+        considered "merged" when it spans more than one grid column
+        (``w:gridSpan > 1``) or when it participates in a vertical span
+        (``w:vMerge="restart"``). The result is sorted by ``(row_start,
+        col_start)`` and excludes single-cell (1x1) regions.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.oxml.simpletypes import ST_Merge
+
+        ranges: list[tuple[int, int, int, int]] = []
+        for tc in self._tbl.iter_tcs():
+            vMerge = tc.vMerge
+            grid_span = tc.grid_span
+            # -- only origin cells: vMerge in {None, "restart"} --
+            if vMerge == ST_Merge.CONTINUE:
+                continue
+            # -- skip "plain" cells: grid_span 1 and no vertical span --
+            if grid_span <= 1 and vMerge is None:
+                continue
+            row_start = tc.top
+            row_end = tc.bottom
+            col_start = tc.left
+            col_end = tc.right
+            ranges.append((row_start, row_end, col_start, col_end))
+        ranges.sort(key=lambda r: (r[0], r[2]))
+        return ranges
+
+    def split(self, before_row: int) -> tuple[Paragraph, Table]:
+        """Split this table in two at `before_row`.
+
+        A new ``w:p`` and a new ``w:tbl`` are inserted immediately after this
+        table. The rows from `before_row` onward are moved from this table
+        into the newly-created table; this table retains the rows above
+        `before_row`. Returns a ``(paragraph, new_table)`` tuple.
+
+        Raises |ValueError| if `before_row` is out of range, is the first
+        row (``before_row == 0``), or is beyond the last row.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from copy import deepcopy
+
+        from docx.oxml.parser import OxmlElement
+        from docx.oxml.table import CT_Tbl as _CT_Tbl
+
+        tr_lst = list(self._tbl.tr_lst)
+        row_count = len(tr_lst)
+        if before_row <= 0 or before_row >= row_count:
+            raise ValueError(
+                f"before_row must be in range [1, {row_count - 1}]; got {before_row}"
+            )
+        # -- build new w:tbl preserving the original tblPr and tblGrid --
+        new_tbl = cast(_CT_Tbl, OxmlElement("w:tbl"))
+        new_tbl.append(deepcopy(self._tbl.tblPr))
+        new_tbl.append(deepcopy(self._tbl.tblGrid))
+        # -- move rows from before_row..end into new_tbl --
+        for tr in tr_lst[before_row:]:
+            self._tbl.remove(tr)
+            new_tbl.append(tr)
+        # -- insert the separator paragraph and the new table immediately
+        # -- after this table in its parent (document order). --
+        new_p = cast("CT_P", OxmlElement("w:p"))
+        self._tbl.addnext(new_tbl)
+        self._tbl.addnext(new_p)
+        paragraph = Paragraph(new_p, self._parent)
+        new_table = Table(new_tbl, self._parent)
+        return paragraph, new_table
 
     @property
     def borders(self) -> TableBorders:
@@ -1738,6 +1907,100 @@ class CellMargins:
         self._set_edge("end", value)
 
 
+class TableCellMargins:
+    """Proxy for table-level default cell margins (the ``w:tblCellMar`` element).
+
+    Accessed via :attr:`Table.cell_margins`. Provides read/write access to the
+    four edges: ``top``, ``bottom``, ``start`` and ``end``. The underlying
+    ``w:tblCellMar`` element is created lazily on first write. When no
+    ``w:tblCellMar`` is present, each edge reads as |None|.
+
+    Mirrors :class:`CellMargins` but operates at the table level — writes go
+    to ``w:tblPr/w:tblCellMar`` rather than ``w:tcPr/w:tcMar``. The edge
+    names ``start`` and ``end`` read either the modern ``w:start``/``w:end``
+    tags or the legacy ``w:left``/``w:right`` pair; writes always produce
+    the modern form.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+
+    def __init__(self, tbl: CT_Tbl):
+        self._tbl = tbl
+
+    @property
+    def _tblCellMar(self) -> "CT_TblCellMar | None":
+        return self._tbl.tblPr.tblCellMar
+
+    def _get_or_add_tblCellMar(self) -> "CT_TblCellMar":
+        return self._tbl.tblPr.get_or_add_tblCellMar()
+
+    def _get_edge(self, edge: str) -> "Length | None":
+        tblCellMar = self._tblCellMar
+        if tblCellMar is None:
+            return None
+        return tblCellMar.get_margin(edge)
+
+    def _set_edge(self, edge: str, value: "Length | None") -> None:
+        if value is None:
+            tblCellMar = self._tblCellMar
+            if tblCellMar is None:
+                return
+            tblCellMar.remove_margin(edge)
+            # -- if the tblCellMar is now empty, remove it to keep the XML tidy --
+            if len(tblCellMar) == 0:
+                self._tbl.tblPr._remove_tblCellMar()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._get_or_add_tblCellMar().set_margin(edge, value)
+
+    @property
+    def top(self) -> "Length | None":
+        """Top default cell-margin as a |Length|, or |None| when not set.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self._get_edge("top")
+
+    @top.setter
+    def top(self, value: "Length | None") -> None:
+        self._set_edge("top", value)
+
+    @property
+    def bottom(self) -> "Length | None":
+        """Bottom default cell-margin as a |Length|, or |None| when not set.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self._get_edge("bottom")
+
+    @bottom.setter
+    def bottom(self, value: "Length | None") -> None:
+        self._set_edge("bottom", value)
+
+    @property
+    def start(self) -> "Length | None":
+        """Start-edge default cell-margin as a |Length|, or |None| when not set.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self._get_edge("start")
+
+    @start.setter
+    def start(self, value: "Length | None") -> None:
+        self._set_edge("start", value)
+
+    @property
+    def end(self) -> "Length | None":
+        """End-edge default cell-margin as a |Length|, or |None| when not set.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self._get_edge("end")
+
+    @end.setter
+    def end(self, value: "Length | None") -> None:
+        self._set_edge("end", value)
+
+
 class _Column(Parented):
     """Table column."""
 
@@ -2120,6 +2383,28 @@ class _Row(Parented):
         else:
             tc_lst[index].addprevious(new_tc)
         return _Cell(new_tc, self.table)
+
+    def apply_shading(self, color: RGBColor | str | None) -> None:
+        """Apply a solid fill `color` to every cell in this row.
+
+        `color` may be an |RGBColor|, a 6-character hex string (e.g.
+        ``"FF0000"``), or |None| to remove the fill from every cell in this
+        row. The shading pattern is set to ``WD_SHADING_PATTERN.CLEAR`` (the
+        default solid fill). Cells that are continuation cells of a vertical
+        merge still receive shading on the underlying ``w:tc`` element; the
+        rendered appearance is controlled by Word's merge resolution.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        if color is None:
+            rgb: RGBColor | None = None
+        elif isinstance(color, RGBColor):
+            rgb = color
+        else:
+            rgb = RGBColor.from_string(color)
+        for tc in self._tr.tc_lst:
+            cell = _Cell(tc, self.table)
+            cell.shading.fill_color = rgb
 
     @property
     def index(self) -> int:

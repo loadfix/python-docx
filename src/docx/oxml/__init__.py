@@ -415,6 +415,7 @@ from .table import (
     CT_Shd,
     CT_Tbl,
     CT_TblBorders,
+    CT_TblCellMar,
     CT_TblGrid,
     CT_TblGridCol,
     CT_TblLayoutType,
@@ -445,8 +446,12 @@ register_element_cls("w:gridCol", CT_TblGridCol)
 register_element_cls("w:gridSpan", CT_DecimalNumber)
 register_element_cls("w:shd", CT_Shd)
 register_element_cls("w:tbl", CT_Tbl)
+register_element_cls("w:tblCaption", CT_String)
+register_element_cls("w:tblCellMar", CT_TblCellMar)
+register_element_cls("w:tblDescription", CT_String)
 register_element_cls("w:tblGrid", CT_TblGrid)
 register_element_cls("w:tblHeader", CT_OnOff)
+register_element_cls("w:tblInd", CT_TblWidth)
 register_element_cls("w:tblLayout", CT_TblLayoutType)
 register_element_cls("w:tblLook", CT_TblLook)
 register_element_cls("w:tblPr", CT_TblPr)
