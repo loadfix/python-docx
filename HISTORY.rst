@@ -3,8 +3,10 @@
 Release History
 ---------------
 
-2026.05.0 (unreleased) — first release as independent fork
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+2026.05.0 — first release as independent fork
++++++++++++++++++++++++++++++++++++++++++++++
+
+Released: 2026-05-02
 
 This release marks the project's split from upstream
 ``python-openxml/python-docx``. Versioning switches to CalVer
