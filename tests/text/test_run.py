@@ -584,11 +584,17 @@ class DescribeRun_Symbol:
         remaining = list(run.symbols)
         assert len(remaining) == 1
         assert remaining[0].char_hex == "0041"
-        # -- `w:t` is preserved --
-        assert run.text == "x"
+        # -- `w:t` is preserved; the remaining w:sym (U+0041 = 'A') contributes
+        # -- its character to run.text since upstream#1528 closed --
+        assert run.text == "xA"
 
-    def it_preserves_symbols_when_paragraph_text_is_read(self, paragraph_: Mock):
-        """`Run.text` skips symbol elements but leaves them in the XML."""
+    def it_includes_symbol_chars_in_run_text(self, paragraph_: Mock):
+        """`Run.text` renders a `w:sym` as ``chr(@w:char)``.
+
+        Closes upstream#1528 — callers that read ``Paragraph.text`` or
+        ``Run.text`` now see the symbol character in place of the previous
+        silent drop.
+        """
         r = cast(
             CT_R,
             element(
@@ -599,9 +605,11 @@ class DescribeRun_Symbol:
         )
         run = Run(r, paragraph_)
 
-        # -- symbol is not part of the text string (non-textual) --
-        assert run.text == "beforeafter"
-        # -- but the w:sym element is still present in the XML --
+        # -- symbol contributes its derived character (U+F0E0 Private Use Area) --
+        expected = "before" + chr(0xF0E0) + "after"
+        assert run.text == expected
+        assert run.text_with_symbols == expected
+        # -- the w:sym element is still present in the XML --
         assert len(list(run.symbols)) == 1
 
     @pytest.fixture

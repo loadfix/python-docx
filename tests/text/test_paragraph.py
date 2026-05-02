@@ -1933,6 +1933,165 @@ class DescribeParagraph_AddTextAndFont:
         assert paragraph.font.size == Pt(12)
 
 
+class DescribeParagraph_BlockNavigation:
+    """Unit-test suite for the ``.next_block`` / ``.previous_block`` accessors."""
+
+    def it_returns_None_when_there_is_no_next_block(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.oxml.document import CT_Body
+
+        body = cast(CT_Body, element("w:body/w:p"))
+        part_ = instance_mock(request, DocumentPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        paragraph = Paragraph(body.p_lst[0], FakeParent())
+        assert paragraph.next_block is None
+        assert paragraph.previous_block is None
+
+    def it_returns_the_next_paragraph(self, request: pytest.FixtureRequest):
+        from docx.oxml.document import CT_Body
+
+        body = cast(CT_Body, element("w:body/(w:p/w:r/w:t\"A\",w:p/w:r/w:t\"B\")"))
+        part_ = instance_mock(request, DocumentPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        first = Paragraph(body.p_lst[0], FakeParent())
+        next_block = first.next_block
+        assert isinstance(next_block, Paragraph)
+        assert next_block.text == "B"
+
+    def it_returns_the_next_table(self, request: pytest.FixtureRequest):
+        from docx.oxml.document import CT_Body
+        from docx.table import Table
+
+        body = cast(CT_Body, element("w:body/(w:p,w:tbl)"))
+        part_ = instance_mock(request, DocumentPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        paragraph = Paragraph(body.p_lst[0], FakeParent())
+        next_block = paragraph.next_block
+        assert isinstance(next_block, Table)
+
+    def it_skips_non_block_siblings(self, request: pytest.FixtureRequest):
+        from docx.oxml.document import CT_Body
+
+        body = cast(
+            CT_Body,
+            element(
+                "w:body/(w:p/w:r/w:t\"A\",w:bookmarkStart{w:id=0,w:name=x},"
+                "w:p/w:r/w:t\"B\")"
+            ),
+        )
+        part_ = instance_mock(request, DocumentPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        first = Paragraph(body.p_lst[0], FakeParent())
+        next_block = first.next_block
+        assert isinstance(next_block, Paragraph)
+        assert next_block.text == "B"
+
+    def it_navigates_backwards_via_previous_block(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.oxml.document import CT_Body
+
+        body = cast(CT_Body, element("w:body/(w:p/w:r/w:t\"A\",w:p/w:r/w:t\"B\")"))
+        part_ = instance_mock(request, DocumentPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        second = Paragraph(body.p_lst[1], FakeParent())
+        prev_block = second.previous_block
+        assert isinstance(prev_block, Paragraph)
+        assert prev_block.text == "A"
+
+
+class DescribeParagraph_PublicElement:
+    """``Paragraph.element`` is the public alias for the ``w:p`` element."""
+
+    def it_returns_the_underlying_ct_p(self, request: pytest.FixtureRequest):
+        p = cast(CT_P, element("w:p"))
+        part_ = instance_mock(request, DocumentPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        paragraph = Paragraph(p, FakeParent())
+        assert paragraph.element is p
+        assert paragraph.element is paragraph._p
+
+
+class DescribeParagraph_RestartNumberingLevel:
+    """``Paragraph.restart_numbering`` accepts an explicit outer level."""
+
+    def it_uses_explicit_level_for_the_lvlOverride(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.numbering import Numbering
+        from docx.enum.text import WD_NUMBER_FORMAT
+        from docx.oxml.numbering import CT_Numbering
+        from docx.oxml.ns import qn
+        from docx.parts.numbering import NumberingPart
+
+        numbering_elm = cast(CT_Numbering, element("w:numbering"))
+        numbering_part_ = instance_mock(request, NumberingPart)
+        numbering_part_.numbering_element = numbering_elm
+        numbering = Numbering(numbering_elm, numbering_part_)
+        numbering.add_numbering_definition(
+            levels=[
+                {"format": WD_NUMBER_FORMAT.DECIMAL, "text": "%1."},
+                {"format": WD_NUMBER_FORMAT.LOWER_LETTER, "text": "%2)"},
+            ]
+        )
+        original_num_id = numbering_elm.num_lst[0].numId
+
+        p = cast(
+            CT_P,
+            element(
+                f"w:p/w:pPr/w:numPr/"
+                f"(w:ilvl{{w:val=1}},w:numId{{w:val={original_num_id}}})"
+            ),
+        )
+        part_ = instance_mock(request, DocumentPart)
+        part_.numbering_part = numbering_part_
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        paragraph = Paragraph(p, FakeParent())
+        paragraph.restart_numbering(level=0, start=5)
+
+        new_num = numbering_elm.num_lst[-1]
+        override = new_num.xpath("./w:lvlOverride")[0]
+        assert override.get(qn("w:ilvl")) == "0"
+        start_override = override.xpath("./w:startOverride")[0]
+        assert start_override.get(qn("w:val")) == "5"
+
+
 class DescribeRun_CopyFormattingFrom:
     """Unit-test suite for `Run.copy_formatting_from`."""
 

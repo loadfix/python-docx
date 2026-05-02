@@ -271,6 +271,20 @@ class NumberingDefinition:
             return None
         return Level(lvl, self)
 
+    def new_instance(self) -> int:
+        """Allocate a new ``w:num`` pointing at this abstract definition.
+
+        Returns the integer ``numId`` of the freshly-created instance. Two
+        paragraphs sharing the same abstract definition but different
+        ``numId`` values restart their numbering independently; this helper
+        is handy for laying out several independent lists that all share the
+        same visual formatting (closes upstream#25).
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        new_num = self._numbering._numbering.add_num(self.abstract_num_id)
+        return new_num.numId
+
     def apply_to(self, paragraph: "Paragraph", level: int = 0) -> None:
         """Apply this numbering definition to `paragraph` at the specified `level`.
 

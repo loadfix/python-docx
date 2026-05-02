@@ -3378,3 +3378,44 @@ class DescribeTable_spans_page_break:
         table = Table(tbl, instance_mock(request, DocumentPart))
 
         assert table.spans_page_break is expected
+
+
+class DescribeTable_PublicElementAndNavigation:
+    """Closes upstream#1445 and upstream#583 for `Table`."""
+
+    def it_exposes_public_element_alias(self, request: FixtureRequest):
+        tbl = cast(CT_Tbl, element("w:tbl"))
+        parent_ = instance_mock(request, DocumentPart)
+        table = Table(tbl, parent_)
+        assert table.element is tbl
+        assert table.element is table._tbl
+
+    def it_returns_next_block_paragraph(self, request: FixtureRequest):
+        from docx.oxml.document import CT_Body
+
+        body = cast(CT_Body, element("w:body/(w:tbl,w:p/w:r/w:t\"after\")"))
+        parent_ = instance_mock(request, DocumentPart)
+        table = Table(cast(CT_Tbl, body[0]), parent_)
+        next_block = table.next_block
+        assert isinstance(next_block, Paragraph)
+        assert next_block.text == "after"
+
+    def it_returns_previous_block_table_or_none(self, request: FixtureRequest):
+        from docx.oxml.document import CT_Body
+
+        body = cast(CT_Body, element("w:body/(w:tbl,w:tbl)"))
+        parent_ = instance_mock(request, DocumentPart)
+        second = Table(cast(CT_Tbl, body[1]), parent_)
+        prev = second.previous_block
+        assert isinstance(prev, Table)
+
+
+class Describe_Cell_PublicElement:
+    """Closes upstream#1445 for `_Cell`."""
+
+    def it_exposes_public_element_alias(self, request: FixtureRequest):
+        tc = cast(CT_Tc, element("w:tc/w:p"))
+        parent_ = instance_mock(request, Table)
+        cell = _Cell(tc, parent_)
+        assert cell.element is tc
+        assert cell.element is cell._tc

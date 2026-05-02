@@ -200,6 +200,19 @@ class Run(StoryChild):
             yield Symbol(sym)
 
     @property
+    def text_with_symbols(self) -> str:
+        """Run text including ``w:sym`` glyphs rendered as ``chr(@w:char)``.
+
+        Alias for :attr:`text`; kept as a named property because the upstream
+        issue request (upstream#1528) was specifically for a symbol-aware
+        variant of ``run.text``. Provided so callers can opt into the intent
+        explicitly even though ``.text`` now includes symbols too.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self._r.text
+
+    @property
     def equations(self):
         """List of |Equation| objects for OMML elements inside this run.
 

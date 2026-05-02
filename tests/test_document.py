@@ -1382,3 +1382,64 @@ class Describe_Body:
     @pytest.fixture
     def document_(self, request: FixtureRequest):
         return instance_mock(request, Document)
+
+
+class DescribeDocument_Text:
+    """Closes upstream#252 / upstream#72 — `Document.text` body concatenation."""
+
+    def it_joins_paragraphs_with_newlines(self, request: FixtureRequest):
+        doc_elm = cast(
+            CT_Document,
+            element(
+                'w:document/w:body/('
+                'w:p/w:r/w:t"one",'
+                'w:p/w:r/w:t"two",'
+                'w:p/w:r/w:t"three"'
+                ')'
+            ),
+        )
+        part_ = instance_mock(request, DocumentPart)
+        doc = Document(doc_elm, part_)
+
+        assert doc.text == "one\ntwo\nthree"
+
+    def it_returns_empty_string_for_empty_body(self, request: FixtureRequest):
+        doc_elm = cast(CT_Document, element("w:document/w:body"))
+        part_ = instance_mock(request, DocumentPart)
+        doc = Document(doc_elm, part_)
+        assert doc.text == ""
+
+
+class DescribeDocument_IterInnerContentSdtFlat:
+    """Closes upstream#1280 — flatten ``w:sdt`` blocks when requested."""
+
+    def it_flattens_sdt_paragraphs_when_include_sdt_flat(
+        self, request: FixtureRequest
+    ):
+        doc_elm = cast(
+            CT_Document,
+            element(
+                'w:document/w:body/('
+                'w:p/w:r/w:t"outer1",'
+                "w:sdt/w:sdtContent/w:p/w:r/w:t\"inner\","
+                'w:p/w:r/w:t"outer2"'
+                ')'
+            ),
+        )
+        part_ = instance_mock(request, DocumentPart)
+        doc = Document(doc_elm, part_)
+
+        default_texts = [
+            item.text
+            for item in doc.iter_inner_content()
+            if isinstance(item, Paragraph)
+        ]
+        # -- default iteration skips the sdt (non-w:p/w:tbl sibling) --
+        assert default_texts == ["outer1", "outer2"]
+
+        flat_texts = [
+            item.text
+            for item in doc.iter_inner_content(include_sdt_flat=True)
+            if isinstance(item, Paragraph)
+        ]
+        assert flat_texts == ["outer1", "inner", "outer2"]

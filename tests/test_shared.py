@@ -113,6 +113,17 @@ class DescribeRGBColor:
         rgb = RGBColor.from_string("123456")
         assert rgb == RGBColor(0x12, 0x34, 0x56)
 
+    def it_expands_3_hex_char_shorthand(self):
+        assert RGBColor.from_string("F0A") == RGBColor(0xFF, 0x00, 0xAA)
+
+    def it_accepts_a_leading_hash(self):
+        assert RGBColor.from_string("#3C2F80") == RGBColor(0x3C, 0x2F, 0x80)
+        assert RGBColor.from_string("#F0A") == RGBColor(0xFF, 0x00, 0xAA)
+
+    def it_rejects_invalid_length_hex_strings(self):
+        with pytest.raises(ValueError, match="3- or 6-character hex"):
+            RGBColor.from_string("FFFF")
+
     def it_can_provide_a_hex_string_rgb_value(self):
         assert str(RGBColor(0xF3, 0x8A, 0x56)) == "F38A56"
 
