@@ -1,22 +1,33 @@
-"""Read-only proxy objects for the document's ``word/fontTable.xml`` part.
+"""Proxy objects for the document's ``word/fontTable.xml`` part.
 
 The font table lists every font referenced by the document together with
-descriptive metadata (family classification, charset, PANOSE, etc.). This is
-read-only from the python-docx perspective — document authors don't create or
-edit these entries; Word generates them when saving.
-
-Use :attr:`docx.document.Document.font_table` to obtain a :class:`FontTable`
-collection (or |None| if the document has no ``fontTable`` part).
+descriptive metadata (family classification, charset, PANOSE, etc.). Read
+access is always available via :attr:`docx.document.Document.font_table` (or
+|None| if the document has no ``fontTable`` part). Write access is limited to
+adding embedded TrueType font binaries through :meth:`FontTable.add_embedded_font`.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal
 from collections.abc import Iterator
+
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
 if TYPE_CHECKING:
     from docx.oxml.font_table import CT_Font, CT_Fonts
     from docx.parts.font_table import FontTablePart
+
+
+EmbedVariant = Literal["regular", "bold", "italic", "bold_italic"]
+
+_EMBED_TAG = {
+    "regular": "embedRegular",
+    "bold": "embedBold",
+    "italic": "embedItalic",
+    "bold_italic": "embedBoldItalic",
+}
 
 
 class FontTable:
@@ -68,6 +79,51 @@ class FontTable:
     @property
     def part(self) -> "FontTablePart":
         return self._part
+
+    def add_embedded_font(
+        self,
+        path: str | Path,
+        family: EmbedVariant = "regular",
+        name: str | None = None,
+    ) -> "FontMetadata":
+        """Embed the font binary at `path` into the document's font table.
+
+        A :class:`docx.parts.font_table.FontPart` is created to hold the raw
+        binary payload and related to the font-table part via an ``r:font``
+        relationship. A matching ``<w:font>`` entry is added (or the existing
+        one updated) with a ``<w:embedRegular>``/``<w:embedBold>``/
+        ``<w:embedItalic>``/``<w:embedBoldItalic>`` child pointing at the new
+        part. `family` selects which weight/style this embedded file represents
+        (default ``"regular"``); `name` overrides the displayed font name and
+        defaults to the file stem.
+
+        Closes upstream#1231, #1307.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        if family not in _EMBED_TAG:
+            raise ValueError(
+                f"family must be one of {sorted(_EMBED_TAG)}, got {family!r}"
+            )
+
+        font_path = Path(path)
+        font_name = name if name is not None else font_path.stem
+
+        font_elm = self._fonts.get_font_by_name(font_name)
+        if font_elm is None:
+            font_elm = self._fonts.add_font()
+            font_elm.name = font_name
+
+        font_part = self._part.add_font_part(font_path)
+        rId = self._part.relate_to(font_part, RT.FONT)
+
+        # -- set (or replace) the appropriate embed child with the new rId --
+        tag = _EMBED_TAG[family]
+        getattr(font_elm, f"_remove_{tag}")()
+        embed = getattr(font_elm, f"_add_{tag}")()
+        embed.rId = rId
+
+        return FontMetadata(font_elm)
 
 
 class FontMetadata:

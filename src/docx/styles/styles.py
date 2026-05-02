@@ -2,14 +2,22 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
+from pathlib import Path
+from typing import TYPE_CHECKING, Iterable
 from warnings import warn
 
 from docx.enum.style import WD_BUILTIN_STYLE, WD_STYLE_TYPE
+from docx.oxml.parser import parse_xml
 from docx.oxml.styles import CT_Styles
 from docx.shared import ElementProxy
 from docx.styles import BabelFish
 from docx.styles.latent import LatentStyles
 from docx.styles.style import BaseStyle, StyleFactory
+from docx.text.font import Font
+
+if TYPE_CHECKING:
+    from docx.oxml.styles import CT_Style
 
 
 class Styles(ElementProxy):
@@ -130,6 +138,108 @@ class Styles(ElementProxy):
             return self._get_style_id_from_name(style_or_name, style_type)
 
     @property
+    def document_default_font(self) -> Font:
+        """A |Font| proxy for ``w:styles/w:docDefaults/w:rPrDefault/w:rPr``.
+
+        Reading and writing properties on the returned font modifies the
+        document-wide default character formatting that applies to every run
+        that does not otherwise override a property via its style chain.
+
+        The ``<w:docDefaults>``/``<w:rPrDefault>`` ancestors are created on
+        demand the first time this property is accessed. Closes upstream#383.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        docDefaults = self._element.get_or_add_docDefaults()
+        rPrDefault = docDefaults.get_or_add_rPrDefault()
+        return Font(rPrDefault)
+
+    def import_from(
+        self,
+        source: "Styles | object",
+        names: Iterable[str] | None = None,
+    ) -> list[BaseStyle]:
+        """Deep-copy styles from `source` into this document's styles.
+
+        `source` can be a |Styles| instance or any object exposing a ``styles``
+        attribute that returns one (e.g. a |Document|). When `names` is |None|,
+        every style in `source` is considered; otherwise only styles whose UI
+        name matches an entry in `names` are considered (other entries are
+        silently ignored). Any style already present in this document (matched
+        by ``w:styleId``) is skipped.
+
+        Styles referenced by imported styles via ``w:basedOn``, ``w:link`` or
+        ``w:next`` are imported transitively so the dependency chain resolves
+        after the call. Returns the list of newly-imported |BaseStyle| proxies
+        in import order. Closes upstream#1375, #1083, #508, #701, #197.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        source_styles = source.styles if hasattr(source, "styles") else source
+        assert isinstance(source_styles, Styles)
+
+        if names is None:
+            candidate_elms = list(source_styles._element.style_lst)
+        else:
+            wanted = {BabelFish.ui2internal(n) for n in names}
+            candidate_elms = [
+                s for s in source_styles._element.style_lst if s.name_val in wanted
+            ]
+
+        imported: list[BaseStyle] = []
+        visited: set[str] = set()
+
+        for style_elm in candidate_elms:
+            imported.extend(self._import_style_with_deps(style_elm, source_styles, visited))
+        return imported
+
+    def import_style(self, style: "BaseStyle | CT_Style") -> BaseStyle:
+        """Deep-copy a single style (and its transitive dependencies) into this document.
+
+        `style` may be a |BaseStyle| proxy or a raw ``<w:style>`` element. If a
+        style with the same ``w:styleId`` already exists in this document the
+        existing style is returned unchanged (no overwrite). Otherwise the
+        style is imported together with any styles it references via
+        ``w:basedOn``, ``w:link`` and ``w:next``.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        style_elm = style._element if isinstance(style, BaseStyle) else style
+        source_elm = style_elm.getparent()
+        # -- source_elm is a CT_Styles --
+        source_styles = Styles(source_elm)
+        imported = self._import_style_with_deps(style_elm, source_styles, set())
+        # -- always return a proxy for the target style (imported or pre-existing) --
+        target = self._element.get_by_id(style_elm.styleId)
+        if target is None:
+            # -- couldn't import; shouldn't normally happen --
+            return imported[-1] if imported else StyleFactory(style_elm)
+        return StyleFactory(target)
+
+    def import_builtin(self, name: str) -> BaseStyle:
+        """Materialise the builtin style `name` into this document.
+
+        Word ships with a predefined "latent" style set (e.g. ``"List Bullet"``,
+        ``"FollowedHyperlink"``) whose visible definitions live in the default
+        ``styles.xml`` of a freshly-created document. This method deep-copies
+        the style definition from the bundled default template into this
+        document so it (and any styles it depends on via ``basedOn``/``link``/
+        ``next``) becomes a first-class style the caller can apply to
+        paragraphs and runs. If the style is already present the existing
+        style is returned unchanged. Closes upstream#486.
+
+        Raises :class:`KeyError` if `name` is not present in the bundled
+        defaults.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        default_styles = _default_template_styles()
+        source_elm = default_styles._element.get_by_name(BabelFish.ui2internal(name))
+        if source_elm is None:
+            raise KeyError(name)
+        return self.import_style(source_elm)
+
+    @property
     def latent_styles(self):
         """A |LatentStyles| object providing access to the default behaviors for latent
         styles and the collection of |_LatentStyle| objects that define overrides of
@@ -166,6 +276,63 @@ class Styles(ElementProxy):
         if style == self.default(style_type):
             return None
         return style.style_id
+
+    def _import_style_with_deps(
+        self,
+        style_elm: "CT_Style",
+        source_styles: "Styles",
+        visited: set[str],
+    ) -> list[BaseStyle]:
+        """Deep-copy `style_elm` and its ``basedOn``/``link``/``next`` dependencies.
+
+        Returns the list of styles newly added to this document, in the order
+        they were appended. `visited` tracks styleIds already processed across
+        the current import to break cycles and avoid redundant work.
+        """
+        imported: list[BaseStyle] = []
+        style_id = style_elm.styleId
+        if not style_id or style_id in visited:
+            return imported
+        visited.add(style_id)
+
+        # -- skip if already present in this document --
+        if self._element.get_by_id(style_id) is not None:
+            return imported
+
+        # -- resolve dependencies first so references remain valid --
+        for ref in (style_elm.basedOn_val, style_elm.link_val, style_elm.next_val):
+            if not ref:
+                continue
+            dep_elm = source_styles._element.get_by_id(ref)
+            if dep_elm is None:
+                continue
+            imported.extend(
+                self._import_style_with_deps(dep_elm, source_styles, visited)
+            )
+
+        # -- deep-copy the style element into our styles tree --
+        new_elm = deepcopy(style_elm)
+        self._element.append(new_elm)
+        imported.append(StyleFactory(new_elm))
+        return imported
+
+
+def _default_template_styles() -> Styles:
+    """Return a |Styles| view over the bundled default ``styles.xml``.
+
+    The templates ship with python-docx under ``src/docx/templates/``. The
+    richer ``default-docx-template/word/styles.xml`` defines every builtin
+    style Word materialises from its latent-style set (``"List Bullet"``,
+    ``"Hyperlink"``, ``"FollowedHyperlink"``, etc.) and is therefore the
+    preferred source. The smaller ``default-styles.xml`` is consulted as a
+    fallback. The returned |Styles| instance is freshly parsed on each call
+    so callers can mutate it without contaminating shared state.
+    """
+    base = Path(__file__).resolve().parent.parent / "templates"
+    rich = base / "default-docx-template" / "word" / "styles.xml"
+    template = rich if rich.is_file() else base / "default-styles.xml"
+    element = parse_xml(template.read_bytes())
+    return Styles(element)
 
 
 def _builtin_style_ui_name(member: WD_BUILTIN_STYLE) -> str:

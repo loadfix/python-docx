@@ -89,9 +89,10 @@ class DocumentPart(StoryPart):
     def font_table(self) -> FontTable | None:
         """A |FontTable| for this document, or |None| if no font-table part is related.
 
-        The font-table part is managed by Word — python-docx does not create one on
-        demand, so this returns |None| when the document has no existing ``fontTable``
-        relationship.
+        Read access returns |None| when no ``fontTable`` relationship exists.
+        To embed a font use :meth:`font_table_or_new` (or call
+        :meth:`FontTable.add_embedded_font` through it), which will create an
+        empty font-table part on demand.
         """
         font_table_part = self._font_table_part
         if font_table_part is None:
@@ -99,17 +100,42 @@ class DocumentPart(StoryPart):
         return font_table_part.font_table
 
     @property
+    def font_table_or_new(self) -> FontTable:
+        """A |FontTable| for this document, creating an empty one if needed.
+
+        Unlike :attr:`font_table` this always returns a live |FontTable|; a
+        default (empty) ``word/fontTable.xml`` part is added to the package and
+        related to the document on the first call.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self._font_table_part_or_new.font_table
+
+    @property
     def _font_table_part(self) -> FontTablePart | None:
         """The |FontTablePart| related to this document, or |None| if not present.
 
-        Unlike the comments or footnotes parts, a default font-table part is not
-        created on demand; the part is read-only and only available when the source
-        document already contains one.
+        A default font-table part is not created on demand; use
+        :attr:`_font_table_part_or_new` to force creation.
         """
         try:
             return cast(FontTablePart, self.part_related_by(RT.FONT_TABLE))
         except KeyError:
             return None
+
+    @property
+    def _font_table_part_or_new(self) -> FontTablePart:
+        """Existing |FontTablePart|, or a newly created empty one, related by ``fontTable``.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        try:
+            return cast(FontTablePart, self.part_related_by(RT.FONT_TABLE))
+        except KeyError:
+            assert self.package is not None
+            part = FontTablePart.default(self.package)
+            self.relate_to(part, RT.FONT_TABLE)
+            return part
 
     @property
     def footnotes(self) -> Footnotes:
