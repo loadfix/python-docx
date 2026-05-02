@@ -115,6 +115,47 @@ class DescribeImage:
         assert isinstance(scaled_width, Length)
         assert isinstance(scaled_height, Length)
 
+    def it_falls_back_to_72_dpi_on_zero_header_values(self, image_header_):
+        image_header_.horz_dpi = 0
+        image_header_.vert_dpi = 0
+        image = Image(None, None, image_header_)
+
+        assert image.horz_dpi == 72
+        assert image.vert_dpi == 72
+
+    def it_falls_back_to_72_dpi_on_none_header_values(self, image_header_):
+        image_header_.horz_dpi = None
+        image_header_.vert_dpi = None
+        image = Image(None, None, image_header_)
+
+        assert image.horz_dpi == 72
+        assert image.vert_dpi == 72
+
+    def it_falls_back_to_72_dpi_on_negative_header_values(self, image_header_):
+        image_header_.horz_dpi = -5
+        image_header_.vert_dpi = -1
+        image = Image(None, None, image_header_)
+
+        assert image.horz_dpi == 72
+        assert image.vert_dpi == 72
+
+    def it_preserves_a_valid_dpi_when_only_one_axis_is_invalid(self, image_header_):
+        image_header_.horz_dpi = 0
+        image_header_.vert_dpi = 200
+        image = Image(None, None, image_header_)
+
+        assert image.horz_dpi == 72
+        assert image.vert_dpi == 200
+
+    def it_computes_native_size_without_zero_division_on_zero_dpi(self, image_header_):
+        image_header_.px_width, image_header_.px_height = 144, 288
+        image_header_.horz_dpi, image_header_.vert_dpi = 0, 0
+        image = Image(None, None, image_header_)
+
+        # -- would raise ZeroDivisionError prior to the zero-DPI fallback --
+        assert image.width == 1828800  # 144 px / 72 dpi = 2 inches
+        assert image.height == 3657600  # 288 px / 72 dpi = 4 inches
+
     def it_knows_the_image_filename(self):
         filename = "foobar.png"
         image = Image(None, filename, None)

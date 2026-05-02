@@ -16,6 +16,7 @@ nsmap = {
     "dgm": "http://schemas.openxmlformats.org/drawingml/2006/diagram",
     "inkml": "http://www.w3.org/2003/InkML",
     "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
+    "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
     "o": "urn:schemas-microsoft-com:office:office",
     "pic": "http://schemas.openxmlformats.org/drawingml/2006/picture",
     "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",

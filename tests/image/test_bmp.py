@@ -32,6 +32,23 @@ class DescribeBmp:
         bmp = Bmp(None, None, None, None)
         assert bmp.default_ext == "bmp"
 
+    @pytest.mark.parametrize(
+        ("px_per_meter", "expected_dpi"),
+        [
+            (0, 96),
+            (None, 96),
+            (1, 96),  # -- rounds to zero, falls back --
+            (3780, 96),  # -- ~96 dpi --
+            (11811, 300),
+        ],
+    )
+    def it_falls_back_when_px_per_meter_is_zero_or_rounds_to_zero(
+        self, px_per_meter, expected_dpi
+    ):
+        # -- exercise private helper directly; covers both legacy 0 case and
+        #    the new rounds-to-zero guard --
+        assert Bmp._dpi(px_per_meter) == expected_dpi
+
     # fixtures -------------------------------------------------------
 
     @pytest.fixture

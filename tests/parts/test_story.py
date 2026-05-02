@@ -103,6 +103,56 @@ class DescribeStoryPart:
 
         assert next_id == expected_value
 
+    def it_allocates_next_id_spanning_body_headers_and_footers(self, request):
+        # -- the body uses id 7, a related header uses id 9, and a related
+        #    footer uses id 12; the next id must be 13 even when we ask the
+        #    header part (not the document part) for it --
+        from unittest.mock import Mock
+        from docx.opc.constants import RELATIONSHIP_TYPE as RT
+
+        body_element = element("w:document/w:body/w:p{id=7}")
+        header_element = element("w:hdr/w:p{id=9}")
+        footer_element = element("w:ftr/w:p{id=12}")
+
+        def make_rel(reltype, target):
+            rel = Mock()
+            rel.reltype = reltype
+            rel.is_external = False
+            rel.target_part = target
+            return rel
+
+        header_part = Mock()
+        header_part._element = header_element
+        footer_part = Mock()
+        footer_part._element = footer_element
+
+        doc_rels = {
+            "rId1": make_rel(RT.HEADER, header_part),
+            "rId2": make_rel(RT.FOOTER, footer_part),
+        }
+        rels_mock = Mock()
+        rels_mock.values = doc_rels.values
+
+        document_part = Mock()
+        document_part._element = body_element
+        document_part.rels = rels_mock
+
+        header_story = StoryPart(None, None, header_element, None)
+        # -- replace the document-part lookup with one that returns the mock;
+        #    method_mock auto-reverts when `request` tears down --
+        method_mock(
+            request, StoryPart, "_safe_document_part", return_value=document_part
+        )
+
+        assert header_story.next_id == 13
+
+    def it_falls_back_to_the_current_story_when_no_document_part(self, request):
+        story_element = element("w:document/w:body/w:p{id=4}")
+        method_mock(request, StoryPart, "_safe_document_part", return_value=None)
+        story_part = StoryPart(None, None, story_element, None)
+
+        assert story_part.next_id == 5
+
     def it_knows_the_main_document_part_to_help(self, package_, document_part_):
         package_.main_document_part = document_part_
         story_part = StoryPart(None, None, None, package_)

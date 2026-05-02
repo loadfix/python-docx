@@ -115,6 +115,38 @@ class Describe_TiffParser:
         assert tiff_parser.horz_dpi == expected_horz_dpi
         assert tiff_parser.vert_dpi == expected_vert_dpi
 
+    @pytest.mark.parametrize(
+        "bad_value",
+        [
+            "UNIMPLEMENTED FIELD TYPE",
+            "Multi-value short integer NOT IMPLEMENTED",
+            None,
+            object(),
+        ],
+    )
+    def it_falls_back_to_72_dpi_when_resolution_tag_is_non_numeric(self, bad_value):
+        entries = {
+            TIFF_TAG.RESOLUTION_UNIT: 2,
+            TIFF_TAG.X_RESOLUTION: bad_value,
+            TIFF_TAG.Y_RESOLUTION: bad_value,
+        }
+        tiff_parser = _TiffParser(_IfdEntries(entries))
+
+        # -- prior to the guard, these would raise TypeError on round() --
+        assert tiff_parser.horz_dpi == 72
+        assert tiff_parser.vert_dpi == 72
+
+    def it_falls_back_to_72_dpi_when_resolution_rounds_to_zero(self):
+        entries = {
+            TIFF_TAG.RESOLUTION_UNIT: 2,
+            TIFF_TAG.X_RESOLUTION: 0,
+            TIFF_TAG.Y_RESOLUTION: 0,
+        }
+        tiff_parser = _TiffParser(_IfdEntries(entries))
+
+        assert tiff_parser.horz_dpi == 72
+        assert tiff_parser.vert_dpi == 72
+
     # fixtures -------------------------------------------------------
 
     @pytest.fixture(
@@ -417,12 +449,58 @@ class Describe_AsciiIfdEntry:
         val = _AsciiIfdEntry._parse_value(stream_rdr, None, 7, 0)
         assert val == "foobar"
 
+    def it_reads_short_ascii_values_inline_per_TIFF_6_0(self):
+        # -- layout: first 8 bytes are the leading part of the IFD entry (tag,
+        #    type, count, left un-set here as padding); the next 4 bytes are
+        #    the inline ASCII value. For value_count=3 the string is "AB"
+        #    plus a NUL terminator, and the library strips the NUL.
+        bytes_ = b"\x00\x00\x00\x00\x00\x00\x00\x00AB\x00\x00"
+        stream_rdr = StreamReader(io.BytesIO(bytes_), BIG_ENDIAN)
+
+        val = _AsciiIfdEntry._parse_value(stream_rdr, 0, 3, 0)
+
+        # -- value is read from offset+8 (inline), not from value_offset=0
+        #    which would return "\x00\x00" (two NULs) --
+        assert val == "AB"
+
+    def it_reads_long_ascii_values_from_value_offset(self):
+        # -- 7 byte string "foobar" + NUL, held at value_offset 8 because
+        #    total size exceeds 4 bytes --
+        bytes_ = b"\x00" * 8 + b"foobar\x00"
+        stream_rdr = StreamReader(io.BytesIO(bytes_), BIG_ENDIAN)
+
+        val = _AsciiIfdEntry._parse_value(stream_rdr, 0, 7, 8)
+
+        assert val == "foobar"
+
+    def it_returns_empty_string_for_zero_count(self):
+        stream_rdr = StreamReader(io.BytesIO(b""), BIG_ENDIAN)
+        assert _AsciiIfdEntry._parse_value(stream_rdr, 0, 0, 0) == ""
+
 
 class Describe_ShortIfdEntry:
     def it_can_parse_a_short_int_IFD_entry(self):
         bytes_ = b"foobaroo\x00\x2a"
         stream_rdr = StreamReader(io.BytesIO(bytes_), BIG_ENDIAN)
         val = _ShortIfdEntry._parse_value(stream_rdr, 0, 1, None)
+        assert val == 42
+
+    def it_reads_two_packed_shorts_inline(self):
+        # -- value_count=2 still fits in the 4-byte slot at offset+8 --
+        bytes_ = b"\x00" * 8 + b"\x00\x2a\x00\x54"
+        stream_rdr = StreamReader(io.BytesIO(bytes_), BIG_ENDIAN)
+
+        val = _ShortIfdEntry._parse_value(stream_rdr, 0, 2, 0)
+
+        assert val == 42
+
+    def it_reads_larger_short_arrays_from_value_offset(self):
+        bytes_ = b"\x00" * 12 + b"\x00\x2a"
+        stream_rdr = StreamReader(io.BytesIO(bytes_), BIG_ENDIAN)
+
+        # -- value_count=3 does not fit inline; falls back to value_offset --
+        val = _ShortIfdEntry._parse_value(stream_rdr, 0, 3, 12)
+
         assert val == 42
 
 
