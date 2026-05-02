@@ -1,22 +1,15 @@
-"""Step implementations for equation (OMML) features.
+"""Step implementations for equation (OMML) behave features.
 
-This module is shared by the equation-related behave feature files:
-``equ-identifier.feature``, ``equ-fraction.feature``, and the scenarios that
-other equation agents will add for superscript, subscript and radical
-builders. Steps here MUST remain idempotent and free of feature-specific
-coupling so the cherry-pick merge from separate agent branches composes
-cleanly.
-"""Step implementations for OMML equation behave features.
-
-Covers :func:`docx.equations.build_superscript` and
-:func:`docx.equations.build_subscript` along with round-trips through
-:meth:`Paragraph.add_equation` and fixture-driven read-back scenarios.
+Shared by equ-identifier, equ-fraction, equ-superscript, equ-subscript, and
+equ-radical feature files. Covers ``docx.equations`` builders
+(``build_identifier``, ``build_fraction``, ``build_superscript``,
+``build_subscript``, ``build_radical``) plus round-trips through
+``Paragraph.add_equation`` and fixture-driven read-back scenarios.
 
 Some ``Given`` phrasings (for example ``a fresh default document``) are
-registered elsewhere in the steps package and are re-used here by keeping the
+registered elsewhere in the steps package and are re-used here by keeping
 wording identical.
 """
-"""Step implementations for OMML equation-builder features."""
 
 from __future__ import annotations
 
@@ -326,8 +319,11 @@ def then_appended_equation_text(context: Context, text: str):
     assert actual == text, (
         f"expected appended equation.text {text!r}, got {actual!r}"
     )
+
+
+@then("the paragraph has {count:d} equation")
+@then("the paragraph has {count:d} equations")
 def then_paragraph_has_n_equations(context: Context, count: int):
-def then_paragraph_has_equations(context: Context, count: int):
     actual = len(context.paragraph.equations)
     assert actual == count, f"expected {count} equations, got {actual}"
 
