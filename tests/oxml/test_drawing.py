@@ -12,7 +12,9 @@ from docx.oxml.drawing import (
     CT_Drawing,
     CT_GroupShape,
     CT_TxbxContent,
+    CT_WordprocessingCanvas,
     CT_WordprocessingShape,
+    new_inline_canvas_drawing,
     new_inline_shape_drawing,
 )
 from docx.oxml.ns import qn
@@ -326,3 +328,40 @@ class DescribeNewInlineShapeDrawing:
 
         wsp = drawing.xpath(".//wps:wsp")[0]
         assert wsp.txbx is None
+
+
+class DescribeNewInlineCanvasDrawing:
+    """Unit-test suite for `docx.oxml.drawing.new_inline_canvas_drawing`."""
+
+    def it_builds_a_canvas_drawing_with_the_expected_structure(self):
+        drawing = new_inline_canvas_drawing(
+            cx=5486400, cy=2743200, shape_id=7, name="Canvas 7"
+        )
+
+        # -- extent populated --
+        extent = drawing.find(f"{qn('wp:inline')}/{qn('wp:extent')}")
+        assert extent is not None
+        assert extent.get("cx") == "5486400"
+        assert extent.get("cy") == "2743200"
+
+        # -- docPr populated --
+        docPr = drawing.find(f"{qn('wp:inline')}/{qn('wp:docPr')}")
+        assert docPr is not None
+        assert docPr.get("id") == "7"
+        assert docPr.get("name") == "Canvas 7"
+
+        # -- graphicData uri references the canvas namespace --
+        graphicData = drawing.find(
+            f"{qn('wp:inline')}/{qn('a:graphic')}/{qn('a:graphicData')}"
+        )
+        assert graphicData is not None
+        assert (
+            graphicData.get("uri")
+            == "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
+        )
+
+        # -- wpc:wpc is present and empty of shapes --
+        wpc_list = drawing.xpath(".//wpc:wpc")
+        assert len(wpc_list) == 1
+        assert isinstance(wpc_list[0], CT_WordprocessingCanvas)
+        assert wpc_list[0].wsp_lst == []

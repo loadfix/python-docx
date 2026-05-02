@@ -13,6 +13,7 @@ from docx.oxml.drawing import (
     CT_NonVisualGroupShapeProperties,
     CT_TextBox,
     CT_TxbxContent,
+    CT_WordprocessingCanvas,
     CT_WordprocessingShape,
 )
 from docx.oxml.parser import OxmlElement, parse_xml, register_element_cls
@@ -85,6 +86,7 @@ register_element_cls("wp:wrapSquare", CT_WrapSquare)
 register_element_cls("wp:wrapThrough", CT_WrapThrough)
 register_element_cls("wp:wrapTight", CT_WrapTight)
 register_element_cls("wp:wrapTopAndBottom", CT_WrapTopBottom)
+register_element_cls("wpc:wpc", CT_WordprocessingCanvas)
 register_element_cls("wpg:grpSp", CT_GroupShape)
 register_element_cls("wpg:wgp", CT_GroupShape)
 register_element_cls("wpg:nvGrpSpPr", CT_NonVisualGroupShapeProperties)

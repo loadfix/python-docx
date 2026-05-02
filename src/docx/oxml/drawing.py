@@ -183,8 +183,26 @@ class CT_NonVisualGroupShapeProperties(BaseOxmlElement):
     """
 
 
+class CT_WordprocessingCanvas(BaseOxmlElement):
+    """`<wpc:wpc>` element, a DrawingML wordprocessing canvas.
+
+    Groups a collection of child shapes (``wps:wsp``), pictures (``pic:pic``),
+    or nested groups under a single ``w:drawing``. Each child is appended in
+    the order the user adds them; child ordering in the schema is
+    ``wpc:bg`` (canvas background) ``wpc:whole`` (frame) then the shape
+    children.
+    """
+
+    @property
+    def wsp_lst(self) -> list[CT_WordprocessingShape]:
+        """Direct-child ``wps:wsp`` shape elements."""
+        return cast("list[CT_WordprocessingShape]", self.findall(qn("wps:wsp")))
+
+
 # -- DrawingML graphic-data URI for a `wps:wsp` wordprocessing shape --
 _WPS_GRAPHIC_URI = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+# -- DrawingML graphic-data URI for a `wpc:wpc` wordprocessing canvas --
+_WPC_GRAPHIC_URI = "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
 
 
 def new_inline_shape_drawing(
@@ -281,5 +299,60 @@ def new_inline_shape_drawing(
     # -- optional text --
     if text is not None:
         wsp.set_text(text)
+
+    return drawing
+
+
+def new_inline_canvas_drawing(
+    cx: Length | int,
+    cy: Length | int,
+    shape_id: int,
+    name: str,
+) -> CT_Drawing:
+    """Return a newly-constructed `w:drawing` wrapping an empty `wpc:wpc` canvas.
+
+    The canvas is inserted inside a `wp:inline` container with the provided
+    extent (EMU). `shape_id` populates `wp:docPr/@id`. The returned canvas has
+    a minimal `wpc:bg` / `wpc:whole` chrome and no child shapes; callers add
+    shapes by appending them to the `wpc:wpc` element via
+    :meth:`docx.drawing.Canvas.add_shape`.
+
+    Closes upstream#411.
+    """
+    xml = (
+        '<w:drawing %s>'
+        '<wp:inline distT="0" distB="0" distL="0" distR="0">'
+        '<wp:extent cx="0" cy="0"/>'
+        '<wp:effectExtent l="0" t="0" r="0" b="0"/>'
+        '<wp:docPr id="0" name=""/>'
+        '<wp:cNvGraphicFramePr/>'
+        '<a:graphic>'
+        '<a:graphicData uri="">'
+        '<wpc:wpc>'
+        '<wpc:bg/>'
+        '<wpc:whole/>'
+        '</wpc:wpc>'
+        '</a:graphicData>'
+        '</a:graphic>'
+        '</wp:inline>'
+        '</w:drawing>' % nsdecls("w", "wp", "a", "wpc", "wps", "pic")
+    )
+    drawing = cast("CT_Drawing", parse_xml(xml))
+
+    extent = drawing.find(f"{qn('wp:inline')}/{qn('wp:extent')}")
+    assert extent is not None
+    extent.set("cx", str(int(cx)))
+    extent.set("cy", str(int(cy)))
+
+    docPr = drawing.find(f"{qn('wp:inline')}/{qn('wp:docPr')}")
+    assert docPr is not None
+    docPr.set("id", str(shape_id))
+    docPr.set("name", name)
+
+    graphicData = drawing.find(
+        f"{qn('wp:inline')}/{qn('a:graphic')}/{qn('a:graphicData')}"
+    )
+    assert graphicData is not None
+    graphicData.set("uri", _WPC_GRAPHIC_URI)
 
     return drawing
