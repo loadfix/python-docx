@@ -86,3 +86,49 @@ Feature: Header and footer behaviors
     Given a _Run object from a footer as run
      When I call run.add_picture()
      Then the picture appears at the end of the run
+
+
+  # -- odd / even / first-page header & footer ------------------------------
+
+  Scenario: Read document-level odd/even flag
+    Given a Section from the odd-even-hdrs document as section
+     Then section.different_odd_and_even_pages_header_footer is True
+
+
+  Scenario: Read section-level first-page flag
+    Given a Section from the odd-even-hdrs document as section
+     Then section.different_first_page_header_footer is True
+
+
+  Scenario: Read primary, even, and first page headers
+    Given a Section from the odd-even-hdrs document as section
+     Then section.header.paragraphs[0].text is "ODD HEADER"
+      And section.even_page_header.paragraphs[0].text is "EVEN HEADER"
+      And section.first_page_header.paragraphs[0].text is "FIRST HEADER"
+
+
+  Scenario: Read primary, even, and first page footers
+    Given a Section from the odd-even-hdrs document as section
+     Then section.footer.paragraphs[0].text is "ODD FOOTER"
+      And section.even_page_footer.paragraphs[0].text is "EVEN FOOTER"
+      And section.first_page_footer.paragraphs[0].text is "FIRST FOOTER"
+
+
+  Scenario: Even/first hdrftr have their own non-linked definitions
+    Given a Section from the odd-even-hdrs document as section
+     Then section.even_page_header.is_linked_to_previous is False
+      And section.even_page_footer.is_linked_to_previous is False
+      And section.first_page_header.is_linked_to_previous is False
+      And section.first_page_footer.is_linked_to_previous is False
+
+
+  Scenario: Toggle document-level odd/even flag
+    Given a Section from the odd-even-hdrs document as section
+     When I assign False to section.different_odd_and_even_pages_header_footer
+     Then section.different_odd_and_even_pages_header_footer is False
+
+
+  Scenario: Toggle section-level first-page flag
+    Given a Section from the odd-even-hdrs document as section
+     When I assign False to section.different_first_page_header_footer
+     Then section.different_first_page_header_footer is False

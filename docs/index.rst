@@ -78,6 +78,7 @@ User Guide
    user/tables-advanced
    user/text
    user/sections
+   user/sections-advanced
    user/hdrftr
    user/api-concepts
    user/styles-understanding
