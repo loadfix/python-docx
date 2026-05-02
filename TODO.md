@@ -187,7 +187,7 @@ Pre-dedupe: 131 needs-investigation entries. Each entry: what to probe + likely 
 
 ---
 
-## Part C — Features (91 after dedupe)
+## Part C — Features (94 after dedupe + Phase C promotions)
 
 Pre-dedupe: 140 new-feature-needed entries. Organized by module.
 
@@ -303,12 +303,22 @@ Pre-dedupe: 140 new-feature-needed entries. Organized by module.
 ### Other / cross-cutting
 - **Public `_Row.index` / `_Column.index`** — rename/alias `_index`. Effort **S**. Closes upstream#112.
 - **Docs: raise on missing style** — note in `styles-using.rst`. Effort **S**. Closes upstream#170.
+- **`Document.close()` + context-manager protocol** — `__enter__` / `__exit__` on `Document` so `with Document(...) as doc:` works; `close()` as a no-op for lifecycle symmetry. Effort **S**. Closes upstream#379.
+- **Ship "Table Grid" style in `default.docx`** — the upstream template omits it, so `add_table(style="Table Grid")` fails on Word-for-Mac users who copy from the docs. Add the style to `src/docx/templates/default-docx-template/word/styles.xml` and regenerate `default.docx`. Effort **S**. Closes upstream#504.
+- **Fix quickstart namedtuple example** — snippet references an undefined `namedtuple` import. Effort **S**. Closes upstream#990.
 
 ---
 
-## Part D — Out-of-scope (134, grouped)
+## Part D — Out-of-scope (131, grouped)
 
-One line per item.
+One line per item. All items in this section have been reviewed and are
+intentionally skipped: tutorial-level user-support questions, Word-rendering
+limitations (physical-page layout, page numbers, TOC clickability), unrelated
+conversion/integration asks (pdf2docx, Pandoc, Word.app automation, VBA
+macros, HTML↔docx), dependency/install environment issues, repo-policy and
+contribution requests, and upstream-only editorial PRs. Three previously-
+listed items were promoted to Part C features (Document.close(), Table Grid
+style, quickstart namedtuple).
 
 ### User-support / usage questions (38)
 - upstream#1512 — answer is `Document.replace_regex`/search module.
