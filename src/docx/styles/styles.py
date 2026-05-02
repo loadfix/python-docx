@@ -39,7 +39,7 @@ class Styles(ElementProxy):
         """
         # -- translate an enum member (e.g. `WD_STYLE.BODY_TEXT`) into its UI name --
         if isinstance(key, WD_BUILTIN_STYLE):
-            key = _builtin_style_ui_name(key)
+            key = BabelFish.enum2ui(key)
 
         style_elm = self._element.get_by_name(BabelFish.ui2internal(key))
         if style_elm is not None:
@@ -146,12 +146,6 @@ class Styles(ElementProxy):
 def _builtin_style_ui_name(member: WD_BUILTIN_STYLE) -> str:
     """Return the canonical UI style name for a `WD_BUILTIN_STYLE` member.
 
-    The enumeration member's docstring already carries the UI name followed by
-    a trailing period (e.g. ``"Body Text."``), which is the same string that
-    appears in Word's Styles pane. Stripping the period makes it usable as a
-    direct key for `Styles.__getitem__`.
+    Thin shim kept for backward compatibility; delegates to `BabelFish.enum2ui`.
     """
-    doc = (member.__doc__ or "").strip()
-    if doc.endswith("."):
-        doc = doc[:-1]
-    return doc or member.name.replace("_", " ").title()
+    return BabelFish.enum2ui(member)

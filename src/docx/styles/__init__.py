@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from docx.enum.style import WD_BUILTIN_STYLE
 
 
 class BabelFish:
@@ -38,3 +41,17 @@ class BabelFish:
         """Return the user interface style name corresponding to `internal_style_name`,
         such as 'Heading 1' for 'heading 1'."""
         return cls.ui_style_names.get(internal_style_name, internal_style_name)
+
+    @classmethod
+    def enum2ui(cls, member: "WD_BUILTIN_STYLE") -> str:
+        """Return the canonical UI style name for a `WD_BUILTIN_STYLE` member.
+
+        The enumeration member's docstring carries the UI name (usually with a
+        trailing period, e.g. ``"Body Text."``), which is the same string that
+        appears in Word's Styles pane. Stripping the period makes it usable as
+        a direct key for `Styles.__getitem__`.
+        """
+        doc = (member.__doc__ or "").strip()
+        if doc.endswith("."):
+            doc = doc[:-1]
+        return doc or member.name.replace("_", " ").title()

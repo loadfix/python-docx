@@ -205,6 +205,33 @@ class DescribeDocument:
 
         Package_.open.assert_called_once_with("foobar.docx", recover=False, huge_tree=False)
 
+    def it_ships_hanging_indents_on_List_Bullet_and_List_Number(self):
+        # -- upstream#1443: default.docx used to omit hanging indents on these
+        # -- list styles so Word-rendered bullets collided with paragraph text. --
+        document = DocumentFactoryFn()
+
+        for name in ("List Bullet", "List Number"):
+            pf = document.styles[name].paragraph_format
+            assert pf.left_indent is not None and pf.left_indent > 0, (
+                f"style {name!r} has no left_indent"
+            )
+            assert pf.first_line_indent is not None and pf.first_line_indent < 0, (
+                f"style {name!r} has no hanging (negative first-line) indent"
+            )
+
+    def it_preserves_List_Bullet_indents_after_round_trip(self):
+        # -- upstream#1443: round-trip through save/open must preserve indents --
+        document = DocumentFactoryFn()
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+
+        reopened = DocumentFactoryFn(buf)
+
+        pf = reopened.styles["List Bullet"].paragraph_format
+        assert pf.left_indent is not None and pf.left_indent > 0
+        assert pf.first_line_indent is not None and pf.first_line_indent < 0
+
     # -- fixtures --------------------------------------------------------------------------------
 
     @pytest.fixture
