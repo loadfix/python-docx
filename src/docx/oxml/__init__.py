@@ -207,8 +207,9 @@ register_element_cls("w:textInput", CT_FFTextInput)
 register_element_cls("w:checkBox", CT_FFCheckBox)
 register_element_cls("w:ddList", CT_FFDDList)
 
-from .document import CT_Background, CT_Body, CT_Document
+from .document import CT_AltChunk, CT_Background, CT_Body, CT_Document
 
+register_element_cls("w:altChunk", CT_AltChunk)
 register_element_cls("w:background", CT_Background)
 register_element_cls("w:body", CT_Body)
 register_element_cls("w:document", CT_Document)
@@ -388,6 +389,7 @@ register_element_cls("w:themeFontLang", CT_Language)
 register_element_cls("w:docVars", CT_DocVars)
 register_element_cls("w:docVar", CT_DocVar)
 register_element_cls("w:trackRevisions", CT_OnOff)
+register_element_cls("w:updateFields", CT_OnOff)
 register_element_cls("w:view", CT_View)
 register_element_cls("w:zoom", CT_Zoom)
 

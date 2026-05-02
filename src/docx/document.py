@@ -21,6 +21,7 @@ from docx.text.run import Run
 if TYPE_CHECKING:
     import docx.types as t
     from docx.accessibility import HeadingIssue
+    from docx.alt_chunk import AltChunk
     from docx.bookmarks import Bookmarks
     from docx.chart import Chart, WD_CHART_TYPE
     from docx.comments import Comment, Comments
@@ -649,6 +650,82 @@ class Document(ElementProxy):
         if src_style is None:
             return
         dest_styles_elm.append(deepcopy(src_style))
+
+    def add_alt_chunk(
+        self,
+        content: bytes | str,
+        content_type: str = "text/html",
+    ) -> AltChunk:
+        """Append an ``altChunk`` import reference and return an |AltChunk| proxy.
+
+        Creates a new alternate-format import part carrying `content` with
+        the given `content_type` (``text/html`` by default), wires it to
+        the main document through an ``aFChunk`` relationship, and appends
+        a ``w:altChunk`` element at the end of the body that references
+        the relationship. Word substitutes the payload when the document
+        is opened — python-docx does not evaluate the content itself.
+
+        `content` may be :class:`bytes` or a UTF-8-decodable :class:`str`.
+        Closes upstream#1317, upstream#1103, and PR#649.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.alt_chunk import add_alt_chunk_to_document
+
+        return add_alt_chunk_to_document(self._part, content, content_type)
+
+    @property
+    def alt_chunks(self) -> list[AltChunk]:
+        """List of |AltChunk| proxies for every ``w:altChunk`` in this document.
+
+        Returns an empty list when the document has no ``altChunk``
+        imports. Order matches the document order of the ``w:altChunk``
+        elements.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.alt_chunk import iter_alt_chunks
+
+        return iter_alt_chunks(self._part)
+
+    def add_list_of_figures(self, caption_label: str = "Figure") -> Paragraph:
+        """Append a "List of Figures" field paragraph at the end of the document.
+
+        Emits a ``TOC \\c "Figure"`` complex field which Word evaluates to
+        build a table of items whose caption label matches `caption_label`.
+        The cached result text is left empty; the field is marked *dirty*
+        so Word rebuilds it on open. Closes upstream#723.
+
+        `caption_label` defaults to ``"Figure"`` but may be set to any
+        caption label in the document (e.g. ``"Illustration"``).
+
+        Returns the newly-appended |Paragraph|.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        paragraph = self.add_paragraph()
+        instr = f' TOC \\c "{caption_label}" '
+        field = paragraph.add_complex_field(instr)
+        field.mark_dirty()
+        return paragraph
+
+    def add_list_of_tables(self, caption_label: str = "Table") -> Paragraph:
+        """Append a "List of Tables" field paragraph at the end of the document.
+
+        Emits a ``TOC \\c "Table"`` complex field which Word evaluates to
+        build a table of items whose caption label matches `caption_label`.
+        The cached result text is left empty; the field is marked *dirty*
+        so Word rebuilds it on open. Closes upstream#723.
+
+        Returns the newly-appended |Paragraph|.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        paragraph = self.add_paragraph()
+        instr = f' TOC \\c "{caption_label}" '
+        field = paragraph.add_complex_field(instr)
+        field.mark_dirty()
+        return paragraph
 
     def add_table(self, rows: int, cols: int, style: str | _TableStyle | None = None):
         """Add a table having row and column counts of `rows` and `cols` respectively.

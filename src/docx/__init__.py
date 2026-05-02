@@ -29,6 +29,7 @@ from docx.parts.chart import ChartPart
 from docx.parts.comments import CommentsPart
 from docx.parts.custom_properties import CustomPropertiesPart
 from docx.parts.custom_xml import CustomXmlPart
+from docx.parts.alt_chunk import AltChunkPart
 from docx.parts.extended_properties import ExtendedPropertiesPart
 from docx.parts.document import DocumentPart
 from docx.parts.embedded_object import EmbeddedObjectPart
@@ -50,6 +51,8 @@ from docx.parts.web_settings import WebSettingsPart
 def part_class_selector(content_type: str, reltype: str) -> type[Part] | None:
     if reltype == RT.IMAGE:
         return ImagePart
+    if reltype == RT.A_F_CHUNK:
+        return AltChunkPart
     return None
 
 

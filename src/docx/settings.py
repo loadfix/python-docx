@@ -347,6 +347,24 @@ class Settings(ElementProxy):
         self._settings.trackRevisions_val = value
 
     @property
+    def update_fields_on_open(self) -> bool:
+        """True when Word should refresh all fields when the document is opened.
+
+        Maps to the ``w:updateFields`` child of ``w:settings``. When |True|,
+        Word evaluates every field (TOC, PAGEREF, DATE, ...) on open rather
+        than displaying the cached ``result`` text. Read/write.
+
+        Closes upstream#1403.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self._settings.updateFields_val
+
+    @update_fields_on_open.setter
+    def update_fields_on_open(self, value: bool):
+        self._settings.updateFields_val = value
+
+    @property
     def rsid_root(self) -> str | None:
         """The document's root revision-save ID (``w:rsids/w:rsidRoot/@w:val``).
 

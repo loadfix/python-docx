@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from collections.abc import Callable
 
+from docx.oxml.ns import qn
 from docx.oxml.section import CT_SectPr
-from docx.oxml.simpletypes import ST_HexColor
+from docx.oxml.simpletypes import ST_HexColor, ST_String
 from docx.oxml.xmlchemy import (
     BaseOxmlElement,
     OptionalAttribute,
@@ -62,6 +63,21 @@ class CT_Document(BaseOxmlElement):
         return self.xpath(xpath)
 
 
+class CT_AltChunk(BaseOxmlElement):
+    """`w:altChunk` element, an "alternate chunk" import reference.
+
+    Points at an external-format payload part (HTML, RTF, XHTML, text, etc.)
+    by OPC relationship id. Word substitutes the referenced part's contents
+    for the ``w:altChunk`` element at render time. Relationships carry the
+    ``aFChunk`` reltype and the target part's content-type declares the
+    payload format (e.g. ``text/html``). See ECMA-376 §17.17.
+    """
+
+    rId: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "r:id", ST_String
+    )
+
+
 class CT_Body(BaseOxmlElement):
     """`w:body`, the container element for the main document story in `document.xml`."""
 
@@ -75,9 +91,20 @@ class CT_Body(BaseOxmlElement):
     p = ZeroOrMore("w:p", successors=("w:sectPr",))
     tbl = ZeroOrMore("w:tbl", successors=("w:sectPr",))
     sdt = ZeroOrMore("w:sdt", successors=("w:sectPr",))
+    altChunk = ZeroOrMore("w:altChunk", successors=("w:sectPr",))
+    altChunk_lst: list[CT_AltChunk]
     sectPr: CT_SectPr | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:sectPr", successors=()
     )
+
+    def add_altChunk(self, rId: str) -> CT_AltChunk:
+        """Append a new `w:altChunk` element with the given relationship id.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        altChunk = self._add_altChunk()  # type: ignore[attr-defined]
+        altChunk.set(qn("r:id"), rId)
+        return altChunk
 
     def add_section_break(self) -> CT_SectPr:
         """Return `w:sectPr` element for new section added at end of document.

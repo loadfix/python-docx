@@ -579,3 +579,58 @@ class DescribeField_DocPropertyResolution:
         assert _parse_docproperty_name(
             'DOCPROPERTY "Simple" \\* MERGEFORMAT'
         ) == "Simple"
+
+
+class DescribeField_MarkDirty:
+    """Unit-test suite for `Field.mark_dirty` / `Field.is_dirty`."""
+
+    def it_marks_a_simple_field_dirty(self):
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), "PAGE")
+        field = Field.for_simple(fldSimple)
+
+        field.mark_dirty()
+
+        assert fldSimple.get(qn("w:dirty")) == "true"
+        assert field.is_dirty is True
+
+    def it_reads_an_unset_simple_dirty_flag_as_false(self):
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), "PAGE")
+        field = Field.for_simple(fldSimple)
+        assert field.is_dirty is False
+
+    def it_marks_a_complex_field_dirty_on_the_begin_marker(self):
+        p = cast(CT_P, element("w:p"))
+        begin_run = p.add_complex_field(" TOC ", "cached")
+        field = Field.for_complex(begin_run)
+
+        field.mark_dirty()
+
+        begin_fldChar = begin_run.find(qn("w:fldChar"))
+        assert begin_fldChar is not None
+        assert begin_fldChar.get(qn("w:dirty")) == "true"
+        assert field.is_dirty is True
+
+    def it_reads_an_unset_complex_dirty_flag_as_false(self):
+        p = cast(CT_P, element("w:p"))
+        begin_run = p.add_complex_field(" TOC ", "cached")
+        assert Field.for_complex(begin_run).is_dirty is False
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [("true", True), ("1", True), ("on", True), ("false", False), ("0", False)],
+    )
+    def it_parses_known_dirty_values_consistently(
+        self, value: str, expected: bool
+    ):
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), "PAGE")
+        fldSimple.set(qn("w:dirty"), value)
+        assert Field.for_simple(fldSimple).is_dirty is expected
