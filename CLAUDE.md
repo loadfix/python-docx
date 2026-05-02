@@ -149,6 +149,7 @@ pip install -e ".[dev]"
 ## Important
 
 - Before implementing a new feature or element class, consult `spec/` for authoritative schema information: `spec/xsd/*.xsd` (W3C XSD grammars), `spec/rnc/*.rnc` (RELAX NG Compact equivalents, easier to read), `spec/ISO-IEC-29500-1.pdf` (Part 1: markup language reference prose), and `spec/ISO-IEC-29500-2.pdf` (OPC packaging). These are not runtime dependencies — they are the canonical sources for element ordering, attribute types, and cardinality.
+- Keep `FEATURES.md` current when adding, modifying, or deleting public API. It is a single-page catalogue of every public feature (43 sections, ~1800 lines) with fork additions marked `[Added in 1.3.0.dev0]`. For each change: add the new entry (or update/remove the existing one) under the relevant section, refresh its snippet if the API surface shifted, and verify the snippet still runs against a fresh `Document()`.
 - Always run tests after changes: `pytest tests/ -v`
 - The successors tuple in element declarations MUST match XSD ordering
 - Footnote IDs 0 and 1 are reserved (separator, continuation separator)
