@@ -230,6 +230,79 @@ class DescribeOpcPackage:
         CorePropertiesPart_.default.assert_not_called()
         relate_to_.assert_not_called()
 
+    def it_remaps_clashing_cp_prefix_on_load(self, part_related_by_):
+        # -- upstream#1037: LibreOffice-produced core.xml where ``cp:`` is
+        # -- bound to the custom-properties URI collides with python-docx's
+        # -- own use of ``cp:`` for core-properties. Writing to such a part
+        # -- produced a duplicate ``cp:lastModifiedBy`` at serialise time.
+        # -- The load-side remap rewrites the offending binding to
+        # -- ``custprops:`` so python-docx can safely emit its own ``cp:*``
+        # -- elements afterwards.
+        from docx.opc.constants import CONTENT_TYPE as CT
+        from docx.opc.packuri import PackURI
+        from docx.opc.parts.coreprops import CorePropertiesPart
+        from docx.oxml.parser import parse_xml
+
+        libre_xml = (
+            b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+            b'<coreProperties xmlns='
+            b'"http://schemas.openxmlformats.org/package/2006/metadata/core-properties"'
+            b' xmlns:cp="http://schemas.openxmlformats.org/'
+            b'officeDocument/2006/custom-properties"'
+            b' xmlns:dc="http://purl.org/dc/elements/1.1/">'
+            b'<dc:creator>original</dc:creator>'
+            b'<cp:lastModifiedBy>old_user</cp:lastModifiedBy>'
+            b'</coreProperties>'
+        )
+        element = parse_xml(libre_xml)
+        part = CorePropertiesPart(
+            PackURI("/docProps/core.xml"), CT.OPC_CORE_PROPERTIES, element, None
+        )
+        part_related_by_.return_value = part
+        opc_package = OpcPackage()
+
+        core_properties_part = opc_package._core_properties_part
+
+        # -- After remap, the root's ``cp:`` binding must point to the
+        # -- core-properties URI, not the custom-properties URI. --
+        assert core_properties_part.element.nsmap.get("cp") == (
+            "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
+        )
+        # -- Writing ``last_modified_by`` afterwards must not create a
+        # -- duplicate ``cp:lastModifiedBy`` in the serialised output. --
+        core_properties_part.core_properties.last_modified_by = "new_user"
+        blob = core_properties_part.blob
+        assert blob.count(b"cp:lastModifiedBy") <= 2  # one open, one close
+
+    def it_leaves_well_formed_cp_binding_untouched(self, part_related_by_):
+        # -- No-op case: an ordinary core.xml where ``cp:`` is bound to the
+        # -- core-properties URI must be passed through unchanged.
+        from docx.opc.constants import CONTENT_TYPE as CT
+        from docx.opc.packuri import PackURI
+        from docx.opc.parts.coreprops import CorePropertiesPart
+        from docx.oxml.parser import parse_xml
+
+        good_xml = (
+            b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+            b'<cp:coreProperties xmlns:cp='
+            b'"http://schemas.openxmlformats.org/package/2006/metadata/core-properties"'
+            b' xmlns:dc="http://purl.org/dc/elements/1.1/">'
+            b'<cp:lastModifiedBy>u</cp:lastModifiedBy>'
+            b'</cp:coreProperties>'
+        )
+        element = parse_xml(good_xml)
+        original_id = id(element)
+        part = CorePropertiesPart(
+            PackURI("/docProps/core.xml"), CT.OPC_CORE_PROPERTIES, element, None
+        )
+        part_related_by_.return_value = part
+        opc_package = OpcPackage()
+
+        core_properties_part = opc_package._core_properties_part
+
+        # -- Same underlying element object: the remap early-outed. --
+        assert id(core_properties_part.element) == original_id
+
     # fixtures ---------------------------------------------
 
     @pytest.fixture
