@@ -813,6 +813,144 @@ class DescribeTable:
         assert fc.old_properties is not None
         assert fc.old_properties.xpath("./w:tblW")
 
+    # -- Phase C: delete_column / insert_row / clone add_row ---------
+
+    def it_can_delete_a_column(self, document_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/(w:gridCol,w:gridCol,w:gridCol),"
+                "w:tr/(w:tc/w:p,w:tc/w:p,w:tc/w:p),"
+                "w:tr/(w:tc/w:p,w:tc/w:p,w:tc/w:p))"
+            ),
+        )
+        table = Table(tbl, document_)
+
+        table.delete_column(1)
+
+        assert len(tbl.tblGrid.gridCol_lst) == 2
+        for tr in tbl.tr_lst:
+            assert len(tr.tc_lst) == 2
+
+    def it_shrinks_gridSpan_for_a_cell_spanning_the_deleted_column(
+        self, document_: Mock
+    ):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/(w:gridCol,w:gridCol,w:gridCol),"
+                "w:tr/w:tc/(w:tcPr/w:gridSpan{w:val=3},w:p))"
+            ),
+        )
+        table = Table(tbl, document_)
+
+        table.delete_column(1)
+
+        # -- grid dropped by one, but the merged cell is preserved --
+        assert len(tbl.tblGrid.gridCol_lst) == 2
+        merged_tc = tbl.tr_lst[0].tc_lst[0]
+        assert merged_tc.grid_span == 2
+
+    def it_raises_on_delete_column_out_of_range(self, document_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/(w:gridCol,w:gridCol),"
+                "w:tr/(w:tc/w:p,w:tc/w:p))"
+            ),
+        )
+        table = Table(tbl, document_)
+        with pytest.raises(IndexError):
+            table.delete_column(5)
+        with pytest.raises(IndexError):
+            table.delete_column(-3)
+
+    def it_can_insert_a_row_at_an_index(self, document_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/(w:gridCol,w:gridCol),"
+                "w:tr/(w:tc/w:p,w:tc/w:p),"
+                "w:tr/(w:tc/w:p,w:tc/w:p))"
+            ),
+        )
+        table = Table(tbl, document_)
+
+        new_row = table.insert_row(1)
+
+        assert isinstance(new_row, _Row)
+        assert len(tbl.tr_lst) == 3
+        # -- the inserted row is at index 1 --
+        assert tbl.tr_lst[1] is new_row._tr
+        # -- it has one w:tc per gridCol --
+        assert len(new_row._tr.tc_lst) == 2
+
+    def it_can_append_via_insert_row_at_end(self, document_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/w:p)"
+            ),
+        )
+        table = Table(tbl, document_)
+
+        new_row = table.insert_row(len(tbl.tr_lst))
+
+        assert tbl.tr_lst[-1] is new_row._tr
+
+    def it_raises_on_insert_row_out_of_range(self, document_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/w:p)"
+            ),
+        )
+        table = Table(tbl, document_)
+        with pytest.raises(IndexError):
+            table.insert_row(99)
+
+    def it_can_add_a_row_from_a_source_row(self, document_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/(w:gridCol,w:gridCol),"
+                'w:tr/(w:trPr/w:cantSplit,'
+                'w:tc/w:p/w:r/w:t"hello",'
+                "w:tc/w:p))"
+            ),
+        )
+        table = Table(tbl, document_)
+        source = _Row(tbl.tr_lst[0], table)
+
+        new_row = table.add_row(source_row=source)
+
+        assert isinstance(new_row, _Row)
+        assert len(tbl.tr_lst) == 2
+        # -- trPr/cantSplit preserved on clone --
+        assert new_row._tr.trPr is not None
+        # -- first cell's text cloned --
+        assert new_row._tr.tc_lst[0].xpath("string(.)") == "hello"
+
+    def it_strips_w_id_attributes_when_cloning_a_source_row(self, document_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/w:p/w:bookmarkStart{w:id=7,w:name=B1})"
+            ),
+        )
+        table = Table(tbl, document_)
+        source = _Row(tbl.tr_lst[0], table)
+
+        new_row = table.add_row(source_row=source)
+
+        from docx.oxml.ns import qn
+        # -- no w:id remains anywhere in the clone --
+        for desc in new_row._tr.iter():
+            assert desc.get(qn("w:id")) is None
+
     # fixtures -------------------------------------------------------
 
     @pytest.fixture
@@ -1305,6 +1443,72 @@ class Describe_Cell:
         assert fc.author == "A"
         assert fc.old_properties is not None
         assert fc.old_properties.xpath("./w:vAlign")
+
+    # -- Phase C: split() and add_table(style=) --------------------------
+
+    def it_split_is_a_noop_for_unmerged_cell(self, parent_: Mock):
+        cell = _Cell(cast(CT_Tc, element("w:tc/w:p")), parent_)
+
+        result = cell.split()
+
+        assert result == [cell]
+        assert cell._tc.grid_span == 1
+
+    def it_splits_a_horizontally_merged_cell_into_sibling_cells(
+        self, parent_: Mock
+    ):
+        tr = element(
+            "w:tr/w:tc/(w:tcPr/(w:tcW{w:type=dxa,w:w=3000},"
+            "w:gridSpan{w:val=3}),w:p/w:r/w:t\"A\")"
+        )
+        merged_tc = cast(CT_Tc, tr[0])
+        cell = _Cell(merged_tc, parent_)
+
+        result = cell.split()
+
+        assert len(result) == 3
+        # -- gridSpan cleared on all 3 cells --
+        assert all(c._tc.grid_span == 1 for c in result)
+        # -- width redistributed evenly (twips 3000 / 3 = 1000, EMU 1000/1440 in) --
+        widths = [c._tc.width for c in result]
+        assert all(w is not None for w in widths)
+        assert all(int(w) == int(widths[0]) for w in widths)
+        # -- first cell retained original content, siblings are empty --
+        assert result[0]._tc.xpath("string(.)") == "A"
+        for sibling in result[1:]:
+            assert sibling._tc.xpath("string(.)") == ""
+
+    def it_clears_vMerge_on_split(self, parent_: Mock):
+        cell = _Cell(
+            cast(
+                CT_Tc,
+                element("w:tc/(w:tcPr/w:vMerge{w:val=restart},w:p)"),
+            ),
+            parent_,
+        )
+
+        cell.split()
+
+        tcPr = cell._tc.tcPr
+        assert tcPr is not None
+        assert tcPr.vMerge is None
+
+    def it_can_add_a_nested_table_with_style(self, parent_: Mock, request: FixtureRequest):
+        # -- set up a parent table whose `part.get_style_id` is mocked --
+        from docx.parts.document import DocumentPart
+
+        document_part_ = instance_mock(request, DocumentPart)
+        document_part_.get_style_id.return_value = "MyStyle"
+        parent_table = instance_mock(request, Table)
+        parent_table.part = document_part_
+        cell = _Cell(cast(CT_Tc, element("w:tc/w:p")), parent_table)
+
+        table = cell.add_table(rows=1, cols=1, style="My Style")
+
+        assert isinstance(table, Table)
+        document_part_.get_style_id.assert_called_once()
+        # -- tblStyle was written onto the new table --
+        assert table._tbl.tblStyle_val == "MyStyle"
 
     # fixtures -------------------------------------------------------
 
@@ -2023,6 +2227,24 @@ class Describe_Column:
         # -- the second row's tc at grid-offset=0 untouched --
         assert tbl.tr_lst[1].tc_lst[0].width == Inches(1000 / 1440)
 
+    def it_can_delete_itself(self, request: FixtureRequest):
+        document_ = instance_mock(request, Document)
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/(w:gridCol,w:gridCol,w:gridCol),"
+                "w:tr/(w:tc/w:p,w:tc/w:p,w:tc/w:p))"
+            ),
+        )
+        table = Table(tbl, document_)
+        column = table.columns[1]
+
+        column.delete()
+
+        assert len(tbl.tblGrid.gridCol_lst) == 2
+        for tr in tbl.tr_lst:
+            assert len(tr.tc_lst) == 2
+
     # fixtures -------------------------------------------------------
 
     @pytest.fixture
@@ -2469,6 +2691,134 @@ class Describe_Row:
         assert fc.author == "A"
         assert fc.old_properties is not None
         assert fc.old_properties.xpath("./w:cantSplit")
+
+    # -- Phase C: insert_row_before/after, clone, add_cell/insert_cell ---
+
+    def it_can_insert_a_row_before_itself(self, request: FixtureRequest):
+        document_ = instance_mock(request, Document)
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/w:p,w:tr/w:tc/w:p)"
+            ),
+        )
+        table = Table(tbl, document_)
+        ref_row = table.rows[1]
+
+        new_row = ref_row.insert_row_before()
+
+        assert len(tbl.tr_lst) == 3
+        assert tbl.tr_lst[1] is new_row._tr
+        assert tbl.tr_lst[2] is ref_row._tr
+
+    def it_can_insert_a_row_after_itself(self, request: FixtureRequest):
+        document_ = instance_mock(request, Document)
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/w:p,w:tr/w:tc/w:p)"
+            ),
+        )
+        table = Table(tbl, document_)
+        ref_row = table.rows[0]
+
+        new_row = ref_row.insert_row_after()
+
+        assert len(tbl.tr_lst) == 3
+        assert tbl.tr_lst[0] is ref_row._tr
+        assert tbl.tr_lst[1] is new_row._tr
+
+    def it_can_clone_itself(self, request: FixtureRequest):
+        document_ = instance_mock(request, Document)
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/w:gridCol,"
+                'w:tr/(w:trPr/w:cantSplit,w:tc/w:p/w:r/w:t"payload"))'
+            ),
+        )
+        table = Table(tbl, document_)
+        row = table.rows[0]
+
+        clone = row.clone()
+
+        assert len(tbl.tr_lst) == 2
+        # -- clone is the row immediately after the source --
+        assert tbl.tr_lst[1] is clone._tr
+        # -- payload was deep-copied --
+        assert clone._tr.tc_lst[0].xpath("string(.)") == "payload"
+        # -- trPr/cantSplit preserved --
+        assert clone._tr.trPr is not None
+
+    def it_strips_w_id_when_cloning(self, request: FixtureRequest):
+        from docx.oxml.ns import qn
+
+        document_ = instance_mock(request, Document)
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/w:p/w:bookmarkStart{w:id=99,w:name=BM})"
+            ),
+        )
+        table = Table(tbl, document_)
+        row = table.rows[0]
+
+        clone = row.clone()
+
+        for desc in clone._tr.iter():
+            assert desc.get(qn("w:id")) is None
+
+    def it_can_add_a_cell(self, request: FixtureRequest):
+        document_ = instance_mock(request, Document)
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/w:p)"
+            ),
+        )
+        table = Table(tbl, document_)
+        row = table.rows[0]
+
+        cell = row.add_cell()
+
+        assert isinstance(cell, _Cell)
+        assert len(row._tr.tc_lst) == 2
+        assert row._tr.tc_lst[-1] is cell._tc
+
+    def it_can_insert_a_cell_at_index(self, request: FixtureRequest):
+        document_ = instance_mock(request, Document)
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/w:gridCol,"
+                "w:tr/(w:tc/w:p,w:tc/w:p))"
+            ),
+        )
+        table = Table(tbl, document_)
+        row = table.rows[0]
+
+        cell = row.insert_cell(1)
+
+        assert len(row._tr.tc_lst) == 3
+        assert row._tr.tc_lst[1] is cell._tc
+
+    def it_raises_on_insert_cell_out_of_range(self, request: FixtureRequest):
+        document_ = instance_mock(request, Document)
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/w:p)"
+            ),
+        )
+        table = Table(tbl, document_)
+        row = table.rows[0]
+        with pytest.raises(IndexError):
+            row.insert_cell(99)
 
     # fixtures -------------------------------------------------------
 

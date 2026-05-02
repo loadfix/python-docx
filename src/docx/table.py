@@ -99,19 +99,34 @@ class Table(StoryChild):
             tc.width = width
         return _Column(gridCol, self)
 
-    def add_row(self):
+    def add_row(self, source_row: _Row | None = None):
         """Return a |_Row| instance, newly added bottom-most to the table.
 
         When a preceding row is present, its ``w:trPr/w:cnfStyle`` element is
         copied onto the new row so conditional-formatting (banding,
         first/last-row emphasis) flows to the new row as Word itself would.
         (upstream#306)
+
+        When `source_row` is provided, the new row is cloned from it, preserving
+        ``w:tc`` / ``w:trPr`` / run-level formatting. Any ``w:id`` attributes
+        nested inside the cloned row are stripped so they do not collide with
+        bookmark or comment IDs elsewhere in the document. (upstream#1189, #205)
+
+        .. versionadded:: 1.3.0.dev0
+           ``source_row`` parameter.
         """
         from copy import deepcopy
 
         from docx.oxml.ns import qn
 
         tbl = self._tbl
+
+        if source_row is not None:
+            # -- clone path: deepcopy source tr and append as a sibling --
+            new_tr = _clone_tr(source_row._tr)
+            tbl.append(new_tr)
+            return _Row(new_tr, self)
+
         # -- capture the prior row (if any) before we append --
         preceding_tr = tbl.tr_lst[-1] if tbl.tr_lst else None
         tr = tbl.add_tr()
@@ -134,6 +149,84 @@ class Table(StoryChild):
                     new_trPr.insert(0, deepcopy(prior_cnfStyle))
 
         return _Row(tr, self)
+
+    def insert_row(self, index: int) -> _Row:
+        """Return a new |_Row| inserted at `index` in this table's rows.
+
+        Creates a blank row with one ``w:tc`` per column, matching each
+        ``w:gridCol`` width. `index` behaves like a Python list insert: an
+        `index` equal to the current row count appends the row; a negative
+        `index` counts from the end. Existing rows at or after `index` are
+        shifted down by one.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.oxml.parser import OxmlElement
+
+        tbl = self._tbl
+        tr_lst = tbl.tr_lst
+        row_count = len(tr_lst)
+        if index < 0:
+            index += row_count
+        if index < 0 or index > row_count:
+            raise IndexError(f"row index [{index}] is out of range")
+
+        new_tr = cast("CT_Row", OxmlElement("w:tr"))
+        for gridCol in tbl.tblGrid.gridCol_lst:
+            tc = new_tr.add_tc()
+            if gridCol.w is not None:
+                tc.width = gridCol.w
+
+        if index == row_count:
+            tbl.append(new_tr)
+        else:
+            tr_lst[index].addprevious(new_tr)
+        return _Row(new_tr, self)
+
+    def delete_column(self, index: int) -> None:
+        """Remove the column at `index` from this table.
+
+        Removes the matching ``w:gridCol`` from ``w:tblGrid`` and the
+        corresponding ``w:tc`` from each row. For a cell that horizontally
+        spans the deleted column (``w:gridSpan > 1``), the gridSpan is
+        decremented by 1 rather than orphaning the cell.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        tbl = self._tbl
+        gridCol_lst = tbl.tblGrid.gridCol_lst
+        col_count = len(gridCol_lst)
+        if index < 0:
+            index += col_count
+        if index < 0 or index >= col_count:
+            raise IndexError(f"column index [{index}] is out of range")
+
+        # -- remove the gridCol entry --
+        gridCol = gridCol_lst[index]
+        tbl.tblGrid.remove(gridCol)
+
+        # -- for each row, remove or shrink the cell covering the column --
+        for tr in tbl.tr_lst:
+            # -- gridBefore/gridAfter shift the tc grid_offset; account for
+            # -- them so a delete at `index` that falls inside the
+            # -- gridBefore/gridAfter omitted region is a no-op for this row.
+            current_offset = tr.grid_before
+            if index < current_offset:
+                continue
+            removed = False
+            for tc in list(tr.tc_lst):
+                span = tc.grid_span
+                if current_offset <= index < current_offset + span:
+                    if span == 1:
+                        tr.remove(tc)
+                    else:
+                        tc.grid_span = span - 1
+                    removed = True
+                    break
+                current_offset += span
+            # -- if no tc covers the index (gridAfter region), nothing to do --
+            if not removed:
+                continue
 
     def insert_paragraph_before(
         self, text: str = "", style: str | ParagraphStyle | None = None
@@ -697,19 +790,99 @@ class _Cell(BlockItemContainer):
         return CellBorders(self._tc)
 
     def add_table(  # pyright: ignore[reportIncompatibleMethodOverride]
-        self, rows: int, cols: int
+        self,
+        rows: int,
+        cols: int,
+        style: "str | _TableStyle | None" = None,
     ) -> Table:
         """Return a table newly added to this cell after any existing cell content.
 
-        The new table will have `rows` rows and `cols` columns.
+        The new table will have `rows` rows and `cols` columns. If `style` is
+        supplied it is applied to the new table (by style name or
+        :class:`_TableStyle` object).
 
         An empty paragraph is added after the table because Word requires a paragraph
         element as the last element in every cell.
+
+        .. versionadded:: 1.3.0.dev0
+           ``style`` parameter. (upstream#1285)
         """
         width = self.width if self.width is not None else Inches(1)
         table = super().add_table(rows, cols, width)
+        if style is not None:
+            table.style = style
         self.add_paragraph()
         return table
+
+    def split(self) -> list[_Cell]:
+        """Split this cell back into individual single-grid cells.
+
+        Clears any ``w:gridSpan`` and ``w:vMerge`` on this cell so the cell is
+        no longer merged. When the cell has ``w:gridSpan > 1``, it is replaced
+        by N sibling ``w:tc`` elements (one per spanned grid column), each a
+        clone of the original without the ``w:gridSpan`` / ``w:vMerge``
+        children and with empty paragraph content in all but the first cell
+        (the original content is preserved on the first cell). The original
+        cell's width is evenly distributed across the new cells when it had
+        an explicit width.
+
+        Returns the list of resulting |_Cell| objects (left-to-right). If
+        this cell is not merged the list contains only this cell.
+
+        Note: this implementation splits at row level only. A vertically
+        merged cell (``vMerge="restart"`` with ``vMerge="continue"`` rows
+        below) has the continuation rows' ``w:vMerge`` attribute cleared on
+        the matching column only; no new continuation cells are fabricated.
+        Callers needing to fully unmerge a vertical span should iterate each
+        row and call :meth:`split` on each continuation cell.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from copy import deepcopy
+
+        tc = self._tc
+        grid_span = tc.grid_span
+        tcPr = tc.tcPr
+
+        # -- clear any vMerge on this cell --
+        if tcPr is not None and tcPr.vMerge is not None:
+            tcPr._remove_vMerge()  # pyright: ignore[reportPrivateUsage]
+
+        if grid_span <= 1:
+            return [self]
+
+        # -- clear gridSpan on this cell --
+        if tcPr is not None:
+            tcPr._remove_gridSpan()  # pyright: ignore[reportPrivateUsage]
+
+        # -- redistribute width across the N split cells --
+        original_width = tc.width
+        per_cell_width: Length | None = None
+        if original_width is not None:
+            per_cell_width = Emu(int(original_width) // grid_span)
+            tc.width = per_cell_width
+
+        # -- build sibling cells. Clone tc (content + tcPr) then strip inner
+        # -- block-content on the clones so only the first cell keeps the
+        # -- merged content. --
+        from docx.oxml.ns import qn
+
+        result: list[_Cell] = [self]
+        current = tc
+        for _ in range(grid_span - 1):
+            clone = cast("CT_Tc", deepcopy(tc))
+            # -- strip paragraphs / tables / sdt from clone so it becomes empty --
+            for child in list(clone):
+                if child.tag != qn("w:tcPr"):
+                    clone.remove(child)
+            # -- ensure clone has the required single empty w:p --
+            clone.add_p()
+            # -- clone's tcPr already lacks gridSpan/vMerge since we cleared
+            # -- them on tc before deepcopy. --
+            current.addnext(clone)
+            current = clone
+            result.append(_Cell(clone, self._parent))
+        return result
 
     @property
     def formatting_change(self) -> FormattingChange | None:
@@ -1624,6 +1797,19 @@ class _Column(Parented):
                     tc.width = value
                 break
 
+    def delete(self) -> None:
+        """Remove this column from its table.
+
+        Removes the matching ``w:gridCol`` from ``w:tblGrid`` and the
+        corresponding ``w:tc`` from each row. Cells horizontally spanning
+        this column (``w:gridSpan > 1``) have their gridSpan decremented by
+        one rather than being orphaned. After calling this method the
+        |_Column| instance is "defunct" and should not be used further.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        self.table.delete_column(self._index)
+
     @property
     def index(self) -> int:
         """Zero-based index of this column within its table.
@@ -1865,6 +2051,76 @@ class _Row(Parented):
         """Reference to the |Table| object this row belongs to."""
         return self._parent.table
 
+    def insert_row_before(self) -> _Row:
+        """Insert a new blank row as a sibling directly before this row.
+
+        The new row has one ``w:tc`` per column in the table, sized to each
+        ``w:gridCol``'s width. Returns the new |_Row|.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self.table.insert_row(self._index)
+
+    def insert_row_after(self) -> _Row:
+        """Insert a new blank row as a sibling directly after this row.
+
+        The new row has one ``w:tc`` per column in the table, sized to each
+        ``w:gridCol``'s width. Returns the new |_Row|.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self.table.insert_row(self._index + 1)
+
+    def clone(self) -> _Row:
+        """Insert a deep-copy of this row directly after it and return the new row.
+
+        The cloned ``w:tr`` preserves ``w:trPr`` / ``w:tc`` / run-level
+        formatting. Any ``w:id`` attributes inside the cloned tree are
+        stripped so bookmark / comment IDs do not collide with the rest of
+        the document. (upstream#1189, #205)
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        new_tr = _clone_tr(self._tr)
+        self._tr.addnext(new_tr)
+        return _Row(new_tr, self._parent)
+
+    def add_cell(self) -> _Cell:
+        """Append a new blank ``w:tc`` to this row and return it as a |_Cell|.
+
+        The new cell carries no explicit width; row-level ``w:gridAfter``
+        omitted-cell allowances (if any) still apply visually.
+        (upstream#532)
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        tc = self._tr.add_tc()
+        return _Cell(tc, self.table)
+
+    def insert_cell(self, index: int) -> _Cell:
+        """Insert a new blank ``w:tc`` at `index` in this row and return it.
+
+        `index` counts from zero against the row's existing ``w:tc``
+        sequence. An `index` equal to the number of cells appends; a
+        negative `index` counts from the end. (upstream#532)
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.oxml.table import CT_Tc
+
+        tc_lst = self._tr.tc_lst
+        count = len(tc_lst)
+        if index < 0:
+            index += count
+        if index < 0 or index > count:
+            raise IndexError(f"cell index [{index}] is out of range")
+        new_tc = CT_Tc.new()
+        if index == count:
+            self._tr.append(new_tc)
+        else:
+            tc_lst[index].addprevious(new_tc)
+        return _Cell(new_tc, self.table)
+
     @property
     def index(self) -> int:
         """Zero-based index of this row within its table.
@@ -1878,6 +2134,29 @@ class _Row(Parented):
 
     # -- legacy private alias retained for backwards compatibility --
     _index = index
+
+
+def _clone_tr(tr: CT_Row) -> CT_Row:
+    """Return a deep-copy of `tr` with all nested ``w:id`` attributes stripped.
+
+    Used by :meth:`Table.add_row` and :meth:`_Row.clone` to duplicate a row's
+    full XML content while preventing ID collisions on bookmarks, comments,
+    footnotes, etc. Any element in the cloned subtree that carries a ``w:id``
+    attribute has it removed.
+    """
+    from copy import deepcopy
+
+    from docx.oxml.ns import qn
+
+    clone = cast("CT_Row", deepcopy(tr))
+    id_qn = qn("w:id")
+    # -- strip ``w:id`` on the clone and all descendants --
+    if clone.get(id_qn) is not None:
+        del clone.attrib[id_qn]
+    for desc in clone.iter():
+        if desc.get(id_qn) is not None:
+            del desc.attrib[id_qn]
+    return clone
 
 
 class _Rows(Parented):
