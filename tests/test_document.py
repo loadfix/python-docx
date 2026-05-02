@@ -927,6 +927,105 @@ class DescribeDocument:
         assert isinstance(width, Length)
         assert width == 3500
 
+    # -- upstream#504: "Table Grid" style is shipped in default.docx --------
+
+    def it_ships_the_table_grid_style_in_the_default_template(self):
+        from docx import Document as OpenDocument
+
+        document = OpenDocument()
+        style = document.styles["Table Grid"]
+        assert style.name == "Table Grid"
+        # -- and it is usable as a table style on a fresh document --
+        table = document.add_table(rows=1, cols=1, style="Table Grid")
+        assert table.style.name == "Table Grid"
+
+    # -- upstream#379: context-manager + close ------------------------------
+
+    def it_supports_the_context_manager_protocol(self):
+        from docx import Document as OpenDocument
+
+        with OpenDocument() as document:
+            assert isinstance(document, Document)
+            paragraph = document.add_paragraph("hello")
+            assert paragraph.text == "hello"
+
+    def it_exposes_close_as_a_safe_no_op(self):
+        from docx import Document as OpenDocument
+
+        document = OpenDocument()
+        # -- calling close() repeatedly is safe --
+        document.close()
+        document.close()
+        # -- the document remains usable afterward (close is a lifecycle
+        # -- affordance, not a teardown) --
+        assert document.add_paragraph("still works").text == "still works"
+
+    # -- upstream#1025: tracked-change writer -------------------------------
+
+    def it_can_wrap_new_paragraphs_in_w_ins_via_context_manager(self):
+        from docx import Document as OpenDocument
+
+        document = OpenDocument()
+        with document.tracked_changes(author="Alice"):
+            paragraph = document.add_paragraph("review me")
+
+        ins = paragraph._p.xpath("./w:ins")
+        assert len(ins) == 1
+        assert ins[0].get(
+            "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}author"
+        ) == "Alice"
+        assert ins[0].xpath("./w:r/w:t")[0].text == "review me"
+
+    def it_does_not_wrap_when_no_context_is_active(self):
+        from docx import Document as OpenDocument
+
+        document = OpenDocument()
+        paragraph = document.add_paragraph("no tracking")
+
+        assert paragraph._p.xpath("./w:ins") == []
+
+    def it_allows_explicit_track_author_kwarg_without_context(self):
+        from docx import Document as OpenDocument
+
+        document = OpenDocument()
+        paragraph = document.add_paragraph("via kwarg", track_author="Bob")
+
+        ins = paragraph._p.xpath("./w:ins")
+        assert len(ins) == 1
+        assert ins[0].get(
+            "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}author"
+        ) == "Bob"
+
+    def it_wraps_add_run_in_w_ins_under_active_context(self):
+        from docx import Document as OpenDocument
+
+        document = OpenDocument()
+        paragraph = document.add_paragraph()  # empty, no ins yet
+        with document.tracked_changes(author="Carol"):
+            paragraph.add_run("inline addition")
+
+        ins = paragraph._p.xpath("./w:ins")
+        assert len(ins) == 1
+        assert ins[0].xpath("./w:r/w:t")[0].text == "inline addition"
+        assert ins[0].get(
+            "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}author"
+        ) == "Carol"
+
+    def it_allocates_distinct_change_ids_across_multiple_wraps(self):
+        from docx import Document as OpenDocument
+
+        document = OpenDocument()
+        with document.tracked_changes(author="Dan"):
+            p1 = document.add_paragraph("first")
+            p2 = document.add_paragraph("second")
+
+        id_attr = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id"
+        ids = [
+            p1._p.xpath("./w:ins")[0].get(id_attr),
+            p2._p.xpath("./w:ins")[0].get(id_attr),
+        ]
+        assert len(set(ids)) == 2
+
     # -- fixtures --------------------------------------------------------------------------------
 
     @pytest.fixture

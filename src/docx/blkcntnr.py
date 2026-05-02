@@ -45,7 +45,12 @@ class BlockItemContainer(StoryChild):
         super().__init__(parent)
         self._element = element
 
-    def add_paragraph(self, text: str = "", style: str | ParagraphStyle | None = None) -> Paragraph:
+    def add_paragraph(
+        self,
+        text: str = "",
+        style: str | ParagraphStyle | None = None,
+        track_author: str | None = None,
+    ) -> Paragraph:
         """Return paragraph newly added to the end of the content in this container.
 
         The paragraph has `text` in a single run if present, and is given paragraph
@@ -53,10 +58,22 @@ class BlockItemContainer(StoryChild):
 
         If `style` is |None|, no paragraph style is applied, which has the same effect
         as applying the 'Normal' style.
+
+        If `track_author` is supplied (or if an enclosing
+        :meth:`Document.tracked_changes` context is active), the freshly-inserted
+        run containing `text` is wrapped in a `w:ins` revision marker
+        attributed to that author. A paragraph added with empty `text` is not
+        wrapped because it contains no run to mark. Closes upstream#1025.
+
+        .. versionadded:: 1.3.0.dev0
+           Added ``track_author`` keyword argument.
         """
         paragraph = self._add_paragraph()
         if text:
-            paragraph.add_run(text)
+            if track_author is None:
+                paragraph.add_run(text)
+            else:
+                paragraph.add_run(text, track_author=track_author)
         if style is not None:
             paragraph.style = style
         return paragraph

@@ -1874,6 +1874,14 @@ class Describe_Column:
         column = _Column(gridCol, table_)
         assert column._index == 1
 
+    def it_exposes_index_as_a_public_alias(self, table_: Mock):
+        # -- upstream#112: public `index` alias for the legacy `_index` --
+        tbl = cast(CT_Tbl, element("w:tbl/w:tblGrid/(w:gridCol,w:gridCol,w:gridCol)"))
+        gridCol = tbl.tblGrid.gridCol_lst[2]
+        column = _Column(gridCol, table_)
+        assert column.index == 2
+        assert column.index == column._index
+
     def it_propagates_width_changes_to_every_rows_cell(self, table_: Mock):
         tbl_cxml = (
             "w:tbl/("
@@ -2083,6 +2091,14 @@ class Describe_Columns:
 
 class Describe_Row:
     """Unit-test suite for `docx.table._Row` objects."""
+
+    def it_exposes_index_as_a_public_alias(self, parent_: Mock):
+        # -- upstream#112: public `index` alias for the legacy `_index` --
+        tbl = cast(CT_Tbl, element("w:tbl/(w:tblPr,w:tblGrid,w:tr,w:tr,w:tr)"))
+        tr = tbl.tr_lst[2]
+        row = _Row(cast(CT_Row, tr), parent_)
+        assert row.index == 2
+        assert row.index == row._index
 
     @pytest.mark.parametrize(
         ("tr_cxml", "expected_value"),

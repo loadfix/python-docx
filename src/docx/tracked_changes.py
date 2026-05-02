@@ -6,6 +6,7 @@ import datetime as dt
 from typing import TYPE_CHECKING, cast
 
 from docx.oxml.ns import qn
+from docx.oxml.parser import OxmlElement
 from docx.shared import ElementProxy
 
 if TYPE_CHECKING:
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
     from docx.oxml.text.font import CT_RPr
     from docx.oxml.text.parfmt import CT_PPr
     from docx.oxml.text.paragraph import CT_P
+    from docx.oxml.text.run import CT_R
     from docx.oxml.tracked_changes import (
         CT_PPrChange,
         CT_RPrChange,
@@ -418,3 +420,153 @@ def _resolve_cell_change(elm: BaseOxmlElement, *, accept: bool) -> int:
     # -- keep the cell, just remove the marker --
     tcPr.remove(elm)
     return 1
+
+
+# -- Track-changes writer helpers -------------------------------------------
+#
+# These helpers are used by `BlockItemContainer.add_paragraph` and
+# `Paragraph.add_run` when the document-level `Document.tracked_changes(...)`
+# context manager is active (or when the `track_author=` keyword argument is
+# passed to either of those methods).
+
+
+def _next_revision_id(root: BaseOxmlElement) -> int:
+    """Return the next unused integer revision id within `root`.
+
+    Scans every `w:ins`, `w:del`, `w:moveFrom`, `w:moveTo`, `w:rPrChange`,
+    `w:pPrChange`, `w:sectPrChange`, `w:tcPrChange`, `w:trPrChange`,
+    `w:tblPrChange`, `w:cellIns`, and `w:cellDel` descendant for a `w:id`
+    attribute and returns ``max(existing) + 1``. Returns ``1`` when no
+    revision element is present.
+    """
+    ids: list[int] = []
+    for el in root.xpath(
+        ".//w:ins | .//w:del | .//w:moveFrom | .//w:moveTo"
+        " | .//w:rPrChange | .//w:pPrChange | .//w:sectPrChange"
+        " | .//w:tcPrChange | .//w:trPrChange | .//w:tblPrChange"
+        " | .//w:cellIns | .//w:cellDel"
+    ):
+        raw = el.get(qn("w:id"))
+        if raw is None:
+            continue
+        try:
+            ids.append(int(raw))
+        except ValueError:
+            continue
+    return (max(ids) + 1) if ids else 1
+
+
+def wrap_run_in_ins(
+    r: CT_R,
+    author: str,
+    date: dt.datetime | None = None,
+    change_id: int | None = None,
+) -> CT_RunTrackChange:
+    """Replace `r` in its parent with a `w:ins` wrapper and return the wrapper.
+
+    The newly-created `w:ins` element is positioned where `r` sat among its
+    siblings and `r` becomes its sole child. If `change_id` is omitted an id
+    is allocated by scanning `r`'s document root for the next unused id. If
+    `date` is omitted the current UTC time is used (normalised to whole
+    seconds for deterministic XML).
+
+    Returns the new `w:ins` element.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+    parent = r.getparent()
+    if parent is None:
+        raise ValueError("cannot wrap a detached run in a w:ins element")
+    if change_id is None:
+        # -- walk up to document root to scope id allocation --
+        root = r
+        while root.getparent() is not None:
+            root = cast("CT_R", root.getparent())
+        change_id = _next_revision_id(cast("BaseOxmlElement", root))
+    if date is None:
+        date = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+
+    ins = cast(
+        "CT_RunTrackChange",
+        OxmlElement(
+            "w:ins",
+            attrs={
+                qn("w:id"): str(change_id),
+                qn("w:author"): author,
+                qn("w:date"): date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            },
+        ),
+    )
+    index = parent.index(r)
+    parent.remove(r)
+    ins.append(r)
+    parent.insert(index, ins)
+    return ins
+
+
+class _TrackedChangesCtx:
+    """Context-manager for tracked-change writes on a :class:`Document`.
+
+    Created by :meth:`Document.tracked_changes`. While active, every call to
+    :meth:`Document.add_paragraph`, :meth:`BlockItemContainer.add_paragraph`,
+    or :meth:`Paragraph.add_run` wraps the freshly-inserted `w:r` in a
+    `w:ins` element whose `w:author` and `w:date` come from this context.
+
+    Contexts can be nested; the innermost active context supplies the
+    author/date. Passing an explicit ``track_author=`` keyword argument to
+    `add_paragraph` / `add_run` overrides the context and works even when no
+    context is active.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+
+    def __init__(
+        self, document, author: str, date: dt.datetime | None = None
+    ):
+        self._document = document
+        self._author = author
+        self._date = date
+
+    @property
+    def author(self) -> str:
+        """Author string applied to each tracked insertion."""
+        return self._author
+
+    @property
+    def date(self) -> dt.datetime | None:
+        """Timestamp applied to each tracked insertion, or |None| to use now()."""
+        return self._date
+
+    def __enter__(self):
+        self._document._tracked_changes_stack.append(self)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        stack = self._document._tracked_changes_stack
+        # -- pop the top frame; be defensive if the caller has nested wrongly --
+        if stack and stack[-1] is self:
+            stack.pop()
+        elif self in stack:
+            stack.remove(self)
+
+
+def _active_track_author(part) -> tuple[str, dt.datetime | None] | None:
+    """Return ``(author, date)`` from the active tracked-changes context.
+
+    Looks up the innermost `_TrackedChangesCtx` registered on the Document
+    proxy that owns `part`. Returns |None| when no context is active or the
+    part does not belong to a Document proxy (e.g. header/footer story
+    parts, which don't carry the stack).
+    """
+    doc_proxy = getattr(part, "_track_changes_doc_proxy", None)
+    if doc_proxy is None:
+        return None
+    stack = getattr(doc_proxy, "_tracked_changes_stack", None)
+    # -- Require a real list; `Mock.getattr` returns another Mock which is
+    # -- truthy but not a valid stack. Reject anything that isn't a list. --
+    if not isinstance(stack, list) or not stack:
+        return None
+    top = stack[-1]
+    if not isinstance(top, _TrackedChangesCtx):
+        return None
+    return top.author, top.date

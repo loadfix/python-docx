@@ -158,11 +158,15 @@ You can also add rows to a table incrementally like so::
 This can be very handy for the variable length table scenario we mentioned
 above::
 
+    from collections import namedtuple
+
+    Record = namedtuple('Record', 'qty id desc')
+
     # get table data -------------
     items = (
-        (7, '1024', 'Plush kittens'),
-        (3, '2042', 'Furbees'),
-        (1, '1288', 'French Poodle Collars, Deluxe'),
+        Record(7, '1024', 'Plush kittens'),
+        Record(3, '2042', 'Furbees'),
+        Record(1, '1288', 'French Poodle Collars, Deluxe'),
     )
 
     # add table ------------------
@@ -177,9 +181,9 @@ above::
     # add a data row for each item
     for item in items:
         cells = table.add_row().cells
-        cells[0].text = str(item[0])
-        cells[1].text = item[1]
-        cells[2].text = item[2]
+        cells[0].text = str(item.qty)
+        cells[1].text = item.id
+        cells[2].text = item.desc
 
 
 The same works for columns, although I've yet to see a use case for it.
