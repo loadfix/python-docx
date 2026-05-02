@@ -31,9 +31,8 @@ from docx.oxml.table import (
     CT_TcMar,
     CT_TcPr,
 )
-from docx.shared import Emu, Inches, Pt, Twips
 from docx.oxml.text.paragraph import CT_P
-from docx.shared import Inches, Length, RGBColor
+from docx.shared import Emu, Inches, Length, Pt, RGBColor, Twips
 
 from ..unitutil.cxml import element, xml
 from ..unitutil.file import snippet_seq
@@ -62,11 +61,14 @@ class DescribeCT_Border:
         ("border_cxml", "expected_sz"),
         [
             ("w:top", None),
-            ("w:top{w:sz=4}", 4),
-            ("w:top{w:sz=12}", 12),
+            # `sz` is eighth-points, exposed as Length (EMU). 4 eighth-points = Pt(0.5).
+            ("w:top{w:sz=4}", Pt(0.5)),
+            ("w:top{w:sz=12}", Pt(1.5)),
         ],
     )
-    def it_can_get_the_sz_attribute(self, border_cxml: str, expected_sz: int | None):
+    def it_can_get_the_sz_attribute(
+        self, border_cxml: str, expected_sz: Length | None
+    ):
         border = cast(CT_Border, element(border_cxml))
         assert border.sz == expected_sz
 
@@ -88,11 +90,14 @@ class DescribeCT_Border:
         ("border_cxml", "expected_space"),
         [
             ("w:top", None),
-            ("w:top{w:space=0}", 0),
-            ("w:top{w:space=4}", 4),
+            # `space` is in whole points, exposed as Length (EMU).
+            ("w:top{w:space=0}", Pt(0)),
+            ("w:top{w:space=4}", Pt(4)),
         ],
     )
-    def it_can_get_the_space_attribute(self, border_cxml: str, expected_space: int | None):
+    def it_can_get_the_space_attribute(
+        self, border_cxml: str, expected_space: Length | None
+    ):
         border = cast(CT_Border, element(border_cxml))
         assert border.space == expected_space
 

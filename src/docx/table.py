@@ -928,15 +928,14 @@ class BorderElement:
     def width(self) -> Length | None:
         """The border width as an EMU |Length| value, or |None| if not set.
 
-        The ``w:sz`` attribute stores the width in eighths of a point.
+        The ``w:sz`` attribute stores the width in eighths of a point; the
+        underlying element class already converts that to a |Length| (EMU) on
+        read, so it is returned as-is here.
         """
         border = self._border
         if border is None:
             return None
-        sz = border.sz
-        if sz is None:
-            return None
-        return Pt(sz / 8.0)
+        return border.sz
 
     @width.setter
     def width(self, value: Length | None):
@@ -947,7 +946,7 @@ class BorderElement:
             return
         border = self._get_or_add()
         self._border = border
-        border.sz = int(Emu(value).pt * 8)
+        border.sz = value
 
     @property
     def color(self) -> RGBColor | None:
@@ -972,15 +971,19 @@ class BorderElement:
         border.color = value
 
     @property
-    def space(self) -> int | None:
-        """The border spacing in points, or |None| if not set."""
+    def space(self) -> Length | None:
+        """The border spacing as a |Length| (EMU) value, or |None| if not set.
+
+        The ``w:space`` attribute stores whole points; the underlying element
+        class converts that to a |Length| on read.
+        """
         border = self._border
         if border is None:
             return None
         return border.space
 
     @space.setter
-    def space(self, value: int | None):
+    def space(self, value: Length | int | None):
         if value is None:
             border = self._border
             if border is not None:

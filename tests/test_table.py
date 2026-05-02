@@ -1636,7 +1636,8 @@ class DescribeBorderElement:
         )
         tblBorders = tbl.tblPr.tblBorders
         border_el = BorderElement(tblBorders.top, tblBorders.get_or_add_top)
-        assert border_el.space == 4
+        # `space` is stored as whole points and exposed as a Length (EMU).
+        assert border_el.space == Pt(4)
 
     def it_returns_none_when_no_border_element(self):
         border_el = BorderElement(None, lambda: None)  # type: ignore
