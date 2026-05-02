@@ -73,6 +73,21 @@ class Table(StoryChild):
             return
         parent.remove(tbl)
 
+    @property
+    def spans_page_break(self) -> bool:
+        """``True`` when this table contains one or more rendered page-breaks.
+
+        Detects ``w:lastRenderedPageBreak`` elements anywhere inside the
+        table's cell content. This marker is written by Word when it renders
+        the document; programmatically-created tables typically have none
+        until Word opens and re-saves the file.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.oxml.ns import qn
+
+        return self._tbl.find(".//" + qn("w:lastRenderedPageBreak")) is not None
+
     def add_column(self, width: Length):
         """Return a |_Column| object of `width`, newly added rightmost to the table."""
         tblGrid = self._tbl.tblGrid

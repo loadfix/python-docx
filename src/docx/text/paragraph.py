@@ -1117,6 +1117,22 @@ class Paragraph(StoryChild):
         return [RenderedPageBreak(lrpb, self) for lrpb in self._p.lastRenderedPageBreaks]
 
     @property
+    def page_breaks_inside(self) -> list[RenderedPageBreak]:
+        """All ``w:lastRenderedPageBreak`` positions inside this paragraph.
+
+        Same data as :attr:`rendered_page_breaks`, exposed under the name used
+        by upstream issue #744 so the pagination-detection use case is
+        discoverable. ``w:lastRenderedPageBreak`` is written by Word when it
+        renders a document; a programmatically-created document typically has
+        none until Word opens and re-saves it. The explicit page-break markers
+        used by :meth:`add_page_break` (``<w:br w:type="page"/>``) are a
+        different element and are reported via :attr:`has_page_break`.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self.rendered_page_breaks
+
+    @property
     def runs(self) -> list[Run]:
         """Sequence of |Run| instances corresponding to the <w:r> elements in this
         paragraph.

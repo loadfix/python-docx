@@ -241,6 +241,167 @@ class Section:
             yield (Paragraph(element, self) if isinstance(element, CT_P) else Table(element, self))
 
     @property
+    def paragraphs(self) -> list[Paragraph]:
+        """List of |Paragraph| objects bounded by this section's ``w:sectPr``.
+
+        A section's paragraphs are the ``w:p`` elements located after the prior
+        section's terminating ``w:sectPr`` (exclusive) and up to-and-including
+        the paragraph that hosts this section's ``w:sectPr`` (for
+        paragraph-hosted ``w:sectPr``) or every remaining paragraph (for the
+        document-terminal ``w:body/w:sectPr``).
+
+        Tables and other block-level items are skipped; use
+        :meth:`iter_inner_content` for the full sequence. Items appear in
+        document order.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return [
+            Paragraph(element, self)
+            for element in self._sectPr.iter_inner_content()
+            if isinstance(element, CT_P)
+        ]
+
+    @property
+    def tables(self) -> list[Table]:
+        """List of |Table| objects bounded by this section's ``w:sectPr``.
+
+        Companion to :attr:`paragraphs`; returns the tables whose ``w:tbl``
+        elements fall in this section's range. Items appear in document order.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return [
+            Table(element, self)
+            for element in self._sectPr.iter_inner_content()
+            if not isinstance(element, CT_P)
+        ]
+
+    def delete(self) -> None:
+        """Remove this section, merging its content into the following section.
+
+        The paragraphs and tables that were part of this section become part
+        of the next section (or, if this section is the last, the preceding
+        section absorbs them by losing its terminating ``w:sectPr``).
+
+        For a paragraph-hosted ``w:sectPr`` (i.e. any section except the last
+        one), the ``w:sectPr`` is removed from its ``w:pPr`` parent; the
+        paragraph itself is preserved so its content is not lost. The
+        following section's ``w:sectPr`` now controls the merged range.
+
+        For the document-terminal ``w:body/w:sectPr`` (the last section), the
+        preceding section's ``w:sectPr`` is promoted in its place. The
+        previously-promoted ``w:sectPr`` and its owning paragraph are removed
+        (the paragraph is merged away because its only purpose was to host
+        the now-redundant section break).
+
+        Calling :meth:`delete` on the only section in a document is a no-op --
+        every document must have at least one ``w:sectPr``.
+
+        After calling this method, this |Section| object is "defunct" and
+        should not be used further.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        sectPr = self._sectPr
+        parent = sectPr.getparent()
+        if parent is None:
+            return
+        # -- identify whether this is a p-hosted sectPr or body-hosted --
+        if parent.tag == qn("w:pPr"):
+            # -- p-hosted: just drop the sectPr from its pPr.
+            # -- The paragraph that hosted it survives and joins the next section.
+            parent.remove(sectPr)
+            # -- if the pPr is now effectively empty, leave it; an empty pPr is
+            # -- harmless and Word tolerates it.
+            return
+        # -- body-hosted (last section): there must be a preceding p-hosted sectPr
+        # -- to promote, otherwise this is the only section and we no-op.
+        preceding = sectPr.preceding_sectPr
+        if preceding is None:
+            return
+        # -- move the preceding sectPr out of its paragraph and into body --
+        preceding_pPr = preceding.getparent()
+        assert preceding_pPr is not None
+        preceding_p = preceding_pPr.getparent()
+        assert preceding_p is not None
+        body = parent
+        # -- remove the old body-sectPr --
+        body.remove(sectPr)
+        # -- remove the hosting paragraph (which only existed to carry a break) --
+        preceding_pPr.remove(preceding)
+        body_parent = preceding_p.getparent()
+        assert body_parent is not None
+        body_parent.remove(preceding_p)
+        # -- append the promoted sectPr at the end of body --
+        body.append(preceding)
+
+    def copy_header_from(self, other_section: Section) -> None:
+        """Copy the default page header definition from `other_section` into this one.
+
+        The header part is duplicated (a new ``/word/headerN.xml`` part is
+        added to the package), the header XML tree is deep-copied from
+        `other_section`'s header, and ``w:headerReference`` on this section is
+        rewired to the new part.
+
+        Image relationships in the source header are *not* transplanted; the
+        copied header's image ``r:embed`` values will still point at the
+        source part's image relationships. For pure text headers (by far the
+        common case) this produces a correct standalone copy.
+
+        Does nothing when `other_section` has no default-header definition.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        self._copy_hdrftr(other_section, is_header=True)
+
+    def copy_footer_from(self, other_section: Section) -> None:
+        """Copy the default page footer definition from `other_section` into this one.
+
+        Companion to :meth:`copy_header_from`; see that method for the full
+        contract. Does nothing when `other_section` has no default-footer
+        definition.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        self._copy_hdrftr(other_section, is_header=False)
+
+    def _copy_hdrftr(self, other_section: Section, is_header: bool) -> None:
+        """Shared worker for :meth:`copy_header_from` / :meth:`copy_footer_from`."""
+        from copy import deepcopy
+
+        # -- source proxy, via `_has_definition` to avoid triggering inheritance --
+        if is_header:
+            src = other_section.header
+            dst = self.header
+        else:
+            src = other_section.footer
+            dst = self.footer
+        if not src._has_definition:
+            return
+        src_part = src.part  # triggers resolution, but we already checked it exists
+        src_elm = src_part.element
+
+        # -- ensure destination currently owns a part; drop any existing definition
+        # -- so the new one is cleanly wired in (matches the "last write wins"
+        # -- semantics of set-property style APIs in the rest of this module).
+        if dst._has_definition:
+            dst._drop_definition()
+        new_part = dst._add_definition()
+        # -- replace the new (empty) part's root element with a deep copy of src --
+        new_elm = deepcopy(src_elm)
+        # -- swap: clear new_part's current element content and copy src children --
+        current = new_part.element
+        # -- remove all existing children of the fresh hdr/ftr element --
+        for child in list(current):
+            current.remove(child)
+        # -- copy attributes and children from the source root --
+        for key, value in new_elm.attrib.items():
+            current.set(key, value)
+        for child in list(new_elm):
+            current.append(child)
+
+    @property
     def left_margin(self) -> Length | None:
         """|Length| object representing the left margin for all pages in this section in
         English Metric Units."""
@@ -875,6 +1036,30 @@ class Sections(Sequence[Section]):
 
     def __len__(self) -> int:
         return len(self._document_elm.sectPr_lst)
+
+    def pop(self, index: int = -1) -> Section:
+        """Remove and return the section at `index`, merging it into its neighbour.
+
+        Delegates to :meth:`Section.delete`. Returns the (now-defunct) |Section|
+        proxy that was removed, for symmetry with :meth:`list.pop` -- callers
+        sometimes want to inspect section properties before the break is
+        merged away, but should not attempt to further mutate the returned
+        object after this call.
+
+        Raises :class:`IndexError` when `index` is out of range.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        sectPrs = self._document_elm.sectPr_lst
+        # -- normalize negative index and bounds-check --
+        n = len(sectPrs)
+        if index < 0:
+            index += n
+        if not 0 <= index < n:
+            raise IndexError("section index out of range")
+        section = Section(sectPrs[index], self._document_part)
+        section.delete()
+        return section
 
 
 class Column:

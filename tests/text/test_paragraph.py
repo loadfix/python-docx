@@ -709,6 +709,28 @@ class DescribeParagraph:
         assert actual == expected, f"expected: {expected}, got: {actual}"
 
     @pytest.mark.parametrize(
+        ("p_cxml", "count"),
+        [
+            ("w:p", 0),
+            ("w:p/w:r", 0),
+            ("w:p/w:r/w:lastRenderedPageBreak", 1),
+            (
+                "w:p/(w:r/w:lastRenderedPageBreak,w:hyperlink/w:r/w:lastRenderedPageBreak)",
+                2,
+            ),
+        ],
+    )
+    def it_aliases_rendered_page_breaks_as_page_breaks_inside(
+        self, p_cxml: str, count: int, fake_parent: t.ProvidesStoryPart
+    ):
+        p = cast(CT_P, element(p_cxml))
+        paragraph = Paragraph(p, fake_parent)
+
+        assert len(paragraph.page_breaks_inside) == count
+        # -- same payload as rendered_page_breaks --
+        assert len(paragraph.page_breaks_inside) == len(paragraph.rendered_page_breaks)
+
+    @pytest.mark.parametrize(
         ("p_cxml", "expected_value"),
         [
             ("w:p", ""),
