@@ -20,6 +20,18 @@ class Tiff(BaseImageHeader):
         """Default filename extension, always 'tiff' for TIFF images."""
         return "tiff"
 
+    @property
+    def orientation(self):
+        """The EXIF ``Orientation`` tag value (1-8) from IFD0 or |None| if absent.
+
+        A value of 1 indicates the image is already upright; 3 means rotated
+        180 degrees; 6 means the camera was held rotated 90 degrees clockwise
+        from upright; 8 means rotated 90 degrees counter-clockwise. Even
+        values 2, 4, 5, 7 include a mirror flip which ``python-docx``
+        normalises to a rotation-only approximation at render time.
+        """
+        return getattr(self, "_orientation", None)
+
     @classmethod
     def from_stream(cls, stream):
         """Return a |Tiff| instance containing the properties of the TIFF image in
@@ -31,7 +43,9 @@ class Tiff(BaseImageHeader):
         horz_dpi = parser.horz_dpi
         vert_dpi = parser.vert_dpi
 
-        return cls(px_width, px_height, horz_dpi, vert_dpi)
+        instance = cls(px_width, px_height, horz_dpi, vert_dpi)
+        instance._orientation = parser.orientation
+        return instance
 
 
 class _TiffParser:
@@ -76,6 +90,24 @@ class _TiffParser:
         ``ImageWidth`` tag, the expected case when the TIFF is embeded in an Exif
         image."""
         return self._ifd_entries.get(TIFF_TAG.IMAGE_WIDTH)
+
+    @property
+    def orientation(self):
+        """The ``Orientation`` tag value (1-8) from the main IFD, or |None|
+        if the tag is absent or not an int in the expected range.
+
+        The TIFF/EXIF specification defines values 1-8; anything outside that
+        range is treated as absent, matching how Word and other consumers
+        handle unknown orientations.
+        """
+        value = self._ifd_entries.get(TIFF_TAG.ORIENTATION)
+        if isinstance(value, bool):
+            return None
+        if not isinstance(value, int):
+            return None
+        if value < 1 or value > 8:
+            return None
+        return value
 
     @classmethod
     def _detect_endian(cls, stream):

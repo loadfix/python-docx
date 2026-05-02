@@ -27,6 +27,50 @@ if TYPE_CHECKING:
     from docx.shared import Length
 
 
+# -- EXIF Orientation tag (1-8) -> rotation in 60000ths of a degree, the
+#    unit used by `a:xfrm/@rot`. Values 2/4/5/7 include a mirror flip which
+#    Word's `a:xfrm` can't express; we fall back to the rotation-only
+#    approximation so the image at least lands close to upright. --
+_EXIF_ORIENTATION_ROT = {
+    1: 0,
+    2: 0,
+    3: 180 * 60000,
+    4: 180 * 60000,
+    5: 90 * 60000,
+    6: 90 * 60000,
+    7: 270 * 60000,
+    8: 270 * 60000,
+}
+
+
+def _rot_for_exif_orientation(orientation: int | None) -> int:
+    """Return the `a:xfrm/@rot` value (60000ths of a degree) for `orientation`.
+
+    Returns 0 for orientation values that represent an upright image
+    (including |None|), and a positive rotation for values 3, 5, 6, 7, 8.
+    Unknown values (outside 1-8) are treated as "no rotation".
+    """
+    if orientation is None:
+        return 0
+    return _EXIF_ORIENTATION_ROT.get(int(orientation), 0)
+
+
+def _apply_exif_rotation(pic: BaseOxmlElement, orientation: int | None) -> None:
+    """Set `pic:spPr/a:xfrm/@rot` from `orientation` if a rotation is needed.
+
+    No-op when `orientation` is |None|, 1 or unrecognised (which all map to
+    zero rotation). The `a:xfrm` element is already present in the pic
+    templates used by `CT_Picture.new`/`new_svg`.
+    """
+    rot = _rot_for_exif_orientation(orientation)
+    if rot == 0:
+        return
+    xfrm = pic.find(".//" + qn("a:xfrm"))  # pyright: ignore[reportUnknownMemberType]
+    if xfrm is None:  # pragma: no cover - defensive, template guarantees xfrm
+        return
+    xfrm.set("rot", str(rot))  # pyright: ignore[reportUnknownMemberType]
+
+
 class CT_PosOffset(BaseOxmlElement):
     """`<wp:posOffset>` element, an absolute offset in EMU within a `wp:positionH`
     or `wp:positionV` element."""
@@ -230,11 +274,17 @@ class CT_Anchor(BaseOxmlElement):
 
     @classmethod
     def new_pic_anchor(
-        cls, shape_id: int, rId: str, filename: str, cx: Length, cy: Length
+        cls,
+        shape_id: int,
+        rId: str,
+        filename: str,
+        cx: Length,
+        cy: Length,
+        orientation: int | None = None,
     ) -> CT_Anchor:
         """Create a `wp:anchor` element with a `pic:pic` child referencing an image."""
         pic_id = 0
-        pic = CT_Picture.new(pic_id, filename, rId, cx, cy)
+        pic = CT_Picture.new(pic_id, filename, rId, cx, cy, orientation=orientation)
         return cls.new(cx, cy, shape_id, pic)
 
     def set_horizontal_position(self, relative_from: str, offset_emu: int) -> None:
@@ -393,14 +443,20 @@ class CT_Inline(BaseOxmlElement):
 
     @classmethod
     def new_pic_inline(
-        cls, shape_id: int, rId: str, filename: str, cx: Length, cy: Length
+        cls,
+        shape_id: int,
+        rId: str,
+        filename: str,
+        cx: Length,
+        cy: Length,
+        orientation: int | None = None,
     ) -> CT_Inline:
         """Create `wp:inline` element containing a `pic:pic` element.
 
         The contents of the `pic:pic` element is taken from the argument values.
         """
         pic_id = 0  # Word doesn't seem to use this, but does not omit it
-        pic = CT_Picture.new(pic_id, filename, rId, cx, cy)
+        pic = CT_Picture.new(pic_id, filename, rId, cx, cy, orientation=orientation)
         inline = cls.new(cx, cy, shape_id, pic)
         return inline
 
@@ -413,6 +469,7 @@ class CT_Inline(BaseOxmlElement):
         filename: str,
         cx: Length,
         cy: Length,
+        orientation: int | None = None,
     ) -> CT_Inline:
         """Create `wp:inline` element for an SVG image with PNG fallback.
 
@@ -420,7 +477,9 @@ class CT_Inline(BaseOxmlElement):
         referenced via an `asvg:svgBlip` extension element.
         """
         pic_id = 0
-        pic = CT_Picture.new_svg(pic_id, filename, fallback_rId, svg_rId, cx, cy)
+        pic = CT_Picture.new_svg(
+            pic_id, filename, fallback_rId, svg_rId, cx, cy, orientation=orientation
+        )
         inline = cls.new(cx, cy, shape_id, pic)
         return inline
 
@@ -518,14 +577,29 @@ class CT_Picture(BaseOxmlElement):
     spPr: CT_ShapeProperties = OneAndOnlyOne("pic:spPr")  # pyright: ignore[reportAssignmentType]
 
     @classmethod
-    def new(cls, pic_id: int, filename: str, rId: str, cx: Length, cy: Length) -> CT_Picture:
-        """A new minimum viable `<pic:pic>` (picture) element."""
+    def new(
+        cls,
+        pic_id: int,
+        filename: str,
+        rId: str,
+        cx: Length,
+        cy: Length,
+        orientation: int | None = None,
+    ) -> CT_Picture:
+        """A new minimum viable `<pic:pic>` (picture) element.
+
+        `orientation` is the EXIF ``Orientation`` tag value (1-8) parsed
+        from the source image; when it implies a non-zero rotation the
+        corresponding `a:xfrm/@rot` attribute is set so Word displays the
+        image the same way the camera held it.
+        """
         pic = parse_xml(cls._pic_xml())
         pic.nvPicPr.cNvPr.id = pic_id
         pic.nvPicPr.cNvPr.name = filename
         pic.blipFill.blip.embed = rId
         pic.spPr.cx = cx
         pic.spPr.cy = cy
+        _apply_exif_rotation(pic, orientation)
         return pic
 
     @classmethod
@@ -537,6 +611,7 @@ class CT_Picture(BaseOxmlElement):
         svg_rId: str,
         cx: Length,
         cy: Length,
+        orientation: int | None = None,
     ) -> CT_Picture:
         """A new `<pic:pic>` element for an SVG image with PNG fallback."""
         pic = parse_xml(cls._svg_pic_xml())
@@ -551,6 +626,7 @@ class CT_Picture(BaseOxmlElement):
         svg_blip.set(qn("r:embed"), svg_rId)
         pic.spPr.cx = cx
         pic.spPr.cy = cy
+        _apply_exif_rotation(pic, orientation)
         return pic
 
     @classmethod

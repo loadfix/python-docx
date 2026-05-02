@@ -133,6 +133,17 @@ class Image:
         return _coerce_dpi(self._image_header.vert_dpi)
 
     @property
+    def orientation(self) -> int | None:
+        """EXIF ``Orientation`` tag value (1-8), or |None| when the underlying
+        image format declares none.
+
+        Consumers apply a rotation at drawing-insertion time so
+        portrait-oriented photos captured on a camera held sideways
+        render upright in Word.
+        """
+        return getattr(self._image_header, "orientation", None)
+
+    @property
     def width(self) -> Inches:
         """A |Length| value representing the native width of the image, calculated from
         the values of `px_width` and `horz_dpi`."""
@@ -211,6 +222,16 @@ def _ImageHeaderFactory(stream: IO[bytes]):
         if found_bytes == signature_bytes:
             return cls.from_stream(stream)
 
+    # -- Bare JPEG fallback: cameras / tools emit valid JPEGs whose first
+    #    non-SOI marker is DQT/SOFn rather than APP0 (JFIF) or APP1 (Exif).
+    #    The signature table above only catches the identifier-bearing
+    #    flavours; recognise plain SOI-prefixed streams here so they don't
+    #    hit `UnrecognizedImageError`. --
+    if header[:2] == b"\xff\xd8":
+        from docx.image.jpeg import _Soi
+
+        return _Soi.from_stream(stream)
+
     # SVG is text-based XML, so check for it after binary signature matching fails
     from docx.image.svg import Svg, is_svg_stream
 
@@ -270,3 +291,16 @@ class BaseImageHeader:
         Defaults to 72 when not present in the file, as is often the case.
         """
         return self._vert_dpi
+
+    @property
+    def orientation(self):
+        """EXIF ``Orientation`` tag value (1-8), or |None| when the source
+        image does not declare one.
+
+        Base implementation returns |None|; JPEG and TIFF subclasses
+        override to surface the value they parse. Consumed at image-
+        insertion time so that a camera's "portrait" frame renders
+        upright in Word even when the underlying pixel buffer is stored
+        rotated.
+        """
+        return None
