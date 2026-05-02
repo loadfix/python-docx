@@ -30,34 +30,39 @@ Here's an example of what |docx| can do:
                                                 p.add_run(' and some ')
                                                 p.add_run('italic.').italic = True
 
+                                                # -- fork feature: attach a footnote to a run --
+                                                document.footnotes.add(p.runs[0], 'Footnote body text.')
+
+                                                # -- fork feature: attach a comment to a range of runs --
+                                                document.add_comment(
+                                                    runs=p.runs,
+                                                    text='A reviewer comment.',
+                                                    author='Editor',
+                                                    initials='ED',
+                                                )
+
                                                 document.add_heading('Heading, level 1', level=1)
                                                 document.add_paragraph('Intense quote', style='Intense Quote')
 
                                                 document.add_paragraph(
                                                     'first item in unordered list', style='List Bullet'
                                                 )
-                                                document.add_paragraph(
-                                                    'first item in ordered list', style='List Number'
-                                                )
 
                                                 document.add_picture('monty-truth.png', width=Inches(1.25))
-
-                                                records = (
-                                                    (3, '101', 'Spam'),
-                                                    (7, '422', 'Eggs'),
-                                                    (4, '631', 'Spam, spam, eggs, and spam')
-                                                )
 
                                                 table = document.add_table(rows=1, cols=3)
                                                 hdr_cells = table.rows[0].cells
                                                 hdr_cells[0].text = 'Qty'
                                                 hdr_cells[1].text = 'Id'
                                                 hdr_cells[2].text = 'Desc'
-                                                for qty, id, desc in records:
+                                                for qty, id, desc in ((3, '101', 'Spam'), (7, '422', 'Eggs')):
                                                     row_cells = table.add_row().cells
                                                     row_cells[0].text = str(qty)
                                                     row_cells[1].text = id
                                                     row_cells[2].text = desc
+
+                                                # -- fork feature: search and replace across every story --
+                                                document.replace_all('Spam', 'Ham')
 
                                                 document.add_page_break()
 
