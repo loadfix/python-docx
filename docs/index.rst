@@ -88,6 +88,7 @@ User Guide
    user/endnotes
    user/fields
    user/footnotes
+   user/form-fields
    user/shapes
    user/accessibility
    user/statistics
