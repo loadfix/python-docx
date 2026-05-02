@@ -57,3 +57,26 @@ Feature: Comment mutations
     Given a Comment object
      When I assign "JS" to comment.initials
      Then comment.initials == "JS"
+
+
+  Scenario: Comment.add_reply() appends a linked reply comment
+    Given a newly added parent comment
+     When I assign reply = comment.add_reply("Reply text", author="Bob", initials="BB")
+     Then reply.text == "Reply text"
+      And reply.author == "Bob"
+      And reply.initials == "BB"
+      And reply.comment_id > comment.comment_id
+
+
+  Scenario: Comment.replies returns linked child comments
+    Given a newly added parent comment
+     When I assign reply = comment.add_reply("First reply", author="Bob", initials="BB")
+      And I assign reply2 = comment.add_reply("Second reply", author="Carol", initials="CC")
+     Then len(comment.replies) == 2
+      And comment.replies[0].text == "First reply"
+      And comment.replies[1].text == "Second reply"
+
+
+  Scenario: Comment with no replies returns empty list
+    Given a newly added parent comment
+     Then len(comment.replies) == 0

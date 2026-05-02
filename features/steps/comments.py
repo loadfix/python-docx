@@ -282,3 +282,77 @@ def then_the_result_is_a_comment_object_with_id_2(context: Context):
     comment = context.comment
     assert type(comment) is Comment, f"expected a Comment object, got {type(comment)}"
     assert comment.comment_id == 2, f"expected comment_id `2`, got '{comment.comment_id}'"
+
+
+# -- comment-reply steps -----------------------------------------------------
+
+
+@given("a newly added parent comment")
+def given_a_newly_added_parent_comment(context: Context):
+    # -- a parent comment authored via add_comment() carries a w:paraId which
+    # -- is required by add_reply(); comments imported from older documents
+    # -- may lack the attribute. --
+    document = Document(test_docx("comments-rich-para"))
+    context.comment = document.comments.add_comment(
+        text="Parent comment", author="Parent", initials="P"
+    )
+
+
+@when(
+    'I assign reply = comment.add_reply("{text}", author="{author}", initials="{initials}")'
+)
+def when_assign_reply_add_reply(
+    context: Context, text: str, author: str, initials: str
+):
+    context.reply = context.comment.add_reply(
+        text=text, author=author, initials=initials
+    )
+
+
+@when(
+    'I assign reply2 = comment.add_reply("{text}", author="{author}", initials="{initials}")'
+)
+def when_assign_reply2_add_reply(
+    context: Context, text: str, author: str, initials: str
+):
+    context.reply2 = context.comment.add_reply(
+        text=text, author=author, initials=initials
+    )
+
+
+@then('reply.text == "{text}"')
+def then_reply_text(context: Context, text: str):
+    actual = context.reply.text
+    assert actual == text, f"expected {text!r}, got {actual!r}"
+
+
+@then('reply.author == "{author}"')
+def then_reply_author(context: Context, author: str):
+    actual = context.reply.author
+    assert actual == author, f"expected {author!r}, got {actual!r}"
+
+
+@then('reply.initials == "{initials}"')
+def then_reply_initials(context: Context, initials: str):
+    actual = context.reply.initials
+    assert actual == initials, f"expected {initials!r}, got {actual!r}"
+
+
+@then("reply.comment_id > comment.comment_id")
+def then_reply_comment_id_greater(context: Context):
+    assert context.reply.comment_id > context.comment.comment_id, (
+        f"reply id {context.reply.comment_id} not greater than "
+        f"comment id {context.comment.comment_id}"
+    )
+
+
+@then("len(comment.replies) == {count:d}")
+def then_comment_replies_length(context: Context, count: int):
+    actual = len(context.comment.replies)
+    assert actual == count, f"expected {count}, got {actual}"
+
+
+@then('comment.replies[{idx:d}].text == "{text}"')
+def then_comment_replies_idx_text(context: Context, idx: int, text: str):
+    actual = context.comment.replies[idx].text
+    assert actual == text, f"expected {text!r}, got {actual!r}"

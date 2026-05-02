@@ -52,3 +52,33 @@ Feature: Access hyperlink properties
       | http://foo.com/           | intro          | http://foo.com/#intro     |
       | https://foo.com?q=bar#baz | ''             | https://foo.com?q=bar#baz |
       | court-exif.jpg            | ''             | court-exif.jpg            |
+
+
+  Scenario: paragraph.add_hyperlink(url=...) creates an external hyperlink
+    Given a fresh paragraph in a default document
+     When I call paragraph.add_hyperlink(url="https://example.com", text="link")
+     Then the returned hyperlink.address is "https://example.com"
+      And the returned hyperlink.text is "link"
+
+
+  Scenario: paragraph.add_hyperlink(url=..., text=None) uses url as display text
+    Given a fresh paragraph in a default document
+     When I call paragraph.add_hyperlink(url="https://example.com")
+     Then the returned hyperlink.text is "https://example.com"
+
+
+  Scenario: paragraph.add_hyperlink(anchor=...) creates an internal link
+    Given a fresh paragraph in a default document
+     When I call paragraph.add_hyperlink(anchor="intro", text="Intro")
+     Then the returned hyperlink.fragment is "intro"
+      And the returned hyperlink.text is "Intro"
+
+
+  Scenario: paragraph.add_hyperlink without url or anchor raises ValueError
+    Given a fresh paragraph in a default document
+     Then calling paragraph.add_hyperlink() raises ValueError
+
+
+  Scenario: paragraph.add_hyperlink with both url and anchor raises ValueError
+    Given a fresh paragraph in a default document
+     Then calling paragraph.add_hyperlink(url="x", anchor="y") raises ValueError
