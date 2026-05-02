@@ -6,6 +6,7 @@ Provides a syntactically more convenient API for interacting with the OpcPackage
 from __future__ import annotations
 
 import io
+import os
 from importlib import resources
 from typing import IO, TYPE_CHECKING, cast
 
@@ -18,16 +19,19 @@ if TYPE_CHECKING:
 
 
 def Document(
-    docx: str | IO[bytes] | None = None,
+    docx: "str | os.PathLike[str] | IO[bytes] | None" = None,
     recover: bool = False,
     huge_tree: bool = False,
     include_metadata: bool = True,
 ) -> DocumentObject:
-    """Return a |Document| object loaded from `docx`, where `docx` can be either a path
-    to a ``.docx`` file (a string) or a file-like object.
+    """Return a |Document| object loaded from `docx`, where `docx` can be a path to a
+    ``.docx`` file (a ``str`` or :class:`os.PathLike`) or a file-like object.
 
     If `docx` is missing or ``None``, the built-in default document "template" is
     loaded.
+
+    .. versionchanged:: 1.3.0.dev0
+       Accepts :class:`os.PathLike` path arguments.
 
     When `recover` is True, XML parsing falls back to lxml's recovering parser for
     malformed parts (truncated, mismatched tags, invalid characters). Any parse
@@ -56,6 +60,8 @@ def Document(
     """
     if docx is None:
         docx = _default_docx_stream()
+    elif isinstance(docx, os.PathLike):
+        docx = os.fspath(docx)
     package = Package.open(docx, recover=recover, huge_tree=huge_tree)
     document_part = cast("DocumentPart", package.main_document_part)
     if document_part.content_type not in (CT.WML_DOCUMENT_MAIN, CT.WML_DOCUMENT_MACRO):

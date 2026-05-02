@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import os
 from typing import IO, TYPE_CHECKING, Iterator, cast
 
 from docx.image.constants import MIME_TYPE
@@ -28,14 +29,24 @@ class StoryPart(XmlPart):
     `.add_paragraph()`, `.add_table()` etc.
     """
 
-    def get_or_add_image(self, image_descriptor: str | IO[bytes]) -> tuple[str, Image]:
+    def get_or_add_image(
+        self, image_descriptor: "str | os.PathLike[str] | IO[bytes]"
+    ) -> tuple[str, Image]:
         """Return (rId, image) pair for image identified by `image_descriptor`.
 
         `rId` is the str key (often like "rId7") for the relationship between this story
         part and the image part, reused if already present, newly created if not.
         `image` is an |Image| instance providing access to the properties of the image,
         such as dimensions and image type.
+
+        `image_descriptor` may be a ``str`` path, an :class:`os.PathLike` path, or a
+        binary file-like object.
+
+        .. versionchanged:: 1.3.0.dev0
+           Accepts :class:`os.PathLike` path arguments.
         """
+        if isinstance(image_descriptor, os.PathLike):
+            image_descriptor = os.fspath(image_descriptor)
         package = self._package
         assert package is not None
         image_part = package.get_or_add_image_part(image_descriptor)
@@ -63,7 +74,7 @@ class StoryPart(XmlPart):
 
     def new_pic_inline(
         self,
-        image_descriptor: str | IO[bytes],
+        image_descriptor: "str | os.PathLike[str] | IO[bytes]",
         width: int | Length | None = None,
         height: int | Length | None = None,
     ) -> CT_Inline:
@@ -88,7 +99,7 @@ class StoryPart(XmlPart):
 
     def new_pic_anchor(
         self,
-        image_descriptor: str | IO[bytes],
+        image_descriptor: "str | os.PathLike[str] | IO[bytes]",
         width: int | Length | None = None,
         height: int | Length | None = None,
     ) -> CT_Anchor:

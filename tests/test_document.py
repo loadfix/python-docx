@@ -198,6 +198,23 @@ class DescribeDocument:
         txbx_list = document.element.body.xpath(".//wps:txbx")
         assert len(txbx_list) == 1
 
+    def it_accepts_a_PathLike_image_path_for_add_picture(
+        self, document: Document, add_paragraph_: Mock, run_: Mock, picture_: Mock
+    ):
+        # -- upstream-PR#1168: os.fspath() at entry so pathlib.Path works --
+        import os
+        from pathlib import Path
+
+        add_paragraph_.return_value.add_run.return_value = run_
+        run_.add_picture.return_value = picture_
+
+        picture = document.add_picture(Path("foobar.png"), 100, 200)
+
+        run_.add_picture.assert_called_once_with(
+            os.fspath(Path("foobar.png")), 100, 200
+        )
+        assert picture is picture_
+
     def it_returns_empty_charts_for_a_chartless_document(self):
         from docx import Document as OpenDocument
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import IO, TYPE_CHECKING, cast
 from collections.abc import Iterator
 
@@ -455,14 +456,15 @@ class Paragraph(StoryChild):
 
     def add_floating_image(
         self,
-        image_path_or_stream: str | IO[bytes],
+        image_path_or_stream: "str | os.PathLike[str] | IO[bytes]",
         width: int | Length | None = None,
         height: int | Length | None = None,
         position: dict | None = None,
     ) -> FloatingImage:
         """Add a floating (anchored) image to this paragraph and return it.
 
-        `image_path_or_stream` is a path (str) or binary file-like object for the image.
+        `image_path_or_stream` is a ``str`` path, an :class:`os.PathLike` (e.g.
+        :class:`pathlib.Path`), or a binary file-like object for the image.
         `width` and `height` work the same way as for `add_picture`.
 
         `position` is an optional dict that may contain any of these keys:
@@ -473,7 +475,12 @@ class Paragraph(StoryChild):
         - `wrap`: |WD_WRAP_TYPE| member (defaults to `SQUARE`)
 
         .. versionadded:: 1.3.0.dev0
+
+        .. versionchanged:: 1.3.0.dev0
+           Accepts :class:`os.PathLike` path arguments.
         """
+        if isinstance(image_path_or_stream, os.PathLike):
+            image_path_or_stream = os.fspath(image_path_or_stream)
         anchor = self.part.new_pic_anchor(image_path_or_stream, width, height)
 
         # -- apply optional positioning overrides --

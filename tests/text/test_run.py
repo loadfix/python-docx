@@ -369,7 +369,7 @@ class DescribeRun:
 
         document_part_.new_pic_inline.assert_called_once_with(image, width, height)
         assert run._r.xml == xml("w:r/(wp:x,w:drawing/wp:inline{id=42})")
-        InlineShape_.assert_called_once_with(inline)
+        InlineShape_.assert_called_once_with(inline, document_part_)
         assert picture is picture_
 
     @pytest.mark.parametrize(

@@ -19,6 +19,7 @@ from docx.oxml.drawing import (
 from docx.oxml.parser import OxmlElement, parse_xml, register_element_cls
 from docx.oxml.shape import (
     CT_Alpha,
+    CT_AlphaModulateFixedEffect,
     CT_Anchor,
     CT_Blip,
     CT_BlipFillProperties,
@@ -28,8 +29,10 @@ from docx.oxml.shape import (
     CT_Inline,
     CT_LineProperties,
     CT_NonVisualDrawingProps,
+    CT_NonVisualPictureProperties,
     CT_OuterShadow,
     CT_Picture,
+    CT_PictureLocking,
     CT_PictureNonVisual,
     CT_Point2D,
     CT_PosOffset,
@@ -68,6 +71,7 @@ __all__ = ["OxmlElement", "parse_xml"]
 # DrawingML-related elements
 
 register_element_cls("a:alpha", CT_Alpha)
+register_element_cls("a:alphaModFix", CT_AlphaModulateFixedEffect)
 register_element_cls("a:blip", CT_Blip)
 register_element_cls("a:effectLst", CT_EffectList)
 register_element_cls("a:ext", CT_PositiveSize2D)
@@ -76,10 +80,12 @@ register_element_cls("a:graphicData", CT_GraphicalObjectData)
 register_element_cls("a:ln", CT_LineProperties)
 register_element_cls("a:off", CT_Point2D)
 register_element_cls("a:outerShdw", CT_OuterShadow)
+register_element_cls("a:picLocks", CT_PictureLocking)
 register_element_cls("a:solidFill", CT_SolidColorFill)
 register_element_cls("a:srcRect", CT_RelativeRect)
 register_element_cls("a:xfrm", CT_Transform2D)
 register_element_cls("pic:blipFill", CT_BlipFillProperties)
+register_element_cls("pic:cNvPicPr", CT_NonVisualPictureProperties)
 register_element_cls("pic:cNvPr", CT_NonVisualDrawingProps)
 register_element_cls("pic:nvPicPr", CT_PictureNonVisual)
 register_element_cls("pic:pic", CT_Picture)
