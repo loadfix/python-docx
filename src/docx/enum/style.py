@@ -191,8 +191,8 @@ class WD_BUILTIN_STYLE(BaseEnum):
     INDEX_9 = (-19, "Index 9.")
     """Index 9."""
 
-    INDEX_HEADING = (-34, "Index Heading")
-    """Index Heading"""
+    INDEX_HEADING = (-34, "Index Heading.")
+    """Index Heading."""
 
     INTENSE_EMPHASIS = (-262, "Intense Emphasis.")
     """Intense Emphasis."""
@@ -418,6 +418,9 @@ class WD_BUILTIN_STYLE(BaseEnum):
 
     TOC_9 = (-28, "TOC 9.")
     """TOC 9."""
+
+    TOC_HEADING = (-268, "TOC Heading.")
+    """TOC Heading."""
 
 
 WD_STYLE = WD_BUILTIN_STYLE

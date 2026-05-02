@@ -71,6 +71,34 @@ class DescribeStyles:
         with pytest.raises(KeyError):
             styles[WD_STYLE.BODY_TEXT]
 
+    def it_can_get_INDEX_HEADING_by_enum(self):
+        # -- upstream#542: ``styles[WD_STYLE.INDEX_HEADING]`` used to raise
+        # -- ``KeyError: "no style with name 'INDEX_HEADING (-34)'"`` because
+        # -- ``str(enum)`` was fed straight into the name lookup.
+        styles = Styles(
+            element(
+                "w:styles/w:style{w:type=paragraph}/w:name{w:val=Index Heading}"
+            )
+        )
+        expected_element = styles._element[0]
+
+        style = styles[WD_STYLE.INDEX_HEADING]
+
+        assert style._element is expected_element
+
+    def it_can_get_TOC_HEADING_by_enum(self):
+        # -- upstream#542: ``WD_STYLE.TOC_HEADING`` was entirely missing. --
+        styles = Styles(
+            element(
+                "w:styles/w:style{w:type=paragraph}/w:name{w:val=TOC Heading}"
+            )
+        )
+        expected_element = styles._element[0]
+
+        style = styles[WD_STYLE.TOC_HEADING]
+
+        assert style._element is expected_element
+
     def it_raises_on_style_not_found(self, get_raises_fixture):
         styles, key = get_raises_fixture
         with pytest.raises(KeyError):
@@ -442,3 +470,23 @@ class DescribeBuiltinStyleUiName:
 
     def it_returns_Normal_for_NORMAL(self):
         assert _builtin_style_ui_name(WD_STYLE.NORMAL) == "Normal"
+
+    def it_returns_Index_Heading_for_INDEX_HEADING(self):
+        # -- upstream#542 --
+        assert _builtin_style_ui_name(WD_STYLE.INDEX_HEADING) == "Index Heading"
+
+    def it_returns_TOC_Heading_for_TOC_HEADING(self):
+        # -- upstream#542: TOC_HEADING was previously missing from the enum --
+        assert _builtin_style_ui_name(WD_STYLE.TOC_HEADING) == "TOC Heading"
+
+
+class DescribeBabelFish:
+    """Unit-test suite for `docx.styles.BabelFish`."""
+
+    def it_translates_WD_BUILTIN_STYLE_members_to_UI_names(self):
+        from docx.styles import BabelFish
+
+        assert BabelFish.enum2ui(WD_STYLE.BODY_TEXT) == "Body Text"
+        assert BabelFish.enum2ui(WD_STYLE.HEADING_1) == "Heading 1"
+        assert BabelFish.enum2ui(WD_STYLE.INDEX_HEADING) == "Index Heading"
+        assert BabelFish.enum2ui(WD_STYLE.TOC_HEADING) == "TOC Heading"
