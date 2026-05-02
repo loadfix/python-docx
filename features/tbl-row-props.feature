@@ -72,3 +72,35 @@ Feature: Get and set table row properties
       | 2 inches            | 2743200 |
       | 3 inches            | None    |
       | no explicit setting | None    |
+
+
+  Scenario: Row.allow_break_across_pages defaults to True
+    Given a row in a freshly-created table
+     Then row.allow_break_across_pages is True
+
+
+  Scenario Outline: Set Row.allow_break_across_pages round-trips
+    Given a row in a freshly-created table
+     When I assign <value> to row.allow_break_across_pages
+     Then row.allow_break_across_pages is <value>
+
+    Examples: Allow-break-across-pages values
+      | value |
+      | True  |
+      | False |
+
+
+  Scenario: Row.is_header defaults to False
+    Given a row in a freshly-created table
+     Then row.is_header is False
+
+
+  Scenario Outline: Set Row.is_header round-trips
+    Given a row in a freshly-created table
+     When I assign <value> to row.is_header
+     Then row.is_header is <value>
+
+    Examples: Is-header values
+      | value |
+      | True  |
+      | False |
