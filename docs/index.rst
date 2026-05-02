@@ -75,6 +75,7 @@ User Guide
    user/quickstart
    user/documents
    user/tables
+   user/tables-advanced
    user/text
    user/sections
    user/hdrftr

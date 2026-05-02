@@ -51,3 +51,25 @@ Feature: Merge table cells
       | a horizontal span  |    4   |   6   |    4   |  3.0  |
       | a vertical span    |    5   |   2   |    2   |  1.0  |
       | a vertical span    |    5   |   7   |    5   |  2.0  |
+
+
+  Scenario Outline: Cell.is_merge_origin reports the cell's role in a span
+    Given the raw tc at row <row>, col <col> of the <span-state> fixture table
+     Then cell.is_merge_origin is <value>
+
+    Examples: is_merge_origin values for fixture cells
+      | span-state        | row | col | value |
+      | only uniform cells |  0  |  0  | None  |
+      | a horizontal span  |  1  |  0  | True  |
+      | a vertical span    |  1  |  1  | True  |
+      | a vertical span    |  2  |  1  | False |
+
+
+  Scenario: Cell.merge_origin returns the origin cell of a vertical span
+    Given the raw tc at row 2, col 1 of the a vertical span fixture table
+     Then cell.merge_origin.text is '5'
+
+
+  Scenario: Cell.merge_origin returns the cell itself when unmerged
+    Given the raw tc at row 0, col 0 of the only uniform cells fixture table
+     Then cell.merge_origin.text is '1'

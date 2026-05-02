@@ -2,17 +2,23 @@
 
 """Step implementations for table-related features."""
 
+from __future__ import annotations
+
 from behave import given, then, when
 from behave.runner import Context
 
 from docx import Document
 from docx.enum.table import (
     WD_ALIGN_VERTICAL,
+    WD_BORDER_STYLE,
     WD_ROW_HEIGHT_RULE,
+    WD_SHADING_PATTERN,
     WD_TABLE_ALIGNMENT,
+    WD_TABLE_AUTOFIT,
     WD_TABLE_DIRECTION,
+    WD_TEXT_DIRECTION,
 )
-from docx.shared import Inches
+from docx.shared import Inches, RGBColor
 from docx.table import Table, _Cell, _Column, _Columns, _Row, _Rows
 
 from helpers import test_docx
@@ -556,3 +562,399 @@ def then_the_width_of_each_column_is_inches(context: Context, inches: str):
     expected_width = Inches(float(inches))
     for column in table.columns:
         assert column.width == expected_width, "got %s" % column.width.inches
+
+
+# ---------------------------------------------------------------------------
+# Borders ---------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+
+
+def _resolve_border_style(name: str):
+    if name == "None":
+        return None
+    # e.g. "WD_BORDER_STYLE.SINGLE"
+    _, member = name.split(".")
+    return getattr(WD_BORDER_STYLE, member)
+
+
+def _resolve_rgb(name: str) -> RGBColor | None:
+    if name == "None":
+        return None
+    return RGBColor.from_string(name)
+
+
+@given("a table having borders on every edge")
+def given_a_table_having_borders_on_every_edge(context: Context):
+    document = Document(test_docx("tbl-borders"))
+    context.table_ = document.tables[0]
+
+
+@given("a table having no explicit borders")
+def given_a_table_having_no_explicit_borders(context: Context):
+    document = Document(test_docx("tbl-borders"))
+    context.table_ = document.tables[1]
+
+
+@given("a cell having a THICK left border")
+def given_a_cell_having_a_THICK_left_border(context: Context):
+    document = Document(test_docx("tbl-borders"))
+    context.cell = document.tables[1].cell(0, 0)
+
+
+@given("a cell having no explicit borders")
+def given_a_cell_having_no_explicit_borders(context: Context):
+    document = Document(test_docx("tbl-borders"))
+    context.cell = document.tables[1].cell(0, 1)
+
+
+@when("I assign {style}, {width}, {color} to table.borders.{edge}")
+def when_I_assign_triplet_to_table_borders_edge(
+    context: Context, style: str, width: str, color: str, edge: str
+):
+    border = getattr(context.table_.borders, edge)
+    border.style = _resolve_border_style(style)
+    border.width = None if width == "None" else int(width)
+    border.color = _resolve_rgb(color)
+
+
+@when("I assign {style}, {width}, {color} to cell.borders.{edge}")
+def when_I_assign_triplet_to_cell_borders_edge(
+    context: Context, style: str, width: str, color: str, edge: str
+):
+    border = getattr(context.cell.borders, edge)
+    border.style = _resolve_border_style(style)
+    border.width = None if width == "None" else int(width)
+    border.color = _resolve_rgb(color)
+
+
+@when("I call table.set_borders(top=True, bottom=True, inside_h=True)")
+def when_I_call_table_set_borders_subset(context: Context):
+    context.table_.set_borders(top=True, bottom=True, inside_h=True)
+
+
+@when("I assign None to cell.borders.{edge}.style")
+def when_I_assign_none_to_cell_borders_edge_style(context: Context, edge: str):
+    border = getattr(context.cell.borders, edge)
+    border.style = None
+
+
+@then("table.borders.{edge}.style is {value}")
+def then_table_borders_edge_style_is(context: Context, edge: str, value: str):
+    actual = getattr(context.table_.borders, edge).style
+    expected = _resolve_border_style(value)
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("table.borders.{edge}.width is {value}")
+def then_table_borders_edge_width_is(context: Context, edge: str, value: str):
+    expected = None if value == "None" else int(value)
+    actual = getattr(context.table_.borders, edge).width
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("table.borders.{edge}.color is {value}")
+def then_table_borders_edge_color_is(context: Context, edge: str, value: str):
+    expected = _resolve_rgb(value)
+    actual = getattr(context.table_.borders, edge).color
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("cell.borders.{edge}.style is {value}")
+def then_cell_borders_edge_style_is(context: Context, edge: str, value: str):
+    actual = getattr(context.cell.borders, edge).style
+    expected = _resolve_border_style(value)
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("cell.borders.{edge}.width is {value}")
+def then_cell_borders_edge_width_is(context: Context, edge: str, value: str):
+    expected = None if value == "None" else int(value)
+    actual = getattr(context.cell.borders, edge).width
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("cell.borders.{edge}.color is {value}")
+def then_cell_borders_edge_color_is(context: Context, edge: str, value: str):
+    expected = _resolve_rgb(value)
+    actual = getattr(context.cell.borders, edge).color
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+# ---------------------------------------------------------------------------
+# Cell margins ----------------------------------------------------------------
+# ---------------------------------------------------------------------------
+
+
+@given("a cell having explicit margins on every edge")
+def given_a_cell_having_explicit_margins(context: Context):
+    document = Document(test_docx("tbl-cell-margins"))
+    context.cell = document.tables[0].cell(0, 0)
+
+
+@given("a cell having no explicit margins")
+def given_a_cell_having_no_explicit_margins(context: Context):
+    document = Document(test_docx("tbl-cell-margins"))
+    context.cell = document.tables[0].cell(0, 1)
+
+
+@when("I assign {value} to cell.margins.{edge}")
+def when_I_assign_value_to_cell_margins_edge(context: Context, value: str, edge: str):
+    new_value = None if value == "None" else int(value)
+    setattr(context.cell.margins, edge, new_value)
+
+
+@when("I call cell.set_margins(top={top}, end={end})")
+def when_I_call_cell_set_margins(context: Context, top: str, end: str):
+    kwargs = {}
+    if top != "None":
+        kwargs["top"] = int(top)
+    if end != "None":
+        kwargs["end"] = int(end)
+    context.cell.set_margins(**kwargs)
+
+
+@when("I call cell.remove_margins()")
+def when_I_call_cell_remove_margins(context: Context):
+    context.cell.remove_margins()
+
+
+@then("cell.margins.{edge} is {value}")
+def then_cell_margins_edge_is(context: Context, edge: str, value: str):
+    expected = None if value == "None" else int(value)
+    actual = getattr(context.cell.margins, edge)
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+# ---------------------------------------------------------------------------
+# Cell text direction ---------------------------------------------------------
+# ---------------------------------------------------------------------------
+
+
+def _resolve_text_direction(name: str):
+    if name == "None":
+        return None
+    _, member = name.split(".")
+    return getattr(WD_TEXT_DIRECTION, member)
+
+
+@when("I assign {value} to cell.text_direction")
+def when_I_assign_value_to_cell_text_direction(context: Context, value: str):
+    context.cell.text_direction = _resolve_text_direction(value)
+
+
+@then("cell.text_direction is {value}")
+def then_cell_text_direction_is(context: Context, value: str):
+    expected = _resolve_text_direction(value)
+    actual = context.cell.text_direction
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+# ---------------------------------------------------------------------------
+# Cell shading ----------------------------------------------------------------
+# ---------------------------------------------------------------------------
+
+
+def _resolve_shading_pattern(name: str):
+    if name == "None":
+        return None
+    _, member = name.split(".")
+    return getattr(WD_SHADING_PATTERN, member)
+
+
+@when("I assign {value} to cell.shading.fill_color")
+def when_I_assign_value_to_cell_shading_fill_color(context: Context, value: str):
+    context.cell.shading.fill_color = _resolve_rgb(value)
+
+
+@when("I assign {value} to cell.shading.pattern")
+def when_I_assign_value_to_cell_shading_pattern(context: Context, value: str):
+    context.cell.shading.pattern = _resolve_shading_pattern(value)
+
+
+@then("cell.shading.fill_color is {value}")
+def then_cell_shading_fill_color_is(context: Context, value: str):
+    expected = _resolve_rgb(value)
+    actual = context.cell.shading.fill_color
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("cell.shading.pattern is {value}")
+def then_cell_shading_pattern_is(context: Context, value: str):
+    expected = _resolve_shading_pattern(value)
+    actual = context.cell.shading.pattern
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+# ---------------------------------------------------------------------------
+# Table style flags -----------------------------------------------------------
+# ---------------------------------------------------------------------------
+
+
+@given("the tbl-banded table without any tblLook flags")
+def given_tbl_banded_no_flags(context: Context):
+    document = Document(test_docx("tbl-banded"))
+    context.table_ = document.tables[0]
+
+
+@given("the tbl-banded table with only first_row set")
+def given_tbl_banded_only_first_row(context: Context):
+    document = Document(test_docx("tbl-banded"))
+    context.table_ = document.tables[1]
+
+
+@given("the tbl-banded table with banded rows active")
+def given_tbl_banded_rows_active(context: Context):
+    document = Document(test_docx("tbl-banded"))
+    context.table_ = document.tables[2]
+
+
+@given("the tbl-banded table with banded rows suppressed")
+def given_tbl_banded_rows_suppressed(context: Context):
+    document = Document(test_docx("tbl-banded"))
+    context.table_ = document.tables[3]
+
+
+@when("I assign {value} to table.style_flags.{flag}")
+def when_I_assign_value_to_table_style_flags(context: Context, value: str, flag: str):
+    new_value = {"True": True, "False": False}[value]
+    setattr(context.table_.style_flags, flag, new_value)
+
+
+@then("table.style_flags.{flag} is {value}")
+def then_table_style_flags_is(context: Context, flag: str, value: str):
+    expected = {"True": True, "False": False}[value]
+    actual = getattr(context.table_.style_flags, flag)
+    assert actual is expected, f"expected {expected!r}, got {actual!r}"
+
+
+# ---------------------------------------------------------------------------
+# Autofit / allow_autofit / preferred_width ----------------------------------
+# ---------------------------------------------------------------------------
+
+
+def _resolve_autofit(name: str):
+    if name == "None":
+        return None
+    _, member = name.split(".")
+    return getattr(WD_TABLE_AUTOFIT, member)
+
+
+@given("a freshly-created table")
+def given_a_freshly_created_table(context: Context):
+    context.table_ = Document().add_table(rows=2, cols=2)
+
+
+@when("I assign {value} to table.autofit_behavior")
+def when_I_assign_value_to_table_autofit_behavior(context: Context, value: str):
+    context.table_.autofit_behavior = _resolve_autofit(value)
+
+
+@when("I assign {value} to table.preferred_width")
+def when_I_assign_value_to_table_preferred_width(context: Context, value: str):
+    new_value = None if value == "None" else int(value)
+    context.table_.preferred_width = new_value
+
+
+@when("I assign {value} to table.allow_autofit")
+def when_I_assign_value_to_table_allow_autofit(context: Context, value: str):
+    context.table_.allow_autofit = {"True": True, "False": False}[value]
+
+
+@then("table.autofit_behavior is {value}")
+def then_table_autofit_behavior_is(context: Context, value: str):
+    expected = _resolve_autofit(value)
+    actual = context.table_.autofit_behavior
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("table.preferred_width is {value}")
+def then_table_preferred_width_is(context: Context, value: str):
+    expected = None if value == "None" else int(value)
+    actual = context.table_.preferred_width
+    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("table.allow_autofit is {value}")
+def then_table_allow_autofit_is(context: Context, value: str):
+    expected = {"True": True, "False": False}[value]
+    actual = context.table_.allow_autofit
+    assert actual is expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("table.autofit is {value}")
+def then_table_autofit_is(context: Context, value: str):
+    expected = {"True": True, "False": False}[value]
+    actual = context.table_.autofit
+    assert actual is expected, f"expected {expected!r}, got {actual!r}"
+
+
+# ---------------------------------------------------------------------------
+# Row properties (allow_break_across_pages, is_header) -----------------------
+# ---------------------------------------------------------------------------
+
+
+@given("a row in a freshly-created table")
+def given_a_row_in_freshly_created_table(context: Context):
+    table = Document().add_table(rows=2, cols=2)
+    context.row = table.rows[0]
+
+
+@when("I assign {value} to row.allow_break_across_pages")
+def when_I_assign_value_to_row_allow_break_across_pages(context: Context, value: str):
+    context.row.allow_break_across_pages = {"True": True, "False": False}[value]
+
+
+@when("I assign {value} to row.is_header")
+def when_I_assign_value_to_row_is_header(context: Context, value: str):
+    context.row.is_header = {"True": True, "False": False}[value]
+
+
+@then("row.allow_break_across_pages is {value}")
+def then_row_allow_break_across_pages_is(context: Context, value: str):
+    expected = {"True": True, "False": False}[value]
+    actual = context.row.allow_break_across_pages
+    assert actual is expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("row.is_header is {value}")
+def then_row_is_header_is(context: Context, value: str):
+    expected = {"True": True, "False": False}[value]
+    actual = context.row.is_header
+    assert actual is expected, f"expected {expected!r}, got {actual!r}"
+
+
+# ---------------------------------------------------------------------------
+# Merge origin (raw tc access) -----------------------------------------------
+# ---------------------------------------------------------------------------
+
+
+_SPAN_STATE_TABLE_IDX = {
+    "only uniform cells": 0,
+    "a horizontal span": 1,
+    "a vertical span": 2,
+    "a combined span": 3,
+}
+
+
+@given("the raw tc at row {row}, col {col} of the {span_state} fixture table")
+def given_raw_tc_at_row_col_of_fixture(
+    context: Context, row: str, col: str, span_state: str
+):
+    document = Document(test_docx("tbl-cell-access"))
+    table = document.tables[_SPAN_STATE_TABLE_IDX[span_state]]
+    tr = table._tbl.tr_lst[int(row)]
+    tc = tr.tc_lst[int(col)]
+    context.cell = _Cell(tc, table)
+
+
+@then("cell.is_merge_origin is {value}")
+def then_cell_is_merge_origin_is(context: Context, value: str):
+    expected = {"True": True, "False": False, "None": None}[value]
+    actual = context.cell.is_merge_origin
+    assert actual is expected, f"expected {expected!r}, got {actual!r}"
+
+
+@then("cell.merge_origin.text is '{expected_text}'")
+def then_cell_merge_origin_text_is(context: Context, expected_text: str):
+    actual = context.cell.merge_origin.text
+    assert actual == expected_text, f"expected {expected_text!r}, got {actual!r}"

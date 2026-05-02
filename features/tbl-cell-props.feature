@@ -58,3 +58,35 @@ Feature: Get and set table cell properties
       | width-setting       | new-setting | reported-width |
       | no explicit setting | 1 inch      | 1 inch         |
       | 2 inches            | 1 inch      | 1 inch         |
+
+
+  Scenario: Cell.shading defaults to no fill
+    Given a table cell
+     Then cell.shading.fill_color is None
+      And cell.shading.pattern is None
+
+
+  Scenario: Set Cell.shading.fill_color round-trips
+    Given a table cell
+     When I assign CCFFAA to cell.shading.fill_color
+     Then cell.shading.fill_color is CCFFAA
+      And cell.shading.pattern is WD_SHADING_PATTERN.CLEAR
+
+
+  Scenario: Assigning None clears Cell.shading.fill_color
+    Given a table cell
+     When I assign CCFFAA to cell.shading.fill_color
+      And I assign None to cell.shading.fill_color
+     Then cell.shading.fill_color is None
+
+
+  Scenario Outline: Set Cell.shading.pattern round-trips
+    Given a table cell
+     When I assign <value> to cell.shading.pattern
+     Then cell.shading.pattern is <value>
+
+    Examples: Shading-pattern values
+      | value                         |
+      | WD_SHADING_PATTERN.SOLID      |
+      | WD_SHADING_PATTERN.HORZ_STRIPE |
+      | WD_SHADING_PATTERN.DIAG_CROSS |
