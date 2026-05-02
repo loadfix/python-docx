@@ -33,11 +33,17 @@ class Image:
         return cls._from_stream(stream, blob)
 
     @classmethod
-    def from_file(cls, image_descriptor: str | IO[bytes]):
+    def from_file(cls, image_descriptor: "str | os.PathLike[str] | IO[bytes]"):
         """Return a new |Image| subclass instance loaded from the image file identified
-        by `image_descriptor`, a path or file-like object."""
-        if isinstance(image_descriptor, str):
-            path = image_descriptor
+        by `image_descriptor`, a path or file-like object.
+
+        Accepts ``str`` and ``os.PathLike`` (e.g. :class:`pathlib.Path`) path
+        arguments as well as binary file-like objects.
+        """
+        # -- Normalise PathLike to str at the entry point so every downstream
+        # -- consumer can treat the value as a plain path. --
+        if isinstance(image_descriptor, (str, os.PathLike)):
+            path = os.fspath(image_descriptor)
             with open(path, "rb") as f:
                 blob = f.read()
                 stream = io.BytesIO(blob)
