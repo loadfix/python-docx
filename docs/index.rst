@@ -90,6 +90,7 @@ User Guide
    user/footnotes
    user/form-fields
    user/glossary
+   user/mail-merge
    user/shapes
    user/accessibility
    user/statistics
