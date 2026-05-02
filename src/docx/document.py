@@ -425,9 +425,12 @@ class Document(ElementProxy):
 
     def add_picture(
         self,
-        image_path_or_stream: "str | os.PathLike[str] | IO[bytes]",
+        image_path_or_stream: "str | os.PathLike[str] | IO[bytes] | None" = None,
         width: int | Length | None = None,
         height: int | Length | None = None,
+        link: bool = False,
+        save_with_document: bool = True,
+        url: str | None = None,
     ):
         """Return new picture shape added in its own paragraph at end of the document.
 
@@ -442,13 +445,29 @@ class Document(ElementProxy):
         `image_path_or_stream` may be a ``str`` path, an ``os.PathLike`` (e.g.
         :class:`pathlib.Path`), or a binary file-like object.
 
+        When `link` is |True| and `save_with_document` is |False|, a linked
+        (external) picture is inserted: the `a:blip` uses ``r:link`` and no
+        image part is added to the package. `url` may be supplied to link
+        a remote image rather than a local path. See
+        :meth:`docx.text.run.Run.add_picture` for details.
+
         .. versionchanged:: 1.3.0.dev0
            Accepts :class:`os.PathLike` path arguments.
+
+        .. versionadded:: 1.3.0.dev0
+            ``link``, ``save_with_document``, and ``url`` parameters.
         """
         if isinstance(image_path_or_stream, os.PathLike):
             image_path_or_stream = os.fspath(image_path_or_stream)
         run = self.add_paragraph().add_run()
-        return run.add_picture(image_path_or_stream, width, height)
+        return run.add_picture(
+            image_path_or_stream,
+            width,
+            height,
+            link=link,
+            save_with_document=save_with_document,
+            url=url,
+        )
 
     def add_section(self, start_type: WD_SECTION = WD_SECTION.NEW_PAGE):
         """Return a |Section| object newly added at the end of the document.

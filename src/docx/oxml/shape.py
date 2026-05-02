@@ -282,10 +282,20 @@ class CT_Anchor(BaseOxmlElement):
         cx: Length,
         cy: Length,
         orientation: int | None = None,
+        link: bool = False,
     ) -> CT_Anchor:
-        """Create a `wp:anchor` element with a `pic:pic` child referencing an image."""
+        """Create a `wp:anchor` element with a `pic:pic` child referencing an image.
+
+        When `link` is |True|, the inner `a:blip` uses ``r:link`` instead of
+        ``r:embed``, producing a linked (external) picture anchor.
+
+        .. versionadded:: 1.3.0.dev0
+            ``link`` parameter.
+        """
         pic_id = 0
-        pic = CT_Picture.new(pic_id, filename, rId, cx, cy, orientation=orientation)
+        pic = CT_Picture.new(
+            pic_id, filename, rId, cx, cy, orientation=orientation, link=link
+        )
         return cls.new(cx, cy, shape_id, pic)
 
     def set_horizontal_position(self, relative_from: str, offset_emu: int) -> None:
@@ -492,13 +502,21 @@ class CT_Inline(BaseOxmlElement):
         cx: Length,
         cy: Length,
         orientation: int | None = None,
+        link: bool = False,
     ) -> CT_Inline:
         """Create `wp:inline` element containing a `pic:pic` element.
 
         The contents of the `pic:pic` element is taken from the argument values.
+        When `link` is |True|, the ``a:blip`` uses ``r:link`` instead of
+        ``r:embed`` so Word treats the reference as a linked (external) image.
+
+        .. versionadded:: 1.3.0.dev0
+            ``link`` parameter.
         """
         pic_id = 0  # Word doesn't seem to use this, but does not omit it
-        pic = CT_Picture.new(pic_id, filename, rId, cx, cy, orientation=orientation)
+        pic = CT_Picture.new(
+            pic_id, filename, rId, cx, cy, orientation=orientation, link=link
+        )
         inline = cls.new(cx, cy, shape_id, pic)
         return inline
 
@@ -645,6 +663,7 @@ class CT_Picture(BaseOxmlElement):
         cx: Length,
         cy: Length,
         orientation: int | None = None,
+        link: bool = False,
     ) -> CT_Picture:
         """A new minimum viable `<pic:pic>` (picture) element.
 
@@ -652,11 +671,21 @@ class CT_Picture(BaseOxmlElement):
         from the source image; when it implies a non-zero rotation the
         corresponding `a:xfrm/@rot` attribute is set so Word displays the
         image the same way the camera held it.
+
+        When `link` is |True|, the `a:blip` uses `r:link="rId"` instead of
+        `r:embed="rId"` so Word treats the reference as an external/linked
+        image rather than one embedded in the package.
+
+        .. versionadded:: 1.3.0.dev0
+            ``link`` parameter.
         """
         pic = parse_xml(cls._pic_xml())
         pic.nvPicPr.cNvPr.id = pic_id
         pic.nvPicPr.cNvPr.name = filename
-        pic.blipFill.blip.embed = rId
+        if link:
+            pic.blipFill.blip.link = rId
+        else:
+            pic.blipFill.blip.embed = rId
         pic.spPr.cx = cx
         pic.spPr.cy = cy
         _apply_exif_rotation(pic, orientation)

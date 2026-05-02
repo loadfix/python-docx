@@ -124,7 +124,9 @@ class DescribeDocument:
 
         picture = document.add_picture(path, width, height)
 
-        run_.add_picture.assert_called_once_with(path, width, height)
+        run_.add_picture.assert_called_once_with(
+            path, width, height, link=False, save_with_document=True, url=None
+        )
         assert picture is picture_
 
     def it_can_add_a_shape(self):
@@ -211,7 +213,12 @@ class DescribeDocument:
         picture = document.add_picture(Path("foobar.png"), 100, 200)
 
         run_.add_picture.assert_called_once_with(
-            os.fspath(Path("foobar.png")), 100, 200
+            os.fspath(Path("foobar.png")),
+            100,
+            200,
+            link=False,
+            save_with_document=True,
+            url=None,
         )
         assert picture is picture_
 

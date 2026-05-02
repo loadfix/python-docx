@@ -8,10 +8,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from docx.enum.shape import WD_ANCHOR_H, WD_ANCHOR_V, WD_INLINE_SHAPE, WD_WRAP_TYPE
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml.ns import nsmap, qn
 from docx.shared import Emu, Parented, RGBColor
 
 if TYPE_CHECKING:
+    from typing import IO
+
     from docx.image.image import Image
     from docx.opc.part import Part
     from docx.oxml.document import CT_Body
@@ -21,6 +24,7 @@ if TYPE_CHECKING:
         CT_Picture,
         CT_ShapeProperties,
     )
+    from docx.parts.image import ImagePart
     from docx.parts.story import StoryPart
     from docx.shared import Length
 
@@ -534,6 +538,101 @@ class InlineShapes(Parented):
         return direct + alt_inlines
 
 
+def _collect_blip_rIds(drawing_or_element) -> list[str]:
+    """Return every ``r:embed`` / ``r:link`` rId referenced by blips under `element`."""
+    rIds: list[str] = []
+    for attr in ("r:embed", "r:link"):
+        rIds.extend(drawing_or_element.xpath(".//a:blip/@%s" % attr))
+    # -- SVG blips and other extension elements also carry r:embed --
+    rIds.extend(drawing_or_element.xpath(".//asvg:svgBlip/@r:embed"))
+    return [rId for rId in rIds if rId]
+
+
+def _blip_ref_count(part, rId: str) -> int:
+    """Return the number of blip references to `rId` in `part`'s XML.
+
+    `Part._rel_ref_count` counts only ``@r:id`` (hyperlinks, chart refs,
+    etc.); image blips carry the rId in ``@r:embed`` / ``@r:link``, so we
+    count those explicitly. The caller provides the reference-count *after*
+    any XML the caller intends to keep is still in place.
+    """
+    count = 0
+    element = getattr(part, "_element", None)
+    if element is None:
+        return 0
+    for attr in ("r:embed", "r:link", "r:id"):
+        count += sum(
+            1 for val in element.xpath("//@%s" % attr) if val == rId
+        )
+    return count
+
+
+def _prune_unused_image_rIds(part, rIds: list[str]) -> None:
+    """Drop each rId in `rIds` from `part` when no other XML reference remains.
+
+    When the referenced part is an |ImagePart| that becomes unreachable from
+    the package after the drop, it is also removed from the package's
+    ``image_parts`` cache so the XML-free image is not accidentally written
+    back to the package on save.
+
+    Must be called *after* the referring drawing has been removed from the
+    XML so the reference count reflects the final document state.
+    """
+    from docx.parts.image import ImagePart as _ImagePart
+
+    package = part.package
+    for rId in rIds:
+        rel = part.rels.get(rId)
+        if rel is None:
+            continue
+        if _blip_ref_count(part, rId) > 0:
+            continue
+
+        target_part: _ImagePart | None = None
+        if not rel.is_external:
+            try:
+                candidate = rel.target_part
+            except ValueError:
+                candidate = None
+            if isinstance(candidate, _ImagePart):
+                target_part = candidate
+
+        # -- remove the rel directly; Part.drop_rel uses an XmlPart-level
+        #    reference count that looks only at `@r:id`, so it won't notice
+        #    image blips. --
+        del part.rels[rId]
+        target_parts_by_rId = getattr(part.rels, "_target_parts_by_rId", None)
+        if target_parts_by_rId is not None:
+            target_parts_by_rId.pop(rId, None)
+
+        if target_part is None or package is None:
+            continue
+        if _image_part_still_referenced(package, target_part):
+            continue
+        image_parts_coll = getattr(package, "image_parts", None)
+        if image_parts_coll is None:
+            continue
+        backing_list = getattr(image_parts_coll, "_image_parts", image_parts_coll)
+        if target_part in backing_list:
+            backing_list.remove(target_part)
+
+
+def _image_part_still_referenced(package, image_part) -> bool:
+    """Return True if any relationship in `package` still targets `image_part`."""
+    iter_rels = getattr(package, "iter_rels", None)
+    if iter_rels is None:  # pragma: no cover - defensive
+        return False
+    for rel in iter_rels():
+        if rel.is_external:
+            continue
+        try:
+            if rel.target_part is image_part:
+                return True
+        except ValueError:  # pragma: no cover - defensive
+            continue
+    return False
+
+
 class InlineShape:
     """Proxy for an ``<wp:inline>`` element, representing the container for an inline
     graphical object."""
@@ -762,6 +861,45 @@ class InlineShape:
         if pic is None:
             return None
         return pic.nvPicPr.cNvPicPr
+
+    def delete(self, part: StoryPart | None = None) -> None:
+        """Remove this inline shape's ``w:drawing`` from its run and prune the rId.
+
+        When the inline shape's image relationship is no longer referenced
+        from anywhere in the owning part, the relationship is removed; when
+        the underlying |ImagePart| is no longer referenced anywhere in the
+        package, it is also removed from the package's image-parts cache.
+
+        `part` is the owning |StoryPart|; when |None|, the ancestor chain of
+        the underlying XML element must provide a way to recover it, which is
+        not currently available on bare ``wp:inline`` elements — tests can
+        pass the part explicitly.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        _delete_drawing_carrying(self._inline, part)
+
+    def replace_image(
+        self,
+        image_path_or_stream: "str | IO[bytes]",
+        part: StoryPart | None = None,
+    ) -> None:
+        """Swap the underlying image binary while preserving this shape's rId/position.
+
+        When this shape's blip rId has *no other* references in the part's
+        XML, the |ImagePart| blob is rewritten in-place so the existing
+        relationship keeps working. When the rId is shared with another
+        drawing, a new |ImagePart| is created and the shape's ``a:blip``
+        ``@r:embed`` is rebound to a freshly-allocated rId so the other
+        drawing is not affected.
+
+        `part` is the owning |StoryPart|; it is required to reach the package
+        and must be supplied when the inline shape is not wired to a
+        story part on its own.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        _replace_drawing_image(self._inline, image_path_or_stream, part)
 
 
 class FloatingImage:
@@ -1034,6 +1172,18 @@ class FloatingImage:
             return None
         return pic.find(qn("pic:nvPicPr") + "/" + qn("pic:cNvPicPr"))
 
+    def delete(self, part: StoryPart | None = None) -> None:
+        """Remove this floating image's ``w:drawing`` and prune its unused rId.
+
+        Follows the same contract as :meth:`InlineShape.delete`: the rId is
+        dropped when no other reference remains in the owning part's XML,
+        and the backing |ImagePart| is evicted from the package's image-parts
+        cache when no other relationship keeps it alive.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        _delete_drawing_carrying(self._anchor, part)
+
 
 # ---------------------------------------------------------------------------
 # Shared opacity / lock_aspect_ratio helpers for InlineShape and FloatingImage
@@ -1082,3 +1232,88 @@ def _set_lock_aspect(cNvPicPr, value: bool) -> None:
         )
     picLocks = cNvPicPr.get_or_add_picLocks()
     picLocks.noChangeAspect = bool(value)
+
+
+def _ascending_drawing(element) -> "object | None":
+    """Return the ``w:drawing`` ancestor of `element`, or |None|."""
+    current = element
+    drawing_tag = qn("w:drawing")
+    while current is not None:
+        if current.tag == drawing_tag:
+            return current
+        current = current.getparent()
+    return None
+
+
+def _delete_drawing_carrying(element, part: StoryPart | None) -> None:
+    """Remove the ``w:drawing`` ancestor of `element` and prune any freed rIds."""
+    drawing = _ascending_drawing(element)
+    if drawing is None:
+        return
+    rIds = _collect_blip_rIds(drawing)
+    drawing_parent = drawing.getparent()
+    if drawing_parent is not None:
+        drawing_parent.remove(drawing)
+        # -- drop the enclosing run if the removal left it empty --
+        if drawing_parent.tag == qn("w:r"):
+            has_children = len(drawing_parent) > 0
+            has_text = bool(drawing_parent.text)
+            if not has_children and not has_text:
+                run_parent = drawing_parent.getparent()
+                if run_parent is not None:
+                    run_parent.remove(drawing_parent)
+    if part is not None and rIds:
+        _prune_unused_image_rIds(part, rIds)
+
+
+def _replace_drawing_image(
+    element,
+    image_path_or_stream: "str | IO[bytes]",
+    part: StoryPart | None,
+) -> None:
+    """Swap the image binary referenced by `element`'s first blip.
+
+    When other XML references still point at the same rId, a new image
+    part and rId are allocated and this element's blip is rebound to the
+    new rId so the other references are not disturbed.
+    """
+    if part is None:
+        raise ValueError(
+            "replace_image() requires a StoryPart; pass `part=paragraph.part` "
+            "from the call site"
+        )
+
+    blip = element.find(".//" + qn("a:blip"))
+    if blip is None:
+        raise ValueError("no a:blip element found; nothing to replace")
+
+    embed_attr = qn("r:embed")
+    rId = blip.get(embed_attr)
+    if rId is None:
+        # -- linked picture (r:link); rebind to a freshly embedded image --
+        rId = None
+    package = part.package
+    if package is None:  # pragma: no cover - defensive
+        raise ValueError("part is not attached to a package")
+
+    # -- count blip references to the existing rId in the owning part's XML --
+    if rId is not None and _blip_ref_count(part, rId) == 1:
+        # -- exclusive owner: swap the ImagePart behind this rId --
+        rel = part.rels.get(rId)
+        if rel is not None and not rel.is_external:
+            image_part = rel.target_part
+            new_image_part = package.get_or_add_image_part(image_path_or_stream)
+            if new_image_part is image_part:
+                return
+            # -- rebind this rId to point at the new image part --
+            part.rels[rId]._target = new_image_part  # type: ignore[attr-defined]
+            part.rels._target_parts_by_rId[rId] = new_image_part  # type: ignore[attr-defined]
+            return
+
+    # -- shared rId or external/link: create a fresh embedded image part --
+    new_image_part = package.get_or_add_image_part(image_path_or_stream)
+    new_rId = part.relate_to(new_image_part, RT.IMAGE)
+    blip.set(embed_attr, new_rId)
+    link_attr = qn("r:link")
+    if blip.get(link_attr) is not None:
+        del blip.attrib[link_attr]

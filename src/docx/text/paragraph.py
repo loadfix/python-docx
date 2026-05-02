@@ -454,6 +454,45 @@ class Paragraph(StoryChild):
         )[0]
         return WordprocessingShape(wsp, self)
 
+    def add_floating_shape(
+        self,
+        image_path_or_stream: str | IO[bytes],
+        x: int | Length = 0,
+        y: int | Length = 0,
+        width: int | Length | None = None,
+        height: int | Length | None = None,
+        h_anchor: WD_ANCHOR_H | str = WD_ANCHOR_H.COLUMN,
+        v_anchor: WD_ANCHOR_V | str = WD_ANCHOR_V.PARAGRAPH,
+        wrap: WD_WRAP_TYPE | str = WD_WRAP_TYPE.SQUARE,
+    ) -> FloatingImage:
+        """Add a floating image anchored at explicit coordinates and return it.
+
+        `x` / `y` are horizontal / vertical offsets (EMU, or |Length|).
+        `h_anchor` / `v_anchor` are the horizontal / vertical frame of
+        reference; accepted as |WD_ANCHOR_H| / |WD_ANCHOR_V| members or the
+        matching OOXML attribute strings (e.g. ``"page"``). `wrap` is the
+        text-wrap style as a |WD_WRAP_TYPE| member or its string value.
+
+        This is a coordinate-first counterpart to :meth:`add_floating_image`:
+        use this method when you want to place a shape at a specific x/y
+        offset (upstream #1414) rather than fall back to square-wrap with a
+        zero offset.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self.add_floating_image(
+            image_path_or_stream,
+            width=width,
+            height=height,
+            position={
+                "h_anchor": h_anchor,
+                "v_anchor": v_anchor,
+                "horizontal": int(x),
+                "vertical": int(y),
+                "wrap": wrap,
+            },
+        )
+
     def add_floating_image(
         self,
         image_path_or_stream: "str | os.PathLike[str] | IO[bytes]",
