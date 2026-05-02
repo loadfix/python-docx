@@ -128,6 +128,8 @@ class Document(ElementProxy):
         `label` groups captions into a named sequence (e.g. ``"Figure"`` or
         ``"Table"``). `style` selects the paragraph style applied to the
         caption paragraph and defaults to the built-in ``"Caption"`` style.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.captions import new_caption_paragraph
 
@@ -176,6 +178,8 @@ class Document(ElementProxy):
         `type` selects the kind of content control (see :class:`ContentControlType`).
         `tag` and `title` map to `w:sdtPr/w:tag/@w:val` and `w:sdtPr/w:alias/@w:val`
         respectively.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._body.add_content_control(type, tag=tag, title=title)
 
@@ -200,6 +204,8 @@ class Document(ElementProxy):
         `width` and `height` are |Length| instances controlling the display size
         of the inline chart. When omitted a 6" x 3" default is used (similar to
         Word's default inline chart size).
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.chart import Chart
         from docx.opc.constants import RELATIONSHIP_TYPE as _RT
@@ -278,6 +284,8 @@ class Document(ElementProxy):
         non-Word viewers.
 
         Returns the newly-appended |Paragraph|.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.toc import populate_toc_paragraph
 
@@ -305,6 +313,8 @@ class Document(ElementProxy):
         Maps to the ``w:color`` attribute on the ``w:background`` child of the
         ``w:document`` root element. Assigning an |RGBColor| writes (or updates)
         the ``w:background`` element. Assigning |None| removes the element.
+
+        .. versionadded:: 1.3.0.dev0
         """
         background = self._element.background
         if background is None:
@@ -324,7 +334,10 @@ class Document(ElementProxy):
 
     @property
     def bookmarks(self) -> Bookmarks:
-        """A |Bookmarks| object providing access to the bookmarks in this document."""
+        """A |Bookmarks| object providing access to the bookmarks in this document.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         from docx.bookmarks import Bookmarks
 
         return Bookmarks(self._element.body)
@@ -338,6 +351,8 @@ class Document(ElementProxy):
         :class:`docx.parts.chart.ChartPart` via the document's relationship
         graph. References whose target part is missing or of the wrong type
         are skipped. Empty list when no charts are present.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.chart import Chart
         from docx.parts.chart import ChartPart
@@ -371,6 +386,8 @@ class Document(ElementProxy):
 
         Returned list is ordered by document-order of the `w:permStart` elements
         in the body.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.oxml.permissions import CT_PermStart
         from docx.permissions import PermissionRange
@@ -387,12 +404,17 @@ class Document(ElementProxy):
 
         Only block-level content controls (direct children of `w:body`) are returned.
         Inline content controls are accessible via :attr:`Paragraph.content_controls`.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._body.content_controls
 
     @property
     def endnotes(self) -> Endnotes:
-        """A |Endnotes| object providing access to endnotes in the document."""
+        """A |Endnotes| object providing access to endnotes in the document.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._part.endnotes
 
     @property
@@ -405,6 +427,8 @@ class Document(ElementProxy):
         enclosing wrapper, not separately. Equations inside headers, footers,
         footnotes, endnotes, or comments are not included here; those stories
         are accessible via the corresponding container objects.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.equations import Equation
 
@@ -424,6 +448,8 @@ class Document(ElementProxy):
         cells, headers, footers, footnotes, or endnotes are not included in
         this collection — callers can access those via the ``form_fields``
         property on the enclosing paragraph.
+
+        .. versionadded:: 1.3.0.dev0
         """
         result: list[FormField] = []
         for paragraph in self.paragraphs:
@@ -432,7 +458,10 @@ class Document(ElementProxy):
 
     @property
     def has_macros(self) -> bool:
-        """True if this document contains a VBA project (macros)."""
+        """True if this document contains a VBA project (macros).
+
+        .. versionadded:: 1.3.0.dev0
+        """
         try:
             self._part.part_related_by(RT.VBA_PROJECT)
             return True
@@ -446,6 +475,8 @@ class Document(ElementProxy):
         python-docx does not verify signatures; this reports only whether a
         ``_xmlsignatures/origin.sigs`` or signature relationship is present at the
         package level.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.package import Package
 
@@ -457,6 +488,8 @@ class Document(ElementProxy):
 
         Empty list when the document is unsigned. See :class:`docx.signatures.SignatureInfo`
         for the available metadata.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.package import Package
 
@@ -470,12 +503,17 @@ class Document(ElementProxy):
         Returns |None| when the document has no ``fontTable`` relationship — for
         example, when the document was created via :func:`docx.Document` with no
         template.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._part.font_table
 
     @property
     def footnotes(self) -> Footnotes:
-        """A |Footnotes| object providing access to footnotes in the document."""
+        """A |Footnotes| object providing access to footnotes in the document.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._part.footnotes
 
     def accept_all_changes(self) -> int:
@@ -486,6 +524,8 @@ class Document(ElementProxy):
         (the current, post-edit formatting is retained).
 
         Returns the number of change elements resolved.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.tracked_changes import _resolve_all_changes
 
@@ -499,6 +539,8 @@ class Document(ElementProxy):
         the prior formatting is restored.
 
         Returns the number of change elements resolved.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.tracked_changes import _resolve_all_changes
 
@@ -510,11 +552,16 @@ class Document(ElementProxy):
 
         Returns |None| when no ``w:footnotePr`` element exists in the document settings.
         Use :meth:`add_footnote_properties` to add one and configure it.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self.settings.footnote_properties
 
     def add_footnote_properties(self) -> FootnoteProperties:
-        """Return document-level |FootnoteProperties|, adding a ``w:footnotePr`` if needed."""
+        """Return document-level |FootnoteProperties|, adding a ``w:footnotePr`` if needed.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self.settings.add_footnote_properties()
 
     @property
@@ -523,11 +570,16 @@ class Document(ElementProxy):
 
         Returns |None| when no ``w:endnotePr`` element exists in the document settings.
         Use :meth:`add_endnote_properties` to add one and configure it.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self.settings.endnote_properties
 
     def add_endnote_properties(self) -> EndnoteProperties:
-        """Return document-level |EndnoteProperties|, adding a ``w:endnotePr`` if needed."""
+        """Return document-level |EndnoteProperties|, adding a ``w:endnotePr`` if needed.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self.settings.add_endnote_properties()
 
     @property
@@ -542,6 +594,8 @@ class Document(ElementProxy):
         Custom properties are user-defined, typed name/value pairs stored in the
         ``docProps/custom.xml`` part of the package. They are distinct from the fixed
         "core" Dublin-Core properties available via :attr:`core_properties`.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._part.custom_properties
 
@@ -554,6 +608,8 @@ class Document(ElementProxy):
         :attr:`~docx.custom_xml.CustomXmlPart.schema_refs`,
         :attr:`~docx.custom_xml.CustomXmlPart.root_element`, and
         :attr:`~docx.custom_xml.CustomXmlPart.blob` read-only.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._part.custom_xml_parts
 
@@ -564,6 +620,8 @@ class Document(ElementProxy):
 
         Creates a default (empty) numbering part if one is not already related to the
         document.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._part.numbering_part.numbering
 
@@ -575,6 +633,8 @@ class Document(ElementProxy):
         (content type ``application/inkml+xml``). The list is empty when no ink
         annotations are present. Read-only — python-docx does not support creating
         or modifying ink annotations.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.text.paragraph import Paragraph
 
@@ -595,6 +655,8 @@ class Document(ElementProxy):
         present. Read-only — python-docx does not support creating or
         modifying embedded objects, or extracting the ``w:pict`` image that
         Word displays in place of the OLE content.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.text.paragraph import Paragraph
 
@@ -613,6 +675,8 @@ class Document(ElementProxy):
         references a SmartArt diagram (i.e. contains a ``dgm:relIds``
         element). Empty list when the document has no SmartArt. Read-only —
         python-docx does not support creating or modifying SmartArt.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.drawing import Drawing
 
@@ -645,6 +709,8 @@ class Document(ElementProxy):
         Populated only when the document was opened via :func:`docx.Document`
         with ``recover=True``. Empty for normally-opened documents and for
         well-formed documents opened in recovery mode.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.package import Package
 
@@ -681,6 +747,8 @@ class Document(ElementProxy):
 
         When `case_sensitive` is False, matching is case-insensitive. When `whole_word` is
         True, only whole-word matches are replaced.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.search import replace_in_paragraphs
 
@@ -708,6 +776,8 @@ class Document(ElementProxy):
         :func:`docx.search._iter_all_paragraphs` for the full iteration contract.
 
         Returns the total number of replacements made across all stories.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.search import replace_in_all_paragraphs
 
@@ -733,6 +803,8 @@ class Document(ElementProxy):
 
         Preserves the run formatting of the first character's run for each replacement.
         Returns the number of replacements made.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.search import replace_in_paragraphs_regex
 
@@ -753,6 +825,8 @@ class Document(ElementProxy):
         are expanded per match.
 
         Returns the total number of replacements made across all stories.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.search import replace_in_all_paragraphs_regex
 
@@ -774,6 +848,8 @@ class Document(ElementProxy):
         Walks every field element in the body — including those inside
         tables, hyperlinks, and other containers — by descending all
         ``w:fldSimple`` elements and every run that opens a complex field.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.fields import Field
 
@@ -812,6 +888,8 @@ class Document(ElementProxy):
 
         Pass ANSI escape sequences in place of the default square-bracket markers
         if you want styled terminal output.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return "\n\n".join(
             p.revision_marks_text(open_ins, close_ins, open_del, close_del)
@@ -842,6 +920,8 @@ class Document(ElementProxy):
 
         When `case_sensitive` is False, matching is case-insensitive. When `whole_word` is
         True, only whole-word matches are returned.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.search import search_paragraphs
 
@@ -866,6 +946,8 @@ class Document(ElementProxy):
         Tables nested inside other stories (headers, footers, footnotes, etc.) and
         tables nested inside body-table cells are not descended into; see
         :func:`docx.search._iter_all_paragraphs` for details.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.search import search_all_paragraphs
 
@@ -887,6 +969,8 @@ class Document(ElementProxy):
 
         Returns a list of |SearchMatch| objects, one for each match found. Each match
         provides access to the paragraph, run indices, and character offsets.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.search import search_paragraphs_regex
 
@@ -903,6 +987,8 @@ class Document(ElementProxy):
         string or a compiled :class:`re.Pattern`. Each returned |SearchMatch|
         carries a :attr:`SearchMatch.location` identifying the story that
         produced it.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.search import search_all_paragraphs_regex
 
@@ -920,6 +1006,8 @@ class Document(ElementProxy):
         outline: skipped levels (e.g. a Heading 3 directly following a Heading 1),
         multiple Heading 1 paragraphs, empty heading paragraphs, and documents that
         start below Heading 1. Returns an empty list when no issues are found.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.accessibility import validate_heading_structure
 
@@ -943,6 +1031,8 @@ class Document(ElementProxy):
         A "word" is a whitespace-delimited token, matching ``str.split()``
         semantics. Paragraphs nested inside tables or block-level content
         controls are included because they are part of the body story.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.statistics import compute_statistics
 
@@ -963,6 +1053,8 @@ class Document(ElementProxy):
         ``glossaryDocument`` relationship — which is the case for
         documents created via :func:`docx.Document` with the default
         template.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._part.glossary
 
@@ -974,6 +1066,8 @@ class Document(ElementProxy):
         Returns |None| when the document has no ``theme`` relationship — which
         is uncommon for documents created by Word but possible for minimal
         documents synthesized by other tools.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._part.theme
 
@@ -985,6 +1079,8 @@ class Document(ElementProxy):
         read-oriented. Returns |None| when the document has no ``webSettings``
         relationship — for example, documents created via :func:`docx.Document`
         with no template.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._part.web_settings
 
@@ -1036,6 +1132,8 @@ class _Body(BlockItemContainer):
 
         The new `w:sdt` is inserted before any trailing `w:sectPr` element, mirroring
         how paragraphs and tables are appended.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.content_controls import ContentControl, new_sdt
 
@@ -1054,7 +1152,10 @@ class _Body(BlockItemContainer):
 
     @property
     def content_controls(self) -> list[ContentControl]:
-        """List of block-level |ContentControl| objects in this body, in document order."""
+        """List of block-level |ContentControl| objects in this body, in document order.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         from docx.content_controls import ContentControl
 
         return [

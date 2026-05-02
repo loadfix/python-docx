@@ -44,6 +44,8 @@ class Font(ElementProxy):
         |Length| value specifying the spacing between characters. Positive values expand
         the spacing, negative values condense it. |None| indicates the value is inherited
         from the style hierarchy.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -76,6 +78,8 @@ class Font(ElementProxy):
         is set to ``"auto"``. Assigning an |RGBColor| creates the ``w:bdr``
         child if necessary. Assigning |None| clears the attribute but leaves
         any sibling border attributes intact.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -111,6 +115,8 @@ class Font(ElementProxy):
         ``w:bdr`` element or the attribute is absent. Assigning a |Length| or
         |Pt| value creates the ``w:bdr`` child if necessary. Assigning |None|
         clears the attribute.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -143,6 +149,8 @@ class Font(ElementProxy):
         ``w:bdr`` element or the attribute is absent. Assigning a
         |WD_BORDER_STYLE| member creates the ``w:bdr`` child if necessary.
         Assigning |None| clears the attribute.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -175,6 +183,8 @@ class Font(ElementProxy):
         eighth-points. Returns |None| when the ``w:bdr`` element or the
         attribute is absent. Assigning a |Length| or |Pt| value creates the
         ``w:bdr`` child if necessary. Assigning |None| clears the attribute.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -204,6 +214,8 @@ class Font(ElementProxy):
 
         Clears all run-border state in a single call. Has no effect when no
         ``w:bdr`` element is present.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -326,6 +338,8 @@ class Font(ElementProxy):
         |Length| value specifying the minimum font size for which kerning is automatically
         adjusted. |None| indicates kerning is not specified (inherited from style
         hierarchy).
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -346,6 +360,8 @@ class Font(ElementProxy):
         child if necessary. Assigning |None| clears only the ``w:val``
         attribute — use :meth:`remove_language` to remove the entire
         ``w:lang`` element.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -379,6 +395,8 @@ class Font(ElementProxy):
         ``w:lang`` child if necessary. Assigning |None| clears only the
         ``w:eastAsia`` attribute — use :meth:`remove_language` to remove the
         entire ``w:lang`` element.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -412,6 +430,8 @@ class Font(ElementProxy):
         child if necessary. Assigning |None| clears only the ``w:bidi``
         attribute — use :meth:`remove_language` to remove the entire
         ``w:lang`` element.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -441,6 +461,8 @@ class Font(ElementProxy):
 
         Clears all language-tag state in a single call. Has no effect when no
         ``w:lang`` element is present.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -454,6 +476,8 @@ class Font(ElementProxy):
         Returns |None| when the run has no ``w:rPr/w:eastAsianLayout`` child.
         Use :meth:`set_east_asian_layout` to create or update the element and
         :meth:`remove_east_asian_layout` to drop it entirely.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -478,6 +502,8 @@ class Font(ElementProxy):
         corresponding setter on the returned |EastAsianLayout| (e.g.
         ``layout.two_lines_in_one = None``) or call
         :meth:`remove_east_asian_layout` to drop the element entirely.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.get_or_add_rPr()
         eal = rPr.get_or_add_eastAsianLayout()
@@ -497,6 +523,8 @@ class Font(ElementProxy):
 
         Has no effect when no ``w:rPr`` or no ``w:eastAsianLayout`` child is
         present.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -536,6 +564,8 @@ class Font(ElementProxy):
 
         Causes Complex Script text it controls to appear in the named font. |None|
         indicates the typeface is inherited from the style hierarchy.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -553,6 +583,8 @@ class Font(ElementProxy):
 
         Causes East Asian text it controls to appear in the named font. |None| indicates
         the typeface is inherited from the style hierarchy. Alias for `name_far_east`.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self.name_far_east
 
@@ -566,6 +598,8 @@ class Font(ElementProxy):
 
         Causes East Asian (CJK) text it controls to appear in the named font. |None|
         indicates the typeface is inherited from the style hierarchy.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -642,6 +676,8 @@ class Font(ElementProxy):
         Assigning |True| inserts ``w:rtl``; assigning |False| or |None| removes
         it. When |True|, the run is rendered right-to-left using the
         complex-script (CS) font—appropriate for Arabic, Hebrew, or Farsi text.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -671,6 +707,8 @@ class Font(ElementProxy):
         ``w:fill="RRGGBB"``. Assigning |None| removes the ``w:shd`` child. Distinct
         from :attr:`highlight_color`, which is a predefined palette applied as
         ``w:highlight``.
+
+        .. versionadded:: 1.3.0.dev0
         """
         rPr = self._element.rPr
         if rPr is None:
@@ -892,6 +930,8 @@ class EastAsianLayout:
     Provides read/write access to the East Asian typography attributes
     (``@w:id``, ``@w:combine``, ``@w:vert``, ``@w:vertCompress``). Accessed
     via :attr:`Font.east_asian_layout`.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, eastAsianLayout: CT_EastAsianLayout):
@@ -899,7 +939,10 @@ class EastAsianLayout:
 
     @property
     def id(self) -> int | None:
-        """Unique identifier (``w:eastAsianLayout/@w:id``), or |None|."""
+        """Unique identifier (``w:eastAsianLayout/@w:id``), or |None|.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._element.id
 
     @id.setter
@@ -912,6 +955,8 @@ class EastAsianLayout:
 
         Maps to ``w:eastAsianLayout/@w:combine``. Returns |None| when the
         attribute is absent.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._element.combine
 
@@ -925,6 +970,8 @@ class EastAsianLayout:
 
         Maps to ``w:eastAsianLayout/@w:vert``. Returns |None| when the
         attribute is absent.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._element.vert
 
@@ -938,6 +985,8 @@ class EastAsianLayout:
 
         Maps to ``w:eastAsianLayout/@w:vertCompress``. Returns |None| when
         the attribute is absent.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._element.vertCompress
 

@@ -33,6 +33,8 @@ class TrackedChange(ElementProxy):
     Wraps a `<w:ins>`, `<w:del>`, `<w:moveFrom>`, or `<w:moveTo>` element
     containing one or more runs. For move revisions the :class:`MoveRevision`
     subclass exposes the additional `w:name` attribute and paired-peer lookup.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, element: CT_RunTrackChange):
@@ -41,17 +43,26 @@ class TrackedChange(ElementProxy):
 
     @property
     def author(self) -> str:
-        """The author who made this change."""
+        """The author who made this change.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._tc_element.author
 
     @property
     def date(self) -> dt.datetime | None:
-        """The date and time when this change was made, or |None| if not recorded."""
+        """The date and time when this change was made, or |None| if not recorded.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._tc_element.date
 
     @property
     def text(self) -> str:
-        """The textual content of this tracked change."""
+        """The textual content of this tracked change.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return cast(str, self._tc_element.text)
 
     @property
@@ -59,6 +70,8 @@ class TrackedChange(ElementProxy):
         """The type of this tracked change.
 
         One of ``"insertion"``, ``"deletion"``, ``"move_from"``, or ``"move_to"``.
+
+        .. versionadded:: 1.3.0.dev0
         """
         # -- check the move subclasses before their bases (CT_MoveFrom extends
         # -- CT_Del, CT_MoveTo extends CT_Ins) --
@@ -78,6 +91,8 @@ class TrackedChange(ElementProxy):
         are removed entirely. For a `w:moveFrom`, the source element and its content
         are removed (completing the move). For a `w:moveTo`, the wrapper is removed
         and its runs survive as live content.
+
+        .. versionadded:: 1.3.0.dev0
         """
         self._tc_element.accept()
 
@@ -90,6 +105,8 @@ class TrackedChange(ElementProxy):
         For a `w:moveFrom`, the wrapper is unwound so the source text is restored in
         place. For a `w:moveTo`, the destination element and its content are removed
         (cancelling the move).
+
+        .. versionadded:: 1.3.0.dev0
         """
         self._tc_element.reject()
 
@@ -108,6 +125,8 @@ class MoveRevision(TrackedChange):
     wrap run content, so no proxy type is exposed for them. They survive a
     round-trip unchanged; callers that need to work with them can iterate the
     underlying XML.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     @property
@@ -116,6 +135,8 @@ class MoveRevision(TrackedChange):
 
         Well-formed move-revision XML always includes a name, but the attribute
         is declared optional per ECMA-376 so callers must handle |None|.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._tc_element.get(qn("w:name"))
 
@@ -127,6 +148,8 @@ class MoveRevision(TrackedChange):
         local tag matches the opposite side and whose `@w:name` equals this
         element's name. Returns |None| if the name is unset, if there is no
         tree root (detached element), or if no peer is found.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.oxml.tracked_changes import CT_MoveFrom, CT_MoveTo
 
@@ -164,6 +187,8 @@ class FormattingChange(ElementProxy):
     Records the author and date of a formatting edit and provides access to the
     previous formatting via :attr:`old_properties`, which returns the inner
     `w:rPr`, `w:pPr`, or `w:sectPr` element holding the pre-edit values.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, element: CT_TrackChange):
@@ -172,12 +197,18 @@ class FormattingChange(ElementProxy):
 
     @property
     def author(self) -> str:
-        """The author who made this formatting change."""
+        """The author who made this formatting change.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._fc_element.author
 
     @property
     def date(self) -> dt.datetime | None:
-        """When this formatting change was made, or |None| if not recorded."""
+        """When this formatting change was made, or |None| if not recorded.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._fc_element.date
 
     @property
@@ -191,6 +222,8 @@ class FormattingChange(ElementProxy):
 
         |None| if the change element has no inner properties element (malformed or
         "no prior formatting" case).
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.oxml.tracked_changes import (
             CT_PPrChange,

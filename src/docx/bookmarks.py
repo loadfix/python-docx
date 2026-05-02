@@ -12,7 +12,10 @@ if TYPE_CHECKING:
 
 
 class Bookmarks:
-    """Collection of |Bookmark| objects in the document."""
+    """Collection of |Bookmark| objects in the document.
+
+    .. versionadded:: 1.3.0.dev0
+    """
 
     def __init__(self, body: CT_Body):
         self._body = body
@@ -32,7 +35,10 @@ class Bookmarks:
         return self.get(name) is not None
 
     def get(self, name: str) -> Bookmark | None:
-        """Return the bookmark with `name`, or |None| if not found."""
+        """Return the bookmark with `name`, or |None| if not found.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         for bs in self._body.xpath(".//w:bookmarkStart"):
             if bs.name == name:
                 return Bookmark(bs, self._body)
@@ -40,7 +46,10 @@ class Bookmarks:
 
 
 class Bookmark:
-    """Proxy for a bookmark defined by a w:bookmarkStart/w:bookmarkEnd pair."""
+    """Proxy for a bookmark defined by a w:bookmarkStart/w:bookmarkEnd pair.
+
+    .. versionadded:: 1.3.0.dev0
+    """
 
     def __init__(self, bookmarkStart: CT_BookmarkStart, body: CT_Body):
         self._bookmarkStart = bookmarkStart
@@ -55,7 +64,10 @@ class Bookmark:
         return self._bookmarkStart.id
 
     def delete(self) -> None:
-        """Remove this bookmark from the document."""
+        """Remove this bookmark from the document.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         bookmark_id = str(self._bookmarkStart.id)
         # -- find and remove the matching bookmarkEnd --
         ends = self._body.xpath(f".//w:bookmarkEnd[@w:id='{bookmark_id}']")

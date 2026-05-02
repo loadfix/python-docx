@@ -27,6 +27,8 @@ class InkAnnotation:
 
     Wraps a ``<w:contentPart>`` element (via the paragraph that contains it)
     and its related ink part. Read-only.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, paragraph: Paragraph, ink_part: InkPart):
@@ -35,17 +37,26 @@ class InkAnnotation:
 
     @property
     def blob(self) -> bytes:
-        """Raw InkML XML bytes of the referenced ink part."""
+        """Raw InkML XML bytes of the referenced ink part.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._ink_part.blob
 
     @property
     def paragraph(self) -> Paragraph:
-        """The |Paragraph| that contains the ``w:contentPart`` for this annotation."""
+        """The |Paragraph| that contains the ``w:contentPart`` for this annotation.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._paragraph
 
     @property
     def partname(self) -> str:
-        """The OPC partname of the related ink part, e.g. ``/word/ink/ink1.xml``."""
+        """The OPC partname of the related ink part, e.g. ``/word/ink/ink1.xml``.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return str(self._ink_part.partname)
 
     @property
@@ -56,6 +67,8 @@ class InkAnnotation:
         count includes traces at any depth (typical InkML wraps them in a
         ``<inkml:traceGroup>`` but they may also appear as direct children of
         the root ``<inkml:ink>`` element).
+
+        .. versionadded:: 1.3.0.dev0
         """
         blob = self._ink_part.blob
         if not blob:

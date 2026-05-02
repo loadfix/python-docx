@@ -107,6 +107,8 @@ class Run(StoryChild):
         uppercase hex string in the XML; integer and lowercase-hex inputs are
         normalized on write. `font` is the name of the font supplying the
         glyph, for example ``"Wingdings"``.
+
+        .. versionadded:: 1.3.0.dev0
         """
         if isinstance(char_code, str):
             code_int = int(char_code, 16)
@@ -119,7 +121,10 @@ class Run(StoryChild):
     @property
     def symbols(self) -> Iterator[Symbol]:
         """Generate a |Symbol| for each ``<w:sym>`` child of this run, in document
-        order."""
+        order.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         for sym in self._r.sym_lst:
             yield Symbol(sym)
 
@@ -131,6 +136,8 @@ class Run(StoryChild):
         child), so this property is usually empty. It is provided for symmetry
         with :attr:`Paragraph.equations` so callers can query any run without
         a type check. Walks descendant ``m:oMath`` and ``m:oMathPara`` nodes.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.equations import Equation
 
@@ -147,6 +154,8 @@ class Run(StoryChild):
 
         Read-only. Ruby is used for phonetic annotation (Japanese furigana etc.)
         pairing base text with an above-the-line reading.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.ruby import RubyAnnotation
 
@@ -179,6 +188,8 @@ class Run(StoryChild):
 
         The run element is removed from its parent. After calling this method,
         this |Run| object is "defunct" and should not be used further.
+
+        .. versionadded:: 1.3.0.dev0
         """
         r = self._r
         parent = r.getparent()
@@ -260,6 +271,8 @@ class Run(StoryChild):
         Text before `offset` stays in this run and text from `offset` onward moves
         to a new run inserted immediately after this one. Both runs share the same
         character formatting (`w:rPr`).
+
+        .. versionadded:: 1.3.0.dev0
         """
         new_r = self._r.split_run(offset)
         right_run = Run(new_r, self._parent)
@@ -272,6 +285,8 @@ class Run(StoryChild):
         Present when the run's formatting (its `w:rPr`) has been edited while
         track-changes is enabled. The returned object exposes the author, date,
         and the prior `w:rPr` via ``old_properties``.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.tracked_changes import FormattingChange
 
@@ -290,6 +305,8 @@ class Run(StoryChild):
         Read-only. Returns the 8-character hex string Word assigns to mark the
         editing session in which this run was last modified, or |None| when
         the ``@w:rsidR`` attribute is not present.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._r.rsidR
 
@@ -305,6 +322,8 @@ class Run(StoryChild):
 
         For more robust cross-session tracking, compare :attr:`rsid` combined
         with :attr:`text`.
+
+        .. versionadded:: 1.3.0.dev0
         """
         from docx.ids import compute_stable_id
 

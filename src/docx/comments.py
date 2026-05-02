@@ -153,6 +153,8 @@ class Comment(BlockItemContainer):
 
         The reply is a new comment linked to this comment via the `w16cid:paraIdParent` attribute.
         Parameters behave identically to `Comments.add_comment()`.
+
+        .. versionadded:: 1.3.0.dev0
         """
         parent_para_id = self._comment_elm.paraId
         if parent_para_id is None:
@@ -181,7 +183,10 @@ class Comment(BlockItemContainer):
 
     @property
     def replies(self) -> list[Comment]:
-        """List of `Comment` objects that are replies to this comment."""
+        """List of `Comment` objects that are replies to this comment.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         para_id = self._comment_elm.paraId
         if para_id is None:
             return []

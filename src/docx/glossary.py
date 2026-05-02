@@ -39,6 +39,8 @@ class Glossary(ElementProxy):
     Iterable: iterating yields a |BuildingBlock| for each ``w:docPart``
     child in document order. Supports ``len()`` and ``glossary[name]``
     lookup by building-block name. Read-only.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(
@@ -72,7 +74,10 @@ class Glossary(ElementProxy):
 
     @property
     def building_blocks(self) -> list[BuildingBlock]:
-        """List of |BuildingBlock| objects, one per ``w:docPart``, in order."""
+        """List of |BuildingBlock| objects, one per ``w:docPart``, in order.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return [
             BuildingBlock(doc_part, self._glossary_part)
             for doc_part in self._glossary_elm.docPart_lst
@@ -92,6 +97,8 @@ class Glossary(ElementProxy):
         are |None|, every building block is returned (equivalent to
         :attr:`building_blocks`). Comparison for `category_name` is exact
         and case-sensitive.
+
+        .. versionadded:: 1.3.0.dev0
         """
         if isinstance(gallery, WD_BUILDING_BLOCK_GALLERY):
             gallery_xml: str | None = gallery.xml_value
@@ -117,6 +124,8 @@ class Glossary(ElementProxy):
         regardless of which underlying ``w:category`` element they came
         from. Order preserves first-seen order in document traversal.
         Categories where both gallery and name are |None| are dropped.
+
+        .. versionadded:: 1.3.0.dev0
         """
         seen: set[tuple[str | None, str | None]] = set()
         result: list[BuildingBlockCategory] = []
@@ -139,6 +148,8 @@ class Glossary(ElementProxy):
         ``"coverPg"``) in first-seen order. Use
         :meth:`WD_BUILDING_BLOCK_GALLERY.from_xml_safe` to decode individual
         values. Building blocks with no gallery are skipped.
+
+        .. versionadded:: 1.3.0.dev0
         """
         seen: set[str] = set()
         result: list[str] = []
@@ -162,6 +173,8 @@ class BuildingBlock(BlockItemContainer):
 
     When the building block has no ``w:docPartBody`` child the
     :attr:`paragraphs` and :attr:`tables` properties return empty lists.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(
@@ -186,6 +199,8 @@ class BuildingBlock(BlockItemContainer):
 
         |None| when ``w:docPartPr`` is absent, when the ``w:name`` child is
         missing, or when its ``w:val`` attribute is not present.
+
+        .. versionadded:: 1.3.0.dev0
         """
         pr = self._doc_part.docPartPr
         if pr is None:
@@ -198,6 +213,8 @@ class BuildingBlock(BlockItemContainer):
 
         Always returns a proxy — when the underlying ``w:category`` element
         is missing, the returned proxy exposes |None| for every slot.
+
+        .. versionadded:: 1.3.0.dev0
         """
         pr = self._doc_part.docPartPr
         category_elm = pr.category if pr is not None else None
@@ -205,7 +222,10 @@ class BuildingBlock(BlockItemContainer):
 
     @property
     def description(self) -> str | None:
-        """The value of ``w:docPartPr/w:description/@w:val``, or |None|."""
+        """The value of ``w:docPartPr/w:description/@w:val``, or |None|.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         pr = self._doc_part.docPartPr
         if pr is None:
             return None
@@ -213,7 +233,10 @@ class BuildingBlock(BlockItemContainer):
 
     @property
     def guid(self) -> str | None:
-        """The value of ``w:docPartPr/w:guid/@w:val``, or |None|."""
+        """The value of ``w:docPartPr/w:guid/@w:val``, or |None|.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         pr = self._doc_part.docPartPr
         if pr is None:
             return None
@@ -224,6 +247,8 @@ class BuildingBlock(BlockItemContainer):
         """List of |Paragraph| objects in the building block's body.
 
         Returns an empty list when the block has no ``w:docPartBody`` child.
+
+        .. versionadded:: 1.3.0.dev0
         """
         if self._body is None:
             return []
@@ -234,6 +259,8 @@ class BuildingBlock(BlockItemContainer):
         """List of |Table| objects in the building block's body.
 
         Returns an empty list when the block has no ``w:docPartBody`` child.
+
+        .. versionadded:: 1.3.0.dev0
         """
         if self._body is None:
             return []
@@ -248,6 +275,8 @@ class BuildingBlockCategory:
     underlying element or attribute is missing. Equality is by
     ``(gallery, category_name)`` so categories with identical slots are
     interchangeable — convenient for set-based deduplication.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, category_elm: CT_DocPartCategory | None):
@@ -272,14 +301,20 @@ class BuildingBlockCategory:
 
     @property
     def category_name(self) -> str | None:
-        """The value of ``w:category/w:name/@w:val``, or |None| when absent."""
+        """The value of ``w:category/w:name/@w:val``, or |None| when absent.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         if self._category_elm is None:
             return None
         return self._category_elm.name_val
 
     @property
     def gallery(self) -> str | None:
-        """The value of ``w:category/w:gallery/@w:val``, or |None| when absent."""
+        """The value of ``w:category/w:gallery/@w:val``, or |None| when absent.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         if self._category_elm is None or self._category_elm.gallery is None:
             return None
         return self._category_elm.gallery.val
@@ -291,5 +326,7 @@ class BuildingBlockCategory:
         |None| when the gallery slot is missing, or when its value is not
         one of the well-known Word galleries modelled by the enum. Use
         :attr:`gallery` to get the raw string for unknown values.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return WD_BUILDING_BLOCK_GALLERY.from_xml_safe(self.gallery)

@@ -34,6 +34,8 @@ class SignatureInfo:
 
     Instances are produced by :attr:`docx.document.Document.signatures`; they are not
     intended to be constructed directly by library users.
+
+    .. versionadded:: 1.3.0.dev0
     """
 
     def __init__(self, part: Part):
@@ -42,12 +44,18 @@ class SignatureInfo:
 
     @property
     def partname(self) -> PackURI:
-        """The OPC part name, e.g. ``/_xmlsignatures/sig1.xml``."""
+        """The OPC part name, e.g. ``/_xmlsignatures/sig1.xml``.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._part.partname
 
     @property
     def blob(self) -> bytes:
-        """Raw XML bytes of the signature part."""
+        """Raw XML bytes of the signature part.
+
+        .. versionadded:: 1.3.0.dev0
+        """
         return self._part.blob
 
     @property
@@ -57,6 +65,8 @@ class SignatureInfo:
         Extracted from ``<X509SubjectName>`` under the XML-DSig ``KeyInfo`` or from the
         XAdES ``SigningCertificate`` block. Returns |None| when the signature XML is
         malformed or does not expose this information.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._parse()[0]
 
@@ -66,6 +76,8 @@ class SignatureInfo:
 
         Parsed from the XAdES ``<SigningTime>`` element when present. Returns |None|
         when the signature XML is malformed or does not declare a signing time.
+
+        .. versionadded:: 1.3.0.dev0
         """
         return self._parse()[1]
 
