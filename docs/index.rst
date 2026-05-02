@@ -91,6 +91,7 @@ User Guide
    user/form-fields
    user/glossary
    user/mail-merge
+   user/search
    user/shapes
    user/accessibility
    user/statistics
