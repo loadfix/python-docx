@@ -2625,3 +2625,26 @@ class Describe_Cell_StableId:
         cell_a = self._make_cell(request, cast(CT_Tc, tr[0]))
         cell_b = self._make_cell(request, cast(CT_Tc, tr[1]))
         assert cell_a.stable_id != cell_b.stable_id
+
+
+class DescribeTable_spans_page_break:
+    """Unit-test suite for `Table.spans_page_break` page-break detection."""
+
+    @pytest.mark.parametrize(
+        ("tbl_cxml", "expected"),
+        [
+            ("w:tbl/(w:tblPr,w:tblGrid)", False),
+            ("w:tbl/(w:tblPr,w:tblGrid,w:tr/w:tc/w:p/w:r)", False),
+            (
+                "w:tbl/(w:tblPr,w:tblGrid,w:tr/w:tc/w:p/w:r/w:lastRenderedPageBreak)",
+                True,
+            ),
+        ],
+    )
+    def it_detects_rendered_page_breaks(
+        self, tbl_cxml: str, expected: bool, request: FixtureRequest
+    ):
+        tbl = cast(CT_Tbl, element(tbl_cxml))
+        table = Table(tbl, instance_mock(request, DocumentPart))
+
+        assert table.spans_page_break is expected

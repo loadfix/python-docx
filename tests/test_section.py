@@ -2138,3 +2138,152 @@ class DescribeSection_right_to_left:
     @pytest.fixture
     def document_part_(self, request: FixtureRequest):
         return instance_mock(request, DocumentPart)
+
+
+class DescribeSection_paragraphs:
+    """Unit-test suite for `Section.paragraphs` and `Section.tables`."""
+
+    def it_returns_only_paragraphs_in_its_range(self):
+        document = Document(test_file("sct-inner-content.docx"))
+
+        paragraphs = document.sections[0].paragraphs
+
+        # -- section 0 has P1, T2, P3 -> filter keeps P1 and P3 --
+        assert [p.text for p in paragraphs] == ["P1", "P3"]
+
+    def it_returns_only_tables_in_its_range(self):
+        document = Document(test_file("sct-inner-content.docx"))
+
+        tables = document.sections[0].tables
+
+        # -- section 0 has P1, T2, P3 -> filter keeps T2 --
+        assert len(tables) == 1
+        assert tables[0].rows[0].cells[0].text == "T2"
+
+    def it_returns_only_paragraphs_in_mid_and_last_sections(self):
+        document = Document(test_file("sct-inner-content.docx"))
+
+        assert [p.text for p in document.sections[1].paragraphs] == ["P5", "P6"]
+        assert [p.text for p in document.sections[2].paragraphs] == ["P7", "P8", "P9"]
+
+
+class DescribeSection_delete:
+    """Unit-test suite for `Section.delete()` and `Sections.pop()`."""
+
+    def it_removes_a_mid_document_section_break(self, document_part_: Mock):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/("
+                "w:p/w:pPr/w:sectPr,"
+                "w:p/w:pPr/w:sectPr,"
+                "w:sectPr)"
+            ),
+        )
+        sections = Sections(document_elm, document_part_)
+        assert len(sections) == 3
+
+        sections[0].delete()
+
+        # -- the sectPr in the first p is removed; remaining sectPrs stay --
+        assert len(sections) == 2
+
+    def it_removes_the_last_section(self, document_part_: Mock):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/("
+                "w:p/w:pPr/w:sectPr,"
+                "w:p/w:pPr/w:sectPr,"
+                "w:sectPr)"
+            ),
+        )
+        sections = Sections(document_elm, document_part_)
+
+        sections[-1].delete()
+
+        assert len(sections) == 2
+
+    def it_is_a_noop_when_only_one_section_exists(self, document_part_: Mock):
+        document_elm = cast(CT_Document, element("w:document/w:body/w:sectPr"))
+        sections = Sections(document_elm, document_part_)
+
+        sections[0].delete()
+
+        assert len(sections) == 1
+
+    def it_supports_sections_pop(self, document_part_: Mock):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/("
+                "w:p/w:pPr/w:sectPr,"
+                "w:p/w:pPr/w:sectPr,"
+                "w:sectPr)"
+            ),
+        )
+        sections = Sections(document_elm, document_part_)
+
+        popped = sections.pop(0)
+
+        assert isinstance(popped, Section)
+        assert len(sections) == 2
+
+    def it_raises_IndexError_on_out_of_range_pop(self, document_part_: Mock):
+        document_elm = cast(CT_Document, element("w:document/w:body/w:sectPr"))
+        sections = Sections(document_elm, document_part_)
+
+        with pytest.raises(IndexError):
+            sections.pop(5)
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)
+
+
+class DescribeSection_copy_header_footer:
+    """Unit-test suite for `Section.copy_header_from` / `copy_footer_from`."""
+
+    def it_copies_header_content_from_another_section(self):
+        document = Document()
+        document.add_section()
+        src, dst = document.sections[0], document.sections[1]
+
+        # -- populate source header --
+        src.header.paragraphs[0].text = "SOURCE"
+        # -- ensure dest starts linked / empty --
+        dst.header.is_linked_to_previous = True
+
+        dst.copy_header_from(src)
+
+        assert not dst.header.is_linked_to_previous
+        assert dst.header.paragraphs[0].text == "SOURCE"
+        # -- distinct underlying parts --
+        assert dst.header.part is not src.header.part
+
+    def it_copies_footer_content_from_another_section(self):
+        document = Document()
+        document.add_section()
+        src, dst = document.sections[0], document.sections[1]
+
+        src.footer.paragraphs[0].text = "FOOT"
+        dst.footer.is_linked_to_previous = True
+
+        dst.copy_footer_from(src)
+
+        assert not dst.footer.is_linked_to_previous
+        assert dst.footer.paragraphs[0].text == "FOOT"
+
+    def it_is_a_noop_when_source_has_no_header_definition(self):
+        document = Document()
+        document.add_section()
+        src, dst = document.sections[0], document.sections[1]
+
+        # -- source has no explicit header; dst starts linked --
+        assert src.header.is_linked_to_previous
+        assert dst.header.is_linked_to_previous
+
+        dst.copy_header_from(src)
+
+        # -- nothing was rewired --
+        assert dst.header.is_linked_to_previous
