@@ -1,0 +1,25 @@
+# Disable EOL conversion for binary fixtures so Windows checkouts
+# do not mangle test inputs. See upstream PR #699.
+
+# Office document formats
+*.docx binary
+*.dotx binary
+*.docm binary
+*.dotm binary
+*.doc  binary
+*.dot  binary
+*.xlsx binary
+*.pptx binary
+
+# Image formats used as fixtures
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.bmp  binary
+*.tif  binary
+*.tiff binary
+*.emf  binary
+*.wmf  binary
+*.ico  binary
+*.pdf  binary

@@ -68,7 +68,7 @@ Opening a 'file-like' document
 save to a file-like object. This can be handy when you want to get the source
 or target document over a network connection or from a database and don't want
 to (or aren't allowed to) interact with the file system. In practice this means
-you can pass an open file or StringIO/BytesIO stream object to open or save
+you can pass an open file or BytesIO stream object to open or save
 a document like so::
 
     f = open('foobar.docx', 'rb')
@@ -78,11 +78,11 @@ a document like so::
     # or
 
     with open('foobar.docx', 'rb') as f:
-        source_stream = StringIO(f.read())
+        source_stream = BytesIO(f.read())
     document = Document(source_stream)
     source_stream.close()
     ...
-    target_stream = StringIO()
+    target_stream = BytesIO()
     document.save(target_stream)
 
 The ``'rb'`` file open mode parameter isn't required on all operating
