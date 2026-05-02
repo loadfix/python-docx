@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from docx.comments import Comment, Comments
     from docx.content_controls import ContentControl, ContentControlType
     from docx.custom_properties import CustomProperties
+    from docx.extended_properties import ExtendedProperties
     from docx.custom_xml import CustomXmlPart
     from docx.embedded_objects import EmbeddedObject
     from docx.endnotes import Endnotes, EndnoteProperties
@@ -610,6 +611,36 @@ class Document(ElementProxy):
         """
         return self._part.custom_properties
 
+    def set_language(
+        self,
+        latin: str | None,
+        east_asian: str | None = None,
+        bidi: str | None = None,
+    ) -> None:
+        """Set the document-level theme-font language tags.
+
+        Convenience wrapper for assigning
+        :attr:`Settings.theme_font_language`. Pass ``latin`` as a BCP-47
+        language tag (e.g. ``"en-US"``); the East-Asian and bidi tags are
+        optional and default to |None| (meaning leave unset).
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        self.settings.theme_font_language = (latin, east_asian, bidi)
+
+    @property
+    def extended_properties(self) -> ExtendedProperties:
+        """An |ExtendedProperties| proxy for this document's ``docProps/app.xml``.
+
+        Exposes application-written metadata such as ``Company``, ``Manager``,
+        ``Application``, ``AppVersion``, ``TotalTime``, and the cached
+        ``Pages`` / ``Words`` / ``Characters`` statistics. A default (empty)
+        extended-properties part is created on demand when none is present.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self._part.extended_properties
+
     @property
     def custom_xml_parts(self) -> list[CustomXmlPart]:
         """List of |CustomXmlPart| proxies for the custom XML data parts in the package.
@@ -1051,11 +1082,31 @@ class Document(ElementProxy):
         semantics. Paragraphs nested inside tables or block-level content
         controls are included because they are part of the body story.
 
+        :attr:`DocumentStatistics.pages` is populated from the cached
+        ``<Pages>`` value in the extended-properties part (``docProps/app.xml``)
+        when present, otherwise |None| -- python-docx does not lay the document
+        out so it cannot compute a true page count.
+
         .. versionadded:: 1.3.0.dev0
         """
         from docx.statistics import compute_statistics
 
-        return compute_statistics(self._element.body)
+        pages: int | None = None
+        try:
+            raw_pages = self.extended_properties.pages
+        except Exception:
+            # -- if the extended-properties part is missing or malformed,
+            # -- fall back silently to a |None| page count rather than
+            # -- propagating the error into the caller's statistics call.
+            raw_pages = None
+        # -- only accept genuine integer / None values; anything else (e.g.
+        # -- a Mock surfaced by test doubles) is treated as "unknown" --
+        if isinstance(raw_pages, int) and not isinstance(raw_pages, bool):
+            pages = raw_pages
+        else:
+            pages = None
+
+        return compute_statistics(self._element.body, pages=pages)
 
     @property
     def styles(self):

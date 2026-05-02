@@ -108,6 +108,27 @@ class DescribeDocument:
 
         assert isinstance(document, DocumentCls)
 
+    def it_strips_metadata_when_include_metadata_is_False(self):
+        # -- default template ships with Application, AppVersion, Template, etc.
+        # -- baseline: with include_metadata=True (default), those survive --
+        document = DocumentFactoryFn(include_metadata=False)
+
+        # -- core properties cleared --
+        assert document.core_properties.author == ""
+        assert document.core_properties.title == ""
+        assert document.core_properties.last_modified_by == ""
+        assert document.core_properties.modified is None
+        # -- extended properties cleared --
+        assert document.extended_properties.application is None
+        assert document.extended_properties.app_version is None
+        assert document.extended_properties.template is None
+
+    def it_keeps_metadata_by_default(self):
+        document = DocumentFactoryFn()
+
+        # -- the bundled template writes a known Application name --
+        assert document.extended_properties.application is not None
+
     def it_opens_a_docm_file(self, Package_: Mock, document_: Mock):
         document_part = Package_.open.return_value.main_document_part
         document_part.document = document_

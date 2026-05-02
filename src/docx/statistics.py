@@ -45,12 +45,24 @@ class DocumentStatistics(NamedTuple):
     characters_no_spaces: int
     """Count of characters in body text, excluding whitespace."""
 
+    pages: int | None = None
+    """Cached page count (from ``docProps/app.xml``), or |None| if not recorded.
 
-def compute_statistics(body: CT_Body) -> DocumentStatistics:
+    python-docx does not lay the document out so it cannot derive a true page
+    count. This field surfaces the ``<Pages>`` value written by the last
+    application that saved the document (Word, etc.); :obj:`None` is returned
+    when no extended-properties part is present or the property is absent.
+
+    .. versionadded:: 1.3.0.dev0
+    """
+
+
+def compute_statistics(body: CT_Body, pages: int | None = None) -> DocumentStatistics:
     """Return a |DocumentStatistics| for the given ``w:body`` element.
 
     Descends into tables and other block containers so all paragraphs in the body
-    story contribute to the counts.
+    story contribute to the counts. When `pages` is given it populates
+    :attr:`DocumentStatistics.pages`; otherwise that field is |None|.
 
     .. versionadded:: 1.3.0.dev0
     """
@@ -73,4 +85,5 @@ def compute_statistics(body: CT_Body) -> DocumentStatistics:
         words=word_count,
         characters=character_count,
         characters_no_spaces=character_no_spaces_count,
+        pages=pages,
     )

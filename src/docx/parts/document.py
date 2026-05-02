@@ -9,6 +9,7 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.parts.comments import CommentsPart
 from docx.parts.custom_properties import CustomPropertiesPart
 from docx.parts.endnotes import EndnotesPart
+from docx.parts.extended_properties import ExtendedPropertiesPart
 from docx.parts.font_table import FontTablePart
 from docx.parts.footnotes import FootnotesPart
 from docx.parts.glossary import GlossaryPart
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
     from docx.custom_xml import CustomXmlPart as CustomXmlPartProxy
     from docx.endnotes import Endnotes
     from docx.enum.style import WD_STYLE_TYPE
+    from docx.extended_properties import ExtendedProperties
     from docx.font_table import FontTable
     from docx.footnotes import Footnotes
     from docx.glossary import Glossary
@@ -191,6 +193,29 @@ class DocumentPart(StoryPart):
             custom_properties_part = CustomPropertiesPart.default(self.package)
             self.relate_to(custom_properties_part, RT.CUSTOM_PROPERTIES)
             return custom_properties_part
+
+    @property
+    def extended_properties(self) -> ExtendedProperties:
+        """An |ExtendedProperties| proxy for the document's ``app.xml`` part.
+
+        The extended-properties part is related to the package (not the
+        main-document part), following the convention used for core properties.
+        A default (empty) part is created on demand when none is present.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        return self._extended_properties_part.extended_properties
+
+    @property
+    def _extended_properties_part(self) -> ExtendedPropertiesPart:
+        """Return the package-scoped |ExtendedPropertiesPart| for this document.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        assert self.package is not None
+        return cast(
+            ExtendedPropertiesPart, self.package._extended_properties_part
+        )  # pyright: ignore[reportPrivateUsage]
 
     @property
     def document(self):

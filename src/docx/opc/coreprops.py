@@ -21,6 +21,23 @@ class CoreProperties:
     def __init__(self, element: CT_CoreProperties):
         self._element = element
 
+    def clear_all(self) -> None:
+        """Remove every child element from this core-properties part.
+
+        Resets all Dublin-Core properties (author, title, subject, keywords,
+        created/modified timestamps, etc.) to their unset state. The root
+        ``cp:coreProperties`` element is preserved (an empty core-properties
+        part is still wired into the package).
+
+        Typically used together with ``Document(..., include_metadata=False)``
+        (or ``extended_properties.clear_all()``) to strip identifying metadata
+        from a freshly-created document.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        for child in list(self._element):
+            self._element.remove(child)
+
     @property
     def author(self):
         return self._element.author_text

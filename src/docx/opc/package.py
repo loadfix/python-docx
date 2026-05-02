@@ -350,6 +350,25 @@ class OpcPackage:
         PackageWriter.write(pkg_file, self.rels, self.parts)
 
     @property
+    def _extended_properties_part(self):
+        """Return the |ExtendedPropertiesPart| related to this package.
+
+        Creates a default (empty) extended-properties part lazily when none is
+        already related. Mirrors :attr:`_core_properties_part`; the
+        extended-properties part is conventionally wired to the package root.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.parts.extended_properties import ExtendedPropertiesPart
+
+        try:
+            return cast(ExtendedPropertiesPart, self.part_related_by(RT.EXTENDED_PROPERTIES))
+        except KeyError:
+            part = ExtendedPropertiesPart.default(self)
+            self.relate_to(part, RT.EXTENDED_PROPERTIES)
+            return part
+
+    @property
     def _core_properties_part(self) -> CorePropertiesPart:
         """|CorePropertiesPart| object related to this package.
 
