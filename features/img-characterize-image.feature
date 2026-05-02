@@ -25,3 +25,4 @@ Feature: Characterize an image file
      | lena.gif         | image/gif  |  256 |  256 |    72    |    72    |
      | lena.bmp         | image/bmp  |  512 |  512 |    96    |    96    |
      | mountain.bmp     | image/bmp  |  640 |  480 |   300    |   300    |
+     | test.svg         | image/svg+xml | 200 | 150 |    96    |    96    |

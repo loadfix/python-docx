@@ -22,3 +22,10 @@ Feature: Add picture to a run
       | Table.cell         |
       | Table.row.cells    |
       | Table.column.cells |
+
+
+  Scenario: Add an SVG picture to a run
+    Given a run
+     When I add an SVG picture to the run
+     Then the picture appears at the end of the run
+      And the run's inline shape has content type "image/svg+xml"

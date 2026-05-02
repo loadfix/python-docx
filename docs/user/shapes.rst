@@ -25,3 +25,7 @@ issue tracker. The ``Document.add_picture()`` method adds a specified picture
 to the end of the document in a paragraph of its own. However, by digging
 a little deeper into the API you can place text on either side of the picture
 in its paragraph, or both.
+
+For fork-era additions — floating (anchored) images, DrawingML preset shapes,
+group shapes, text-frame content, ink annotations, embedded OLE objects,
+accessibility alt text and titles, and SVG input — see :doc:`drawing`.
