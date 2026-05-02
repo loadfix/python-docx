@@ -1,6 +1,7 @@
 """Unit test suite for docx.image package"""
 
 import io
+import pathlib
 
 import pytest
 
@@ -39,6 +40,26 @@ class DescribeImage:
         image = Image.from_file(image_path)
         _from_stream_.assert_called_once_with(stream_, blob, filename)
         assert image is image_
+
+    def it_can_construct_from_a_pathlib_path(self, from_path_fixture):
+        """Regression test for upstream-PR#1168: `pathlib.Path` rejected.
+
+        `Image.from_file` must accept any `os.PathLike`, applying
+        `os.fspath()` at the entry point.
+        """
+        image_path, _from_stream_, stream_, blob, filename, image_ = from_path_fixture
+        image = Image.from_file(pathlib.Path(image_path))
+        _from_stream_.assert_called_once_with(stream_, blob, filename)
+        assert image is image_
+
+    def it_integrates_with_pathlib_end_to_end(self):
+        """End-to-end: no mocks; parse a real PNG via `pathlib.Path`."""
+        image_path = pathlib.Path(test_file("python-icon.png"))
+
+        image = Image.from_file(image_path)
+
+        assert image.ext == "png"
+        assert image.filename == "python-icon.png"
 
     def it_can_construct_from_an_image_file_like(self, from_filelike_fixture):
         image_stream, _from_stream_, blob, image_ = from_filelike_fixture

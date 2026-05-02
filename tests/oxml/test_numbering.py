@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import cast
 
 from docx.oxml.numbering import (
@@ -60,6 +61,99 @@ class DescribeCT_Numbering:
 
         assert numbering.abstractNum_having_abstractNumId(a.abstractNumId) is a
         assert numbering.abstractNum_having_abstractNumId(b.abstractNumId) is b
+
+    def it_returns_1_for_next_numId_when_empty(self):
+        numbering = cast(CT_Numbering, element("w:numbering"))
+
+        assert numbering._next_numId == 1
+
+    def it_fills_gaps_in_numId_sequence(self):
+        numbering = cast(CT_Numbering, element("w:numbering"))
+        numbering.add_num(abstractNum_id=0, num_id=1)
+        numbering.add_num(abstractNum_id=0, num_id=2)
+        numbering.add_num(abstractNum_id=0, num_id=4)
+
+        # -- gap at 3 must be filled before appending past the max --
+        assert numbering._next_numId == 3
+
+    def it_returns_max_plus_1_when_contiguous(self):
+        numbering = cast(CT_Numbering, element("w:numbering"))
+        numbering.add_num(abstractNum_id=0, num_id=1)
+        numbering.add_num(abstractNum_id=0, num_id=2)
+        numbering.add_num(abstractNum_id=0, num_id=3)
+
+        assert numbering._next_numId == 4
+
+    def it_handles_a_single_non_contiguous_numId(self):
+        numbering = cast(CT_Numbering, element("w:numbering"))
+        numbering.add_num(abstractNum_id=0, num_id=5)
+
+        # -- gap starts at 1 --
+        assert numbering._next_numId == 1
+
+    def it_computes_next_numId_quickly_on_large_contiguous_set(self):
+        """Regression test for upstream#940 (O(n^2) _next_numId).
+
+        With 10_000+ existing contiguous numIds the fast path is O(n) to build
+        the id list and O(1) to decide the answer; the whole call must finish
+        well under a second.  A previously quadratic impl would take many
+        seconds here.
+        """
+        numbering = cast(CT_Numbering, element("w:numbering"))
+        n = 10_000
+        for i in range(1, n + 1):
+            numbering.add_num(abstractNum_id=0, num_id=i)
+
+        start = time.perf_counter()
+        next_id = numbering._next_numId
+        elapsed = time.perf_counter() - start
+
+        assert next_id == n + 1
+        # -- generous upper bound; real-world runtime is ~a few ms --
+        assert elapsed < 1.0, f"_next_numId took {elapsed:.3f}s for n={n}"
+
+    def it_still_gap_fills_on_a_large_sparse_set(self):
+        """Sparse case still picks the lowest free id, even at scale."""
+        numbering = cast(CT_Numbering, element("w:numbering"))
+        n = 10_000
+        # -- skip id 42 to create a gap --
+        for i in range(1, n + 1):
+            if i == 42:
+                continue
+            numbering.add_num(abstractNum_id=0, num_id=i)
+
+        start = time.perf_counter()
+        next_id = numbering._next_numId
+        elapsed = time.perf_counter() - start
+
+        assert next_id == 42
+        assert elapsed < 1.0, f"_next_numId took {elapsed:.3f}s for n={n}"
+
+    def it_returns_0_for_next_abstractNumId_when_empty(self):
+        numbering = cast(CT_Numbering, element("w:numbering"))
+
+        assert numbering._next_abstractNumId == 0
+
+    def it_computes_next_abstractNumId_quickly_on_large_set(self):
+        numbering = cast(CT_Numbering, element("w:numbering"))
+        n = 5_000
+        for _ in range(n):
+            numbering.add_abstractNum()
+
+        start = time.perf_counter()
+        next_id = numbering._next_abstractNumId
+        elapsed = time.perf_counter() - start
+
+        assert next_id == n
+        assert elapsed < 1.0, f"_next_abstractNumId took {elapsed:.3f}s for n={n}"
+
+    def it_gap_fills_next_abstractNumId(self):
+        numbering = cast(CT_Numbering, element("w:numbering"))
+        numbering.add_abstractNum(0)
+        numbering.add_abstractNum(1)
+        numbering.add_abstractNum(3)
+
+        assert numbering._next_abstractNumId == 2
 
 
 class DescribeCT_AbstractNum:

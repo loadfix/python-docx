@@ -296,23 +296,50 @@ class CT_Numbering(BaseOxmlElement):
     @property
     def _next_numId(self) -> int:
         """The first ``numId`` unused by a ``<w:num>`` element, starting at 1 and
-        filling any gaps in numbering between existing ``<w:num>`` elements."""
+        filling any gaps in numbering between existing ``<w:num>`` elements.
+
+        O(n) with an O(1) fast path when existing ``numId`` values are contiguous
+        starting at 1 (the common case).  Falls back to a full set scan only when
+        there is an actual gap to fill, preserving gap-fill semantics.
+        """
         numId_strs = self.xpath("./w:num/@w:numId")
-        num_ids = [int(numId_str) for numId_str in numId_strs]
-        for num in range(1, len(num_ids) + 2):
-            if num not in num_ids:
-                break
-        return num
+        if not numId_strs:
+            return 1
+        num_ids = [int(s) for s in numId_strs]
+        n = len(num_ids)
+        max_id = max(num_ids)
+        # -- Fast path: IDs form the contiguous set {1..n} with no gaps. --
+        # -- Sum of 1..n is n*(n+1)//2; if that matches and max == n then
+        # -- every int in that range is present and the next free id is n+1.
+        if max_id == n and sum(num_ids) == n * (n + 1) // 2:
+            return n + 1
+        # -- Slow path: there's a gap; find it with a set membership test. --
+        num_id_set = set(num_ids)
+        for candidate in range(1, max_id + 2):
+            if candidate not in num_id_set:
+                return candidate
+        # -- Unreachable, but satisfies type checker. --
+        return max_id + 1
 
     @property
     def _next_abstractNumId(self) -> int:
         """Return the first unused ``abstractNumId``, starting at 0.
 
-        Fills any gap in existing numbering.
+        Fills any gap in existing numbering.  O(n) with an O(1) fast path when
+        the existing ids form the contiguous set ``{0..n-1}``.
         """
         abstractNumId_strs = self.xpath("./w:abstractNum/@w:abstractNumId")
+        if not abstractNumId_strs:
+            return 0
         ids = [int(s) for s in abstractNumId_strs]
-        for candidate in range(0, len(ids) + 1):
-            if candidate not in ids:
+        n = len(ids)
+        max_id = max(ids)
+        # -- Fast path: contiguous {0..n-1} -> next is n. --
+        if max_id == n - 1 and sum(ids) == n * (n - 1) // 2:
+            return n
+        # -- Slow path: find the gap. --
+        id_set = set(ids)
+        for candidate in range(0, max_id + 2):
+            if candidate not in id_set:
                 return candidate
-        return 0
+        return max_id + 1
