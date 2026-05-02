@@ -3,7 +3,7 @@
 from docx.opc.constants import RELATIONSHIP_TARGET_MODE as RTM
 from docx.opc.oxml import parse_xml
 from docx.opc.packuri import PACKAGE_URI, PackURI
-from docx.opc.phys_pkg import PhysPkgReader
+from docx.opc.phys_pkg import PhysPkgReader, _looks_like_strict_package
 from docx.opc.shared import CaseInsensitiveDict
 
 
@@ -18,8 +18,25 @@ class PackageReader:
 
     @staticmethod
     def from_file(pkg_file):
-        """Return a |PackageReader| instance loaded with contents of `pkg_file`."""
+        """Return a |PackageReader| instance loaded with contents of `pkg_file`.
+
+        If `pkg_file` is a Flat-OPC ``<pkg:package>`` XML file, it is expanded
+        to an in-memory zip first so the normal reader path handles it.
+        Strict-OOXML packages are transparently translated to Transitional
+        as blobs flow through the physical reader. Closes upstream#892,
+        upstream#1520, upstream#693.
+        """
+        from docx.opc.flat_opc import (
+            expand_flat_opc_to_zip_stream,
+            looks_like_flat_opc,
+        )
+        from docx.opc.phys_pkg import _StrictTranslatingPkgReader
+
+        if looks_like_flat_opc(pkg_file):
+            pkg_file = expand_flat_opc_to_zip_stream(pkg_file)
         phys_reader = PhysPkgReader(pkg_file)
+        if _looks_like_strict_package(phys_reader):
+            phys_reader = _StrictTranslatingPkgReader(phys_reader)
         content_types = _ContentTypeMap.from_xml(phys_reader.content_types_xml)
         pkg_srels = PackageReader._srels_for(phys_reader, PACKAGE_URI)
         sparts = PackageReader._load_serialized_parts(phys_reader, pkg_srels, content_types)

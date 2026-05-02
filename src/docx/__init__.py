@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from docx.api import Document
+from docx.api import Document, from_template
 
 if TYPE_CHECKING:
     from docx.opc.part import Part
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 __version__ = "1.2.0"
 
 
-__all__ = ["Document"]
+__all__ = ["Document", "from_template"]
 
 
 # -- register custom Part classes with opc package reader --
@@ -70,6 +70,8 @@ PartFactory.part_type_for[CT.XML] = CustomXmlPart
 PartFactory.part_type_for[CT.WML_COMMENTS] = CommentsPart
 PartFactory.part_type_for[CT.WML_DOCUMENT_MAIN] = DocumentPart
 PartFactory.part_type_for[CT.WML_DOCUMENT_MACRO] = DocumentPart
+PartFactory.part_type_for[CT.WML_TEMPLATE_MAIN] = DocumentPart
+PartFactory.part_type_for[CT.WML_TEMPLATE_MACRO] = DocumentPart
 PartFactory.part_type_for[CT.WML_ENDNOTES] = EndnotesPart
 PartFactory.part_type_for[CT.WML_FONT_TABLE] = FontTablePart
 PartFactory.part_type_for[CT.X_FONTDATA] = FontPart
