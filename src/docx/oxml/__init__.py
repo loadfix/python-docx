@@ -320,16 +320,32 @@ from .settings import (
     CT_DefaultTabStop,
     CT_DocProtect,
     CT_LongHexNumber,
+    CT_MailMerge,
     CT_Rsids,
     CT_Settings,
     CT_View,
     CT_Zoom,
+    _CT_MMVal,
 )
 
 register_element_cls("w:compat", CT_Compat)
 register_element_cls("w:compatSetting", CT_CompatSetting)
 register_element_cls("w:defaultTabStop", CT_DefaultTabStop)
 register_element_cls("w:documentProtection", CT_DocProtect)
+register_element_cls("w:mailMerge", CT_MailMerge)
+register_element_cls("w:mainDocumentType", _CT_MMVal)
+register_element_cls("w:dataType", _CT_MMVal)
+register_element_cls("w:connectString", _CT_MMVal)
+register_element_cls("w:query", _CT_MMVal)
+register_element_cls("w:destination", _CT_MMVal)
+register_element_cls("w:addressFieldName", _CT_MMVal)
+register_element_cls("w:mailSubject", _CT_MMVal)
+register_element_cls("w:activeRecord", _CT_MMVal)
+register_element_cls("w:checkErrors", _CT_MMVal)
+register_element_cls("w:linkToQuery", CT_OnOff)
+register_element_cls("w:doNotSuppressBlankLines", CT_OnOff)
+register_element_cls("w:mailAsAttachment", CT_OnOff)
+register_element_cls("w:viewMergedData", CT_OnOff)
 register_element_cls("w:rsid", CT_LongHexNumber)
 register_element_cls("w:rsidRoot", CT_LongHexNumber)
 register_element_cls("w:rsids", CT_Rsids)

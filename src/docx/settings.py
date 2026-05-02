@@ -8,14 +8,20 @@ import os
 import warnings
 from typing import TYPE_CHECKING, Iterator, cast
 
-from docx.enum.text import WD_PROTECTION, WD_VIEW
+from docx.enum.text import (
+    WD_MAIL_MERGE_DATA_TYPE,
+    WD_MAIL_MERGE_DESTINATION,
+    WD_MAIL_MERGE_TYPE,
+    WD_PROTECTION,
+    WD_VIEW,
+)
 from docx.shared import ElementProxy
 
 if TYPE_CHECKING:
     import docx.types as t
     from docx.endnotes import EndnoteProperties
     from docx.footnotes import FootnoteProperties
-    from docx.oxml.settings import CT_Compat, CT_Settings
+    from docx.oxml.settings import CT_Compat, CT_MailMerge, CT_Settings
     from docx.oxml.xmlchemy import BaseOxmlElement
     from docx.shared import Length
 
@@ -194,6 +200,56 @@ class Settings(ElementProxy):
     def disable_protection(self) -> None:
         """Remove the ``w:documentProtection`` element entirely."""
         self._settings._remove_documentProtection()  # pyright: ignore[reportPrivateUsage]
+
+    @property
+    def mail_merge(self) -> MailMerge | None:
+        """Access the mail-merge configuration or |None| when not configured.
+
+        Returns a |MailMerge| proxy providing read/write access to the
+        ``w:mailMerge`` element's fields (main document type, destination,
+        data source, query, etc.). Returns |None| when the document has no
+        mail-merge block.
+        """
+        mm = self._settings.mailMerge
+        if mm is None:
+            return None
+        return MailMerge(mm)
+
+    def enable_mail_merge(
+        self,
+        main_document_type: WD_MAIL_MERGE_TYPE = WD_MAIL_MERGE_TYPE.FORM_LETTERS,
+        destination: WD_MAIL_MERGE_DESTINATION | None = None,
+        data_type: WD_MAIL_MERGE_DATA_TYPE | None = None,
+        connect_string: str | None = None,
+        query: str | None = None,
+        mail_subject: str | None = None,
+        address_field_name: str | None = None,
+    ) -> MailMerge:
+        """Create or replace the ``w:mailMerge`` element and return a proxy.
+
+        `main_document_type` selects the merge style (form letters by default).
+        Any other argument left as |None| is omitted from the XML.
+        """
+        mm = self._settings.get_or_add_mailMerge()
+        proxy = MailMerge(mm)
+        proxy.main_document_type = main_document_type
+        if destination is not None:
+            proxy.destination = destination
+        if data_type is not None:
+            proxy.data_type = data_type
+        if connect_string is not None:
+            proxy.connect_string = connect_string
+        if query is not None:
+            proxy.query = query
+        if mail_subject is not None:
+            proxy.mail_subject = mail_subject
+        if address_field_name is not None:
+            proxy.address_field_name = address_field_name
+        return proxy
+
+    def disable_mail_merge(self) -> None:
+        """Remove the ``w:mailMerge`` element entirely."""
+        self._settings._remove_mailMerge()  # pyright: ignore[reportPrivateUsage]
 
     @property
     def even_and_odd_headers(self) -> bool:
@@ -786,3 +842,209 @@ class CompatFlags:
         Setting a name not in this list still works.
         """
         return _KNOWN_COMPAT_FLAG_NAMES
+
+
+class MailMerge:
+    """Access to the mail-merge configuration stored in ``w:settings/w:mailMerge``.
+
+    python-docx does not execute mail merges; this proxy exposes the stored
+    configuration (main-document type, destination, data-source metadata,
+    query, active record, etc.) so callers can inspect or modify the settings
+    that Word will use when the merge is run.
+    """
+
+    def __init__(self, mailMerge: CT_MailMerge):
+        self._mm = mailMerge
+
+    # -- mainDocumentType ---------------------------------------------------
+
+    @property
+    def main_document_type(self) -> WD_MAIL_MERGE_TYPE | None:
+        el = self._mm.mainDocumentType
+        if el is None or el.val is None:
+            return None
+        return WD_MAIL_MERGE_TYPE.from_xml(el.val)
+
+    @main_document_type.setter
+    def main_document_type(self, value: WD_MAIL_MERGE_TYPE | None):
+        if value is None:
+            self._mm._remove_mainDocumentType()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._mm.get_or_add_mainDocumentType().val = value.xml_value
+
+    # -- destination --------------------------------------------------------
+
+    @property
+    def destination(self) -> WD_MAIL_MERGE_DESTINATION | None:
+        el = self._mm.destination
+        if el is None or el.val is None:
+            return None
+        return WD_MAIL_MERGE_DESTINATION.from_xml(el.val)
+
+    @destination.setter
+    def destination(self, value: WD_MAIL_MERGE_DESTINATION | None):
+        if value is None:
+            self._mm._remove_destination()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._mm.get_or_add_destination().val = value.xml_value
+
+    # -- dataType -----------------------------------------------------------
+
+    @property
+    def data_type(self) -> WD_MAIL_MERGE_DATA_TYPE | None:
+        el = self._mm.dataType
+        if el is None or el.val is None:
+            return None
+        try:
+            return WD_MAIL_MERGE_DATA_TYPE.from_xml(el.val)
+        except ValueError:
+            return None
+
+    @data_type.setter
+    def data_type(self, value: WD_MAIL_MERGE_DATA_TYPE | None):
+        if value is None:
+            self._mm._remove_dataType()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._mm.get_or_add_dataType().val = value.xml_value
+
+    # -- connect_string -----------------------------------------------------
+
+    @property
+    def connect_string(self) -> str | None:
+        el = self._mm.connectString
+        return el.val if el is not None else None
+
+    @connect_string.setter
+    def connect_string(self, value: str | None):
+        if value is None:
+            self._mm._remove_connectString()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._mm.get_or_add_connectString().val = value
+
+    # -- query --------------------------------------------------------------
+
+    @property
+    def query(self) -> str | None:
+        el = self._mm.query
+        return el.val if el is not None else None
+
+    @query.setter
+    def query(self, value: str | None):
+        if value is None:
+            self._mm._remove_query()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._mm.get_or_add_query().val = value
+
+    # -- mail_subject -------------------------------------------------------
+
+    @property
+    def mail_subject(self) -> str | None:
+        el = self._mm.mailSubject
+        return el.val if el is not None else None
+
+    @mail_subject.setter
+    def mail_subject(self, value: str | None):
+        if value is None:
+            self._mm._remove_mailSubject()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._mm.get_or_add_mailSubject().val = value
+
+    # -- address_field_name -------------------------------------------------
+
+    @property
+    def address_field_name(self) -> str | None:
+        el = self._mm.addressFieldName
+        return el.val if el is not None else None
+
+    @address_field_name.setter
+    def address_field_name(self, value: str | None):
+        if value is None:
+            self._mm._remove_addressFieldName()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._mm.get_or_add_addressFieldName().val = value
+
+    # -- active_record ------------------------------------------------------
+
+    @property
+    def active_record(self) -> int | None:
+        el = self._mm.activeRecord
+        if el is None or el.val is None:
+            return None
+        try:
+            return int(el.val)
+        except (TypeError, ValueError):
+            return None
+
+    @active_record.setter
+    def active_record(self, value: int | None):
+        if value is None:
+            self._mm._remove_activeRecord()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._mm.get_or_add_activeRecord().val = str(int(value))
+
+    # -- check_errors -------------------------------------------------------
+
+    @property
+    def check_errors(self) -> int | None:
+        el = self._mm.checkErrors
+        if el is None or el.val is None:
+            return None
+        try:
+            return int(el.val)
+        except (TypeError, ValueError):
+            return None
+
+    @check_errors.setter
+    def check_errors(self, value: int | None):
+        if value is None:
+            self._mm._remove_checkErrors()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._mm.get_or_add_checkErrors().val = str(int(value))
+
+    # -- bool flags ---------------------------------------------------------
+
+    def _get_bool(self, tag: str) -> bool:
+        el = getattr(self._mm, tag)
+        if el is None:
+            return False
+        val = el.val if hasattr(el, "val") else None
+        # absent val on an ST_OnOff wrapper is "on"
+        return True if val is None else bool(val)
+
+    def _set_bool(self, tag: str, value: bool) -> None:
+        if value:
+            getattr(self._mm, f"get_or_add_{tag}")()
+        else:
+            getattr(self._mm, f"_remove_{tag}")()
+
+    @property
+    def link_to_query(self) -> bool:
+        return self._get_bool("linkToQuery")
+
+    @link_to_query.setter
+    def link_to_query(self, value: bool):
+        self._set_bool("linkToQuery", value)
+
+    @property
+    def do_not_suppress_blank_lines(self) -> bool:
+        return self._get_bool("doNotSuppressBlankLines")
+
+    @do_not_suppress_blank_lines.setter
+    def do_not_suppress_blank_lines(self, value: bool):
+        self._set_bool("doNotSuppressBlankLines", value)
+
+    @property
+    def mail_as_attachment(self) -> bool:
+        return self._get_bool("mailAsAttachment")
+
+    @mail_as_attachment.setter
+    def mail_as_attachment(self, value: bool):
+        self._set_bool("mailAsAttachment", value)
+
+    @property
+    def view_merged_data(self) -> bool:
+        return self._get_bool("viewMergedData")
+
+    @view_merged_data.setter
+    def view_merged_data(self, value: bool):
+        self._set_bool("viewMergedData", value)

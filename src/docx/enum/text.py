@@ -895,3 +895,72 @@ class WD_BUILDING_BLOCK_GALLERY(BaseXmlEnum):
             if member.xml_value == xml_value:
                 return member
         return None
+
+
+class WD_MAIL_MERGE_TYPE(BaseXmlEnum):
+    """Specifies the mail-merge main document type.
+
+    Maps to ``w:mailMerge/w:mainDocumentType/@w:val``.
+    """
+
+    CATALOG = (0, "catalog", "Catalog-style merge (all records on one page).")
+    """Catalog-style merge (all records on one page)."""
+
+    ENVELOPES = (1, "envelopes", "Envelope printing merge.")
+    """Envelope printing merge."""
+
+    MAILING_LABELS = (2, "mailingLabels", "Mailing-label printing merge.")
+    """Mailing-label printing merge."""
+
+    FORM_LETTERS = (3, "formLetters", "Form-letter merge (one letter per record).")
+    """Form-letter merge (one letter per record)."""
+
+    EMAIL = (4, "email", "Email-message merge.")
+    """Email-message merge."""
+
+    FAX = (5, "fax", "Fax merge.")
+    """Fax merge."""
+
+
+class WD_MAIL_MERGE_DESTINATION(BaseXmlEnum):
+    """Specifies where merged output is sent.
+
+    Maps to ``w:mailMerge/w:destination/@w:val``.
+    """
+
+    NEW_DOCUMENT = (0, "newDocument", "Produce a new Word document containing the merged output.")
+    """Produce a new Word document containing the merged output."""
+
+    PRINTER = (1, "printer", "Send output directly to the printer.")
+    """Send output directly to the printer."""
+
+    EMAIL = (2, "email", "Email each merged record.")
+    """Email each merged record."""
+
+    FAX = (3, "fax", "Fax each merged record.")
+    """Fax each merged record."""
+
+
+class WD_MAIL_MERGE_DATA_TYPE(BaseXmlEnum):
+    """Specifies the data-source kind for a mail merge.
+
+    Maps to ``w:mailMerge/w:dataType/@w:val``.
+    """
+
+    TEXT_FILE = (0, "textFile", "Delimited text file (CSV / TSV).")
+    """Delimited text file (CSV / TSV)."""
+
+    DATABASE = (1, "database", "Microsoft Access or similar database.")
+    """Microsoft Access or similar database."""
+
+    SPREADSHEET = (2, "spreadsheet", "Excel spreadsheet.")
+    """Excel spreadsheet."""
+
+    QUERY = (3, "query", "Word query file.")
+    """Word query file."""
+
+    ODBC = (4, "odbc", "ODBC-connected data source.")
+    """ODBC-connected data source."""
+
+    NATIVE = (5, "native", "Native Word data source.")
+    """Native Word data source."""
