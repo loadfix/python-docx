@@ -18,7 +18,7 @@ class ContentControlType(enum.Enum):
 
     The type is determined by the presence of specific children of `w:sdtPr`.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     RICH_TEXT = "richText"
@@ -74,7 +74,7 @@ class ContentControl:
     exposes common metadata (tag, title, type, id) as well as read/write access to the
     text inside the SDT's `w:sdtContent`.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, sdt: "CT_Sdt"):
@@ -84,7 +84,7 @@ class ContentControl:
     def element(self) -> "CT_Sdt":
         """The underlying `w:sdt` lxml element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._sdt
 
@@ -94,7 +94,7 @@ class ContentControl:
     def tag(self) -> str | None:
         """Programmatic tag value (`w:sdtPr/w:tag/@w:val`), or |None| if not set.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._sdt.tag_val
 
@@ -108,7 +108,7 @@ class ContentControl:
     def title(self) -> str | None:
         """Friendly title (`w:sdtPr/w:alias/@w:val`), or |None| if not set.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._sdt.alias_val
 
@@ -126,7 +126,7 @@ class ContentControl:
         present in `w:sdtPr` (which is how rich-text content controls are identified
         in OOXML).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         marker = self._sdt.type_marker_tag()
         if marker is None:
@@ -139,7 +139,7 @@ class ContentControl:
     def sdt_id(self) -> int | None:
         """Integer `w:sdtPr/w:id/@w:val` value, or |None| if not present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._sdt.sdt_id
 
@@ -149,7 +149,7 @@ class ContentControl:
     def text(self) -> str:
         """Concatenated textual content of this content control.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._sdt.text
 
@@ -163,7 +163,7 @@ class ContentControl:
         inline SDTs (whose `sdtContent` contains `w:r` children), the content is
         replaced with a single `w:r` holding a `w:t` with `value`.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         sdtContent = self._sdt.get_or_add_sdtContent()
         # -- detect inline vs block by looking at existing children --
@@ -226,7 +226,7 @@ class ContentControl:
         python-docx surfaces the binding metadata only — it does not evaluate
         the XPath.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         sdtPr = self._sdt.sdtPr
         if sdtPr is None:
@@ -253,7 +253,7 @@ class ContentControl:
 
         Returns the resulting |DataBinding|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         sdtPr = self._sdt.get_or_add_sdtPr()
         dataBinding = sdtPr.get_or_add_dataBinding()
@@ -267,7 +267,7 @@ class ContentControl:
 
         Does nothing when this content control has no data binding.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         sdtPr = self._sdt.sdtPr
         if sdtPr is None:
@@ -282,7 +282,7 @@ class ContentControl:
 
         Returns |None| if this is not a checkbox SDT or no `w14:checked` child exists.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._sdt.checked
 
@@ -299,7 +299,7 @@ class DataBinding:
     exposes the binding metadata only — it does not evaluate the XPath or
     synchronize the control's displayed text with the bound value.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, dataBinding: "CT_DataBinding"):
@@ -309,7 +309,7 @@ class DataBinding:
     def element(self) -> "CT_DataBinding":
         """The underlying `w:dataBinding` lxml element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._dataBinding
 
@@ -321,7 +321,7 @@ class DataBinding:
         Word's behavior of omitting the attribute when no namespace prefixes
         are required.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         value = self._dataBinding.prefixMappings
         return value if value is not None else ""
@@ -336,7 +336,7 @@ class DataBinding:
 
         Returns the empty string when the attribute is not present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         value = self._dataBinding.xpath_val
         return value if value is not None else ""
@@ -351,7 +351,7 @@ class DataBinding:
 
         |None| when the attribute is not present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._dataBinding.storeItemID
 
@@ -380,7 +380,7 @@ def new_sdt(
     When `inline` is True, the sdtContent is initialized with an empty `w:r`. When
     False (block-level), the sdtContent is initialized with an empty `w:p`.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     from docx.oxml.content_controls import CT_Sdt  # local import to avoid cycles
 

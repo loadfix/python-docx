@@ -66,7 +66,7 @@ class Comments:
         is honoured as-is (no conversion); a naive datetime is treated as already
         being in UTC. Pass |None| explicitly for the default behaviour.
 
-        .. versionchanged:: 1.3.0.dev0
+        .. versionchanged:: 2026.05.0
            Added the `date` parameter so callers can supply a timezone-aware
            timestamp instead of the implicit ``datetime.now(UTC)``.
         """
@@ -174,8 +174,8 @@ class Comment(BlockItemContainer):
         Parameters behave identically to `Comments.add_comment()`, including the
         optional `date` timestamp (defaults to ``datetime.now(UTC)``).
 
-        .. versionadded:: 1.3.0.dev0
-        .. versionchanged:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
+        .. versionchanged:: 2026.05.0
            Added the `date` parameter.
         """
         parent_para_id = self._comment_elm.paraId
@@ -207,7 +207,7 @@ class Comment(BlockItemContainer):
     def replies(self) -> list[Comment]:
         """List of `Comment` objects that are replies to this comment.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         para_id = self._comment_elm.paraId
         if para_id is None:

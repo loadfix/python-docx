@@ -327,7 +327,7 @@ class CT_DecimalNumberWithVal(BaseOxmlElement):
     Used for ``w:consecutiveHyphenLimit`` (integer cap on consecutive hyphens),
     and similar decimal-valued settings children.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     val: int = RequiredAttribute("w:val", ST_DecimalNumber)  # pyright: ignore[reportAssignmentType]
@@ -339,7 +339,7 @@ class CT_Language(BaseOxmlElement):
     Carries optional ``@w:val`` (Latin), ``@w:eastAsia`` (East-Asian), and
     ``@w:bidi`` (bidirectional / complex-script) language-tag attributes.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     val: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
@@ -356,7 +356,7 @@ class CT_Language(BaseOxmlElement):
 class CT_DocVar(BaseOxmlElement):
     """`w:docVar` element, a single document variable name/value pair.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     name: str = RequiredAttribute("w:name", ST_String)  # pyright: ignore[reportAssignmentType]
@@ -366,7 +366,7 @@ class CT_DocVar(BaseOxmlElement):
 class CT_DocVars(BaseOxmlElement):
     """`w:docVars` element, container for ``w:docVar`` document-variable entries.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     _add_docVar: Callable[..., CT_DocVar]

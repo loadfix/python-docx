@@ -119,7 +119,7 @@ def huge_tree_mode() -> Iterator[None]:
     the security guarantees of the default parser no longer apply. Nestable
     with :func:`recovery_mode`.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     previous = _huge_tree_state.active
     _huge_tree_state.active = True

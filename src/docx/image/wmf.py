@@ -30,7 +30,7 @@ WMF_PLACEABLE_MAGIC = 0x9AC6CDD7
 class Wmf(BaseImageHeader):
     """Image header parser for placeable WMF (Windows Metafile) images.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     @classmethod

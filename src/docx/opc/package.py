@@ -347,7 +347,7 @@ class OpcPackage:
         timestamps and sorted member names so repeated saves of the same content
         produce byte-identical output. Closes upstream#1042 / upstream-PR#810.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
            The `reproducible` parameter.
         """
         if isinstance(pkg_file, str):
@@ -364,7 +364,7 @@ class OpcPackage:
         already related. Mirrors :attr:`_core_properties_part`; the
         extended-properties part is conventionally wired to the package root.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.parts.extended_properties import ExtendedPropertiesPart
 

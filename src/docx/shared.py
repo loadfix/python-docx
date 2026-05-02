@@ -139,7 +139,7 @@ class RGBColor(tuple[int, int, int]):
         short-hex convention. A leading ``"#"`` is tolerated (e.g. ``"#F0A"``
         or ``"#3C2F80"``).
 
-        .. versionchanged:: 1.3.0.dev0
+        .. versionchanged:: 2026.05.0
             3-character shorthand form accepted (closes upstream#1466).
         """
         if rgb_hex_str.startswith("#"):

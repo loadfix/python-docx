@@ -36,7 +36,7 @@ class TrackedChange(ElementProxy):
     containing one or more runs. For move revisions the :class:`MoveRevision`
     subclass exposes the additional `w:name` attribute and paired-peer lookup.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, element: CT_RunTrackChange):
@@ -47,7 +47,7 @@ class TrackedChange(ElementProxy):
     def author(self) -> str:
         """The author who made this change.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._tc_element.author
 
@@ -55,7 +55,7 @@ class TrackedChange(ElementProxy):
     def date(self) -> dt.datetime | None:
         """The date and time when this change was made, or |None| if not recorded.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._tc_element.date
 
@@ -63,7 +63,7 @@ class TrackedChange(ElementProxy):
     def text(self) -> str:
         """The textual content of this tracked change.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return cast(str, self._tc_element.text)
 
@@ -73,7 +73,7 @@ class TrackedChange(ElementProxy):
 
         One of ``"insertion"``, ``"deletion"``, ``"move_from"``, or ``"move_to"``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         # -- check the move subclasses before their bases (CT_MoveFrom extends
         # -- CT_Del, CT_MoveTo extends CT_Ins) --
@@ -94,7 +94,7 @@ class TrackedChange(ElementProxy):
         are removed (completing the move). For a `w:moveTo`, the wrapper is removed
         and its runs survive as live content.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._tc_element.accept()
 
@@ -108,7 +108,7 @@ class TrackedChange(ElementProxy):
         place. For a `w:moveTo`, the destination element and its content are removed
         (cancelling the move).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._tc_element.reject()
 
@@ -128,7 +128,7 @@ class MoveRevision(TrackedChange):
     round-trip unchanged; callers that need to work with them can iterate the
     underlying XML.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     @property
@@ -138,7 +138,7 @@ class MoveRevision(TrackedChange):
         Well-formed move-revision XML always includes a name, but the attribute
         is declared optional per ECMA-376 so callers must handle |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._tc_element.get(qn("w:name"))
 
@@ -151,7 +151,7 @@ class MoveRevision(TrackedChange):
         element's name. Returns |None| if the name is unset, if there is no
         tree root (detached element), or if no peer is found.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.oxml.tracked_changes import CT_MoveFrom, CT_MoveTo
 
@@ -190,7 +190,7 @@ class FormattingChange(ElementProxy):
     previous formatting via :attr:`old_properties`, which returns the inner
     `w:rPr`, `w:pPr`, or `w:sectPr` element holding the pre-edit values.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, element: CT_TrackChange):
@@ -201,7 +201,7 @@ class FormattingChange(ElementProxy):
     def author(self) -> str:
         """The author who made this formatting change.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._fc_element.author
 
@@ -209,7 +209,7 @@ class FormattingChange(ElementProxy):
     def date(self) -> dt.datetime | None:
         """When this formatting change was made, or |None| if not recorded.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._fc_element.date
 
@@ -225,7 +225,7 @@ class FormattingChange(ElementProxy):
         |None| if the change element has no inner properties element (malformed or
         "no prior formatting" case).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.oxml.tracked_changes import (
             CT_PPrChange,
@@ -472,7 +472,7 @@ def wrap_run_in_ins(
 
     Returns the new `w:ins` element.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     parent = r.getparent()
     if parent is None:
@@ -517,7 +517,7 @@ class _TrackedChangesCtx:
     `add_paragraph` / `add_run` overrides the context and works even when no
     context is active.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(

@@ -23,7 +23,7 @@ The copy is intentionally pragmatic rather than perfect:
 - ``w:numPr/w:numId/@w:val`` references are remapped onto copies of the source
   numbering definitions, copied into the destination numbering part.
 
-.. versionadded:: 1.3.0.dev0
+.. versionadded:: 2026.05.0
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ def append_document(dest: Document, source: Document) -> int:
     section properties are preserved — copied content is inserted before the
     destination's sentinel ``w:sectPr``.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     src_body = source._element.body  # type: ignore[attr-defined]
     dst_body = dest._element.body  # type: ignore[attr-defined]
@@ -80,7 +80,7 @@ def append_body(dest: Document, source: Document) -> int:
     Historically python-docx users have asked for both names (upstream#1457,
     upstream#558); the behaviour is identical today.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     return append_document(dest, source)
 
@@ -93,7 +93,7 @@ def append_paragraph(dest: Document, paragraph: Paragraph) -> Paragraph:
     objects, style / numbering references) are rewired the same way as for
     :func:`append_document`.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     from docx.text.paragraph import Paragraph as ParagraphCls
 

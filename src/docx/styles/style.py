@@ -63,7 +63,7 @@ class BaseStyle(ElementProxy):
         When |True|, Word updates the style definition to match any direct formatting
         applied to a paragraph using this style. Read-only.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return bool(self._element.autoRedefine_val)
 
@@ -75,7 +75,7 @@ class BaseStyle(ElementProxy):
         `w:link`. Returns |None| when no `w:link` element is present or the referenced
         style cannot be found in the styles collection.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         link_style_elm = self._element.linked_style
         if link_style_elm is None:
@@ -99,7 +99,7 @@ class BaseStyle(ElementProxy):
         Returns |None| if no `w:next` element is present or the referenced style is not
         found. Typically used on paragraph styles.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         next_style_elm = self._element.next_style
         if next_style_elm is None:

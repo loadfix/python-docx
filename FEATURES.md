@@ -11,7 +11,7 @@ This document is the full, single-page catalogue of what the library can do
 today. Each section covers one feature area, opens with a short overview,
 shows a copy-pasteable snippet against a fresh `Document()`, and then lists
 the public methods, properties, and classes that make up that surface.
-Items marked `[Added in 1.3.0.dev0]` are additions from this fork — every
+Items marked `[Added in 2026.05.0]` are additions from this fork — every
 other item is inherited from the upstream base.
 
 **Table of contents**
@@ -95,13 +95,13 @@ document.save("out.docx", reproducible=True)
 document.save("out.xml", flat_opc=True)
 ```
 
-- `docx.Document(docx=None, recover=False, huge_tree=False, include_metadata=True)` — Factory returning a `docx.document.Document`. `recover=True`, `huge_tree=True`, `include_metadata=False`, `os.PathLike` paths, `.dotx`/`.dotm` templates, Strict-OOXML, and Flat-OPC inputs are all `[Added in 1.3.0.dev0]`.
-- `docx.Document.from_template(template)` — Open a `.dotx`/`.dotm` and return a document whose main-part content-type is switched to the matching non-template variant. `[Added in 1.3.0.dev0]`
-- `Document.save(path_or_stream, flat_opc=False, reproducible=False)` — Write the document. `flat_opc` and `reproducible` are `[Added in 1.3.0.dev0]`.
-- `Document.close()` — Drop transient state (tracked-changes contexts). Safe to call more than once. `[Added in 1.3.0.dev0]`
-- `Document.__enter__` / `Document.__exit__` — Context-manager support. `[Added in 1.3.0.dev0]`
-- `Document.recovery_warnings` — List of parser warnings collected when `recover=True` was used. `[Added in 1.3.0.dev0]`
-- `docx.exceptions.EncryptedDocumentError` — Raised when opening a password-protected `.docx`. `[Added in 1.3.0.dev0]`
+- `docx.Document(docx=None, recover=False, huge_tree=False, include_metadata=True)` — Factory returning a `docx.document.Document`. `recover=True`, `huge_tree=True`, `include_metadata=False`, `os.PathLike` paths, `.dotx`/`.dotm` templates, Strict-OOXML, and Flat-OPC inputs are all `[Added in 2026.05.0]`.
+- `docx.Document.from_template(template)` — Open a `.dotx`/`.dotm` and return a document whose main-part content-type is switched to the matching non-template variant. `[Added in 2026.05.0]`
+- `Document.save(path_or_stream, flat_opc=False, reproducible=False)` — Write the document. `flat_opc` and `reproducible` are `[Added in 2026.05.0]`.
+- `Document.close()` — Drop transient state (tracked-changes contexts). Safe to call more than once. `[Added in 2026.05.0]`
+- `Document.__enter__` / `Document.__exit__` — Context-manager support. `[Added in 2026.05.0]`
+- `Document.recovery_warnings` — List of parser warnings collected when `recover=True` was used. `[Added in 2026.05.0]`
+- `docx.exceptions.EncryptedDocumentError` — Raised when opening a password-protected `.docx`. `[Added in 2026.05.0]`
 - `docx.exceptions.PythonDocxError` / `InvalidSpanError` / `InvalidXmlError` — Library-specific exceptions.
 
 ---
@@ -141,38 +141,38 @@ p.add_bookmark("chapter-1")
 document.save("out.docx")
 ```
 
-- `Document.add_paragraph(text="", style=None, track_author=None)` — Append a new paragraph. `track_author` wraps the inserted run in `w:ins`. `[Added in 1.3.0.dev0]` for `track_author` and `w:next` auto-style handling.
+- `Document.add_paragraph(text="", style=None, track_author=None)` — Append a new paragraph. `track_author` wraps the inserted run in `w:ins`. `[Added in 2026.05.0]` for `track_author` and `w:next` auto-style handling.
 - `Document.add_heading(text, level=1)` — Shortcut for `add_paragraph` with `"Heading N"` / `"Title"` style.
 - `Document.add_page_break()` — Append a paragraph containing only a page break.
-- `Document.add_caption(text, label="Figure", style="Caption")` — Append a numbered `SEQ`-field caption paragraph. `[Added in 1.3.0.dev0]`
+- `Document.add_caption(text, label="Figure", style="Caption")` — Append a numbered `SEQ`-field caption paragraph. `[Added in 2026.05.0]`
 - `Paragraph.insert_paragraph_before(text=None, style=None)` — Insert immediately before this paragraph.
-- `Paragraph.insert_paragraph_after(text=None, style=None)` — Insert immediately after. `[Added in 1.3.0.dev0]`
-- `Paragraph.insert_table_before(rows, cols, style=None, width=None)` / `insert_table_after(...)` — Insert a sibling table. `[Added in 1.3.0.dev0]`
-- `Paragraph.add_caption_before(text, label="Figure", style="Caption")` / `add_caption_after(...)` — Insert a caption adjacent to this paragraph. `[Added in 1.3.0.dev0]`
-- `Paragraph.insert_table_of_contents_before(levels=(1,3))` / `insert_table_of_contents_after(...)` — Insert a TOC paragraph adjacent to this one. `[Added in 1.3.0.dev0]`
-- `Paragraph.insert_section_break(start_type=WD_SECTION.NEW_PAGE)` / `remove_section_break()` — Add/remove a `w:sectPr` inside this paragraph. `[Added in 1.3.0.dev0]`
-- `Paragraph.delete()` — Remove this paragraph from its parent. `[Added in 1.3.0.dev0]`
+- `Paragraph.insert_paragraph_after(text=None, style=None)` — Insert immediately after. `[Added in 2026.05.0]`
+- `Paragraph.insert_table_before(rows, cols, style=None, width=None)` / `insert_table_after(...)` — Insert a sibling table. `[Added in 2026.05.0]`
+- `Paragraph.add_caption_before(text, label="Figure", style="Caption")` / `add_caption_after(...)` — Insert a caption adjacent to this paragraph. `[Added in 2026.05.0]`
+- `Paragraph.insert_table_of_contents_before(levels=(1,3))` / `insert_table_of_contents_after(...)` — Insert a TOC paragraph adjacent to this one. `[Added in 2026.05.0]`
+- `Paragraph.insert_section_break(start_type=WD_SECTION.NEW_PAGE)` / `remove_section_break()` — Add/remove a `w:sectPr` inside this paragraph. `[Added in 2026.05.0]`
+- `Paragraph.delete()` — Remove this paragraph from its parent. `[Added in 2026.05.0]`
 - `Paragraph.clear()` — Remove all content while keeping paragraph-level formatting.
 - `Paragraph.alignment` — `WD_PARAGRAPH_ALIGNMENT` (see [enum](docs/api/enum/WdAlignParagraph.rst)).
 - `Paragraph.style` — Read/write paragraph style as a `ParagraphStyle` or name.
 - `Paragraph.text` — Read/write plain text (replaces all content on set).
 - `Paragraph.paragraph_format` — `ParagraphFormat` proxy — indent, spacing, borders, frame, etc.
-- `Paragraph.font` — Paragraph-mark `rPr` proxy. `[Added in 1.3.0.dev0]`
-- `Paragraph.runs` / `Paragraph.all_runs` — Direct-child runs vs every visible run (descends into hyperlinks, fields, SDTs, ins/del). `all_runs` is `[Added in 1.3.0.dev0]`.
+- `Paragraph.font` — Paragraph-mark `rPr` proxy. `[Added in 2026.05.0]`
+- `Paragraph.runs` / `Paragraph.all_runs` — Direct-child runs vs every visible run (descends into hyperlinks, fields, SDTs, ins/del). `all_runs` is `[Added in 2026.05.0]`.
 - `Paragraph.hyperlinks` — List of `Hyperlink` proxies.
-- `Paragraph.drawings` — List of `Drawing` children. `[Added in 1.3.0.dev0]`
-- `Paragraph.floating_images` — List of `FloatingImage` for each `wp:anchor`. `[Added in 1.3.0.dev0]`
-- `Paragraph.fields` / `Paragraph.form_fields` — Fields and legacy form fields in this paragraph. `[Added in 1.3.0.dev0]`
-- `Paragraph.content_controls` — Inline SDTs. `[Added in 1.3.0.dev0]`
-- `Paragraph.equations` — OMML expressions. `[Added in 1.3.0.dev0]`
-- `Paragraph.ink_annotations` / `Paragraph.embedded_objects` — Read-only proxies. `[Added in 1.3.0.dev0]`
+- `Paragraph.drawings` — List of `Drawing` children. `[Added in 2026.05.0]`
+- `Paragraph.floating_images` — List of `FloatingImage` for each `wp:anchor`. `[Added in 2026.05.0]`
+- `Paragraph.fields` / `Paragraph.form_fields` — Fields and legacy form fields in this paragraph. `[Added in 2026.05.0]`
+- `Paragraph.content_controls` — Inline SDTs. `[Added in 2026.05.0]`
+- `Paragraph.equations` — OMML expressions. `[Added in 2026.05.0]`
+- `Paragraph.ink_annotations` / `Paragraph.embedded_objects` — Read-only proxies. `[Added in 2026.05.0]`
 - `Paragraph.rendered_page_breaks` / `Paragraph.page_breaks_inside` / `Paragraph.contains_page_break` / `Paragraph.has_page_break` / `Paragraph.clear_page_breaks()` — Page-break introspection and mutation.
-- `Paragraph.next_block` / `Paragraph.previous_block` — Walk sibling blocks. `[Added in 1.3.0.dev0]`
+- `Paragraph.next_block` / `Paragraph.previous_block` — Walk sibling blocks. `[Added in 2026.05.0]`
 - `Paragraph.iter_inner_content()` — Yield runs and hyperlinks in document order.
-- `Paragraph.rsid` — Word's editing-session revision-save ID. `[Added in 1.3.0.dev0]`
-- `Paragraph.stable_id` — 16-char hex fingerprint stable across save/reload. `[Added in 1.3.0.dev0]`
-- `Paragraph.has_section_break` — True if paragraph carries a `w:sectPr`. `[Added in 1.3.0.dev0]`
-- `Paragraph.element` — Public alias for the underlying `w:p` element. `[Added in 1.3.0.dev0]`
+- `Paragraph.rsid` — Word's editing-session revision-save ID. `[Added in 2026.05.0]`
+- `Paragraph.stable_id` — 16-char hex fingerprint stable across save/reload. `[Added in 2026.05.0]`
+- `Paragraph.has_section_break` — True if paragraph carries a `w:sectPr`. `[Added in 2026.05.0]`
+- `Paragraph.element` — Public alias for the underlying `w:p` element. `[Added in 2026.05.0]`
 
 ---
 
@@ -206,31 +206,31 @@ right.delete()
 document.save("out.docx")
 ```
 
-- `Paragraph.add_run(text=None, style=None, track_author=None)` — Append a run. `track_author` is `[Added in 1.3.0.dev0]`.
-- `Paragraph.add_text(text)` — Append `text` onto the last run instead of creating a new one. `[Added in 1.3.0.dev0]`
+- `Paragraph.add_run(text=None, style=None, track_author=None)` — Append a run. `track_author` is `[Added in 2026.05.0]`.
+- `Paragraph.add_text(text)` — Append `text` onto the last run instead of creating a new one. `[Added in 2026.05.0]`
 - `Run.text` — Read/write. `\t` / `\n` / `\r` map to `w:tab` / `w:br`.
 - `Run.bold` / `Run.italic` / `Run.underline` — Tri-state (True/False/None for "inherit").
 - `Run.style` — Character style.
 - `Run.clear()` — Remove all child text/runs.
 - `Run.add_tab()` — Insert a tab.
 - `Run.add_break(break_type=WD_BREAK.LINE)` — Line / page / column / wrap break.
-- `Run.add_picture(path_or_stream, width=None, height=None, link=False, save_with_document=True, url=None)` — Inline picture in this run. `link`, `save_with_document`, `url` and `os.PathLike` support are `[Added in 1.3.0.dev0]`.
-- `Run.add_text_box(width=None, height=None, text=None)` — Append a DrawingML text box. `[Added in 1.3.0.dev0]`
-- `Run.add_ole_object(ole_path, prog_id, icon_path=None)` — Embed an OLE payload. `[Added in 1.3.0.dev0]`
-- `Run.add_symbol(char_code, font)` — Insert a `w:sym`. `[Added in 1.3.0.dev0]`
-- `Run.symbols` — Iterator of `Symbol` proxies. `[Added in 1.3.0.dev0]`
-- `Run.text_with_symbols` — Text including symbol glyphs. `[Added in 1.3.0.dev0]`
-- `Run.equations` / `Run.ruby_annotations` — Inline OMML / ruby. `[Added in 1.3.0.dev0]`
-- `Run.split(offset)` — Split into two runs at `offset`, preserving formatting. `[Added in 1.3.0.dev0]`
-- `Run.delete()` — Remove this run. `[Added in 1.3.0.dev0]`
-- `Run.make_hyperlink(url=None, anchor=None)` — Wrap this run in a hyperlink. `[Added in 1.3.0.dev0]`
+- `Run.add_picture(path_or_stream, width=None, height=None, link=False, save_with_document=True, url=None)` — Inline picture in this run. `link`, `save_with_document`, `url` and `os.PathLike` support are `[Added in 2026.05.0]`.
+- `Run.add_text_box(width=None, height=None, text=None)` — Append a DrawingML text box. `[Added in 2026.05.0]`
+- `Run.add_ole_object(ole_path, prog_id, icon_path=None)` — Embed an OLE payload. `[Added in 2026.05.0]`
+- `Run.add_symbol(char_code, font)` — Insert a `w:sym`. `[Added in 2026.05.0]`
+- `Run.symbols` — Iterator of `Symbol` proxies. `[Added in 2026.05.0]`
+- `Run.text_with_symbols` — Text including symbol glyphs. `[Added in 2026.05.0]`
+- `Run.equations` / `Run.ruby_annotations` — Inline OMML / ruby. `[Added in 2026.05.0]`
+- `Run.split(offset)` — Split into two runs at `offset`, preserving formatting. `[Added in 2026.05.0]`
+- `Run.delete()` — Remove this run. `[Added in 2026.05.0]`
+- `Run.make_hyperlink(url=None, anchor=None)` — Wrap this run in a hyperlink. `[Added in 2026.05.0]`
 - `Run.mark_comment_range(last_run, comment_id)` — Place `commentRangeStart`/`commentRangeEnd` markers.
-- `Run.copy_formatting_from(source)` — Copy `rPr` from another run. `[Added in 1.3.0.dev0]`
+- `Run.copy_formatting_from(source)` — Copy `rPr` from another run. `[Added in 2026.05.0]`
 - `Run.contains_page_break` / `Run.iter_inner_content()` — Inline content iteration.
-- `Run.formatting_change` — `FormattingChange` for `w:rPrChange`. `[Added in 1.3.0.dev0]`
-- `Run.rsid` / `Run.stable_id` — Editing-session ID and stable fingerprint. `[Added in 1.3.0.dev0]`
-- `docx.ruby.RubyAnnotation` — Base text, ruby text, alignment, language. `[Added in 1.3.0.dev0]`
-- `docx.text.symbol.Symbol` — Font and character-code reader. `[Added in 1.3.0.dev0]`
+- `Run.formatting_change` — `FormattingChange` for `w:rPrChange`. `[Added in 2026.05.0]`
+- `Run.rsid` / `Run.stable_id` — Editing-session ID and stable fingerprint. `[Added in 2026.05.0]`
+- `docx.ruby.RubyAnnotation` — Base text, ruby text, alignment, language. `[Added in 2026.05.0]`
+- `docx.text.symbol.Symbol` — Font and character-code reader. `[Added in 2026.05.0]`
 
 ---
 
@@ -271,17 +271,17 @@ document.save("out.docx")
 
 - `Font.name` / `Font.size` / `Font.color` / `Font.highlight_color` — Core identity and size.
 - `Font.bold` / `italic` / `underline` / `strike` / `double_strike` / `superscript` / `subscript` / `all_caps` / `small_caps` / `shadow` / `outline` / `emboss` / `imprint` / `hidden` / `web_hidden` / `math` / `snap_to_grid` / `no_proof` / `spec_vanish` — Tri-state boolean toggles.
-- `Font.character_spacing` / `Font.kerning` / `Font.character_scale` — Letter-spacing controls (`character_scale` and `ligatures` are `[Added in 1.3.0.dev0]`).
-- `Font.ligatures` — `"all"`, `"standardContextual"`, etc. `[Added in 1.3.0.dev0]`
+- `Font.character_spacing` / `Font.kerning` / `Font.character_scale` — Letter-spacing controls (`character_scale` and `ligatures` are `[Added in 2026.05.0]`).
+- `Font.ligatures` — `"all"`, `"standardContextual"`, etc. `[Added in 2026.05.0]`
 - `Font.cs_size` / `Font.complex_script` / `Font.cs_bold` / `Font.cs_italic` — Complex-script properties.
-- `Font.shading_color` — Run-level background color. `[Added in 1.3.0.dev0]`
-- `Font.border_style` / `Font.border_color` / `Font.border_width` / `Font.border_space` / `Font.remove_border()` — Run borders. `[Added in 1.3.0.dev0]`
+- `Font.shading_color` — Run-level background color. `[Added in 2026.05.0]`
+- `Font.border_style` / `Font.border_color` / `Font.border_width` / `Font.border_space` / `Font.remove_border()` — Run borders. `[Added in 2026.05.0]`
 - `Font.name_cs` / `Font.name_east_asia` / `Font.name_far_east` — Script-specific typeface overrides.
-- `Font.language` / `Font.east_asian_language` / `Font.bidi_language` / `Font.remove_language()` — Per-run language tags. `[Added in 1.3.0.dev0]`
-- `Font.rtl` / `Font.right_to_left` — Right-to-left flag. `[Added in 1.3.0.dev0]`
-- `Font.east_asian_layout` / `Font.set_east_asian_layout(...)` / `Font.remove_east_asian_layout()` — Two-lines-in-one, kinsoku, etc. `[Added in 1.3.0.dev0]`
-- `Font.copy_to(target)` — Copy every `rPr` property onto another `Font`. `[Added in 1.3.0.dev0]`
-- `docx.text.font.EastAsianLayout` — Proxy for `w:eastAsianLayout`. `[Added in 1.3.0.dev0]`
+- `Font.language` / `Font.east_asian_language` / `Font.bidi_language` / `Font.remove_language()` — Per-run language tags. `[Added in 2026.05.0]`
+- `Font.rtl` / `Font.right_to_left` — Right-to-left flag. `[Added in 2026.05.0]`
+- `Font.east_asian_layout` / `Font.set_east_asian_layout(...)` / `Font.remove_east_asian_layout()` — Two-lines-in-one, kinsoku, etc. `[Added in 2026.05.0]`
+- `Font.copy_to(target)` — Copy every `rPr` property onto another `Font`. `[Added in 2026.05.0]`
+- `docx.text.font.EastAsianLayout` — Proxy for `w:eastAsianLayout`. `[Added in 2026.05.0]`
 - `docx.dml.color.ColorFormat` — RGB / theme-color / tint / shade.
 - Enums: `WD_COLOR_INDEX`, `WD_UNDERLINE`, `WD_BORDER_STYLE`.
 
@@ -323,12 +323,12 @@ document.save("out.docx")
 - `ParagraphFormat.line_spacing` / `line_spacing_rule` — Spacing controls.
 - `ParagraphFormat.space_before` / `space_after` — Paragraph spacing.
 - `ParagraphFormat.keep_together` / `keep_with_next` / `widow_control` / `page_break_before` — Pagination toggles.
-- `ParagraphFormat.contextual_spacing` — `[Added in 1.3.0.dev0]`
-- `ParagraphFormat.outline_level` — `WD_OUTLINELVL` or int 0–9. `[Added in 1.3.0.dev0]`
-- `ParagraphFormat.right_to_left` / `kinsoku` / `word_wrap` / `auto_space_de` / `auto_space_dn` / `first_line_chars` — Bidi and East-Asian typography. `[Added in 1.3.0.dev0]`
+- `ParagraphFormat.contextual_spacing` — `[Added in 2026.05.0]`
+- `ParagraphFormat.outline_level` — `WD_OUTLINELVL` or int 0–9. `[Added in 2026.05.0]`
+- `ParagraphFormat.right_to_left` / `kinsoku` / `word_wrap` / `auto_space_de` / `auto_space_dn` / `first_line_chars` — Bidi and East-Asian typography. `[Added in 2026.05.0]`
 - `ParagraphFormat.tab_stops` — `TabStops` collection.
-- `ParagraphFormat.borders` — `ParagraphBorders` (top/bottom/left/right/between/bar). `[Added in 1.3.0.dev0]`
-- `ParagraphFormat.frame` / `ParagraphFormat.set_frame(...)` / `ParagraphFormat.remove_frame()` — Text frames. `[Added in 1.3.0.dev0]`
+- `ParagraphFormat.borders` — `ParagraphBorders` (top/bottom/left/right/between/bar). `[Added in 2026.05.0]`
+- `ParagraphFormat.frame` / `ParagraphFormat.set_frame(...)` / `ParagraphFormat.remove_frame()` — Text frames. `[Added in 2026.05.0]`
 
 ---
 
@@ -358,9 +358,9 @@ p2.insert_hyperlink_at(r, url="https://docs.example", start=0, end=10)
 document.save("out.docx")
 ```
 
-- `Paragraph.add_hyperlink(url=None, text=None, style="Hyperlink", anchor=None)` — Append a new hyperlink. `[Added in 1.3.0.dev0]`
-- `Paragraph.insert_hyperlink_at(run, url=None, anchor=None, start=None, end=None)` — Wrap (part of) an existing run in a hyperlink, splitting as needed. `[Added in 1.3.0.dev0]`
-- `Run.make_hyperlink(url=None, anchor=None)` — Wrap a run as a hyperlink. `[Added in 1.3.0.dev0]`
+- `Paragraph.add_hyperlink(url=None, text=None, style="Hyperlink", anchor=None)` — Append a new hyperlink. `[Added in 2026.05.0]`
+- `Paragraph.insert_hyperlink_at(run, url=None, anchor=None, start=None, end=None)` — Wrap (part of) an existing run in a hyperlink, splitting as needed. `[Added in 2026.05.0]`
+- `Run.make_hyperlink(url=None, anchor=None)` — Wrap a run as a hyperlink. `[Added in 2026.05.0]`
 - `Paragraph.hyperlinks` — List of `Hyperlink` in document order.
 - `Hyperlink.url` / `Hyperlink.address` / `Hyperlink.fragment` — URL parts; `address`/`fragment` are editable.
 - `Hyperlink.runs` / `Hyperlink.text` / `Hyperlink.contains_page_break` / `Hyperlink.add_run(...)` — Content access and extension.
@@ -407,31 +407,31 @@ document.save("out.docx")
 ```
 
 - `Document.add_table(rows, cols, style=None)` — Append a new table.
-- `Document.add_table_copy(other_table)` / `Document.add_table_from(...)` — Deep-copy a table (possibly from another document), rewiring images and importing styles. `[Added in 1.3.0.dev0]`
+- `Document.add_table_copy(other_table)` / `Document.add_table_from(...)` — Deep-copy a table (possibly from another document), rewiring images and importing styles. `[Added in 2026.05.0]`
 - `Table.alignment` / `Table.direction` / `Table.table_direction` — Placement controls.
-- `Table.autofit` / `Table.autofit_behavior` / `Table.allow_autofit` / `Table.preferred_width` — Layout. `autofit_behavior`, `allow_autofit`, `preferred_width` are `[Added in 1.3.0.dev0]`.
-- `Table.indent` / `Table.left_indent` — Table indentation. `indent` is `[Added in 1.3.0.dev0]`.
-- `Table.style` / `Table.style_flags` — Style application and banding flags (`first_row`, `last_row`, `first_column`, `last_column`, `no_horizontal_banding`, `no_vertical_banding`). `style_flags` is `[Added in 1.3.0.dev0]`.
-- `Table.borders` / `Table.set_borders(...)` — `TableBorders` proxy. `[Added in 1.3.0.dev0]`
-- `Table.cell_margins` — Per-table cell-margin defaults. `[Added in 1.3.0.dev0]`
-- `Table.alt_text` / `Table.alt_description` — Accessibility fields. `[Added in 1.3.0.dev0]`
+- `Table.autofit` / `Table.autofit_behavior` / `Table.allow_autofit` / `Table.preferred_width` — Layout. `autofit_behavior`, `allow_autofit`, `preferred_width` are `[Added in 2026.05.0]`.
+- `Table.indent` / `Table.left_indent` — Table indentation. `indent` is `[Added in 2026.05.0]`.
+- `Table.style` / `Table.style_flags` — Style application and banding flags (`first_row`, `last_row`, `first_column`, `last_column`, `no_horizontal_banding`, `no_vertical_banding`). `style_flags` is `[Added in 2026.05.0]`.
+- `Table.borders` / `Table.set_borders(...)` — `TableBorders` proxy. `[Added in 2026.05.0]`
+- `Table.cell_margins` — Per-table cell-margin defaults. `[Added in 2026.05.0]`
+- `Table.alt_text` / `Table.alt_description` — Accessibility fields. `[Added in 2026.05.0]`
 - `Table.cell(row, col)` / `Table.row_cells(i)` / `Table.column_cells(i)` / `Table.rows` / `Table.columns` / `Table.cells` — Access.
-- `Table.add_row(source_row=None)` / `Table.insert_row(index)` / `Table.add_column(width)` / `Table.delete_column(index)` — CRUD. `insert_row`, `delete_column` are `[Added in 1.3.0.dev0]`.
-- `Table.split(before_row)` — Split into two tables at a boundary. `[Added in 1.3.0.dev0]`
-- `Table.delete()` — Remove from document. `[Added in 1.3.0.dev0]`
-- `Table.merged_cell_ranges` — Tuples of `(top_row, top_col, bottom_row, bottom_col)`. `[Added in 1.3.0.dev0]`
+- `Table.add_row(source_row=None)` / `Table.insert_row(index)` / `Table.add_column(width)` / `Table.delete_column(index)` — CRUD. `insert_row`, `delete_column` are `[Added in 2026.05.0]`.
+- `Table.split(before_row)` — Split into two tables at a boundary. `[Added in 2026.05.0]`
+- `Table.delete()` — Remove from document. `[Added in 2026.05.0]`
+- `Table.merged_cell_ranges` — Tuples of `(top_row, top_col, bottom_row, bottom_col)`. `[Added in 2026.05.0]`
 - `Table.spans_page_break` — `True` if the rendered table crosses a page break.
-- `Table.stable_id` / `Table.formatting_change` — Stable fingerprint and tracked-formatting proxy. `[Added in 1.3.0.dev0]`
-- `Table.next_block` / `Table.previous_block` — Block-level navigation. `[Added in 1.3.0.dev0]`
+- `Table.stable_id` / `Table.formatting_change` — Stable fingerprint and tracked-formatting proxy. `[Added in 2026.05.0]`
+- `Table.next_block` / `Table.previous_block` — Block-level navigation. `[Added in 2026.05.0]`
 - `_Cell.add_paragraph(...)` / `_Cell.add_table(...)` / `_Cell.add_picture(...)` — Nested content.
-- `_Cell.merge(other)` / `_Cell.split()` / `_Cell.is_merge_origin` / `_Cell.merge_origin` / `_Cell.grid_span` — Merge handling. Merge-origin APIs are `[Added in 1.3.0.dev0]`.
-- `_Cell.borders` / `_Cell.margins` / `_Cell.set_margins(...)` / `_Cell.remove_margins()` — Cell-level borders and margins. `[Added in 1.3.0.dev0]`
-- `_Cell.shading.fill_color` / `_Cell.shading.pattern` — Background. `[Added in 1.3.0.dev0]`
-- `_Cell.text_direction` / `_Cell.vertical_alignment` / `_Cell.width` / `_Cell.text` — Cell properties (`text_direction` is `[Added in 1.3.0.dev0]`).
-- `_Cell.is_tracked_insertion` / `_Cell.is_tracked_deletion` / `_Cell.formatting_change` / `_Cell.stable_id` — Track-changes and stable-id hooks. `[Added in 1.3.0.dev0]`
-- `_Row.height` / `_Row.height_rule` / `_Row.is_header` / `_Row.allow_break_across_pages` — Row-level properties. `height` setter, `is_header`, `allow_break_across_pages` are `[Added in 1.3.0.dev0]`.
-- `TableBorders` — `top` / `bottom` / `left` / `right` / `inside_h` / `inside_v` → `BorderElement.style` / `.width` / `.color` / `.space`. `[Added in 1.3.0.dev0]`
-- `CellBorders`, `CellShading`, `CellMargins`, `TableCellMargins`, `TableStyleFlags` — Helper proxies. `[Added in 1.3.0.dev0]`
+- `_Cell.merge(other)` / `_Cell.split()` / `_Cell.is_merge_origin` / `_Cell.merge_origin` / `_Cell.grid_span` — Merge handling. Merge-origin APIs are `[Added in 2026.05.0]`.
+- `_Cell.borders` / `_Cell.margins` / `_Cell.set_margins(...)` / `_Cell.remove_margins()` — Cell-level borders and margins. `[Added in 2026.05.0]`
+- `_Cell.shading.fill_color` / `_Cell.shading.pattern` — Background. `[Added in 2026.05.0]`
+- `_Cell.text_direction` / `_Cell.vertical_alignment` / `_Cell.width` / `_Cell.text` — Cell properties (`text_direction` is `[Added in 2026.05.0]`).
+- `_Cell.is_tracked_insertion` / `_Cell.is_tracked_deletion` / `_Cell.formatting_change` / `_Cell.stable_id` — Track-changes and stable-id hooks. `[Added in 2026.05.0]`
+- `_Row.height` / `_Row.height_rule` / `_Row.is_header` / `_Row.allow_break_across_pages` — Row-level properties. `height` setter, `is_header`, `allow_break_across_pages` are `[Added in 2026.05.0]`.
+- `TableBorders` — `top` / `bottom` / `left` / `right` / `inside_h` / `inside_v` → `BorderElement.style` / `.width` / `.color` / `.space`. `[Added in 2026.05.0]`
+- `CellBorders`, `CellShading`, `CellMargins`, `TableCellMargins`, `TableStyleFlags` — Helper proxies. `[Added in 2026.05.0]`
 
 ---
 
@@ -470,17 +470,17 @@ print(document.list_labels())
 document.save("out.docx")
 ```
 
-- `Document.numbering` — `Numbering` proxy. Creates `numbering.xml` on demand. `[Added in 1.3.0.dev0]`
-- `Numbering.add_numbering_definition(levels=...)` — Add an abstract definition. `[Added in 1.3.0.dev0]`
+- `Document.numbering` — `Numbering` proxy. Creates `numbering.xml` on demand. `[Added in 2026.05.0]`
+- `Numbering.add_numbering_definition(levels=...)` — Add an abstract definition. `[Added in 2026.05.0]`
 - `Numbering.definitions` / iteration — Existing definitions.
-- `NumberingDefinition.apply_to(paragraph, level=0)` — Apply a numbering to a paragraph. `[Added in 1.3.0.dev0]`
+- `NumberingDefinition.apply_to(paragraph, level=0)` — Apply a numbering to a paragraph. `[Added in 2026.05.0]`
 - `NumberingDefinition.new_instance()` / `NumberingDefinition.levels` / `NumberingDefinition.level(ilvl)` — Instance and level access.
 - `Level.number_format` / `Level.text` / `Level.start` / `Level.indent` / `Level.ilvl` — Per-level properties.
-- `Paragraph.list_level` / `Paragraph.list_format` / `Paragraph.numbering_format` / `Paragraph.list_label` — Read paragraph's current list settings. `[Added in 1.3.0.dev0]`
-- `Paragraph.restart_numbering(level=None, start=1)` — Restart the counter. `[Added in 1.3.0.dev0]`
-- `Document.list_labels()` — `{id(p): label}` for every numbered paragraph in the body (one pass). `[Added in 1.3.0.dev0]`
-- `Document.add_list_of_figures(caption_label="Figure")` / `Document.add_list_of_tables(caption_label="Table")` — Append `TOC \c` fields. `[Added in 1.3.0.dev0]`
-- `docx.numbering.ListLabelRenderer` — Low-level label renderer used by the properties above. `[Added in 1.3.0.dev0]`
+- `Paragraph.list_level` / `Paragraph.list_format` / `Paragraph.numbering_format` / `Paragraph.list_label` — Read paragraph's current list settings. `[Added in 2026.05.0]`
+- `Paragraph.restart_numbering(level=None, start=1)` — Restart the counter. `[Added in 2026.05.0]`
+- `Document.list_labels()` — `{id(p): label}` for every numbered paragraph in the body (one pass). `[Added in 2026.05.0]`
+- `Document.add_list_of_figures(caption_label="Figure")` / `Document.add_list_of_tables(caption_label="Table")` — Append `TOC \c` fields. `[Added in 2026.05.0]`
+- `docx.numbering.ListLabelRenderer` — Low-level label renderer used by the properties above. `[Added in 2026.05.0]`
 - Enum: `WD_NUMBER_FORMAT` (decimal, roman, letter, bullet, etc.).
 
 ---
@@ -521,12 +521,12 @@ document.save("out.docx")
 - `Styles.add_style(name, style_type, builtin=False)` — Add a new style.
 - `Styles.default(style_type)` — The document's default for a given type.
 - `Styles.get_by_id(style_id, style_type)` / `Styles.get_style_id(style_or_name, style_type)` — Id lookups.
-- `Styles.document_default_font` — `Font` proxy for `docDefaults/rPrDefault`. `[Added in 1.3.0.dev0]`
-- `Styles.import_from(other_doc, names)` / `Styles.import_style(style)` / `Styles.import_builtin(name)` — Cross-document import. `[Added in 1.3.0.dev0]`
+- `Styles.document_default_font` — `Font` proxy for `docDefaults/rPrDefault`. `[Added in 2026.05.0]`
+- `Styles.import_from(other_doc, names)` / `Styles.import_style(style)` / `Styles.import_builtin(name)` — Cross-document import. `[Added in 2026.05.0]`
 - `Styles.latent_styles` — `LatentStyles` collection.
 - `BaseStyle.name` / `.style_id` / `.type` / `.builtin` / `.priority` / `.hidden` / `.locked` / `.quick_style` / `.unhide_when_used` — Common metadata.
 - `BaseStyle.delete()` — Remove the style.
-- `BaseStyle.link_style` / `BaseStyle.next_style` / `BaseStyle.is_redefined` — Style-mapping properties. `[Added in 1.3.0.dev0]`
+- `BaseStyle.link_style` / `BaseStyle.next_style` / `BaseStyle.is_redefined` — Style-mapping properties. `[Added in 2026.05.0]`
 - `CharacterStyle.base_style` / `CharacterStyle.font` — Character-style specifics.
 - `ParagraphStyle.paragraph_format` / `ParagraphStyle.next_paragraph_style` — Paragraph-style specifics.
 - `LatentStyles` / `_LatentStyle` — Latent style collection.
@@ -567,19 +567,19 @@ shape.replace_image("new-logo.png")
 document.save("out.docx")
 ```
 
-- `Document.add_picture(path_or_stream, width=None, height=None, link=False, save_with_document=True, url=None)` — Append a new paragraph with an inline picture. `[Added in 1.3.0.dev0]` for `link`, `save_with_document`, `url`, and `os.PathLike`.
+- `Document.add_picture(path_or_stream, width=None, height=None, link=False, save_with_document=True, url=None)` — Append a new paragraph with an inline picture. `[Added in 2026.05.0]` for `link`, `save_with_document`, `url`, and `os.PathLike`.
 - `Run.add_picture(...)` — Inline picture in an existing run.
 - `Document.inline_shapes` — `InlineShapes` collection for iteration/indexing.
 - `InlineShape.width` / `InlineShape.height` / `InlineShape.type` / `InlineShape.image` — Core picture data.
-- `InlineShape.alt_text` / `InlineShape.title` — Accessibility metadata. `[Added in 1.3.0.dev0]`
-- `InlineShape.opacity` / `InlineShape.lock_aspect_ratio` — Visual controls. `[Added in 1.3.0.dev0]`
-- `InlineShape.outline` — `PictureOutline` (style, color, width, transparency). `[Added in 1.3.0.dev0]`
-- `InlineShape.crop` — `PictureCrop` (left/top/right/bottom, `set(...)`). `[Added in 1.3.0.dev0]`
-- `InlineShape.effects.shadow` — `ShadowFormat` (blur, distance, angle, color, `apply(...)`, `clear()`). `[Added in 1.3.0.dev0]`
-- `InlineShape.delete(part=None)` — Remove the drawing and prune orphan image parts. `[Added in 1.3.0.dev0]`
-- `InlineShape.replace_image(path_or_stream)` — Swap the blob, keeping the drawing. `[Added in 1.3.0.dev0]`
+- `InlineShape.alt_text` / `InlineShape.title` — Accessibility metadata. `[Added in 2026.05.0]`
+- `InlineShape.opacity` / `InlineShape.lock_aspect_ratio` — Visual controls. `[Added in 2026.05.0]`
+- `InlineShape.outline` — `PictureOutline` (style, color, width, transparency). `[Added in 2026.05.0]`
+- `InlineShape.crop` — `PictureCrop` (left/top/right/bottom, `set(...)`). `[Added in 2026.05.0]`
+- `InlineShape.effects.shadow` — `ShadowFormat` (blur, distance, angle, color, `apply(...)`, `clear()`). `[Added in 2026.05.0]`
+- `InlineShape.delete(part=None)` — Remove the drawing and prune orphan image parts. `[Added in 2026.05.0]`
+- `InlineShape.replace_image(path_or_stream)` — Swap the blob, keeping the drawing. `[Added in 2026.05.0]`
 - `docx.drawing.Picture` — Generic picture proxy for canvas/group contexts.
-- Supported formats: PNG, JPEG, GIF, BMP, TIFF, **SVG** (via `docx.image.svg`), **WebP**, **EMF**, **WMF**, and **EPS**. SVG/WebP/EMF/WMF/EPS are `[Added in 1.3.0.dev0]`.
+- Supported formats: PNG, JPEG, GIF, BMP, TIFF, **SVG** (via `docx.image.svg`), **WebP**, **EMF**, **WMF**, and **EPS**. SVG/WebP/EMF/WMF/EPS are `[Added in 2026.05.0]`.
 
 ---
 
@@ -623,16 +623,16 @@ canvas = document.add_canvas(width=Inches(5), height=Inches(3))
 document.save("out.docx")
 ```
 
-- `Paragraph.add_floating_image(path, width=None, height=None, position=None)` — Add `wp:anchor` image. `[Added in 1.3.0.dev0]`
-- `Paragraph.add_floating_shape(path, x=0, y=0, width=None, height=None, h_anchor=..., v_anchor=..., wrap=...)` — Coordinate-first helper. `[Added in 1.3.0.dev0]`
-- `Paragraph.add_shape(shape_type, width=None, height=None, text=None)` / `Document.add_shape(...)` — Append a DrawingML preset shape. `[Added in 1.3.0.dev0]`
-- `Document.add_text_box(...)` / `Run.add_text_box(...)` — Append a text-box shape. `[Added in 1.3.0.dev0]`
-- `Document.add_canvas(width=None, height=None)` — Append a canvas (`wpc:wpc`). `[Added in 1.3.0.dev0]`
-- `FloatingImage.width` / `.height` / `.horizontal_anchor` / `.vertical_anchor` / `.horizontal_offset` / `.vertical_offset` / `.offset` / `.position` / `.wrap_type` / `.type` / `.opacity` / `.lock_aspect_ratio` / `.alt_text` / `.title` / `.outline` / `.crop` / `.effects` / `.delete(part=None)` — Floating picture surface. `[Added in 1.3.0.dev0]`
+- `Paragraph.add_floating_image(path, width=None, height=None, position=None)` — Add `wp:anchor` image. `[Added in 2026.05.0]`
+- `Paragraph.add_floating_shape(path, x=0, y=0, width=None, height=None, h_anchor=..., v_anchor=..., wrap=...)` — Coordinate-first helper. `[Added in 2026.05.0]`
+- `Paragraph.add_shape(shape_type, width=None, height=None, text=None)` / `Document.add_shape(...)` — Append a DrawingML preset shape. `[Added in 2026.05.0]`
+- `Document.add_text_box(...)` / `Run.add_text_box(...)` — Append a text-box shape. `[Added in 2026.05.0]`
+- `Document.add_canvas(width=None, height=None)` — Append a canvas (`wpc:wpc`). `[Added in 2026.05.0]`
+- `FloatingImage.width` / `.height` / `.horizontal_anchor` / `.vertical_anchor` / `.horizontal_offset` / `.vertical_offset` / `.offset` / `.position` / `.wrap_type` / `.type` / `.opacity` / `.lock_aspect_ratio` / `.alt_text` / `.title` / `.outline` / `.crop` / `.effects` / `.delete(part=None)` — Floating picture surface. `[Added in 2026.05.0]`
 - `docx.drawing.Drawing` — Base proxy for `<w:drawing>`; exposes `.picture`, `.shape`, `.smart_art`, `.chart`, etc.
-- `docx.drawing.WordprocessingShape` — DrawingML shape with `add_paragraph()`, `text`, `paragraphs`. `[Added in 1.3.0.dev0]`
-- `docx.drawing.GroupShape` — Read-only group (`wpg:grpSp`) iteration. `[Added in 1.3.0.dev0]`
-- `docx.drawing.Canvas` — Canvas proxy with `add_shape(...)`. `[Added in 1.3.0.dev0]`
+- `docx.drawing.WordprocessingShape` — DrawingML shape with `add_paragraph()`, `text`, `paragraphs`. `[Added in 2026.05.0]`
+- `docx.drawing.GroupShape` — Read-only group (`wpg:grpSp`) iteration. `[Added in 2026.05.0]`
+- `docx.drawing.Canvas` — Canvas proxy with `add_shape(...)`. `[Added in 2026.05.0]`
 - Enums: `WD_SHAPE`, `WD_ANCHOR_H`, `WD_ANCHOR_V`, `WD_WRAP_TYPE`, `WD_DRAWING_TYPE`.
 
 ---
@@ -642,7 +642,7 @@ document.save("out.docx")
 `Document.add_chart()` creates a `.chartPart` with numeric data for the
 supported chart types (bar, stacked bar, column, stacked column, line, pie);
 `Document.charts` reads existing charts of any type; `Chart.replace_data()`
-rewrites the category and series values in place. `[Added in 1.3.0.dev0]`.
+rewrites the category and series values in place. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -670,11 +670,11 @@ chart.replace_data(categories=["Q1", "Q2", "Q3", "Q4"],
 document.save("out.docx")
 ```
 
-- `Document.add_chart(chart_type, categories, series_data, width=None, height=None)` — Append a new chart. `[Added in 1.3.0.dev0]`
-- `Document.charts` — List of `Chart` proxies in document order. `[Added in 1.3.0.dev0]`
-- `Chart.chart_type` / `Chart.title` / `Chart.has_legend` / `Chart.series` / `Chart.categories` — Reads. `[Added in 1.3.0.dev0]`
-- `Chart.replace_data(categories, series_data)` — Rewrite all data in place. `[Added in 1.3.0.dev0]`
-- `ChartSeries.name` / `.values` / `.categories` — Per-series reads. `[Added in 1.3.0.dev0]`
+- `Document.add_chart(chart_type, categories, series_data, width=None, height=None)` — Append a new chart. `[Added in 2026.05.0]`
+- `Document.charts` — List of `Chart` proxies in document order. `[Added in 2026.05.0]`
+- `Chart.chart_type` / `Chart.title` / `Chart.has_legend` / `Chart.series` / `Chart.categories` — Reads. `[Added in 2026.05.0]`
+- `Chart.replace_data(categories, series_data)` — Rewrite all data in place. `[Added in 2026.05.0]`
+- `ChartSeries.name` / `.values` / `.categories` — Per-series reads. `[Added in 2026.05.0]`
 - Enum: `docx.chart.WD_CHART_TYPE` (`BAR`, `BAR_STACKED`, `COLUMN`, `COLUMN_STACKED`, `LINE`, `PIE`).
 
 ---
@@ -684,7 +684,7 @@ document.save("out.docx")
 SmartArt is read-only. `Document.smart_art` walks every `<w:drawing>` that
 references a `dgm:relIds` diagram and returns a `SmartArt` proxy carrying
 `.nodes`, `.text`, and the underlying diagram-data partname.
-`[Added in 1.3.0.dev0]`.
+`[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -697,9 +697,9 @@ for diagram in document.smart_art:
         print(" " * node.level, node.text)
 ```
 
-- `Document.smart_art` — List of `SmartArt`. `[Added in 1.3.0.dev0]`
-- `SmartArt.data_partname` / `SmartArt.dm_rId` / `SmartArt.nodes` / `SmartArt.text`. `[Added in 1.3.0.dev0]`
-- `SmartArtNode.text` / `.level` / `.model_id` / `.children`. `[Added in 1.3.0.dev0]`
+- `Document.smart_art` — List of `SmartArt`. `[Added in 2026.05.0]`
+- `SmartArt.data_partname` / `SmartArt.dm_rId` / `SmartArt.nodes` / `SmartArt.text`. `[Added in 2026.05.0]`
+- `SmartArtNode.text` / `.level` / `.model_id` / `.children`. `[Added in 2026.05.0]`
 
 ---
 
@@ -708,7 +708,7 @@ for diagram in document.smart_art:
 OMML (Office Math) equations are both read and writable via a minimal
 builder API. You can drop a literal OMML string onto a paragraph, or
 assemble common structures (fractions, superscripts, radicals) from small
-factory functions. `[Added in 1.3.0.dev0]`.
+factory functions. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -732,10 +732,10 @@ for eq in document.equations:
 document.save("out.docx")
 ```
 
-- `Paragraph.add_equation(omml_xml, display_mode=False)` — Append an OMML expression. `[Added in 1.3.0.dev0]`
-- `Document.equations` / `Paragraph.equations` / `Run.equations` — Read iterators. `[Added in 1.3.0.dev0]`
-- `Equation.text` / `.raw_xml` / `.xml_element` / `.is_display_mode` / `.set_text(...)` / `.replace_identifier(old, new)` / `.swap_children(a, b)` / `Equation.from_omml_xml(...)`. `[Added in 1.3.0.dev0]`
-- Builders: `build_identifier`, `build_fraction`, `build_superscript`, `build_subscript`, `build_radical`. `[Added in 1.3.0.dev0]`
+- `Paragraph.add_equation(omml_xml, display_mode=False)` — Append an OMML expression. `[Added in 2026.05.0]`
+- `Document.equations` / `Paragraph.equations` / `Run.equations` — Read iterators. `[Added in 2026.05.0]`
+- `Equation.text` / `.raw_xml` / `.xml_element` / `.is_display_mode` / `.set_text(...)` / `.replace_identifier(old, new)` / `.swap_children(a, b)` / `Equation.from_omml_xml(...)`. `[Added in 2026.05.0]`
+- Builders: `build_identifier`, `build_fraction`, `build_superscript`, `build_subscript`, `build_radical`. `[Added in 2026.05.0]`
 
 ---
 
@@ -776,25 +776,25 @@ document.add_section(WD_SECTION_START.NEW_PAGE)
 document.save("out.docx")
 ```
 
-- `Document.sections` — `Sections` sequence. `pop(index=-1)` is `[Added in 1.3.0.dev0]`.
+- `Document.sections` — `Sections` sequence. `pop(index=-1)` is `[Added in 2026.05.0]`.
 - `Document.add_section(start_type=WD_SECTION.NEW_PAGE)` — Append a new section.
 - `Section.start_type` / `Section.orientation` / `Section.page_height` / `Section.page_width` / `Section.left_margin` / `Section.right_margin` / `Section.top_margin` / `Section.bottom_margin` / `Section.header_distance` / `Section.footer_distance` / `Section.gutter` — Page metrics.
-- `Section.columns` / `Section.set_columns(count, equal_width=True, space=None, widths=None)` — Multi-column layout. `set_columns` is `[Added in 1.3.0.dev0]`.
-- `Section.page_borders` / `Section.set_page_border(side, ...)` / `Section.remove_page_borders()` — Page-level borders. `[Added in 1.3.0.dev0]`
-- `Section.line_numbering` / `Section.set_line_numbering(...)` / `Section.remove_line_numbering()` — `[Added in 1.3.0.dev0]`
-- `Section.first_page_paper_source` / `Section.other_pages_paper_source` — Paper-source bin ids. `[Added in 1.3.0.dev0]`
-- `Section.document_grid` / `Section.set_document_grid(...)` / `Section.remove_document_grid()` — East-Asian grid controls. `[Added in 1.3.0.dev0]`
-- `Section.text_direction` / `Section.right_to_left` — `[Added in 1.3.0.dev0]`
+- `Section.columns` / `Section.set_columns(count, equal_width=True, space=None, widths=None)` — Multi-column layout. `set_columns` is `[Added in 2026.05.0]`.
+- `Section.page_borders` / `Section.set_page_border(side, ...)` / `Section.remove_page_borders()` — Page-level borders. `[Added in 2026.05.0]`
+- `Section.line_numbering` / `Section.set_line_numbering(...)` / `Section.remove_line_numbering()` — `[Added in 2026.05.0]`
+- `Section.first_page_paper_source` / `Section.other_pages_paper_source` — Paper-source bin ids. `[Added in 2026.05.0]`
+- `Section.document_grid` / `Section.set_document_grid(...)` / `Section.remove_document_grid()` — East-Asian grid controls. `[Added in 2026.05.0]`
+- `Section.text_direction` / `Section.right_to_left` — `[Added in 2026.05.0]`
 - `Section.different_first_page_header_footer` / `Section.different_odd_and_even_pages_header_footer` — Toggle variant headers/footers.
 - `Section.first_page_header` / `Section.first_page_footer` / `Section.even_page_header` / `Section.even_page_footer` / `Section.header` / `Section.footer` — Header/footer access.
-- `Section.footnote_properties` / `Section.add_footnote_properties()` / `Section.remove_footnote_properties()` / `Section.endnote_properties` / `Section.add_endnote_properties()` / `Section.remove_endnote_properties()` — Section-level overrides. `[Added in 1.3.0.dev0]`
-- `Section.add_text_watermark(text, ...)` / `Section.add_image_watermark(image, ...)` / `Section.remove_watermark()` / `Section.watermark` — Watermark per section. `[Added in 1.3.0.dev0]`
-- `Section.copy_header_from(other)` / `Section.copy_footer_from(other)` — Cross-section header/footer copy. `[Added in 1.3.0.dev0]`
-- `Section.delete()` — Remove this section break. `[Added in 1.3.0.dev0]`
+- `Section.footnote_properties` / `Section.add_footnote_properties()` / `Section.remove_footnote_properties()` / `Section.endnote_properties` / `Section.add_endnote_properties()` / `Section.remove_endnote_properties()` — Section-level overrides. `[Added in 2026.05.0]`
+- `Section.add_text_watermark(text, ...)` / `Section.add_image_watermark(image, ...)` / `Section.remove_watermark()` / `Section.watermark` — Watermark per section. `[Added in 2026.05.0]`
+- `Section.copy_header_from(other)` / `Section.copy_footer_from(other)` — Cross-section header/footer copy. `[Added in 2026.05.0]`
+- `Section.delete()` — Remove this section break. `[Added in 2026.05.0]`
 - `Section.iter_inner_content()` / `Section.paragraphs` / `Section.tables` — Content iteration.
-- `Section.formatting_change` — `FormattingChange` for `w:sectPrChange`. `[Added in 1.3.0.dev0]`
-- `SectionColumns` / `Column` — Column collection; `count`, `equal_width`, `space`, per-column `width` / `space`. `[Added in 1.3.0.dev0]`
-- `PageBorders`, `PageBorder`, `LineNumbering`, `DocumentGrid` — Helper proxies. `[Added in 1.3.0.dev0]`
+- `Section.formatting_change` — `FormattingChange` for `w:sectPrChange`. `[Added in 2026.05.0]`
+- `SectionColumns` / `Column` — Column collection; `count`, `equal_width`, `space`, per-column `width` / `space`. `[Added in 2026.05.0]`
+- `PageBorders`, `PageBorder`, `LineNumbering`, `DocumentGrid` — Helper proxies. `[Added in 2026.05.0]`
 - Enums: `WD_SECTION`, `WD_SECTION_START`, `WD_ORIENTATION`, `WD_BORDER_DISPLAY`, `WD_BORDER_OFFSET_FROM`, `WD_LINE_NUMBERING_RESTART`, `WD_DOC_GRID_TYPE`, `WD_HEADER_FOOTER_INDEX`.
 
 ---
@@ -827,7 +827,7 @@ document.save("out.docx")
 
 - `Section.header` / `Section.footer` — Primary header/footer.
 - `Section.first_page_header` / `Section.first_page_footer` — First-page variant.
-- `Section.even_page_header` / `Section.even_page_footer` — Even-page variant (requires `different_odd_and_even_pages_header_footer=True`). `[Added in 1.3.0.dev0]`
+- `Section.even_page_header` / `Section.even_page_footer` — Even-page variant (requires `different_odd_and_even_pages_header_footer=True`). `[Added in 2026.05.0]`
 - `_Header.is_linked_to_previous` / `_Footer.is_linked_to_previous` — Read/write inheritance flag.
 - `_Header.paragraphs` / `_Header.tables` / `_Header.add_paragraph(...)` / `_Header.add_table(...)` — BlockItemContainer API.
 
@@ -865,7 +865,7 @@ document.save("out.docx")
 - `Document.comments` — `Comments` collection.
 - `Comments.add_comment(...)` / `Comments.get(comment_id)` / iteration / `len()`.
 - `Comment.text` / `Comment.author` / `Comment.initials` / `Comment.comment_id` / `Comment.timestamp` — Core properties. `author` and `initials` are writable. `timestamp` is timezone-aware.
-- `Comment.add_reply(text=None, author="", initials="")` / `Comment.replies` — Threaded replies. `[Added in 1.3.0.dev0]`
+- `Comment.add_reply(text=None, author="", initials="")` / `Comment.replies` — Threaded replies. `[Added in 2026.05.0]`
 - `Comment.add_paragraph(...)` — Multi-paragraph comment bodies.
 - `Run.mark_comment_range(last_run, comment_id)` — Low-level anchor helper.
 
@@ -877,7 +877,7 @@ Footnote and endnote parts are lazily created; the collections can be
 iterated and mutated. Each note is a `BlockItemContainer` you can fill with
 paragraphs, runs, and pictures just like the body. Per-document and
 per-section numbering properties are exposed through `FootnoteProperties`
-and `EndnoteProperties`. `[Added in 1.3.0.dev0]`.
+and `EndnoteProperties`. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -904,13 +904,13 @@ document.endnotes.add(r, text="An endnote.")
 document.save("out.docx")
 ```
 
-- `Document.footnotes` / `Document.endnotes` — `Footnotes` / `Endnotes` collections. `[Added in 1.3.0.dev0]`
-- `Footnotes.add(run, text="")` / `Endnotes.add(run, text="")` / iteration / `len()`. `[Added in 1.3.0.dev0]`
-- `Footnote.text` / `.footnote_id` / `.add_paragraph(...)` / `.clear()` / `.delete()` — and analogous `Endnote` members. `[Added in 1.3.0.dev0]`
-- `Document.footnote_properties` / `Document.add_footnote_properties()` / `Document.endnote_properties` / `Document.add_endnote_properties()` — Document-level. `[Added in 1.3.0.dev0]`
-- `Section.footnote_properties` / `Section.endnote_properties` / `Section.add_*` / `Section.remove_*` — Section-level overrides. `[Added in 1.3.0.dev0]`
-- `FootnoteProperties.number_format` / `.start_number` / `.restart_rule` / `.position` — Writable properties. `[Added in 1.3.0.dev0]`
-- `EndnoteProperties` — Same shape as `FootnoteProperties` with `WD_ENDNOTE_POSITION`. `[Added in 1.3.0.dev0]`
+- `Document.footnotes` / `Document.endnotes` — `Footnotes` / `Endnotes` collections. `[Added in 2026.05.0]`
+- `Footnotes.add(run, text="")` / `Endnotes.add(run, text="")` / iteration / `len()`. `[Added in 2026.05.0]`
+- `Footnote.text` / `.footnote_id` / `.add_paragraph(...)` / `.clear()` / `.delete()` — and analogous `Endnote` members. `[Added in 2026.05.0]`
+- `Document.footnote_properties` / `Document.add_footnote_properties()` / `Document.endnote_properties` / `Document.add_endnote_properties()` — Document-level. `[Added in 2026.05.0]`
+- `Section.footnote_properties` / `Section.endnote_properties` / `Section.add_*` / `Section.remove_*` — Section-level overrides. `[Added in 2026.05.0]`
+- `FootnoteProperties.number_format` / `.start_number` / `.restart_rule` / `.position` — Writable properties. `[Added in 2026.05.0]`
+- `EndnoteProperties` — Same shape as `FootnoteProperties` with `WD_ENDNOTE_POSITION`. `[Added in 2026.05.0]`
 - Enums: `WD_NUMBER_FORMAT`, `WD_FOOTNOTE_RESTART`, `WD_FOOTNOTE_POSITION`, `WD_ENDNOTE_POSITION`.
 
 ---
@@ -919,7 +919,7 @@ document.save("out.docx")
 
 Bookmarks span one or more runs (or an entire paragraph) and carry a unique
 name used by cross-references (`REF`, `PAGEREF`). Adding, reading, renaming,
-and deleting are all supported. `[Added in 1.3.0.dev0]`.
+and deleting are all supported. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -946,10 +946,10 @@ print(len(document.bookmarks), list(document.bookmarks))
 document.save("out.docx")
 ```
 
-- `Paragraph.add_bookmark(name, start_run=None, end_run=None)` — Add a bookmark. `[Added in 1.3.0.dev0]`
-- `Document.add_bookmark(runs, name)` — Multi-run / cross-paragraph bookmark. `[Added in 1.3.0.dev0]`
-- `Document.bookmarks` — `Bookmarks` collection (`get(name)`, iteration, `name in`, `len()`). `[Added in 1.3.0.dev0]`
-- `Bookmark.name` (read/write) / `Bookmark.bookmark_id` / `Bookmark.delete()`. `[Added in 1.3.0.dev0]`
+- `Paragraph.add_bookmark(name, start_run=None, end_run=None)` — Add a bookmark. `[Added in 2026.05.0]`
+- `Document.add_bookmark(runs, name)` — Multi-run / cross-paragraph bookmark. `[Added in 2026.05.0]`
+- `Document.bookmarks` — `Bookmarks` collection (`get(name)`, iteration, `name in`, `len()`). `[Added in 2026.05.0]`
+- `Bookmark.name` (read/write) / `Bookmark.bookmark_id` / `Bookmark.delete()`. `[Added in 2026.05.0]`
 
 ---
 
@@ -960,7 +960,7 @@ enumerated, and resolved. `REF` and `PAGEREF` are resolved against real
 bookmarks (`PAGEREF` returns `?` because python-docx has no layout engine);
 `DOCPROPERTY`, `AUTHOR`, `TITLE`, `SUBJECT`, `KEYWORDS`, `COMMENTS`,
 `LASTSAVEDBY` are resolved from core properties.
-`[Added in 1.3.0.dev0]`.
+`[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -984,12 +984,12 @@ document.settings.update_fields_on_open = True
 document.save("out.docx")
 ```
 
-- `Paragraph.add_simple_field(instr, text=None)` — Append a `w:fldSimple`. `[Added in 1.3.0.dev0]`
-- `Paragraph.add_complex_field(instr, result_text=None)` — Append `begin`/`separate`/`end`. `[Added in 1.3.0.dev0]`
-- `Paragraph.fields` — Mixed list of simple and complex fields. `[Added in 1.3.0.dev0]`
-- `Field.instruction` / `Field.type` / `Field.result_text` / `Field.is_complex` / `Field.is_dirty` / `Field.mark_dirty()` / `Field.update_result_text(new_text)` / `Field.resolve(document)`. `[Added in 1.3.0.dev0]`
-- `Document.resolve_cross_references()` — Walk the body, resolve `REF`/`PAGEREF`/`DOCPROPERTY`/core-property fields, return count updated. `[Added in 1.3.0.dev0]`
-- Field type detection: `docx.fields.WD_FIELD_TYPE` constants. `[Added in 1.3.0.dev0]`
+- `Paragraph.add_simple_field(instr, text=None)` — Append a `w:fldSimple`. `[Added in 2026.05.0]`
+- `Paragraph.add_complex_field(instr, result_text=None)` — Append `begin`/`separate`/`end`. `[Added in 2026.05.0]`
+- `Paragraph.fields` — Mixed list of simple and complex fields. `[Added in 2026.05.0]`
+- `Field.instruction` / `Field.type` / `Field.result_text` / `Field.is_complex` / `Field.is_dirty` / `Field.mark_dirty()` / `Field.update_result_text(new_text)` / `Field.resolve(document)`. `[Added in 2026.05.0]`
+- `Document.resolve_cross_references()` — Walk the body, resolve `REF`/`PAGEREF`/`DOCPROPERTY`/core-property fields, return count updated. `[Added in 2026.05.0]`
+- Field type detection: `docx.fields.WD_FIELD_TYPE` constants. `[Added in 2026.05.0]`
 
 ---
 
@@ -999,7 +999,7 @@ document.save("out.docx")
 *cached result text* previews the body's headings; Word rebuilds the real
 TOC on open. Sibling helpers insert the TOC before or after a specific
 paragraph, and List-of-Figures / List-of-Tables emit the matching
-`TOC \c "Label"` fields. `[Added in 1.3.0.dev0]`.
+`TOC \c "Label"` fields. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1018,10 +1018,10 @@ document.add_list_of_tables(caption_label="Table")
 document.save("out.docx")
 ```
 
-- `Document.add_table_of_contents(levels=(1, 3))` — Append a TOC. `[Added in 1.3.0.dev0]`
-- `Paragraph.insert_table_of_contents_before(levels=(1,3))` / `insert_table_of_contents_after(...)` — Place TOC adjacent to a paragraph. `[Added in 1.3.0.dev0]`
-- `Document.add_list_of_figures(caption_label="Figure")` / `Document.add_list_of_tables(caption_label="Table")` — `[Added in 1.3.0.dev0]`
-- `Document.include_sdt_flat` iteration flag on `iter_inner_content()` surfaces TOC-wrapper content. `[Added in 1.3.0.dev0]`
+- `Document.add_table_of_contents(levels=(1, 3))` — Append a TOC. `[Added in 2026.05.0]`
+- `Paragraph.insert_table_of_contents_before(levels=(1,3))` / `insert_table_of_contents_after(...)` — Place TOC adjacent to a paragraph. `[Added in 2026.05.0]`
+- `Document.add_list_of_figures(caption_label="Figure")` / `Document.add_list_of_tables(caption_label="Table")` — `[Added in 2026.05.0]`
+- `Document.include_sdt_flat` iteration flag on `iter_inner_content()` surfaces TOC-wrapper content. `[Added in 2026.05.0]`
 
 ---
 
@@ -1031,7 +1031,7 @@ Read and resolve tracked insertions, deletions, move revisions, and
 formatting changes. Accept / reject can be applied per-change or
 document-wide; a context-manager wraps new content as tracked insertions by
 the named author; `revision_marks_text()` renders a text preview with
-bracket markers. `[Added in 1.3.0.dev0]`.
+bracket markers. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1057,15 +1057,15 @@ print(f"resolved {n} changes")
 document.save("out.docx")
 ```
 
-- `Document.tracked_changes(author, date=None)` — Context manager that wraps new runs in `w:ins`. `[Added in 1.3.0.dev0]`
-- `Document.accept_all_changes()` / `Document.reject_all_changes()` — Resolve every change in the body. `[Added in 1.3.0.dev0]`
-- `Document.revision_marks_text(open_ins="[+", close_ins="+]", open_del="[-", close_del="-]")` — Body-text preview with markers. `[Added in 1.3.0.dev0]`
-- `Paragraph.tracked_changes` / `Paragraph.revision_marks_text(...)` / `Paragraph.formatting_change` — Per-paragraph reads. `[Added in 1.3.0.dev0]`
-- `Run.formatting_change` / `_Cell.is_tracked_insertion` / `_Cell.is_tracked_deletion` / `_Cell.formatting_change` / `Table.formatting_change` / `Section.formatting_change` — Change detection on other types. `[Added in 1.3.0.dev0]`
-- `TrackedChange.author` / `.date` / `.text` / `.type` / `.accept()` / `.reject()`. `[Added in 1.3.0.dev0]`
-- `MoveRevision.name` / `MoveRevision.peer` — Move source ↔ destination pairing. `[Added in 1.3.0.dev0]`
-- `FormattingChange.author` / `.date` / `.old_properties` — `w:rPrChange` / `w:pPrChange` / `w:sectPrChange` reader. `[Added in 1.3.0.dev0]`
-- `Settings.track_revisions` / `Settings.rsid_root` / `Settings.rsids` — Revision-ID plumbing. `[Added in 1.3.0.dev0]`
+- `Document.tracked_changes(author, date=None)` — Context manager that wraps new runs in `w:ins`. `[Added in 2026.05.0]`
+- `Document.accept_all_changes()` / `Document.reject_all_changes()` — Resolve every change in the body. `[Added in 2026.05.0]`
+- `Document.revision_marks_text(open_ins="[+", close_ins="+]", open_del="[-", close_del="-]")` — Body-text preview with markers. `[Added in 2026.05.0]`
+- `Paragraph.tracked_changes` / `Paragraph.revision_marks_text(...)` / `Paragraph.formatting_change` — Per-paragraph reads. `[Added in 2026.05.0]`
+- `Run.formatting_change` / `_Cell.is_tracked_insertion` / `_Cell.is_tracked_deletion` / `_Cell.formatting_change` / `Table.formatting_change` / `Section.formatting_change` — Change detection on other types. `[Added in 2026.05.0]`
+- `TrackedChange.author` / `.date` / `.text` / `.type` / `.accept()` / `.reject()`. `[Added in 2026.05.0]`
+- `MoveRevision.name` / `MoveRevision.peer` — Move source ↔ destination pairing. `[Added in 2026.05.0]`
+- `FormattingChange.author` / `.date` / `.old_properties` — `w:rPrChange` / `w:pPrChange` / `w:sectPrChange` reader. `[Added in 2026.05.0]`
+- `Settings.track_revisions` / `Settings.rsid_root` / `Settings.rsids` — Revision-ID plumbing. `[Added in 2026.05.0]`
 
 ---
 
@@ -1074,7 +1074,7 @@ document.save("out.docx")
 Structured Document Tags (SDTs) — rich text, plain text, date, checkbox,
 combo, dropdown, picture. Block-level and inline controls are both
 supported, and custom-XML data binding can be attached or removed.
-`[Added in 1.3.0.dev0]`.
+`[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1105,14 +1105,14 @@ for control in document.content_controls:
 document.save("out.docx")
 ```
 
-- `Document.add_content_control(type, tag=None, title=None)` — Block-level SDT. `[Added in 1.3.0.dev0]`
-- `Paragraph.add_content_control(type, tag=None, title=None)` — Inline SDT. `[Added in 1.3.0.dev0]`
-- `Document.content_controls` / `Paragraph.content_controls` — Collections. `[Added in 1.3.0.dev0]`
-- `ContentControl.type` / `.tag` / `.title` / `.sdt_id` / `.text` / `.checked` / `.element`. `[Added in 1.3.0.dev0]`
-- `ContentControl.data_binding` / `.set_data_binding(xpath, prefix_mappings="", store_item_id=None)` / `.remove_data_binding()`. `[Added in 1.3.0.dev0]`
-- `DataBinding.prefix_mappings` / `.xpath` / `.store_item_id`. `[Added in 1.3.0.dev0]`
-- Enum: `ContentControlType` (`RICH_TEXT`, `PLAIN_TEXT`, `DATE`, `CHECKBOX`, `COMBO_BOX`, `DROP_DOWN_LIST`, `PICTURE`). `[Added in 1.3.0.dev0]`
-- `Document.custom_xml_parts` — Read-only list of bound `CustomXmlPart` data sources. `[Added in 1.3.0.dev0]`
+- `Document.add_content_control(type, tag=None, title=None)` — Block-level SDT. `[Added in 2026.05.0]`
+- `Paragraph.add_content_control(type, tag=None, title=None)` — Inline SDT. `[Added in 2026.05.0]`
+- `Document.content_controls` / `Paragraph.content_controls` — Collections. `[Added in 2026.05.0]`
+- `ContentControl.type` / `.tag` / `.title` / `.sdt_id` / `.text` / `.checked` / `.element`. `[Added in 2026.05.0]`
+- `ContentControl.data_binding` / `.set_data_binding(xpath, prefix_mappings="", store_item_id=None)` / `.remove_data_binding()`. `[Added in 2026.05.0]`
+- `DataBinding.prefix_mappings` / `.xpath` / `.store_item_id`. `[Added in 2026.05.0]`
+- Enum: `ContentControlType` (`RICH_TEXT`, `PLAIN_TEXT`, `DATE`, `CHECKBOX`, `COMBO_BOX`, `DROP_DOWN_LIST`, `PICTURE`). `[Added in 2026.05.0]`
+- `Document.custom_xml_parts` — Read-only list of bound `CustomXmlPart` data sources. `[Added in 2026.05.0]`
 
 ---
 
@@ -1120,7 +1120,7 @@ document.save("out.docx")
 
 Legacy `w:ffData` form fields (`FORMTEXT`, `FORMCHECKBOX`, `FORMDROPDOWN`)
 can be authored directly and read back with a unified `FormField`
-interface. `[Added in 1.3.0.dev0]`.
+interface. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1143,16 +1143,16 @@ for ff in document.form_fields:
 document.save("out.docx")
 ```
 
-- `Paragraph.add_text_form_field(name, default="", maxlength=None)` — Add a `FORMTEXT`. `[Added in 1.3.0.dev0]`
-- `Paragraph.add_checkbox_form_field(name, checked=False)` — Add a `FORMCHECKBOX`. `[Added in 1.3.0.dev0]`
-- `Paragraph.add_dropdown_form_field(name, options, default_index=0)` — Add a `FORMDROPDOWN`. `[Added in 1.3.0.dev0]`
-- `Document.form_fields` / `Paragraph.form_fields` — Collections. `[Added in 1.3.0.dev0]`
-- `FormField.type` / `.name` / `.help_text` / `.status_text` / `.enabled` / `.calc_on_exit` / `.value` — Unified read. `[Added in 1.3.0.dev0]`
-- `FormField.text_input` / `FormField.checkbox` / `FormField.dropdown` — Typed views. `[Added in 1.3.0.dev0]`
-- `TextInputFormField.default` / `.max_length` / `.format`. `[Added in 1.3.0.dev0]`
-- `CheckboxFormField.default` / `.checked`. `[Added in 1.3.0.dev0]`
-- `DropdownFormField.options` / `.default_index` / `.result_index`. `[Added in 1.3.0.dev0]`
-- Enum: `WD_FORM_FIELD_TYPE`. `[Added in 1.3.0.dev0]`
+- `Paragraph.add_text_form_field(name, default="", maxlength=None)` — Add a `FORMTEXT`. `[Added in 2026.05.0]`
+- `Paragraph.add_checkbox_form_field(name, checked=False)` — Add a `FORMCHECKBOX`. `[Added in 2026.05.0]`
+- `Paragraph.add_dropdown_form_field(name, options, default_index=0)` — Add a `FORMDROPDOWN`. `[Added in 2026.05.0]`
+- `Document.form_fields` / `Paragraph.form_fields` — Collections. `[Added in 2026.05.0]`
+- `FormField.type` / `.name` / `.help_text` / `.status_text` / `.enabled` / `.calc_on_exit` / `.value` — Unified read. `[Added in 2026.05.0]`
+- `FormField.text_input` / `FormField.checkbox` / `FormField.dropdown` — Typed views. `[Added in 2026.05.0]`
+- `TextInputFormField.default` / `.max_length` / `.format`. `[Added in 2026.05.0]`
+- `CheckboxFormField.default` / `.checked`. `[Added in 2026.05.0]`
+- `DropdownFormField.options` / `.default_index` / `.result_index`. `[Added in 2026.05.0]`
+- Enum: `WD_FORM_FIELD_TYPE`. `[Added in 2026.05.0]`
 
 ---
 
@@ -1160,7 +1160,7 @@ document.save("out.docx")
 
 Text and image watermarks are attached to a section's header via
 `Section.add_text_watermark()` / `Section.add_image_watermark()`.
-`[Added in 1.3.0.dev0]`.
+`[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1187,10 +1187,10 @@ section.remove_watermark()
 document.save("out.docx")
 ```
 
-- `Section.add_text_watermark(text, font=None, size=None, color=None, bold=False, italic=False, semi_transparent=True)` — `[Added in 1.3.0.dev0]`
-- `Section.add_image_watermark(image_path_or_stream, width=None, height=None)` — `[Added in 1.3.0.dev0]`
-- `Section.remove_watermark()` / `Section.watermark` — `[Added in 1.3.0.dev0]`
-- `Watermark.type` / `Watermark.text` — Read-only introspection. `[Added in 1.3.0.dev0]`
+- `Section.add_text_watermark(text, font=None, size=None, color=None, bold=False, italic=False, semi_transparent=True)` — `[Added in 2026.05.0]`
+- `Section.add_image_watermark(image_path_or_stream, width=None, height=None)` — `[Added in 2026.05.0]`
+- `Section.remove_watermark()` / `Section.watermark` — `[Added in 2026.05.0]`
+- `Watermark.type` / `Watermark.text` — Read-only introspection. `[Added in 2026.05.0]`
 
 ---
 
@@ -1198,7 +1198,7 @@ document.save("out.docx")
 
 Captions are paragraphs styled `"Caption"` that carry a `SEQ` field for
 auto-numbering (`Figure 1`, `Table 7`, etc.). Helpers append or insert
-captions relative to a figure or table. `[Added in 1.3.0.dev0]`.
+captions relative to a figure or table. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1216,9 +1216,9 @@ tbl_p = tbl._element.addprevious  # conceptually
 tbl._element.getparent()  # paragraph helpers work on the surrounding paragraph
 ```
 
-- `Document.add_caption(text, label="Figure", style="Caption")` — Append a numbered caption paragraph. `[Added in 1.3.0.dev0]`
-- `Paragraph.add_caption_before(text, label="Figure", style="Caption")` / `Paragraph.add_caption_after(...)` — Insert adjacent caption. `[Added in 1.3.0.dev0]`
-- `docx.captions.new_caption_paragraph(paragraph, text, label, style)` — Low-level helper. `[Added in 1.3.0.dev0]`
+- `Document.add_caption(text, label="Figure", style="Caption")` — Append a numbered caption paragraph. `[Added in 2026.05.0]`
+- `Paragraph.add_caption_before(text, label="Figure", style="Caption")` / `Paragraph.add_caption_after(...)` — Insert adjacent caption. `[Added in 2026.05.0]`
+- `docx.captions.new_caption_paragraph(paragraph, text, label, style)` — Low-level helper. `[Added in 2026.05.0]`
 - Caption sequences automatically include the `SEQ {label} \* ARABIC` field; Word renumbers on open.
 
 ---
@@ -1226,7 +1226,7 @@ tbl._element.getparent()  # paragraph helpers work on the surrounding paragraph
 ## Mail merge
 
 Mail-merge main-document settings are readable and writable via
-`Settings.mail_merge`. `[Added in 1.3.0.dev0]`.
+`Settings.mail_merge`. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1246,11 +1246,11 @@ document.settings.disable_mail_merge()
 document.save("out.docx")
 ```
 
-- `Settings.mail_merge` — `MailMerge` proxy or `None`. `[Added in 1.3.0.dev0]`
-- `Settings.enable_mail_merge(main_document_type=..., destination=..., data_type=...)` — Turn it on. `[Added in 1.3.0.dev0]`
-- `Settings.disable_mail_merge()` — Remove the `w:mailMerge`. `[Added in 1.3.0.dev0]`
-- `MailMerge.main_document_type` / `.destination` / `.data_type` — Per-property reads and writes. `[Added in 1.3.0.dev0]`
-- Enums: `WD_MAIL_MERGE_TYPE`, `WD_MAIL_MERGE_DESTINATION`. `[Added in 1.3.0.dev0]`
+- `Settings.mail_merge` — `MailMerge` proxy or `None`. `[Added in 2026.05.0]`
+- `Settings.enable_mail_merge(main_document_type=..., destination=..., data_type=...)` — Turn it on. `[Added in 2026.05.0]`
+- `Settings.disable_mail_merge()` — Remove the `w:mailMerge`. `[Added in 2026.05.0]`
+- `MailMerge.main_document_type` / `.destination` / `.data_type` — Per-property reads and writes. `[Added in 2026.05.0]`
+- Enums: `WD_MAIL_MERGE_TYPE`, `WD_MAIL_MERGE_DESTINATION`. `[Added in 2026.05.0]`
 
 ---
 
@@ -1284,10 +1284,10 @@ document.save("out.docx")
 ```
 
 - `Document.core_properties` — `CoreProperties` (author, title, subject, keywords, category, comments, content_status, identifier, language, version, created, last_modified_by, last_printed, modified, revision).
-- `Document.custom_properties` — `CustomProperties` mapping. `[Added in 1.3.0.dev0]`
-- `CustomProperties.__getitem__` / `__setitem__` / `__delitem__` / `__contains__` / `__len__` / `__iter__` / `.add(name, value)` / `.get(name, default=None)` / `.names()` / `.items()` — Full mapping interface. Supports `str`, `int`, `float`, `bool`, and date strings. `[Added in 1.3.0.dev0]`
-- `Document.extended_properties` — `ExtendedProperties` (`app.xml`) proxy. `[Added in 1.3.0.dev0]`
-- `ExtendedProperties.get(name)` / `.set(name, value)` / `.clear_all()` — Generic reads/writes; typed property accessors (`company`, `manager`, `pages`, `words`, `characters`, `total_time`, `application`, `app_version`, `template`, etc.) are generated from a declarative spec. `[Added in 1.3.0.dev0]`
+- `Document.custom_properties` — `CustomProperties` mapping. `[Added in 2026.05.0]`
+- `CustomProperties.__getitem__` / `__setitem__` / `__delitem__` / `__contains__` / `__len__` / `__iter__` / `.add(name, value)` / `.get(name, default=None)` / `.names()` / `.items()` — Full mapping interface. Supports `str`, `int`, `float`, `bool`, and date strings. `[Added in 2026.05.0]`
+- `Document.extended_properties` — `ExtendedProperties` (`app.xml`) proxy. `[Added in 2026.05.0]`
+- `ExtendedProperties.get(name)` / `.set(name, value)` / `.clear_all()` — Generic reads/writes; typed property accessors (`company`, `manager`, `pages`, `words`, `characters`, `total_time`, `application`, `app_version`, `template`, etc.) are generated from a declarative spec. `[Added in 2026.05.0]`
 
 ---
 
@@ -1322,18 +1322,18 @@ document.save("out.docx")
 ```
 
 - `Document.settings` — `Settings` proxy.
-- `Settings.compatibility_mode` / `Settings.compat_settings` / `Settings.compat_flags` — Compatibility plumbing. `[Added in 1.3.0.dev0]` for `compat_settings` and `compat_flags`.
-- `Settings.default_tab_stop` / `Settings.zoom_percent` / `Settings.view` — Layout & view. `view` is `[Added in 1.3.0.dev0]`.
-- `Settings.track_revisions` / `Settings.rsid_root` / `Settings.rsids` — Track changes. `[Added in 1.3.0.dev0]` for rsids.
-- `Settings.update_fields_on_open` — Tell Word to refresh fields on open. `[Added in 1.3.0.dev0]`
+- `Settings.compatibility_mode` / `Settings.compat_settings` / `Settings.compat_flags` — Compatibility plumbing. `[Added in 2026.05.0]` for `compat_settings` and `compat_flags`.
+- `Settings.default_tab_stop` / `Settings.zoom_percent` / `Settings.view` — Layout & view. `view` is `[Added in 2026.05.0]`.
+- `Settings.track_revisions` / `Settings.rsid_root` / `Settings.rsids` — Track changes. `[Added in 2026.05.0]` for rsids.
+- `Settings.update_fields_on_open` — Tell Word to refresh fields on open. `[Added in 2026.05.0]`
 - `Settings.odd_and_even_pages_header_footer` / `Settings.even_and_odd_headers` — Odd/even header footer flag.
-- `Settings.theme_font_language` — `(latin, east_asian, bidi)` tuple. `[Added in 1.3.0.dev0]`
-- `Settings.hide_spelling_errors` / `Settings.hide_grammatical_errors` / `Settings.auto_hyphenation` / `Settings.do_not_hyphenate_caps` / `Settings.consecutive_hyphen_limit` / `Settings.hyphenation_zone` — Proofing and hyphenation. `[Added in 1.3.0.dev0]`
-- `Settings.doc_vars` — `DocVars` dict-like (w:docVars). `[Added in 1.3.0.dev0]`
-- `Settings.mail_merge` / `.enable_mail_merge(...)` / `.disable_mail_merge()` — See [Mail merge](#mail-merge). `[Added in 1.3.0.dev0]`
-- `Settings.footnote_properties` / `Settings.endnote_properties` / `Settings.add_*` / `Settings.remove_*` — Document-level note properties. `[Added in 1.3.0.dev0]`
-- `Settings.document_protection` / `Settings.enable_protection(mode, password=None)` / `Settings.disable_protection()` — See [Permissions](#permissions-and-protection). `[Added in 1.3.0.dev0]`
-- `CompatSettings` / `CompatFlags` / `DocVars` — Dict-like subtype helpers. `[Added in 1.3.0.dev0]`
+- `Settings.theme_font_language` — `(latin, east_asian, bidi)` tuple. `[Added in 2026.05.0]`
+- `Settings.hide_spelling_errors` / `Settings.hide_grammatical_errors` / `Settings.auto_hyphenation` / `Settings.do_not_hyphenate_caps` / `Settings.consecutive_hyphen_limit` / `Settings.hyphenation_zone` — Proofing and hyphenation. `[Added in 2026.05.0]`
+- `Settings.doc_vars` — `DocVars` dict-like (w:docVars). `[Added in 2026.05.0]`
+- `Settings.mail_merge` / `.enable_mail_merge(...)` / `.disable_mail_merge()` — See [Mail merge](#mail-merge). `[Added in 2026.05.0]`
+- `Settings.footnote_properties` / `Settings.endnote_properties` / `Settings.add_*` / `Settings.remove_*` — Document-level note properties. `[Added in 2026.05.0]`
+- `Settings.document_protection` / `Settings.enable_protection(mode, password=None)` / `Settings.disable_protection()` — See [Permissions](#permissions-and-protection). `[Added in 2026.05.0]`
+- `CompatSettings` / `CompatFlags` / `DocVars` — Dict-like subtype helpers. `[Added in 2026.05.0]`
 - Enums: `WD_VIEW`, `WD_PROTECTION`, `WD_MAIL_MERGE_TYPE`, `WD_MAIL_MERGE_DESTINATION`.
 
 ---
@@ -1341,7 +1341,7 @@ document.save("out.docx")
 ## Themes
 
 `Document.theme` exposes the `theme1.xml` part read-only. Theme colors and
-theme fonts are accessible as typed structures. `[Added in 1.3.0.dev0]`.
+theme fonts are accessible as typed structures. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1356,10 +1356,10 @@ if theme is not None:
     print("Hyperlink color:", theme.colors.hyperlink)
 ```
 
-- `Document.theme` — `Theme` proxy or `None`. `[Added in 1.3.0.dev0]`
-- `Theme.name` / `.colors` / `.fonts`. `[Added in 1.3.0.dev0]`
-- `ThemeColors.dark_1` / `.dark_2` / `.light_1` / `.light_2` / `.accent_1` ... `.accent_6` / `.hyperlink` / `.followed_hyperlink` / `ThemeColors[name]`. `[Added in 1.3.0.dev0]`
-- `ThemeFonts.major_latin` / `.minor_latin` / `.major_east_asian` / `.minor_east_asian` / `.major_cs` / `.minor_cs` / `.name`. `[Added in 1.3.0.dev0]`
+- `Document.theme` — `Theme` proxy or `None`. `[Added in 2026.05.0]`
+- `Theme.name` / `.colors` / `.fonts`. `[Added in 2026.05.0]`
+- `ThemeColors.dark_1` / `.dark_2` / `.light_1` / `.light_2` / `.accent_1` ... `.accent_6` / `.hyperlink` / `.followed_hyperlink` / `ThemeColors[name]`. `[Added in 2026.05.0]`
+- `ThemeFonts.major_latin` / `.minor_latin` / `.major_east_asian` / `.minor_east_asian` / `.major_cs` / `.minor_cs` / `.name`. `[Added in 2026.05.0]`
 
 ---
 
@@ -1369,7 +1369,7 @@ Document-wide protection (read-only, filling-forms, comments,
 tracked-changes) is controlled through `Settings.document_protection` and
 its `enable_protection()` / `disable_protection()` helpers. Range-level
 permissions (`w:permStart`/`w:permEnd`) restrict edits to a specific user
-or group within the document. `[Added in 1.3.0.dev0]` across the board.
+or group within the document. `[Added in 2026.05.0]` across the board.
 
 ```python
 from docx import Document
@@ -1391,13 +1391,13 @@ for pr in document.permission_ranges:
 document.save("out.docx")
 ```
 
-- `Settings.document_protection` — `DocumentProtection` proxy. `[Added in 1.3.0.dev0]`
-- `DocumentProtection.mode` / `.enforce` / `.formatting_locked` / `.password_hash` / `.password_salt` / `.crypto_*` / `.spin_count` — Read/write. `.set_password(password)` hashes with Word's algorithm. `[Added in 1.3.0.dev0]`
-- `Settings.enable_protection(mode, password=None)` / `Settings.disable_protection()` — High-level shortcuts. `[Added in 1.3.0.dev0]`
-- `Paragraph.add_permission_range(name=None, user=None, edit_group=None)` — Wrap a paragraph in a `w:permStart`. `[Added in 1.3.0.dev0]`
-- `Paragraph.permission_ranges` / `Document.permission_ranges` — Collections. `[Added in 1.3.0.dev0]`
-- `PermissionRange.id` / `.user` / `.edit_group` / `.displaced_by_custom_xml` / `.delete()`. `[Added in 1.3.0.dev0]`
-- Enum: `WD_PROTECTION` (`NONE`, `READ_ONLY`, `COMMENTS`, `TRACKED_CHANGES`, `FORMS`). `[Added in 1.3.0.dev0]`
+- `Settings.document_protection` — `DocumentProtection` proxy. `[Added in 2026.05.0]`
+- `DocumentProtection.mode` / `.enforce` / `.formatting_locked` / `.password_hash` / `.password_salt` / `.crypto_*` / `.spin_count` — Read/write. `.set_password(password)` hashes with Word's algorithm. `[Added in 2026.05.0]`
+- `Settings.enable_protection(mode, password=None)` / `Settings.disable_protection()` — High-level shortcuts. `[Added in 2026.05.0]`
+- `Paragraph.add_permission_range(name=None, user=None, edit_group=None)` — Wrap a paragraph in a `w:permStart`. `[Added in 2026.05.0]`
+- `Paragraph.permission_ranges` / `Document.permission_ranges` — Collections. `[Added in 2026.05.0]`
+- `PermissionRange.id` / `.user` / `.edit_group` / `.displaced_by_custom_xml` / `.delete()`. `[Added in 2026.05.0]`
+- Enum: `WD_PROTECTION` (`NONE`, `READ_ONLY`, `COMMENTS`, `TRACKED_CHANGES`, `FORMS`). `[Added in 2026.05.0]`
 
 ---
 
@@ -1405,7 +1405,7 @@ document.save("out.docx")
 
 Ink annotations (`<w:contentPart>` pointing at an `inkml` part) are
 read-only — you can iterate them, read the raw ink-ML blob, and see how
-many strokes they hold. `[Added in 1.3.0.dev0]`.
+many strokes they hold. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1415,8 +1415,8 @@ for ink in document.ink_annotations:
     print(ink.partname, ink.stroke_count, len(ink.blob), "bytes")
 ```
 
-- `Document.ink_annotations` / `Paragraph.ink_annotations` — Iterators over `InkAnnotation`. `[Added in 1.3.0.dev0]`
-- `InkAnnotation.blob` / `.partname` / `.stroke_count` / `.paragraph`. `[Added in 1.3.0.dev0]`
+- `Document.ink_annotations` / `Paragraph.ink_annotations` — Iterators over `InkAnnotation`. `[Added in 2026.05.0]`
+- `InkAnnotation.blob` / `.partname` / `.stroke_count` / `.paragraph`. `[Added in 2026.05.0]`
 
 ---
 
@@ -1426,7 +1426,7 @@ Embedded OLE objects (Excel sheets, PDFs, arbitrary files) can be added via
 `Run.add_ole_object()`. `altChunk` attachments — arbitrary foreign payloads
 (HTML, RTF, another docx) that Word merges on open — are added with
 `Document.add_alt_chunk()`. Both are also exposed read-only as
-`embedded_objects` / `attachments` / `alt_chunks`. `[Added in 1.3.0.dev0]`.
+`embedded_objects` / `attachments` / `alt_chunks`. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1451,13 +1451,13 @@ for chunk in document.alt_chunks:
 document.save("out.docx")
 ```
 
-- `Run.add_ole_object(ole_path_or_stream, prog_id, icon_path_or_stream=None)` — Embed an OLE payload inline. `[Added in 1.3.0.dev0]`
-- `Document.embedded_objects` / `Paragraph.embedded_objects` — Collections of `EmbeddedObject`. `[Added in 1.3.0.dev0]`
-- `EmbeddedObject.blob` / `.embedded_partname` / `.prog_id` / `.r_id` / `.type` / `.paragraph`. `[Added in 1.3.0.dev0]`
-- `Document.add_alt_chunk(content, content_type="text/html")` — Append a `w:altChunk`. `[Added in 1.3.0.dev0]`
-- `Document.alt_chunks` — List of `AltChunk` proxies. `[Added in 1.3.0.dev0]`
-- `Document.attachments` — List of `Attachment` (same underlying `altChunk` elements, read-oriented). `[Added in 1.3.0.dev0]`
-- `Attachment.r_id` / `.content_type` / `.blob` / `.partname`. `[Added in 1.3.0.dev0]`
+- `Run.add_ole_object(ole_path_or_stream, prog_id, icon_path_or_stream=None)` — Embed an OLE payload inline. `[Added in 2026.05.0]`
+- `Document.embedded_objects` / `Paragraph.embedded_objects` — Collections of `EmbeddedObject`. `[Added in 2026.05.0]`
+- `EmbeddedObject.blob` / `.embedded_partname` / `.prog_id` / `.r_id` / `.type` / `.paragraph`. `[Added in 2026.05.0]`
+- `Document.add_alt_chunk(content, content_type="text/html")` — Append a `w:altChunk`. `[Added in 2026.05.0]`
+- `Document.alt_chunks` — List of `AltChunk` proxies. `[Added in 2026.05.0]`
+- `Document.attachments` — List of `Attachment` (same underlying `altChunk` elements, read-oriented). `[Added in 2026.05.0]`
+- `Attachment.r_id` / `.content_type` / `.blob` / `.partname`. `[Added in 2026.05.0]`
 
 ---
 
@@ -1465,7 +1465,7 @@ document.save("out.docx")
 
 `fontTable.xml` describes the fonts referenced by the document and can
 embed TTF bytes for private fonts. The fork exposes a read-only view of the
-table plus `add_embedded_font()` for authoring. `[Added in 1.3.0.dev0]`.
+table plus `add_embedded_font()` for authoring. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1481,17 +1481,17 @@ if ft is not None:
 ft2 = document.font_table_or_new
 ```
 
-- `Document.font_table` — `FontTable` or `None`. `[Added in 1.3.0.dev0]`
-- `Document.font_table_or_new` — Same, but creates an empty part if missing. `[Added in 1.3.0.dev0]`
-- `FontTable.__iter__` / `__len__` / `__contains__` / `__getitem__` / `.get(name)` / `.add_embedded_font(name, ttf_blob, style="regular")`. `[Added in 1.3.0.dev0]`
-- `FontMetadata.name` / `.family` / `.charset` / `.pitch` / `.panose` / `.alt_name` / `.embed_regular` / `.embed_bold` / `.embed_italic` / `.embed_bold_italic`. `[Added in 1.3.0.dev0]`
+- `Document.font_table` — `FontTable` or `None`. `[Added in 2026.05.0]`
+- `Document.font_table_or_new` — Same, but creates an empty part if missing. `[Added in 2026.05.0]`
+- `FontTable.__iter__` / `__len__` / `__contains__` / `__getitem__` / `.get(name)` / `.add_embedded_font(name, ttf_blob, style="regular")`. `[Added in 2026.05.0]`
+- `FontMetadata.name` / `.family` / `.charset` / `.pitch` / `.panose` / `.alt_name` / `.embed_regular` / `.embed_bold` / `.embed_italic` / `.embed_bold_italic`. `[Added in 2026.05.0]`
 
 ---
 
 ## Web settings
 
 `webSettings.xml` is exposed read-oriented via `Document.web_settings`.
-`[Added in 1.3.0.dev0]`.
+`[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1502,8 +1502,8 @@ if ws is not None:
     print(ws.encoding, ws.optimize_for_browser, ws.allow_png)
 ```
 
-- `Document.web_settings` — `WebSettings` proxy or `None`. `[Added in 1.3.0.dev0]`
-- `WebSettings.encoding` / `.optimize_for_browser` / `.allow_png` / `.do_not_save_as_single_file`. `[Added in 1.3.0.dev0]`
+- `Document.web_settings` — `WebSettings` proxy or `None`. `[Added in 2026.05.0]`
+- `WebSettings.encoding` / `.optimize_for_browser` / `.allow_png` / `.do_not_save_as_single_file`. `[Added in 2026.05.0]`
 
 ---
 
@@ -1512,7 +1512,7 @@ if ws is not None:
 The glossary document (AutoText / Quick Parts / cover pages) is read-only
 in `Document.glossary`. You can enumerate building blocks, filter by
 category or gallery, and inspect each entry's paragraphs and tables.
-`[Added in 1.3.0.dev0]`.
+`[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1527,17 +1527,17 @@ if g is not None:
     print("galleries:", g.galleries)
 ```
 
-- `Document.glossary` — `Glossary` or `None`. `[Added in 1.3.0.dev0]`
-- `Glossary.__iter__` / `__len__` / `__getitem__(name)` / `.building_blocks` / `.categories` / `.galleries` / `.by_category(name=None, gallery=None)`. `[Added in 1.3.0.dev0]`
-- `BuildingBlock.name` / `.category` / `.description` / `.guid` / `.paragraphs` / `.tables`. `[Added in 1.3.0.dev0]`
-- `BuildingBlockCategory.category_name` / `.gallery` / `.gallery_value`. `[Added in 1.3.0.dev0]`
+- `Document.glossary` — `Glossary` or `None`. `[Added in 2026.05.0]`
+- `Glossary.__iter__` / `__len__` / `__getitem__(name)` / `.building_blocks` / `.categories` / `.galleries` / `.by_category(name=None, gallery=None)`. `[Added in 2026.05.0]`
+- `BuildingBlock.name` / `.category` / `.description` / `.guid` / `.paragraphs` / `.tables`. `[Added in 2026.05.0]`
+- `BuildingBlockCategory.category_name` / `.gallery` / `.gallery_value`. `[Added in 2026.05.0]`
 
 ---
 
 ## Digital signatures
 
 Digital signatures are detected and enumerated; no verification is
-performed. `[Added in 1.3.0.dev0]`.
+performed. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1548,9 +1548,9 @@ if document.is_signed:
         print(sig.partname, sig.signer, sig.signed_at)
 ```
 
-- `Document.is_signed` — `True` when `_xmlsignatures/*` parts exist. `[Added in 1.3.0.dev0]`
-- `Document.signatures` — List of `SignatureInfo`. `[Added in 1.3.0.dev0]`
-- `SignatureInfo.partname` / `.blob` / `.signer` / `.signed_at`. `[Added in 1.3.0.dev0]`
+- `Document.is_signed` — `True` when `_xmlsignatures/*` parts exist. `[Added in 2026.05.0]`
+- `Document.signatures` — List of `SignatureInfo`. `[Added in 2026.05.0]`
+- `SignatureInfo.partname` / `.blob` / `.signer` / `.signed_at`. `[Added in 2026.05.0]`
 
 ---
 
@@ -1559,7 +1559,7 @@ if document.is_signed:
 `Document.validate_heading_structure()` returns a list of `HeadingIssue`
 objects describing outline problems — skipped levels, multiple H1s, empty
 headings, starting-below-H1. `InlineShape.alt_text` / `Table.alt_text`
-expose the accessibility fields. `[Added in 1.3.0.dev0]`.
+expose the accessibility fields. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1576,10 +1576,10 @@ for issue in issues:
     print(issue.code, "@", issue.paragraph_index, issue.message)
 ```
 
-- `Document.validate_heading_structure()` — List of `HeadingIssue`. `[Added in 1.3.0.dev0]`
-- `HeadingIssue` — `code`, `message`, `paragraph_index`, `heading_level`, `heading_text`. `[Added in 1.3.0.dev0]`
-- `InlineShape.alt_text` / `.title` / `FloatingImage.alt_text` / `.title` — Accessibility metadata. `[Added in 1.3.0.dev0]`
-- `Table.alt_text` / `Table.alt_description` — Table alt text. `[Added in 1.3.0.dev0]`
+- `Document.validate_heading_structure()` — List of `HeadingIssue`. `[Added in 2026.05.0]`
+- `HeadingIssue` — `code`, `message`, `paragraph_index`, `heading_level`, `heading_text`. `[Added in 2026.05.0]`
+- `InlineShape.alt_text` / `.title` / `FloatingImage.alt_text` / `.title` — Accessibility metadata. `[Added in 2026.05.0]`
+- `Table.alt_text` / `Table.alt_description` — Table alt text. `[Added in 2026.05.0]`
 
 ---
 
@@ -1589,7 +1589,7 @@ for issue in issues:
 counts Word displays in its "Word Count" dialog. The body story is counted;
 headers, footers, footnotes, endnotes, and comments are not. Pages are
 sourced from the cached value in `docProps/app.xml` (python-docx does not
-lay the document out). `[Added in 1.3.0.dev0]`.
+lay the document out). `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1603,7 +1603,7 @@ print("characters (no spaces):", stats.characters_no_spaces)
 print("pages:     ", stats.pages)  # may be None
 ```
 
-- `Document.statistics` — `DocumentStatistics(paragraphs, words, characters, characters_no_spaces, pages)`. `[Added in 1.3.0.dev0]`
+- `Document.statistics` — `DocumentStatistics(paragraphs, words, characters, characters_no_spaces, pages)`. `[Added in 2026.05.0]`
 
 ---
 
@@ -1613,7 +1613,7 @@ Plain-text and regex-based search + replace work against body paragraphs
 (`search` / `replace` / `search_regex` / `replace_regex`) or across every
 story in the document (`_all` variants — body plus headers, footers,
 footnotes, endnotes, and comments). All variants preserve run formatting
-of the first character's run. `[Added in 1.3.0.dev0]`.
+of the first character's run. `[Added in 2026.05.0]`.
 
 ```python
 import re
@@ -1637,12 +1637,12 @@ document.replace_regex_all(re.compile(r"\bHi\b"), "Hiya")
 document.save("out.docx")
 ```
 
-- `Document.search(text, case_sensitive=True, whole_word=False)` — Body-only matches. `[Added in 1.3.0.dev0]`
-- `Document.search_all(text, case_sensitive=True, whole_word=False)` — Every story. `[Added in 1.3.0.dev0]`
-- `Document.search_regex(pattern, flags=0)` / `Document.search_regex_all(pattern, flags=0)` — Regex search. `[Added in 1.3.0.dev0]`
-- `Document.replace(old, new, case_sensitive=True, whole_word=False)` / `Document.replace_all(...)` — Body / all-stories replacement. `[Added in 1.3.0.dev0]`
-- `Document.replace_regex(pattern, replacement, flags=0)` / `Document.replace_regex_all(...)` — Regex replacement. `[Added in 1.3.0.dev0]`
-- `SearchMatch.paragraph` / `.paragraph_index` / `.run_indices` / `.start` / `.end` / `.location` — Match metadata; `location` identifies the story. `[Added in 1.3.0.dev0]`
+- `Document.search(text, case_sensitive=True, whole_word=False)` — Body-only matches. `[Added in 2026.05.0]`
+- `Document.search_all(text, case_sensitive=True, whole_word=False)` — Every story. `[Added in 2026.05.0]`
+- `Document.search_regex(pattern, flags=0)` / `Document.search_regex_all(pattern, flags=0)` — Regex search. `[Added in 2026.05.0]`
+- `Document.replace(old, new, case_sensitive=True, whole_word=False)` / `Document.replace_all(...)` — Body / all-stories replacement. `[Added in 2026.05.0]`
+- `Document.replace_regex(pattern, replacement, flags=0)` / `Document.replace_regex_all(...)` — Regex replacement. `[Added in 2026.05.0]`
+- `SearchMatch.paragraph` / `.paragraph_index` / `.run_indices` / `.start` / `.end` / `.location` — Match metadata; `location` identifies the story. `[Added in 2026.05.0]`
 - Story location strings include `"body"`, `"table:0:row:1:col:2"`, `"header:section0:primary"`, `"footnote:2"`, `"endnote:3"`, `"comment:5"`.
 
 ---
@@ -1652,7 +1652,7 @@ document.save("out.docx")
 Whole documents can be appended, paragraph-by-paragraph copies can be
 imported with their style / numbering / image dependencies, and individual
 tables, headers, and footers can be copied between sections or documents.
-`[Added in 1.3.0.dev0]`.
+`[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1681,11 +1681,11 @@ merged.styles.import_from(another, names=["BodyQuote"])
 merged.save("book.docx")
 ```
 
-- `Document.append_document(other)` / `Document.append_body(other)` — Append another document's body. Returns the number of block elements copied. `[Added in 1.3.0.dev0]`
-- `Document.append_paragraph(paragraph)` — Copy a single paragraph with dependencies. `[Added in 1.3.0.dev0]`
-- `Document.add_table_copy(other_table)` / `Document.add_table_from(other_table)` — Deep-copy a table. `[Added in 1.3.0.dev0]`
-- `Section.copy_header_from(other_section)` / `Section.copy_footer_from(other_section)` — `[Added in 1.3.0.dev0]`
-- `Styles.import_from(other_doc, names)` / `Styles.import_style(style)` / `Styles.import_builtin(name)` — Style import with `basedOn` / `next` / `link` resolution. `[Added in 1.3.0.dev0]`
+- `Document.append_document(other)` / `Document.append_body(other)` — Append another document's body. Returns the number of block elements copied. `[Added in 2026.05.0]`
+- `Document.append_paragraph(paragraph)` — Copy a single paragraph with dependencies. `[Added in 2026.05.0]`
+- `Document.add_table_copy(other_table)` / `Document.add_table_from(other_table)` — Deep-copy a table. `[Added in 2026.05.0]`
+- `Section.copy_header_from(other_section)` / `Section.copy_footer_from(other_section)` — `[Added in 2026.05.0]`
+- `Styles.import_from(other_doc, names)` / `Styles.import_style(style)` / `Styles.import_builtin(name)` — Style import with `basedOn` / `next` / `link` resolution. `[Added in 2026.05.0]`
 
 ---
 
@@ -1695,26 +1695,26 @@ merged.save("book.docx")
 - A regular `.docx` / `.docm` save (default).
 - A **reproducible** zip layout with a fixed timestamp, sorted members, and
   no extra metadata — byte-identical output for the same content.
-  `[Added in 1.3.0.dev0]`
+  `[Added in 2026.05.0]`
 - A **Flat-OPC** (`<pkg:package>`) single-XML serialisation.
-  `[Added in 1.3.0.dev0]`
-- Path objects (`os.PathLike`). `[Added in 1.3.0.dev0]`
+  `[Added in 2026.05.0]`
+- Path objects (`os.PathLike`). `[Added in 2026.05.0]`
 - `.docm` macro-enabled output (auto-detected from the loaded part
-  content-type). `[Added in 1.3.0.dev0]`
+  content-type). `[Added in 2026.05.0]`
 
 Opening supports:
 - `.docx`, `.docm`, `.dotx`, `.dotm` packages (`Document()`).
-  `.dotx` / `.dotm` template discrimination is `[Added in 1.3.0.dev0]`.
-- Strict-OOXML packages translated on the fly. `[Added in 1.3.0.dev0]`
-- Flat-OPC input auto-detected. `[Added in 1.3.0.dev0]`
+  `.dotx` / `.dotm` template discrimination is `[Added in 2026.05.0]`.
+- Strict-OOXML packages translated on the fly. `[Added in 2026.05.0]`
+- Flat-OPC input auto-detected. `[Added in 2026.05.0]`
 - `recover=True` tolerating malformed XML with warnings on
-  `Document.recovery_warnings`. `[Added in 1.3.0.dev0]`
+  `Document.recovery_warnings`. `[Added in 2026.05.0]`
 - `huge_tree=True` relaxing lxml's XML-bomb safety limits.
-  `[Added in 1.3.0.dev0]`
+  `[Added in 2026.05.0]`
 - `include_metadata=False` stripping the default template's core /
-  extended properties on load. `[Added in 1.3.0.dev0]`
+  extended properties on load. `[Added in 2026.05.0]`
 - `EncryptedDocumentError` raised for password-protected packages.
-  `[Added in 1.3.0.dev0]`
+  `[Added in 2026.05.0]`
 
 ```python
 from docx import Document
@@ -1739,8 +1739,8 @@ print(broken.recovery_warnings)
 ```
 
 - `Document.save(path_or_stream, flat_opc=False, reproducible=False)` — Save options as above.
-- `Document.has_macros` — `True` when a VBA project is present. `[Added in 1.3.0.dev0]`
-- `docx.exceptions.EncryptedDocumentError` — `[Added in 1.3.0.dev0]`
+- `Document.has_macros` — `True` when a VBA project is present. `[Added in 2026.05.0]`
+- `docx.exceptions.EncryptedDocumentError` — `[Added in 2026.05.0]`
 - `docx.package.Package` — `Package.open(...)` / `.is_signed` / `.recovery_warnings` / `.signatures` — Low-level package access.
 - Flat-OPC helpers: `docx.opc.flat_opc.write_flat_opc` / `is_flat_opc`.
 

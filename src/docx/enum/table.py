@@ -120,7 +120,7 @@ class WD_SHADING_PATTERN(BaseXmlEnum):
 
     MS API name: `WdShadingPattern` (partial)
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     CLEAR = (0, "clear", "No pattern, just background fill color.")
@@ -262,7 +262,7 @@ class WD_TABLE_AUTOFIT(BaseEnum):
     by ``w:tblLayout/@w:type`` (``fixed`` vs. ``autofit``) with the ``w:tblW/@w:type``
     attribute (``auto`` vs. ``pct``/``dxa``).
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     AUTOFIT_TO_WINDOW = (
@@ -303,7 +303,7 @@ class WD_TEXT_DIRECTION(BaseXmlEnum):
 
     Based on the ``ST_TextDirection`` simple type in the Open XML spec.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     LR_TB = (

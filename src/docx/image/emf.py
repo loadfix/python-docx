@@ -35,7 +35,7 @@ _EMF_SIGNATURE = 0x464D4520  # " EMF"
 class Emf(BaseImageHeader):
     """Image header parser for EMF (Enhanced Metafile) images.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     @classmethod

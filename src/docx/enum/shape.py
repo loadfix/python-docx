@@ -23,7 +23,7 @@ class WD_DRAWING_TYPE(enum.Enum):
     """Type of content contained in a `<w:drawing>` element.
 
 
-.. versionadded:: 1.3.0.dev0
+.. versionadded:: 2026.05.0
 
 """
 
@@ -40,7 +40,7 @@ class WD_ANCHOR_H(enum.Enum):
 
     Maps to `wp:positionH/@relativeFrom` attribute on a `wp:anchor` element.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     PAGE = "page"
@@ -54,7 +54,7 @@ class WD_ANCHOR_V(enum.Enum):
 
     Maps to `wp:positionV/@relativeFrom` attribute on a `wp:anchor` element.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     PAGE = "page"
@@ -71,7 +71,7 @@ class WD_WRAP_TYPE(enum.Enum):
     BEHIND and IN_FRONT are both `wp:wrapNone`, distinguished by the `behindDoc`
     attribute on the parent `wp:anchor` element.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     SQUARE = "square"
@@ -90,7 +90,7 @@ class WD_SHAPE(enum.Enum):
     ``ST_ShapeType`` catalog is implemented for create; all preset names that
     appear in a document round-trip correctly regardless.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     RECTANGLE = "rect"

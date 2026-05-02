@@ -124,10 +124,10 @@ class Run(StoryChild):
         `url` becomes the link target while the local path is used only to
         probe the native dimensions.
 
-        .. versionchanged:: 1.3.0.dev0
+        .. versionchanged:: 2026.05.0
            Accepts :class:`os.PathLike` path arguments.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
             ``link``, ``save_with_document``, and ``url`` parameters.
         """
         if isinstance(image_path_or_stream, os.PathLike):
@@ -158,7 +158,7 @@ class Run(StoryChild):
 
         Returns the :class:`~docx.drawing.WordprocessingShape` proxy.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.drawing import WordprocessingShape
         from docx.enum.shape import WD_SHAPE
@@ -218,7 +218,7 @@ class Run(StoryChild):
         Returns an |EmbeddedObject| wrapping the newly-created ``o:OLEObject``
         element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.embedded_objects import EmbeddedObject
         from docx.opc.constants import RELATIONSHIP_TYPE as _RT
@@ -316,7 +316,7 @@ class Run(StoryChild):
         normalized on write. `font` is the name of the font supplying the
         glyph, for example ``"Wingdings"``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if isinstance(char_code, str):
             code_int = int(char_code, 16)
@@ -331,7 +331,7 @@ class Run(StoryChild):
         """Generate a |Symbol| for each ``<w:sym>`` child of this run, in document
         order.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         for sym in self._r.sym_lst:
             yield Symbol(sym)
@@ -345,7 +345,7 @@ class Run(StoryChild):
         variant of ``run.text``. Provided so callers can opt into the intent
         explicitly even though ``.text`` now includes symbols too.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._r.text
 
@@ -358,7 +358,7 @@ class Run(StoryChild):
         with :attr:`Paragraph.equations` so callers can query any run without
         a type check. Walks descendant ``m:oMath`` and ``m:oMathPara`` nodes.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.equations import Equation
 
@@ -376,7 +376,7 @@ class Run(StoryChild):
         Read-only. Ruby is used for phonetic annotation (Japanese furigana etc.)
         pairing base text with an above-the-line reading.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.ruby import RubyAnnotation
 
@@ -411,7 +411,7 @@ class Run(StoryChild):
         pre-existing character formatting on this run. The run's text content
         is untouched. Returns this run for chaining convenience.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         source.font.copy_to(self.font)
         return self
@@ -422,7 +422,7 @@ class Run(StoryChild):
         The run element is removed from its parent. After calling this method,
         this |Run| object is "defunct" and should not be used further.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         r = self._r
         parent = r.getparent()
@@ -505,7 +505,7 @@ class Run(StoryChild):
         to a new run inserted immediately after this one. Both runs share the same
         character formatting (`w:rPr`).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         new_r = self._r.split_run(offset)
         right_run = Run(new_r, self._parent)
@@ -528,7 +528,7 @@ class Run(StoryChild):
         "Hyperlink" character style automatically — apply it via
         :attr:`Run.style` if desired.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.oxml.parser import OxmlElement
         from docx.oxml.text.hyperlink import CT_Hyperlink
@@ -564,7 +564,7 @@ class Run(StoryChild):
         track-changes is enabled. The returned object exposes the author, date,
         and the prior `w:rPr` via ``old_properties``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.tracked_changes import FormattingChange
 
@@ -584,7 +584,7 @@ class Run(StoryChild):
         editing session in which this run was last modified, or |None| when
         the ``@w:rsidR`` attribute is not present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._r.rsidR
 
@@ -601,7 +601,7 @@ class Run(StoryChild):
         For more robust cross-session tracking, compare :attr:`rsid` combined
         with :attr:`text`.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.ids import compute_stable_id
 

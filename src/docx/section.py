@@ -60,7 +60,7 @@ class Section:
     def columns(self) -> SectionColumns:
         """|SectionColumns| object providing access to column layout settings.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return SectionColumns(self._sectPr)
 
@@ -84,7 +84,7 @@ class Section:
             section.columns.space = space
             section.columns.equal_width = equal_width
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         columns = self.columns
         columns.count = count
@@ -128,7 +128,7 @@ class Section:
         enabled. The returned object exposes the author, date, and the prior
         `w:sectPr` via ``old_properties``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.tracked_changes import FormattingChange
 
@@ -154,7 +154,7 @@ class Section:
         This property is a thin alias for
         :attr:`docx.settings.Settings.even_and_odd_headers` on the parent document.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._document_part.settings.even_and_odd_headers
 
@@ -284,7 +284,7 @@ class Section:
         :meth:`iter_inner_content` for the full sequence. Items appear in
         document order.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return [
             Paragraph(element, self)
@@ -299,7 +299,7 @@ class Section:
         Companion to :attr:`paragraphs`; returns the tables whose ``w:tbl``
         elements fall in this section's range. Items appear in document order.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return [
             Table(element, self)
@@ -331,7 +331,7 @@ class Section:
         After calling this method, this |Section| object is "defunct" and
         should not be used further.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         sectPr = self._sectPr
         parent = sectPr.getparent()
@@ -381,7 +381,7 @@ class Section:
 
         Does nothing when `other_section` has no default-header definition.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._copy_hdrftr(other_section, is_header=True)
 
@@ -392,7 +392,7 @@ class Section:
         contract. Does nothing when `other_section` has no default-footer
         definition.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._copy_hdrftr(other_section, is_header=False)
 
@@ -498,7 +498,7 @@ class Section:
         ``.right`` return |PageBorder| proxies whose ``.style``, ``.width``,
         ``.color`` and ``.space`` are ``None``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return PageBorders(self._sectPr)
 
@@ -517,7 +517,7 @@ class Section:
         is left unchanged when already present; any argument explicitly set is
         applied to the edge). Returns the updated |PageBorder| proxy.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if side not in ("top", "bottom", "left", "right"):
             raise ValueError(
@@ -539,7 +539,7 @@ class Section:
 
         Does nothing when no ``w:pgBorders`` child is present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._sectPr._remove_pgBorders()  # pyright: ignore[reportPrivateUsage]
 
@@ -551,7 +551,7 @@ class Section:
         Use :meth:`set_line_numbering` to create or update the ``w:lnNumType``
         element and :meth:`remove_line_numbering` to remove it.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         lnNumType = self._sectPr.lnNumType
         if lnNumType is None:
@@ -571,7 +571,7 @@ class Section:
         existing ``w:lnNumType`` element unchanged. Returns the |LineNumbering|
         proxy for the resulting element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         lnNumType = self._sectPr.get_or_add_lnNumType()
         if count_by is not None:
@@ -589,7 +589,7 @@ class Section:
 
         Does nothing when no ``w:lnNumType`` child is present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._sectPr._remove_lnNumType()  # pyright: ignore[reportPrivateUsage]
 
@@ -604,7 +604,7 @@ class Section:
         Setting this to |None| clears the attribute; if ``other_pages_paper_source``
         is also unset, the ``w:paperSrc`` element is removed entirely.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         paperSrc = self._sectPr.paperSrc
         if paperSrc is None:
@@ -634,7 +634,7 @@ class Section:
         Setting this to |None| clears the attribute; if ``first_page_paper_source``
         is also unset, the ``w:paperSrc`` element is removed entirely.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         paperSrc = self._sectPr.paperSrc
         if paperSrc is None:
@@ -661,7 +661,7 @@ class Section:
         Use :meth:`set_document_grid` to create or update the ``w:docGrid`` element
         and :meth:`remove_document_grid` to remove it.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         docGrid = self._sectPr.docGrid
         if docGrid is None:
@@ -680,7 +680,7 @@ class Section:
         existing ``w:docGrid`` element unchanged. Returns the |DocumentGrid|
         proxy for the resulting element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         docGrid = self._sectPr.get_or_add_docGrid()
         if type is not None:
@@ -696,7 +696,7 @@ class Section:
 
         Does nothing when no ``w:docGrid`` child is present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._sectPr._remove_docGrid()  # pyright: ignore[reportPrivateUsage]
 
@@ -721,7 +721,7 @@ class Section:
         Assigning ``True`` inserts a ``w:bidi`` element; assigning ``False`` (or
         |None|) removes any existing ``w:bidi`` child.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._sectPr.bidi_val
 
@@ -737,7 +737,7 @@ class Section:
         section's ``w:sectPr``. |None| when no ``w:textDirection`` child is
         present. Assigning |None| removes the ``w:textDirection`` element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._sectPr.text_direction
 
@@ -776,7 +776,7 @@ class Section:
         Section-level footnote properties override document-level defaults. Use
         :meth:`add_footnote_properties` to add a ``w:footnotePr`` child if not present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.footnotes import FootnoteProperties
 
@@ -791,7 +791,7 @@ class Section:
         If a ``w:footnotePr`` element is already present on this section, the existing
         element is used.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.footnotes import FootnoteProperties
 
@@ -801,7 +801,7 @@ class Section:
     def remove_footnote_properties(self) -> None:
         """Remove the ``w:footnotePr`` child element if present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._sectPr._remove_footnotePr()  # pyright: ignore[reportPrivateUsage]
 
@@ -813,7 +813,7 @@ class Section:
         Section-level endnote properties override document-level defaults. Use
         :meth:`add_endnote_properties` to add a ``w:endnotePr`` child if not present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.endnotes import EndnoteProperties
 
@@ -828,7 +828,7 @@ class Section:
         If a ``w:endnotePr`` element is already present on this section, the existing
         element is used.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.endnotes import EndnoteProperties
 
@@ -838,7 +838,7 @@ class Section:
     def remove_endnote_properties(self) -> None:
         """Remove the ``w:endnotePr`` child element if present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._sectPr._remove_endnotePr()  # pyright: ignore[reportPrivateUsage]
 
@@ -860,7 +860,7 @@ class Section:
         `size` defaults to 72pt, `color` to silver (``#C0C0C0``), `layout` to
         ``"diagonal"``. `layout` accepts ``"diagonal"`` or ``"horizontal"``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if size is None:
             size = Pt(72)
@@ -933,7 +933,7 @@ class Section:
 
         Replaces any existing watermark.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self.header.is_linked_to_previous:
             self.header.is_linked_to_previous = False
@@ -986,7 +986,7 @@ class Section:
         Does nothing when the section has no header definition or when the
         header contains no watermark.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self.header.is_linked_to_previous:
             return
@@ -997,7 +997,7 @@ class Section:
     def watermark(self) -> Watermark | None:
         """|Watermark| object if this section's header contains one, else ``None``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self.header.is_linked_to_previous:
             return None
@@ -1078,7 +1078,7 @@ class Sections(Sequence[Section]):
 
         Raises :class:`IndexError` when `index` is out of range.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         sectPrs = self._document_elm.sectPr_lst
         # -- normalize negative index and bounds-check --
@@ -1095,7 +1095,7 @@ class Sections(Sequence[Section]):
 class Column:
     """Proxy for a ``<w:col>`` element, representing an individual column definition.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, col: CT_Col):
@@ -1107,7 +1107,7 @@ class Column:
 
         |None| when no space value has been specified.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._col.space
 
@@ -1121,7 +1121,7 @@ class Column:
 
         |None| when no width has been specified.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._col.w
 
@@ -1135,7 +1135,7 @@ class SectionColumns(Sequence[Column]):
 
     Supports indexed access to individual |Column| objects when ``equal_width`` is False.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, sectPr: CT_SectPr):
@@ -1173,7 +1173,7 @@ class SectionColumns(Sequence[Column]):
         Defaults to 1 when no ``w:cols`` element is present or when ``w:num`` attribute
         is not specified.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         cols = self._sectPr.cols
         if cols is None:
@@ -1192,7 +1192,7 @@ class SectionColumns(Sequence[Column]):
         Defaults to True when no ``w:cols`` element is present or when ``w:equalWidth``
         attribute is not specified.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         cols = self._sectPr.cols
         if cols is None:
@@ -1210,7 +1210,7 @@ class SectionColumns(Sequence[Column]):
 
         |None| when no ``w:cols`` element is present or no ``w:space`` attribute is set.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         cols = self._sectPr.cols
         if cols is None:
@@ -1228,7 +1228,7 @@ class PageBorder:
 
     Accessed via |PageBorders| side properties, e.g. ``section.page_borders.top``.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, sectPr: CT_SectPr, side: str):
@@ -1252,7 +1252,7 @@ class PageBorder:
 
         |None| when the edge element is not present or has no ``w:val`` attribute.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         border = self._border_elm
         if border is None:
@@ -1274,7 +1274,7 @@ class PageBorder:
 
         |None| when not present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         border = self._border_elm
         if border is None:
@@ -1297,7 +1297,7 @@ class PageBorder:
         An ``"auto"`` value in the XML is returned as |None|. |None| when no color is
         specified on the edge element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         border = self._border_elm
         if border is None:
@@ -1322,7 +1322,7 @@ class PageBorder:
 
         |None| when not specified on the edge element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         border = self._border_elm
         if border is None:
@@ -1346,7 +1346,7 @@ class PageBorders:
     of the four edge borders plus the ``display`` and ``offset_from`` attributes.
     The underlying ``w:pgBorders`` element is created lazily on first write.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, sectPr: CT_SectPr):
@@ -1360,7 +1360,7 @@ class PageBorders:
     def top(self) -> PageBorder:
         """The |PageBorder| for the top edge of the page.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return PageBorder(self._sectPr, "top")
 
@@ -1368,7 +1368,7 @@ class PageBorders:
     def bottom(self) -> PageBorder:
         """The |PageBorder| for the bottom edge of the page.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return PageBorder(self._sectPr, "bottom")
 
@@ -1376,7 +1376,7 @@ class PageBorders:
     def left(self) -> PageBorder:
         """The |PageBorder| for the left edge of the page.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return PageBorder(self._sectPr, "left")
 
@@ -1384,7 +1384,7 @@ class PageBorders:
     def right(self) -> PageBorder:
         """The |PageBorder| for the right edge of the page.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return PageBorder(self._sectPr, "right")
 
@@ -1395,7 +1395,7 @@ class PageBorders:
         Reads the ``w:display`` attribute of the ``w:pgBorders`` element. |None|
         when no ``w:pgBorders`` element is present or the attribute is unset.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pgBorders = self._pgBorders
         if pgBorders is None:
@@ -1419,7 +1419,7 @@ class PageBorders:
         |None| when no ``w:pgBorders`` element is present or the attribute is
         unset.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pgBorders = self._pgBorders
         if pgBorders is None:
@@ -1442,7 +1442,7 @@ class LineNumbering:
     Accessed via :attr:`Section.line_numbering`. Provides read/write access to
     the ``countBy``, ``start``, ``distance`` and ``restart`` attributes.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, lnNumType: "CT_LineNumber"):
@@ -1455,7 +1455,7 @@ class LineNumbering:
         A value of ``N`` means only every ``Nth`` line is numbered. |None| when
         the ``w:countBy`` attribute is not specified on the element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._lnNumType.countBy
 
@@ -1469,7 +1469,7 @@ class LineNumbering:
 
         |None| when the ``w:start`` attribute is not specified.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._lnNumType.start
 
@@ -1483,7 +1483,7 @@ class LineNumbering:
 
         |None| when the ``w:distance`` attribute is not specified.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._lnNumType.distance
 
@@ -1499,7 +1499,7 @@ class LineNumbering:
         ``NEW_SECTION``, or ``NEW_PAGE``. |None| when the ``w:restart`` attribute
         is not specified.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._lnNumType.restart
 
@@ -1515,7 +1515,7 @@ class DocumentGrid:
     ``type``, ``linePitch`` and ``charSpace`` attributes, which control the East
     Asian character grid for the section.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, docGrid: "CT_DocGrid"):
@@ -1528,7 +1528,7 @@ class DocumentGrid:
         Controls the document grid type: ``DEFAULT``, ``LINES``, ``LINES_AND_CHARS``,
         or ``SNAP_TO_CHARS``. |None| when the ``w:type`` attribute is not specified.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._docGrid.type
 
@@ -1543,7 +1543,7 @@ class DocumentGrid:
         Maps to the ``w:linePitch`` attribute. |None| when the attribute is not
         specified.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._docGrid.linePitch
 
@@ -1558,7 +1558,7 @@ class DocumentGrid:
         Maps to the ``w:charSpace`` attribute. |None| when the attribute is not
         specified.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._docGrid.charSpace
 

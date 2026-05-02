@@ -38,7 +38,7 @@ class CustomXmlPart:
     :attr:`schema_refs` come from the related ``itemProps{N}.xml`` part when
     present; :attr:`root_element` and :attr:`blob` come from the data part.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, data_part: "_CustomXmlDataPart"):
@@ -48,7 +48,7 @@ class CustomXmlPart:
     def part(self) -> "_CustomXmlDataPart":
         """The underlying custom XML data |Part|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._data_part
 
@@ -56,7 +56,7 @@ class CustomXmlPart:
     def partname(self) -> str:
         """The pack URI of the data part, e.g. ``"/customXml/item1.xml"``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return str(self._data_part.partname)
 
@@ -64,7 +64,7 @@ class CustomXmlPart:
     def blob(self) -> bytes:
         """Raw bytes of the data part.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._data_part.blob
 
@@ -76,7 +76,7 @@ class CustomXmlPart:
         well-formed XML — python-docx does not raise for broken custom-XML
         parts.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         try:
             return etree.fromstring(self.blob)
@@ -92,7 +92,7 @@ class CustomXmlPart:
         the data part has no properties part, the properties part cannot be
         parsed, or the attribute is missing.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         props_elm = self._itemProps_root()
         if props_elm is None:
@@ -108,7 +108,7 @@ class CustomXmlPart:
         part, when it cannot be parsed, or when no schema references are
         declared.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         props_elm = self._itemProps_root()
         if props_elm is None:
@@ -151,7 +151,7 @@ def iter_custom_xml_parts(document_part: "Part") -> list[CustomXmlPart]:
     surfaced as separate entries — they are accessed via
     :attr:`CustomXmlPart.item_id` and :attr:`CustomXmlPart.schema_refs`.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     from docx.parts.custom_xml import CustomXmlPart as _DataPart
 

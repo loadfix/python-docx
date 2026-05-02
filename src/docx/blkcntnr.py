@@ -65,7 +65,7 @@ class BlockItemContainer(StoryChild):
         attributed to that author. A paragraph added with empty `text` is not
         wrapped because it contains no run to mark. Closes upstream#1025.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
            Added ``track_author`` keyword argument.
         """
         paragraph = self._add_paragraph()

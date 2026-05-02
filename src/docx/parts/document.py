@@ -107,7 +107,7 @@ class DocumentPart(StoryPart):
         default (empty) ``word/fontTable.xml`` part is added to the package and
         related to the document on the first call.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._font_table_part_or_new.font_table
 
@@ -127,7 +127,7 @@ class DocumentPart(StoryPart):
     def _font_table_part_or_new(self) -> FontTablePart:
         """Existing |FontTablePart|, or a newly created empty one, related by ``fontTable``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         try:
             return cast(FontTablePart, self.part_related_by(RT.FONT_TABLE))
@@ -228,7 +228,7 @@ class DocumentPart(StoryPart):
         main-document part), following the convention used for core properties.
         A default (empty) part is created on demand when none is present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._extended_properties_part.extended_properties
 
@@ -236,7 +236,7 @@ class DocumentPart(StoryPart):
     def _extended_properties_part(self) -> ExtendedPropertiesPart:
         """Return the package-scoped |ExtendedPropertiesPart| for this document.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         assert self.package is not None
         return cast(
@@ -304,7 +304,7 @@ class DocumentPart(StoryPart):
         timestamps and sorted member names so repeated saves yield byte-identical
         output (closes upstream#1042 / upstream-PR#810).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
            The `reproducible` parameter.
         """
         self.package.save(path_or_stream, reproducible=reproducible)

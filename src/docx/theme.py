@@ -52,7 +52,7 @@ class Theme(ElementProxy):
     font scheme. Read-only — python-docx does not support authoring
     themes.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(
@@ -67,7 +67,7 @@ class Theme(ElementProxy):
     def name(self) -> str | None:
         """The value of ``a:theme/@name``, or |None| if the attribute is absent.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._theme.name
 
@@ -79,7 +79,7 @@ class Theme(ElementProxy):
         color scheme (every slot returns |None|) — mirroring how Word
         falls back to the default theme for missing references.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return ThemeColors(self._theme.clrScheme)
 
@@ -90,7 +90,7 @@ class Theme(ElementProxy):
         The returned object returns |None| for every slot when the theme
         has no font scheme.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return ThemeFonts(self._theme.fontScheme)
 
@@ -104,7 +104,7 @@ class ThemeColors:
     — yields |None|. Lookup by OOXML token is available via
     ``colors[name]`` (e.g. ``colors["accent1"]`` or ``colors["hlink"]``).
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, clrScheme: CT_ClrScheme | None):
@@ -143,7 +143,7 @@ class ThemeColors:
     def name(self) -> str | None:
         """The value of ``a:clrScheme/@name``, or |None| when absent.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._clrScheme is None:
             return None
@@ -153,7 +153,7 @@ class ThemeColors:
     def dark_1(self) -> RGBColor | None:
         """The ``a:dk1`` color, or |None| when unresolved.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._get("dk1")
 
@@ -161,7 +161,7 @@ class ThemeColors:
     def dark_2(self) -> RGBColor | None:
         """The ``a:dk2`` color, or |None| when unresolved.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._get("dk2")
 
@@ -169,7 +169,7 @@ class ThemeColors:
     def light_1(self) -> RGBColor | None:
         """The ``a:lt1`` color, or |None| when unresolved.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._get("lt1")
 
@@ -177,7 +177,7 @@ class ThemeColors:
     def light_2(self) -> RGBColor | None:
         """The ``a:lt2`` color, or |None| when unresolved.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._get("lt2")
 
@@ -185,7 +185,7 @@ class ThemeColors:
     def accent_1(self) -> RGBColor | None:
         """The ``a:accent1`` color, or |None| when unresolved.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._get("accent1")
 
@@ -193,7 +193,7 @@ class ThemeColors:
     def accent_2(self) -> RGBColor | None:
         """The ``a:accent2`` color, or |None| when unresolved.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._get("accent2")
 
@@ -201,7 +201,7 @@ class ThemeColors:
     def accent_3(self) -> RGBColor | None:
         """The ``a:accent3`` color, or |None| when unresolved.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._get("accent3")
 
@@ -209,7 +209,7 @@ class ThemeColors:
     def accent_4(self) -> RGBColor | None:
         """The ``a:accent4`` color, or |None| when unresolved.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._get("accent4")
 
@@ -217,7 +217,7 @@ class ThemeColors:
     def accent_5(self) -> RGBColor | None:
         """The ``a:accent5`` color, or |None| when unresolved.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._get("accent5")
 
@@ -225,7 +225,7 @@ class ThemeColors:
     def accent_6(self) -> RGBColor | None:
         """The ``a:accent6`` color, or |None| when unresolved.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._get("accent6")
 
@@ -233,7 +233,7 @@ class ThemeColors:
     def hyperlink(self) -> RGBColor | None:
         """The ``a:hlink`` color, or |None| when unresolved.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._get("hlink")
 
@@ -241,7 +241,7 @@ class ThemeColors:
     def followed_hyperlink(self) -> RGBColor | None:
         """The ``a:folHlink`` color, or |None| when unresolved.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._get("folHlink")
 
@@ -253,7 +253,7 @@ class ThemeFonts:
     ``a:latin``/``a:ea``/``a:cs`` child of ``a:majorFont`` or
     ``a:minorFont``, or |None| when the slot is missing.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, fontScheme: CT_FontScheme | None):
@@ -263,7 +263,7 @@ class ThemeFonts:
     def name(self) -> str | None:
         """The value of ``a:fontScheme/@name``, or |None| when absent.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._fontScheme is None:
             return None
@@ -282,7 +282,7 @@ class ThemeFonts:
     def major_latin(self) -> str | None:
         """Typeface at ``a:majorFont/a:latin/@typeface``, or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._fontScheme is None:
             return None
@@ -292,7 +292,7 @@ class ThemeFonts:
     def minor_latin(self) -> str | None:
         """Typeface at ``a:minorFont/a:latin/@typeface``, or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._fontScheme is None:
             return None
@@ -302,7 +302,7 @@ class ThemeFonts:
     def major_east_asian(self) -> str | None:
         """Typeface at ``a:majorFont/a:ea/@typeface``, or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._fontScheme is None:
             return None
@@ -312,7 +312,7 @@ class ThemeFonts:
     def minor_east_asian(self) -> str | None:
         """Typeface at ``a:minorFont/a:ea/@typeface``, or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._fontScheme is None:
             return None
@@ -322,7 +322,7 @@ class ThemeFonts:
     def major_cs(self) -> str | None:
         """Typeface at ``a:majorFont/a:cs/@typeface``, or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._fontScheme is None:
             return None
@@ -332,7 +332,7 @@ class ThemeFonts:
     def minor_cs(self) -> str | None:
         """Typeface at ``a:minorFont/a:cs/@typeface``, or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._fontScheme is None:
             return None

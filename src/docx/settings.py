@@ -113,7 +113,7 @@ class Settings(ElementProxy):
 
         Read/write. None when no compatibility mode is specified.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._settings.compatibilityMode
 
@@ -130,7 +130,7 @@ class Settings(ElementProxy):
         the underlying XML immediately and create/remove the ``w:compat`` element as
         needed.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return CompatSettings(self._settings)
 
@@ -144,7 +144,7 @@ class Settings(ElementProxy):
         names without the ``w:`` prefix; values are booleans. Unknown keys are also
         accepted and written/read using the ``w:`` namespace.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return CompatFlags(self._settings)
 
@@ -154,7 +154,7 @@ class Settings(ElementProxy):
 
         Read/write. Assign a |Length| value (e.g. ``Twips(720)``) or |None| to remove.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._settings.defaultTabStop_val
 
@@ -170,7 +170,7 @@ class Settings(ElementProxy):
         attributes. Use :meth:`enable_protection` and :meth:`disable_protection` for
         common high-level operations.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return DocumentProtection(self._settings)
 
@@ -191,7 +191,7 @@ class Settings(ElementProxy):
         Returns the :class:`DocumentProtection` proxy so callers can chain further
         attribute assignments (e.g. ``settings.enable_protection(...).formatting_locked = True``).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         protection = self.document_protection
         protection.mode = mode
@@ -212,7 +212,7 @@ class Settings(ElementProxy):
     def disable_protection(self) -> None:
         """Remove the ``w:documentProtection`` element entirely.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._settings._remove_documentProtection()  # pyright: ignore[reportPrivateUsage]
 
@@ -225,7 +225,7 @@ class Settings(ElementProxy):
         data source, query, etc.). Returns |None| when the document has no
         mail-merge block.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         mm = self._settings.mailMerge
         if mm is None:
@@ -247,7 +247,7 @@ class Settings(ElementProxy):
         `main_document_type` selects the merge style (form letters by default).
         Any other argument left as |None| is omitted from the XML.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         mm = self._settings.get_or_add_mailMerge()
         proxy = MailMerge(mm)
@@ -269,7 +269,7 @@ class Settings(ElementProxy):
     def disable_mail_merge(self) -> None:
         """Remove the ``w:mailMerge`` element entirely.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._settings._remove_mailMerge()  # pyright: ignore[reportPrivateUsage]
 
@@ -279,7 +279,7 @@ class Settings(ElementProxy):
 
         Read/write.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._settings.evenAndOddHeaders_val
 
@@ -318,7 +318,7 @@ class Settings(ElementProxy):
         ``none``, ``print``, ``outline``, ``masterPages``, ``normal``,
         ``web``, and ``reading``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         val = self._settings.view_val
         if val is None:
@@ -338,7 +338,7 @@ class Settings(ElementProxy):
 
         Read/write.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._settings.trackRevisions_val
 
@@ -356,7 +356,7 @@ class Settings(ElementProxy):
 
         Closes upstream#1403.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._settings.updateFields_val
 
@@ -373,7 +373,7 @@ class Settings(ElementProxy):
         ``w:rsidRoot`` element is present. Word generates these values; they
         are surfaced here for downstream diff/merge tooling.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         rsids = self._settings.rsids
         if rsids is None:
@@ -388,7 +388,7 @@ class Settings(ElementProxy):
         An empty list is returned when no ``w:rsids`` element is present, or
         when it has no ``w:rsid`` children.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         rsids = self._settings.rsids
         if rsids is None:
@@ -401,7 +401,7 @@ class Settings(ElementProxy):
 
         Read/write. None when no zoom is specified.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._settings.zoom_percent
 
@@ -417,7 +417,7 @@ class Settings(ElementProxy):
         restart rule, and position). Use :meth:`add_footnote_properties` to add a
         ``w:footnotePr`` element when none is present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.footnotes import FootnoteProperties
 
@@ -431,7 +431,7 @@ class Settings(ElementProxy):
 
         If a ``w:footnotePr`` element is already present, the existing element is used.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.footnotes import FootnoteProperties
 
@@ -441,7 +441,7 @@ class Settings(ElementProxy):
     def remove_footnote_properties(self) -> None:
         """Remove the ``w:footnotePr`` child element if present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._settings._remove_footnotePr()  # pyright: ignore[reportPrivateUsage]
 
@@ -453,7 +453,7 @@ class Settings(ElementProxy):
         restart rule, and position). Use :meth:`add_endnote_properties` to add a
         ``w:endnotePr`` element when none is present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.endnotes import EndnoteProperties
 
@@ -467,7 +467,7 @@ class Settings(ElementProxy):
 
         If a ``w:endnotePr`` element is already present, the existing element is used.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.endnotes import EndnoteProperties
 
@@ -477,7 +477,7 @@ class Settings(ElementProxy):
     def remove_endnote_properties(self) -> None:
         """Remove the ``w:endnotePr`` child element if present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._settings._remove_endnotePr()  # pyright: ignore[reportPrivateUsage]
 
@@ -499,7 +499,7 @@ class Settings(ElementProxy):
         the trailing entries unset. Assigning |None| (or ``(None, None, None)``)
         removes the element entirely.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         lang = self._settings.themeFontLang
         if lang is None:
@@ -535,7 +535,7 @@ class Settings(ElementProxy):
 
         Backed by the ``w:hideSpellingErrors`` element. Read/write.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         el = self._settings.hideSpellingErrors
         if el is None:
@@ -555,7 +555,7 @@ class Settings(ElementProxy):
 
         Backed by the ``w:hideGrammaticalErrors`` element. Read/write.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         el = self._settings.hideGrammaticalErrors
         if el is None:
@@ -577,7 +577,7 @@ class Settings(ElementProxy):
 
         Backed by the ``w:autoHyphenation`` element. Read/write.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         el = self._settings.autoHyphenation
         if el is None:
@@ -597,7 +597,7 @@ class Settings(ElementProxy):
 
         Backed by the ``w:doNotHyphenateCaps`` element. Read/write.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         el = self._settings.doNotHyphenateCaps
         if el is None:
@@ -618,7 +618,7 @@ class Settings(ElementProxy):
         Backed by ``w:consecutiveHyphenLimit/@w:val``. Read/write. Assigning
         |None| (or a value ≤ 0) removes the element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         el = self._settings.consecutiveHyphenLimit
         if el is None:
@@ -638,7 +638,7 @@ class Settings(ElementProxy):
 
         Backed by ``w:hyphenationZone/@w:val`` (a twips measure). Read/write.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         el = self._settings.hyphenationZone
         if el is None:
@@ -663,7 +663,7 @@ class Settings(ElementProxy):
         the underlying XML immediately and create or remove the ``w:docVars``
         container element as needed.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return DocVars(self._settings)
 
@@ -703,7 +703,7 @@ class DocumentProtection:
     ``w:documentProtection`` element is created on demand. Setting an attribute
     to |None| (or |False| for bools) clears the corresponding XML attribute.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, settings: CT_Settings):
@@ -723,7 +723,7 @@ class DocumentProtection:
     def enforce(self) -> bool:
         """True when document protection is enforced (``@w:enforcement``).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._settings.documentProtection_enforcement
 
@@ -739,7 +739,7 @@ class DocumentProtection:
         attribute; assigning a :class:`WD_PROTECTION` member maps to the
         corresponding XML string (e.g. ``WD_PROTECTION.COMMENTS`` → ``comments``).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         edit = self._settings.documentProtection_edit
         if edit is None:
@@ -757,7 +757,7 @@ class DocumentProtection:
     def formatting_locked(self) -> bool:
         """True when formatting restrictions are enabled (``@w:formatting``).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         dp = self._dp_or_none()
         if dp is None:
@@ -774,7 +774,7 @@ class DocumentProtection:
     def password_hash(self) -> str | None:
         """Base64-encoded password hash (``@w:hash``) or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         dp = self._dp_or_none()
         if dp is None:
@@ -794,7 +794,7 @@ class DocumentProtection:
     def password_salt(self) -> str | None:
         """Base64-encoded salt (``@w:salt``) used with the password hash, or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         dp = self._dp_or_none()
         if dp is None:
@@ -816,7 +816,7 @@ class DocumentProtection:
     def crypto_provider_type(self) -> str | None:
         """Value of ``@w:cryptProviderType`` (e.g. ``"rsaAES"``) or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         dp = self._dp_or_none()
         if dp is None:
@@ -836,7 +836,7 @@ class DocumentProtection:
     def crypto_algorithm_class(self) -> str | None:
         """Value of ``@w:cryptAlgorithmClass`` (e.g. ``"hash"``) or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         dp = self._dp_or_none()
         if dp is None:
@@ -856,7 +856,7 @@ class DocumentProtection:
     def crypto_algorithm_type(self) -> str | None:
         """Value of ``@w:cryptAlgorithmType`` (e.g. ``"typeAny"``) or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         dp = self._dp_or_none()
         if dp is None:
@@ -876,7 +876,7 @@ class DocumentProtection:
     def crypto_algorithm_sid(self) -> int | None:
         """Value of ``@w:cryptAlgorithmSid`` (algorithm-id integer) or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         dp = self._dp_or_none()
         if dp is None:
@@ -896,7 +896,7 @@ class DocumentProtection:
     def spin_count(self) -> int | None:
         """Value of ``@w:cryptSpinCount`` (iteration count) or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         dp = self._dp_or_none()
         if dp is None:
@@ -923,7 +923,7 @@ class DocumentProtection:
         ``@w:cryptAlgorithmType=typeAny``, ``@w:cryptAlgorithmSid=4``,
         ``@w:cryptSpinCount=100000`` attributes accordingly.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         salt_bytes = os.urandom(16)
         digest = _hash_password(password, salt_bytes, _DEFAULT_SPIN_COUNT)
@@ -942,7 +942,7 @@ class DocumentProtection:
     def enabled(self) -> bool:
         """Alias for :attr:`enforce` (pre-existing API).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self.enforce
 
@@ -952,7 +952,7 @@ class DocumentProtection:
 
         Prefer :attr:`mode`, which returns a |WD_PROTECTION| enum member.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._settings.documentProtection_edit
 
@@ -968,7 +968,7 @@ class CompatSettings:
     values are the ``@w:val`` strings. The collection is a live view -- all
     mutations are persisted to the underlying XML immediately.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, settings: CT_Settings):
@@ -1033,7 +1033,7 @@ class CompatSettings:
     def get(self, name: str, default: str | None = None) -> str | None:
         """Return the value for ``name`` if present, else `default`.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         compat = self._compat_or_none()
         if compat is None:
@@ -1044,7 +1044,7 @@ class CompatSettings:
     def remove(self, name: str) -> None:
         """Remove the compatSetting named `name`, raising |KeyError| if absent.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         del self[name]
 
@@ -1057,7 +1057,7 @@ class CompatFlags:
     presence. Missing flags read as |False| rather than raising |KeyError| -- this
     matches how Word treats absent flag elements.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, settings: CT_Settings):
@@ -1128,7 +1128,7 @@ class CompatFlags:
     def clear(self) -> None:
         """Remove every non-``w:compatSetting`` child from ``w:compat``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         compat = self._compat_or_none()
         if compat is None:
@@ -1144,7 +1144,7 @@ class CompatFlags:
         elements commonly seen under ``w:compat`` in real-world Word documents.
         Setting a name not in this list still works.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return _KNOWN_COMPAT_FLAG_NAMES
 
@@ -1157,7 +1157,7 @@ class DocVars:
     and deletions persist to the underlying XML immediately, and the
     ``w:docVars`` container element is created / pruned on demand.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, settings: CT_Settings):
@@ -1222,7 +1222,7 @@ class DocVars:
     def get(self, name: str, default: str | None = None) -> str | None:
         """Return the value for ``name`` if present, else `default`.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         container = self._docVars_or_none()
         if container is None:
@@ -1233,7 +1233,7 @@ class DocVars:
     def items(self) -> list[tuple[str, str]]:
         """Return a list of ``(name, value)`` pairs in document order.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         container = self._docVars_or_none()
         if container is None:
@@ -1249,7 +1249,7 @@ class MailMerge:
     query, active record, etc.) so callers can inspect or modify the settings
     that Word will use when the merge is run.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, mailMerge: CT_MailMerge):

@@ -16,7 +16,7 @@ class RubyAnnotation(ElementProxy):
     Read-only. The underlying `w:ruby` element is accessible via
     ``self._element`` if needed.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, ruby: CT_Ruby):
@@ -27,7 +27,7 @@ class RubyAnnotation(ElementProxy):
     def base_text(self) -> str:
         """Plain text of the base (the characters being annotated).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._ruby.base_text
 
@@ -35,7 +35,7 @@ class RubyAnnotation(ElementProxy):
     def ruby_text(self) -> str:
         """Plain text of the ruby annotation (e.g. furigana).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._ruby.ruby_text
 
@@ -46,7 +46,7 @@ class RubyAnnotation(ElementProxy):
         Typical values: ``distributeLetter``, ``distributeSpace``, ``center``,
         ``left``, ``right``, ``rightVertical``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._ruby.rubyPr is None or self._ruby.rubyPr.rubyAlign is None:
             return None
@@ -58,7 +58,7 @@ class RubyAnnotation(ElementProxy):
 
         Typically a BCP-47 language tag like ``"ja-JP"``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._ruby.rubyPr is None or self._ruby.rubyPr.lid is None:
             return None

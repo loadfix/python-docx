@@ -3,8 +3,16 @@
 Release History
 ---------------
 
-1.3.0.dev0 (unreleased)
-+++++++++++++++++++++++
+2026.05.0 (unreleased) — first release as independent fork
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+This release marks the project's split from upstream
+``python-openxml/python-docx``. Versioning switches to CalVer
+(YYYY.MM.patch) from this point forward. The previous upstream line
+stops at ``1.2.0`` (2025-06-16); everything below is new to this fork.
+
+All 100+ features below shipped as part of this initial independent
+release. Subsequent CalVer releases will have their own entries.
 
 Phase A — Footnotes and endnotes
   - Add Document.footnotes and Footnotes / Footnote / FootnoteProperties (#1, #3, #17, #46, #48, #56, #82)

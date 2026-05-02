@@ -75,7 +75,7 @@ class PictureOutline:
     Setting any of the writable properties materialises the ``a:ln`` element
     (and its ``a:solidFill/a:srgbClr`` colour subtree) if absent.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, spPr: CT_ShapeProperties):
@@ -85,7 +85,7 @@ class PictureOutline:
     def width(self) -> Length | None:
         """Outline line width as an |Emu| instance, or |None| when unset.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         ln = self._spPr.ln
         if ln is None or ln.w is None:
@@ -106,7 +106,7 @@ class PictureOutline:
     def color(self) -> RGBColor | None:
         """Outline colour as an |RGBColor|, or |None| when unset.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         ln = self._spPr.ln
         if ln is None:
@@ -139,7 +139,7 @@ class PictureOutline:
     def transparency(self) -> float:
         """Outline transparency as a float in the range 0.0-1.0 (0.0 = opaque).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         ln = self._spPr.ln
         if ln is None:
@@ -187,7 +187,7 @@ class PictureCrop:
     off the left edge. Assigning |None| (or ``0``) removes the corresponding
     attribute.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, pic: CT_Picture):
@@ -221,7 +221,7 @@ class PictureCrop:
     def left(self) -> float:
         """Left crop as a fraction of the source width (0.0-1.0).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._read("l")
 
@@ -233,7 +233,7 @@ class PictureCrop:
     def top(self) -> float:
         """Top crop as a fraction of the source height (0.0-1.0).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._read("t")
 
@@ -245,7 +245,7 @@ class PictureCrop:
     def right(self) -> float:
         """Right crop as a fraction of the source width (0.0-1.0).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._read("r")
 
@@ -257,7 +257,7 @@ class PictureCrop:
     def bottom(self) -> float:
         """Bottom crop as a fraction of the source height (0.0-1.0).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._read("b")
 
@@ -276,7 +276,7 @@ class PictureCrop:
 
         Any argument left as |None| leaves the current value unchanged.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if left is not None:
             self.left = left
@@ -299,7 +299,7 @@ class ShadowFormat:
     the ``a:outerShdw`` element under ``a:effectLst``; :meth:`clear`
     removes it.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, spPr: CT_ShapeProperties):
@@ -323,7 +323,7 @@ class ShadowFormat:
     def exists(self) -> bool:
         """Whether an ``a:outerShdw`` element is currently present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._outerShdw_or_none() is not None
 
@@ -331,7 +331,7 @@ class ShadowFormat:
     def blur_radius(self) -> Length | None:
         """Shadow blur radius in |Emu|, or |None| when unset.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         shdw = self._outerShdw_or_none()
         if shdw is None or shdw.blurRad is None:
@@ -351,7 +351,7 @@ class ShadowFormat:
     def distance(self) -> Length | None:
         """Shadow offset distance in |Emu|, or |None| when unset.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         shdw = self._outerShdw_or_none()
         if shdw is None or shdw.dist is None:
@@ -371,7 +371,7 @@ class ShadowFormat:
     def angle(self) -> float | None:
         """Shadow direction in degrees (0-360), or |None| when unset.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         shdw = self._outerShdw_or_none()
         if shdw is None or shdw.dir is None:
@@ -392,7 +392,7 @@ class ShadowFormat:
     def color(self) -> RGBColor | None:
         """Shadow colour, or |None| when unset.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         shdw = self._outerShdw_or_none()
         if shdw is None:
@@ -429,7 +429,7 @@ class ShadowFormat:
         Any argument left as |None| leaves the corresponding attribute
         unchanged. Returns ``self`` for chaining.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         # -- ensure the a:outerShdw element exists even when no attribute
         #    is supplied, so `outline.shadow.apply()` yields a default
@@ -448,7 +448,7 @@ class ShadowFormat:
     def clear(self) -> None:
         """Remove the ``a:outerShdw`` element, if present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         effectLst = self._spPr.effectLst
         if effectLst is None:
@@ -464,7 +464,7 @@ class EffectsFormat:
     effects can be added here without changing the public entry points on
     :class:`InlineShape` / :class:`FloatingImage`.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, spPr: CT_ShapeProperties):
@@ -474,7 +474,7 @@ class EffectsFormat:
     def shadow(self) -> ShadowFormat:
         """The outer drop-shadow proxy for this picture.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return ShadowFormat(self._spPr)
 
@@ -695,7 +695,7 @@ class InlineShape:
         Maps to ``wp:inline/wp:docPr/@descr``. Returns |None| when the attribute
         is not present. Assigning |None| removes the attribute.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._inline.docPr.descr
 
@@ -721,7 +721,7 @@ class InlineShape:
 
         Raises |ValueError| when this shape is not a picture.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pic = self._pic
         if pic is None:
@@ -736,7 +736,7 @@ class InlineShape:
 
         Raises |ValueError| when this shape is not a picture.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pic = self._pic
         if pic is None:
@@ -751,7 +751,7 @@ class InlineShape:
 
         Raises |ValueError| when this shape is not a picture.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pic = self._pic
         if pic is None:
@@ -765,7 +765,7 @@ class InlineShape:
         Maps to ``wp:inline/wp:docPr/@title``. Returns |None| when the attribute
         is not present. Assigning |None| removes the attribute.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._inline.docPr.title
 
@@ -788,7 +788,7 @@ class InlineShape:
         corresponding ``@amt``. Assigning |None| removes the
         ``a:alphaModFix`` element. Closes upstream#1316.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return _get_opacity(self._blip())
 
@@ -809,7 +809,7 @@ class InlineShape:
         python-docx writes by default on newly-added pictures, matching the
         upstream#1314 request. Closes upstream#1314.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return _get_lock_aspect(self._cNvPicPr())
 
@@ -827,7 +827,7 @@ class InlineShape:
         part reference (for example an |InlineShape| constructed directly
         from XML) or when no ``r:embed`` rId is present. Closes upstream#249.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._part is None:
             raise ValueError(
@@ -875,7 +875,7 @@ class InlineShape:
         not currently available on bare ``wp:inline`` elements — tests can
         pass the part explicitly.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         _delete_drawing_carrying(self._inline, part)
 
@@ -897,7 +897,7 @@ class InlineShape:
         and must be supplied when the inline shape is not wired to a
         story part on its own.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         _replace_drawing_image(self._inline, image_path_or_stream, part)
 
@@ -908,7 +908,7 @@ class FloatingImage:
     Provides read-access to the anchor's positioning, wrap type, and offset, and is
     returned by :func:`docx.text.paragraph.Paragraph.add_floating_image`.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, anchor: CT_Anchor):
@@ -919,7 +919,7 @@ class FloatingImage:
     def width(self) -> Length:
         """Display width of this floating image as an |Emu| instance.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._anchor.extent.cx
 
@@ -927,7 +927,7 @@ class FloatingImage:
     def height(self) -> Length:
         """Display height of this floating image as an |Emu| instance.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._anchor.extent.cy
 
@@ -935,7 +935,7 @@ class FloatingImage:
     def horizontal_anchor(self) -> WD_ANCHOR_H:
         """The horizontal frame-of-reference for the image's position.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         positionH = self._anchor.positionH
         value = positionH.relativeFrom if positionH is not None else "column"
@@ -945,7 +945,7 @@ class FloatingImage:
     def vertical_anchor(self) -> WD_ANCHOR_V:
         """The vertical frame-of-reference for the image's position.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         positionV = self._anchor.positionV
         value = positionV.relativeFrom if positionV is not None else "paragraph"
@@ -957,7 +957,7 @@ class FloatingImage:
 
         Zero when not specified in the XML.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         positionH = self._anchor.positionH
         if positionH is None or positionH.posOffset is None:
@@ -973,7 +973,7 @@ class FloatingImage:
 
         Zero when not specified in the XML.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         positionV = self._anchor.positionV
         if positionV is None or positionV.posOffset is None:
@@ -988,7 +988,7 @@ class FloatingImage:
         """Tuple ``(horizontal_offset, vertical_offset)`` in EMU.
 
 
-.. versionadded:: 1.3.0.dev0
+.. versionadded:: 2026.05.0
 
 """
         return self.horizontal_offset, self.vertical_offset
@@ -1000,7 +1000,7 @@ class FloatingImage:
         Keys: ``h_anchor`` (WD_ANCHOR_H), ``v_anchor`` (WD_ANCHOR_V),
         ``horizontal`` (EMU offset), ``vertical`` (EMU offset).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return {
             "h_anchor": self.horizontal_anchor,
@@ -1013,7 +1013,7 @@ class FloatingImage:
     def wrap_type(self) -> WD_WRAP_TYPE:
         """The text-wrap style of this floating image, a |WD_WRAP_TYPE| member.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
         return WD_WRAP_TYPE(self._anchor.wrap_type)
 
@@ -1025,7 +1025,7 @@ class FloatingImage:
         (or the ``wp:docPr`` element) is not present. Assigning |None| removes
         the attribute.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         docPr = self._anchor.docPr
         if docPr is None:
@@ -1045,7 +1045,7 @@ class FloatingImage:
         (or the ``wp:docPr`` element) is not present. Assigning |None| removes
         the attribute.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         docPr = self._anchor.docPr
         if docPr is None:
@@ -1061,7 +1061,7 @@ class FloatingImage:
     def type(self):
         """The type of this floating shape, a member of `WD_INLINE_SHAPE`.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         graphic = self._anchor.graphic
         if graphic is None:
@@ -1087,7 +1087,7 @@ class FloatingImage:
 
         See :attr:`InlineShape.opacity` for semantics. Closes upstream#1316.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return _get_opacity(self._blip())
 
@@ -1102,7 +1102,7 @@ class FloatingImage:
         See :attr:`InlineShape.lock_aspect_ratio` for semantics. Closes
         upstream#1314.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return _get_lock_aspect(self._cNvPicPr())
 
@@ -1127,7 +1127,7 @@ class FloatingImage:
 
         Closes upstream#1510.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pic = self._pic
         if pic is None:
@@ -1138,7 +1138,7 @@ class FloatingImage:
     def crop(self) -> PictureCrop:
         """Picture crop (``pic:blipFill/a:srcRect``) proxy.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pic = self._pic
         if pic is None:
@@ -1149,7 +1149,7 @@ class FloatingImage:
     def effects(self) -> EffectsFormat:
         """Picture visual-effects container for this floating image.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pic = self._pic
         if pic is None:
@@ -1180,7 +1180,7 @@ class FloatingImage:
         and the backing |ImagePart| is evicted from the package's image-parts
         cache when no other relationship keeps it alive.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         _delete_drawing_carrying(self._anchor, part)
 

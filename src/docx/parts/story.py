@@ -42,7 +42,7 @@ class StoryPart(XmlPart):
         `image_descriptor` may be a ``str`` path, an :class:`os.PathLike` path, or a
         binary file-like object.
 
-        .. versionchanged:: 1.3.0.dev0
+        .. versionchanged:: 2026.05.0
            Accepts :class:`os.PathLike` path arguments.
         """
         if isinstance(image_descriptor, os.PathLike):
@@ -92,7 +92,7 @@ class StoryPart(XmlPart):
         the external relationship points to that URL; at least one of
         `image_descriptor` or `url` must be supplied for linked pictures.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
             ``link``, ``save_with_document``, and ``url`` parameters.
         """
         if link and not save_with_document:
@@ -136,7 +136,7 @@ class StoryPart(XmlPart):
         returned anchor references the image via an external ``r:link``
         relationship. See :meth:`new_pic_inline` for the semantics of `url`.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
             ``link``, ``save_with_document``, and ``url`` parameters.
         """
         if link and not save_with_document:
@@ -275,7 +275,7 @@ class StoryPart(XmlPart):
         numeric id; Word interprets such collisions as the same drawing
         object.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         used_ids: set[int] = set()
         for element in self._iter_story_elements():

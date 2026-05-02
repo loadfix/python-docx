@@ -23,7 +23,7 @@ class WD_CHART_TYPE(enum.Enum):
     Only the chart types supported by the create API (and a superset for
     reads) are included.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     BAR = "bar"
@@ -75,7 +75,7 @@ def _chart_type_for(chartSpace: CT_ChartSpace) -> WD_CHART_TYPE | None:
 class ChartSeries:
     """Read-only proxy for a single series (`c:ser`) within a chart.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, ser: CT_Ser):
@@ -85,7 +85,7 @@ class ChartSeries:
     def name(self) -> str:
         """Series name; empty string when not set.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         value = self._ser.tx_name
         return value or ""
@@ -94,7 +94,7 @@ class ChartSeries:
     def values(self) -> list[float]:
         """Series values as a list of floats (empty if none cached).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._ser.val_values
 
@@ -102,7 +102,7 @@ class ChartSeries:
     def categories(self) -> list[str]:
         """Category labels associated with this series.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._ser.cat_values
 
@@ -113,7 +113,7 @@ class Chart:
     The chart is backed by a `docx.parts.chart.ChartPart` which owns the
     `c:chartSpace` XML tree.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, chart_part: ChartPart):
@@ -130,7 +130,7 @@ class Chart:
     def chart_type(self) -> WD_CHART_TYPE | None:
         """The chart's type, or |None| if not recognized.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return _chart_type_for(self._chartSpace)
 
@@ -138,7 +138,7 @@ class Chart:
     def title(self) -> str | None:
         """Chart title text, or None if no title is set.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         chart = self._chartSpace.chart
         if chart is None:
@@ -149,7 +149,7 @@ class Chart:
     def has_legend(self) -> bool:
         """True when the chart has a `c:legend` element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         chart = self._chartSpace.chart
         if chart is None:
@@ -160,7 +160,7 @@ class Chart:
     def series(self) -> list[ChartSeries]:
         """All `ChartSeries` for this chart, in document order.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         chart = self._chartSpace.chart
         if chart is None:
@@ -174,7 +174,7 @@ class Chart:
     def categories(self) -> list[str]:
         """Categories from the first series, or empty list when none.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         ser_list = self.series
         if not ser_list:
@@ -203,7 +203,7 @@ class Chart:
         need Word to re-open the embedded workbook should drop the
         ``c:externalData`` element separately.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.parts.chart import _rewrite_ser  # pyright: ignore[reportPrivateUsage]
 

@@ -30,7 +30,7 @@ class DocumentStatistics(NamedTuple):
 
     Returned by :attr:`docx.document.Document.statistics`.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     paragraphs: int
@@ -53,7 +53,7 @@ class DocumentStatistics(NamedTuple):
     application that saved the document (Word, etc.); :obj:`None` is returned
     when no extended-properties part is present or the property is absent.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
 
@@ -64,7 +64,7 @@ def compute_statistics(body: CT_Body, pages: int | None = None) -> DocumentStati
     story contribute to the counts. When `pages` is given it populates
     :attr:`DocumentStatistics.pages`; otherwise that field is |None|.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     # -- collect every paragraph in the body, including those nested inside tables
     # -- and block-level structured-document tags

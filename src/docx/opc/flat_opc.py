@@ -13,7 +13,7 @@ expand the flat XML into an in-memory zip blob that the existing
 
 Closes upstream#892.
 
-.. versionadded:: 1.3.0.dev0
+.. versionadded:: 2026.05.0
 """
 
 from __future__ import annotations

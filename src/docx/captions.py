@@ -52,7 +52,7 @@ def new_caption_paragraph(
     The caller is responsible for positioning the paragraph in the document.
     The populated paragraph is returned.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     paragraph.style = style
     # -- literal label plus trailing space (e.g. "Figure ") --

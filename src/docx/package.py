@@ -45,7 +45,7 @@ class Package(OpcPackage):
         present. python-docx does not verify signatures; this only reports whether
         they are present in the package.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         for rel in self.rels.values():
             if rel.is_external:
@@ -67,7 +67,7 @@ class Package(OpcPackage):
         python-docx does not verify signatures; callers receive read-only metadata
         parsed from the signature XML.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.opc.rel import Relationships as _Relationships
 

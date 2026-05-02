@@ -11,7 +11,7 @@ python-docx does not *evaluate* altChunks (no HTML/RTF rendering engine); it
 only writes and reads the marker + part structure so callers can round-trip
 documents that use them. Closes upstream#1317, upstream#1103, PR#649.
 
-.. versionadded:: 1.3.0.dev0
+.. versionadded:: 2026.05.0
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ class AltChunk:
     underlying payload is exposed read-only via :attr:`content` and
     :attr:`content_type`.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, element: CT_AltChunk, document_part: DocumentPart):
@@ -47,7 +47,7 @@ class AltChunk:
         Returns |None| for a malformed ``w:altChunk`` that carries no
         ``r:id`` attribute (Word will refuse to open such a document).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._element.rId
 
@@ -55,7 +55,7 @@ class AltChunk:
     def part(self) -> AltChunkPart | None:
         """The related |AltChunkPart| or |None| if it cannot be resolved.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         rId = self.rId
         if rId is None:
@@ -75,7 +75,7 @@ class AltChunk:
     def content_type(self) -> str | None:
         """Content-type of the related payload part, or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         part = self.part
         if part is None:
@@ -86,7 +86,7 @@ class AltChunk:
     def content(self) -> bytes:
         """Raw bytes of the related payload part, or empty bytes.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         part = self.part
         if part is None:
@@ -101,7 +101,7 @@ def iter_alt_chunks(document_part: DocumentPart) -> list[AltChunk]:
     are inspected — nested altChunks (within ``w:sdt`` wrappers, etc.) are
     not supported by Word in the body-level context and are ignored.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     body = document_part.element.body  # type: ignore[attr-defined]
     return [AltChunk(el, document_part) for el in body.altChunk_lst]
@@ -123,7 +123,7 @@ def add_alt_chunk_to_document(
     as UTF-8). `content_type` is the MIME type Word uses to dispatch the
     payload through the right import filter (``text/html`` by default).
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     from docx.parts.alt_chunk import AltChunkPart
 

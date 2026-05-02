@@ -42,7 +42,7 @@ def _XP_cached(
     (as a ``frozenset`` of items) so look-ups are stable regardless of the
     caller-supplied dict's iteration order. Closes upstream#342.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     return etree.XPath(xpath_str, namespaces=dict(ns_items))
 
@@ -760,7 +760,7 @@ class BaseOxmlElement(_OxmlElementBase, metaclass=MetaOxmlElement):
         ``.//w:p`` were being re-compiled on every invocation prior to this.
         Closes upstream#342.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
            The `namespaces` parameter and xpath expression cache.
         """
         if namespaces:

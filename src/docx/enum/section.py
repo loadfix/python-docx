@@ -15,7 +15,7 @@ class WD_BORDER_DISPLAY(BaseXmlEnum):
         section = document.sections[0]
         section.page_borders.display = WD_BORDER_DISPLAY.FIRST_PAGE
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     ALL_PAGES = (0, "allPages", "Border is displayed on every page.")
@@ -40,7 +40,7 @@ class WD_BORDER_OFFSET_FROM(BaseXmlEnum):
         section = document.sections[0]
         section.page_borders.offset_from = WD_BORDER_OFFSET_FROM.PAGE
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     TEXT = (0, "text", "Border is positioned relative to the text extents.")
@@ -64,7 +64,7 @@ class WD_LINE_NUMBERING_RESTART(BaseXmlEnum):
             count_by=1, restart=WD_LINE_NUMBERING_RESTART.NEW_PAGE
         )
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     CONTINUOUS = (0, "continuous", "Line numbering continues from the previous section.")
@@ -89,7 +89,7 @@ class WD_DOC_GRID_TYPE(BaseXmlEnum):
         section = document.sections[0]
         section.set_document_grid(type=WD_DOC_GRID_TYPE.LINES_AND_CHARS)
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     DEFAULT = (0, "default", "No document grid is applied.")

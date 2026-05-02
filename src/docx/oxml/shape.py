@@ -289,7 +289,7 @@ class CT_Anchor(BaseOxmlElement):
         When `link` is |True|, the inner `a:blip` uses ``r:link`` instead of
         ``r:embed``, producing a linked (external) picture anchor.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
             ``link`` parameter.
         """
         pic_id = 0
@@ -401,7 +401,7 @@ class CT_AlphaModulateFixedEffect(BaseOxmlElement):
     opacity — e.g. ``50000`` is 50% opacity. The spec default is ``100%``
     (``100000``).
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     amt: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
@@ -510,7 +510,7 @@ class CT_Inline(BaseOxmlElement):
         When `link` is |True|, the ``a:blip`` uses ``r:link`` instead of
         ``r:embed`` so Word treats the reference as a linked (external) image.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
             ``link`` parameter.
         """
         pic_id = 0  # Word doesn't seem to use this, but does not omit it
@@ -627,7 +627,7 @@ class CT_PictureLocking(BaseOxmlElement):
     ``@noChangeAspect`` controls whether the picture's aspect ratio is
     locked against user resize in Word.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     noChangeAspect: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
@@ -676,7 +676,7 @@ class CT_Picture(BaseOxmlElement):
         `r:embed="rId"` so Word treats the reference as an external/linked
         image rather than one embedded in the package.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
             ``link`` parameter.
         """
         pic = parse_xml(cls._pic_xml())

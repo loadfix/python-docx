@@ -100,7 +100,7 @@ class CT_Body(BaseOxmlElement):
     def add_altChunk(self, rId: str) -> CT_AltChunk:
         """Append a new `w:altChunk` element with the given relationship id.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         altChunk = self._add_altChunk()  # type: ignore[attr-defined]
         altChunk.set(qn("r:id"), rId)

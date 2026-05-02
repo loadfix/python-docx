@@ -148,7 +148,7 @@ class Styles(ElementProxy):
         The ``<w:docDefaults>``/``<w:rPrDefault>`` ancestors are created on
         demand the first time this property is accessed. Closes upstream#383.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         docDefaults = self._element.get_or_add_docDefaults()
         rPrDefault = docDefaults.get_or_add_rPrDefault()
@@ -173,7 +173,7 @@ class Styles(ElementProxy):
         after the call. Returns the list of newly-imported |BaseStyle| proxies
         in import order. Closes upstream#1375, #1083, #508, #701, #197.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         source_styles = source.styles if hasattr(source, "styles") else source
         assert isinstance(source_styles, Styles)
@@ -202,7 +202,7 @@ class Styles(ElementProxy):
         style is imported together with any styles it references via
         ``w:basedOn``, ``w:link`` and ``w:next``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         style_elm = style._element if isinstance(style, BaseStyle) else style
         source_elm = style_elm.getparent()
@@ -231,7 +231,7 @@ class Styles(ElementProxy):
         Raises :class:`KeyError` if `name` is not present in the bundled
         defaults.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         default_styles = _default_template_styles()
         source_elm = default_styles._element.get_by_name(BabelFish.ui2internal(name))

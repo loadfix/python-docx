@@ -31,7 +31,7 @@ class WebSettings(ElementProxy):
     schema. Boolean flag properties accept a setter that toggles the
     corresponding ``w:val`` child.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(
@@ -49,7 +49,7 @@ class WebSettings(ElementProxy):
         Read-only. Records the text encoding Word should use when the
         document is saved as a web page.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._web_settings.encoding_val
 
@@ -59,7 +59,7 @@ class WebSettings(ElementProxy):
 
         Read/write. Assigning ``False`` (or |None|) removes the element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._web_settings.optimizeForBrowser_val
 
@@ -73,7 +73,7 @@ class WebSettings(ElementProxy):
 
         Read/write. Assigning ``False`` (or |None|) removes the element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._web_settings.allowPNG_val
 
@@ -87,7 +87,7 @@ class WebSettings(ElementProxy):
 
         Read/write. Assigning ``False`` (or |None|) removes the element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._web_settings.doNotSaveAsSingleFile_val
 

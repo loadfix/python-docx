@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class Watermark:
     """Proxy for a VML watermark shape (``v:shape``) residing in a header.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, shape: "CT_VmlShape"):
@@ -30,7 +30,7 @@ class Watermark:
         Returns ``"image"`` when an ``<v:imagedata>`` child is present, otherwise
         ``"text"``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._shape.find(qn("v:imagedata")) is not None:
             return "image"
@@ -40,7 +40,7 @@ class Watermark:
     def text(self) -> str | None:
         """Text string of a text watermark, or ``None`` for an image watermark.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         textpath = self._shape.find(qn("v:textpath"))
         if textpath is None:

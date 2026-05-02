@@ -333,7 +333,7 @@ class WordprocessingShape(ElementProxy):
         (e.g. a line), which python-docx does not currently surface distinctly
         from any other geometry.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.oxml.ns import nsdecls, qn
         from docx.oxml.parser import parse_xml
@@ -377,7 +377,7 @@ class Canvas(ElementProxy):
     .. todo:: Flesh out writable picture/grouped-shape children and positional
        placement for canvas shapes (upstream#411).
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, wpc: CT_WordprocessingCanvas, parent: t.ProvidesStoryPart):
@@ -403,7 +403,7 @@ class Canvas(ElementProxy):
         ``WD_SHAPE.ROUNDED_RECTANGLE``). `width` and `height` are |Length|
         values for the shape's extent; they default to 2" x 1".
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.oxml.drawing import new_inline_shape_drawing
         from docx.oxml.ns import qn

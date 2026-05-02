@@ -338,7 +338,7 @@ class CT_DocDefaults(BaseOxmlElement):
 
     Contains at most one ``<w:rPrDefault>`` and at most one ``<w:pPrDefault>`` child.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     _tag_seq = ("w:rPrDefault", "w:pPrDefault")
@@ -353,7 +353,7 @@ class CT_RPrDefault(BaseOxmlElement):
     Parent for a single optional ``<w:rPr>`` whose formatting applies to every
     run by default (subject to style overrides).
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     rPr = ZeroOrOne("w:rPr", successors=())

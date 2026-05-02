@@ -53,7 +53,7 @@ class FontTablePart(XmlPart):
     def default(cls, package: "Package") -> "FontTablePart":
         """Return a newly-created, empty font-table part.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         partname = PackURI("/word/fontTable.xml")
         element = cast("CT_Fonts", parse_xml(_DEFAULT_FONT_TABLE_XML))
@@ -79,7 +79,7 @@ class FontTablePart(XmlPart):
         ``.fntdata`` extension is mapped to the ``application/x-fontdata``
         content type by the default content-types registration.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         assert self._package is not None
         path = Path(font_path)
@@ -97,7 +97,7 @@ class FontPart(Part):
     API for reading the binary payload; use :attr:`blob` for direct access
     when needed.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     @classmethod

@@ -400,7 +400,7 @@ class CT_Sym(BaseOxmlElement):
         ``chr(int(char, 16))`` character. Returns the empty string when the
         hex value is invalid or out of range (closes upstream#1528).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         try:
             return chr(int(self.char, 16))
