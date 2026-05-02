@@ -467,6 +467,71 @@ class DescribeRun:
 
         assert run._r.xml == xml(expected_cxml)
 
+    def it_can_make_itself_a_hyperlink(self, request: FixtureRequest):
+        from docx.oxml.text.paragraph import CT_P
+        from docx.parts.story import StoryPart
+        from docx.text.hyperlink import Hyperlink
+
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.relate_to.return_value = "rId42"
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        parent = FakeParent()
+        p = cast(CT_P, element('w:p/w:r/w:t"hello"'))
+        r = p.xpath("./w:r")[0]
+        run = Run(cast(CT_R, r), parent)
+
+        hyperlink = run.make_hyperlink(url="https://example.com/")
+
+        assert isinstance(hyperlink, Hyperlink)
+        assert hyperlink._hyperlink.rId == "rId42"
+        assert hyperlink.text == "hello"
+        # -- the run should be inside the hyperlink, not a direct child of the paragraph --
+        assert len(p.xpath("./w:r")) == 0
+        assert len(p.xpath("./w:hyperlink/w:r")) == 1
+
+    def it_can_make_itself_an_internal_hyperlink(self, request: FixtureRequest):
+        from docx.oxml.text.paragraph import CT_P
+        from docx.parts.story import StoryPart
+
+        story_part_ = instance_mock(request, StoryPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element('w:p/w:r/w:t"hello"'))
+        r = p.xpath("./w:r")[0]
+        run = Run(cast(CT_R, r), FakeParent())
+
+        hyperlink = run.make_hyperlink(anchor="intro")
+
+        assert hyperlink.fragment == "intro"
+        assert hyperlink._hyperlink.rId is None
+
+    def it_raises_when_both_url_and_anchor_are_provided_to_make_hyperlink(
+        self, request: FixtureRequest
+    ):
+        from docx.parts.story import StoryPart
+
+        story_part_ = instance_mock(request, StoryPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        r = cast(CT_R, element("w:r"))
+        run = Run(r, FakeParent())
+
+        with pytest.raises(ValueError, match="Exactly one of url or anchor"):
+            run.make_hyperlink(url="https://x", anchor="bookmark")
+
     # -- fixtures --------------------------------------------------------------------------------
 
     @pytest.fixture

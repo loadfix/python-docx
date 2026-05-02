@@ -9,12 +9,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.shared import Parented
 from docx.text.run import Run
 
 if TYPE_CHECKING:
     import docx.types as t
     from docx.oxml.text.hyperlink import CT_Hyperlink
+    from docx.styles.style import CharacterStyle
 
 
 class Hyperlink(Parented):
@@ -42,6 +44,47 @@ class Hyperlink(Parented):
         """
         rId = self._hyperlink.rId
         return self._parent.part.rels[rId].target_ref if rId else ""
+
+    @address.setter
+    def address(self, value: str | None) -> None:
+        """Assign the external URL for this hyperlink.
+
+        Assigning a non-empty string creates (or reuses) an external relationship
+        of type ``HYPERLINK`` on the owning part and writes its ``rId`` to
+        ``w:hyperlink/@r:id``. Assigning |None| or an empty string removes the
+        ``r:id`` attribute, leaving the hyperlink as an internal/anchor-only
+        link. The ``w:anchor`` attribute is not affected.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        if value:
+            rId = self._parent.part.relate_to(value, RT.HYPERLINK, is_external=True)
+            self._hyperlink.rId = rId
+        else:
+            self._hyperlink.rId = None
+
+    def add_run(
+        self, text: str | None = None, style: str | CharacterStyle | None = None
+    ) -> Run:
+        """Append a run containing `text` to this hyperlink and return it.
+
+        `text` becomes the run's visible text; tab (``\\t``), newline (``\\n``),
+        and carriage-return (``\\r``) characters are mapped to the appropriate
+        XML forms. When `text` is |None| the new run is empty. When `style` is
+        provided it is applied to the new run as a character style.
+
+        This supports multi-run hyperlinks where parts of the link text need
+        different formatting (e.g. a word in bold within the link text).
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        r = self._hyperlink.add_r()
+        run = Run(r, self._parent)
+        if text:
+            run.text = text
+        if style is not None:
+            run.style = style
+        return run
 
     @property
     def contains_page_break(self) -> bool:
@@ -78,6 +121,18 @@ class Hyperlink(Parented):
         depend on this field being empty to indicate no fragment is present.
         """
         return self._hyperlink.anchor or ""
+
+    @fragment.setter
+    def fragment(self, value: str | None) -> None:
+        """Assign the ``w:anchor`` value for this hyperlink.
+
+        Assigning a non-empty string sets the ``w:anchor`` attribute (the
+        "named anchor" or URI fragment). Assigning |None| or an empty string
+        removes the attribute. The external ``r:id`` / address is not affected.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        self._hyperlink.anchor = value if value else None
 
     @property
     def runs(self) -> list[Run]:

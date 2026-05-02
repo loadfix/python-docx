@@ -9,6 +9,7 @@ from collections.abc import Iterator
 from docx.drawing import Drawing
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml.drawing import CT_Drawing
 from docx.oxml.text.pagebreak import CT_LastRenderedPageBreak
 from docx.shape import InlineShape
@@ -373,6 +374,51 @@ class Run(StoryChild):
         new_r = self._r.split_run(offset)
         right_run = Run(new_r, self._parent)
         return self, right_run
+
+    def make_hyperlink(
+        self,
+        url: str | None = None,
+        anchor: str | None = None,
+    ):
+        """Wrap this run in a new ``w:hyperlink`` and return the |Hyperlink|.
+
+        The existing run is removed from its position in the paragraph and
+        re-inserted inside a new ``w:hyperlink`` element at the same position.
+        `url` is the external target URL (creates an external relationship of
+        type ``HYPERLINK`` on the owning part). `anchor` is an internal bookmark
+        name. Exactly one of `url` or `anchor` must be supplied.
+
+        Run formatting is preserved. Note that this does not apply the
+        "Hyperlink" character style automatically — apply it via
+        :attr:`Run.style` if desired.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        from docx.oxml.parser import OxmlElement
+        from docx.oxml.text.hyperlink import CT_Hyperlink
+        from docx.text.hyperlink import Hyperlink
+
+        if (url is None) == (anchor is None):
+            raise ValueError("Exactly one of url or anchor must be provided")
+
+        r = self._r
+        parent = r.getparent()
+        if parent is None:
+            raise ValueError("run is not attached to a parent element")
+
+        hyperlink = cast("CT_Hyperlink", OxmlElement("w:hyperlink"))
+        if url is not None:
+            rId = self.part.relate_to(url, RT.HYPERLINK, is_external=True)
+            hyperlink.rId = rId
+        if anchor is not None:
+            hyperlink.anchor = anchor
+
+        # -- replace the run with the hyperlink, then move the run inside --
+        r.addprevious(hyperlink)
+        parent.remove(r)
+        hyperlink.append(r)
+
+        return Hyperlink(hyperlink, self._parent)
 
     @property
     def formatting_change(self):
