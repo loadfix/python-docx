@@ -813,6 +813,40 @@ class DescribeSection_columns:
         assert columns.count == 2
         assert columns.space == Twips(720)
 
+    def it_can_set_columns_via_set_columns(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+
+        columns = section.set_columns(count=3, space=Twips(360), equal_width=True)
+
+        assert isinstance(columns, SectionColumns)
+        assert columns.count == 3
+        assert columns.space == Twips(360)
+        assert columns.equal_width is True
+
+    def it_leaves_space_unchanged_when_space_is_None(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr/w:cols{w:num=1,w:space=720}"))
+        section = Section(sectPr, document_part_)
+
+        section.set_columns(count=2)
+
+        # -- count updated, pre-existing space retained --
+        assert section.columns.count == 2
+        assert section.columns.space == Twips(720)
+
+    def it_leaves_equal_width_unchanged_when_equal_width_is_None(
+        self, document_part_: Mock
+    ):
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:cols{w:num=2,w:equalWidth=0}")
+        )
+        section = Section(sectPr, document_part_)
+
+        section.set_columns(count=4)
+
+        assert section.columns.count == 4
+        assert section.columns.equal_width is False
+
     # -- fixtures-----------------------------------------------------
 
     @pytest.fixture

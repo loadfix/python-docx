@@ -115,3 +115,102 @@ class DescribeDocument_bookmarks:
         assert len(bookmarks) == 1
         bm = next(iter(bookmarks))
         assert bm.name == "bm1"
+
+
+class DescribeDocument_add_bookmark:
+    """Unit-test suite for `Document.add_bookmark(runs, name)`."""
+
+    def it_adds_a_bookmark_spanning_a_single_run(self):
+        from docx.document import Document
+
+        doc_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"hello"'),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+        run = doc.paragraphs[0].runs[0]
+
+        bm = doc.add_bookmark(run, "single")
+
+        assert isinstance(bm, Bookmark)
+        assert bm.name == "single"
+        assert bm.bookmark_id == 0
+        body = doc_elm.body
+        assert len(body.xpath(".//w:bookmarkStart")) == 1
+        assert len(body.xpath(".//w:bookmarkEnd")) == 1
+
+    def it_adds_a_bookmark_spanning_runs_across_paragraphs(self):
+        from docx.document import Document
+
+        doc_elm = cast(
+            CT_Document,
+            element(
+                'w:document/w:body/(w:p/w:r/w:t"aaa",w:p/w:r/w:t"bbb")'
+            ),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+        first_run = doc.paragraphs[0].runs[0]
+        last_run = doc.paragraphs[1].runs[0]
+
+        bm = doc.add_bookmark([first_run, last_run], "spanning")
+
+        assert bm.name == "spanning"
+        body = doc_elm.body
+        # -- bookmarkStart is a sibling of first_run inside its paragraph,
+        #    bookmarkEnd is a sibling of last_run inside the second paragraph --
+        p1_children = list(body.p_lst[0])
+        p2_children = list(body.p_lst[1])
+        assert p1_children[0].tag == qn("w:bookmarkStart")
+        assert p2_children[-1].tag == qn("w:bookmarkEnd")
+
+    def it_allocates_unique_ids_across_calls(self):
+        from docx.document import Document
+
+        doc_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"hello"'),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+        run = doc.paragraphs[0].runs[0]
+
+        bm1 = doc.add_bookmark(run, "bm1")
+        bm2 = doc.add_bookmark(run, "bm2")
+
+        assert bm1.bookmark_id == 0
+        assert bm2.bookmark_id == 1
+
+    def it_raises_on_empty_runs_sequence(self):
+        import pytest
+
+        from docx.document import Document
+
+        doc_elm = cast(
+            CT_Document,
+            element("w:document/w:body"),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+
+        with pytest.raises(ValueError, match="non-empty"):
+            doc.add_bookmark([], "oops")
+
+
+class DescribeBookmark_name_setter:
+    """Unit-test suite for `Bookmark.name` setter."""
+
+    def it_can_rename_a_bookmark(self):
+        body = cast(
+            CT_Body,
+            element(
+                "w:body/w:p/(w:bookmarkStart{w:id=0,w:name=old_name}"
+                ",w:bookmarkEnd{w:id=0})"
+            ),
+        )
+        bookmarks = Bookmarks(body)
+        bm = next(iter(bookmarks))
+
+        bm.name = "new_name"
+
+        assert bm.name == "new_name"
+        # -- underlying w:bookmarkStart/@w:name reflects the rename --
+        bookmarkStart = body.xpath(".//w:bookmarkStart")[0]
+        assert bookmarkStart.get(qn("w:name")) == "new_name"

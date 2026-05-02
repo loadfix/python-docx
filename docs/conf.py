@@ -49,15 +49,53 @@ def setup(app):
     r"""Install a pre-napoleon hook that disables napoleon's attribute-style
     parsing for property/attribute/data docstrings.
 
-    Napoleon treats concise attribute docstrings as ``"type : description"``
-    and splits on the first ``:``. Existing RST-style docstrings in this
-    project use single-backtick inline markup containing colons (e.g.
-    ``\`w:moveFrom\``), which napoleon misparses as a type field. We install
-    a handler at an earlier priority than napoleon's ``autodoc-process-
-    docstring`` listener so we can snapshot the lines, then a later handler
-    that restores them for property/attribute/data objects — effectively
-    making napoleon a no-op for those docstrings while leaving
-    method/function/class NumPy/Google parsing intact.
+    ----------------------------------------------------------------------
+    Why this hook exists
+    ----------------------------------------------------------------------
+    This fork's public API is heavily documented in RST style. Property and
+    attribute docstrings frequently quote OOXML element / attribute names
+    using single-backtick inline code — e.g.::
+
+        Read/write. Corresponds to the `w:moveFrom` element on this run.
+
+    Sphinx-napoleon's ``_parse_attribute_docstring`` path treats concise
+    attribute docstrings as ``"type : description"`` and splits on the
+    first colon it finds. Because ``w:moveFrom`` contains a colon *inside*
+    a backtick span, napoleon misinterprets ``w:moveFrom`` as the
+    ``:type:`` field, producing ~42 bogus ``docutils`` warnings of the
+    form "Unknown target name: 'w:moveFrom'" (and similar) across
+    ``chart.py``, ``content_controls.py``, ``document.py``,
+    ``permissions.py``, ``ruby.py``, ``section.py``, ``styles/style.py``,
+    ``table.py``, ``text/paragraph.py``, ``text/run.py``, and
+    ``tracked_changes.py``.
+
+    ----------------------------------------------------------------------
+    How it works
+    ----------------------------------------------------------------------
+    We register two ``autodoc-process-docstring`` listeners around
+    napoleon's own listener (which sits at the default priority of 500):
+
+      * ``_snapshot`` runs at priority 100 — before napoleon — and takes a
+        copy of the raw docstring lines for every ``property``/
+        ``attribute``/``data`` object.
+      * ``_restore`` runs at priority 900 — after napoleon has mangled
+        the lines — and writes the pristine snapshot back in place,
+        undoing the ``type : description`` split.
+
+    The net effect is: napoleon is a no-op for attribute-style docstrings
+    (which are already valid RST), and still parses Google/NumPy
+    method/function/class docstrings normally.
+
+    ----------------------------------------------------------------------
+    Do not remove without fixing the root cause
+    ----------------------------------------------------------------------
+    The alternative is to rewrite every single-backtick OOXML reference
+    in those ~11 files to use double-backtick literals (``w:moveFrom``),
+    so the napoleon ``:``-split never triggers. That's a large mechanical
+    refactor for a purely cosmetic docs-parsing issue that this hook
+    already handles cleanly. If you remove this hook, run
+    ``cd docs && python -m sphinx -b html . _build/html`` and confirm the
+    build is still warning-free first.
     """
     snapshots: dict = {}
 
