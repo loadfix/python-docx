@@ -462,8 +462,27 @@ class CT_Tbl(BaseOxmlElement):
 
     @property
     def col_count(self):
-        """The number of grid columns in this table."""
-        return len(self.tblGrid.gridCol_lst)
+        """The number of grid columns in this table.
+
+        Prefers the declared ``w:tblGrid``. When ``w:tblGrid`` is absent
+        (e.g. docs emitted by LibreOffice or PDF-to-docx converters which
+        violate the ISO-29500 requirement), a synthetic grid is derived from
+        the widest row's cell count so callers do not crash with
+        |InvalidXmlError|. See upstream#548.
+        """
+        tblGrid = self.find(qn("w:tblGrid"))
+        if tblGrid is not None:
+            return len(tblGrid.findall(qn("w:gridCol")))
+        # -- fall back to the widest row, counting grid_span plus
+        # -- gridBefore/gridAfter omitted-cell allowances --
+        max_cols = 0
+        for tr in self.tr_lst:
+            row_cols = tr.grid_before + tr.grid_after
+            for tc in tr.tc_lst:
+                row_cols += tc.grid_span
+            if row_cols > max_cols:
+                max_cols = row_cols
+        return max_cols
 
     def iter_tcs(self):
         """Generate each of the `w:tc` elements in this table, left to right and top to

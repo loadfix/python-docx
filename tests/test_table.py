@@ -60,6 +60,49 @@ class DescribeTable:
         assert row._tr is table._tbl.tr_lst[-1]
         assert row._parent is table
 
+    def it_copies_cnfStyle_from_the_preceding_row_when_adding_a_row(
+        self, document_: Mock
+    ):
+        """``add_row`` propagates the prior row's ``w:trPr/w:cnfStyle`` so
+        conditional banding / firstRow / lastRow formatting flows to the new
+        row, matching Word's own behaviour. (upstream#306)
+        """
+        # -- 1-col table, existing row has a cnfStyle flagging firstRow+oddHBand --
+        tbl_cxml = (
+            "w:tbl/(w:tblPr,w:tblGrid/w:gridCol{w:w=1000},"
+            "w:tr/(w:trPr/w:cnfStyle{w:val=100000000000},"
+            "w:tc/(w:tcPr/w:tcW{w:type=dxa,w:w=1000},w:p)))"
+        )
+        tbl = cast(CT_Tbl, element(tbl_cxml))
+        table = Table(tbl, document_)
+
+        table.add_row()
+
+        new_tr = tbl.tr_lst[-1]
+        trPr = new_tr.trPr
+        assert trPr is not None
+        from docx.oxml.ns import qn
+
+        cnfStyle = trPr.find(qn("w:cnfStyle"))
+        assert cnfStyle is not None
+        assert cnfStyle.get(qn("w:val")) == "100000000000"
+
+    def it_leaves_new_row_trPr_clean_when_predecessor_has_no_cnfStyle(
+        self, document_: Mock
+    ):
+        """Rows whose predecessor lacks ``cnfStyle`` must not get a spurious
+        ``w:trPr`` element. (upstream#306 safety)
+        """
+        snippets = snippet_seq("add-row-col")
+        tbl = cast(CT_Tbl, parse_xml(snippets[0]))
+        table = Table(tbl, document_)
+
+        table.add_row()
+
+        new_tr = table._tbl.tr_lst[-1]
+        # -- no cnfStyle on predecessor => no trPr on new row --
+        assert new_tr.trPr is None
+
     @pytest.mark.parametrize(
         ("body_cxml", "tbl_idx", "expected_cxml"),
         [
@@ -285,6 +328,27 @@ class DescribeTable:
         table.table_direction = new_value
         assert table._element.xml == xml(expected_cxml)
 
+    def it_exposes_direction_as_an_upstream_compatible_alias(self, document_: Mock):
+        """`Table.direction` is an alias of `table_direction` (upstream#1227).
+
+        loadfix renamed the property to ``table_direction``; the alias
+        preserves upstream-name compatibility.
+        """
+        table = Table(cast(CT_Tbl, element("w:tbl/w:tblPr")), document_)
+
+        # -- read delegates to table_direction --
+        assert table.direction is None
+
+        # -- write delegates to table_direction --
+        table.direction = WD_TABLE_DIRECTION.RTL
+        assert table.table_direction == WD_TABLE_DIRECTION.RTL
+        assert table.direction == WD_TABLE_DIRECTION.RTL
+        assert table._element.xml == xml("w:tbl/w:tblPr/w:bidiVisual")
+
+        table.direction = None
+        assert table.table_direction is None
+        assert table._element.xml == xml("w:tbl/w:tblPr")
+
     def it_knows_its_table_style(self, part_prop_: Mock, document_part_: Mock, document_: Mock):
         part_prop_.return_value = document_part_
         style_ = document_part_.get_style.return_value
@@ -366,6 +430,26 @@ class DescribeTable:
 
         assert column_count == expected_value
 
+    def it_synthesises_column_count_when_tblGrid_is_missing(self, document_: Mock):
+        """A ``w:tbl`` without ``w:tblGrid`` is invalid per ISO-29500 but is
+        commonly emitted by LibreOffice and PDF-to-docx converters.
+
+        Prior to the fix, :attr:`Table._column_count` raised
+        ``InvalidXmlError``. After the fix, the column count is derived from
+        the widest row (honouring ``gridBefore``/``gridAfter``). Closes
+        upstream#548.
+        """
+        # -- 3-column widest row, no tblGrid --
+        tbl_cxml = (
+            "w:tbl/(w:tblPr,"
+            "w:tr/(w:tc/w:p,w:tc/w:p,w:tc/w:p),"
+            "w:tr/(w:tc/w:p,w:tc/w:p))"
+        )
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+
+        # -- should not raise --
+        assert table._column_count == 3
+
     def it_tolerates_orphan_vMerge_continuation_in_top_row(self, document_: Mock):
         """A vMerge="continue" in the first row has no row above to delegate to.
 
@@ -424,6 +508,60 @@ class DescribeTable:
         # -- origin cell should expose its nested table --
         origin = cells[0]
         assert len(origin.tables) == 1
+
+    def it_honours_grid_before_when_flattening_cells(self, document_: Mock):
+        """``w:gridBefore`` shifts the row's real cells to later columns.
+
+        Prior to the fix, ``Table._cells`` ignored ``w:gridBefore`` so a row
+        that skipped leading columns would leak its cells into preceding
+        columns, breaking ``Table.cell(r, c)`` and ``Table.column_cells(c)``
+        arithmetic. (upstream#939, #1367)
+        """
+        # -- 3x3 grid; row 1 has gridBefore=1 so its two cells live at cols 1-2 --
+        tbl_cxml = (
+            "w:tbl/(w:tblGrid/(w:gridCol,w:gridCol,w:gridCol),"
+            "w:tr/(w:tc/w:p,w:tc/w:p,w:tc/w:p),"
+            "w:tr/(w:trPr/w:gridBefore{w:val=1},w:tc/w:p,w:tc/w:p))"
+        )
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+
+        cells = table._cells
+
+        # -- grid is 3 rows? no: 2 rows * 3 cols = 6 slots --
+        assert len(cells) == 6
+        # -- real tc elements for row 1 live at grid columns 1 and 2 --
+        row1_real_tc_0 = table._tbl.tr_lst[1].tc_lst[0]
+        row1_real_tc_1 = table._tbl.tr_lst[1].tc_lst[1]
+        assert table.cell(1, 1)._tc is row1_real_tc_0
+        assert table.cell(1, 2)._tc is row1_real_tc_1
+        # -- column 0 should NOT leak the row-1 real tc into row-1, col-0 --
+        assert table.cell(1, 0)._tc is not row1_real_tc_0
+        # -- column_cells(2) must pick up the second real tc of row 1 --
+        col2 = table.column_cells(2)
+        assert col2[1]._tc is row1_real_tc_1
+
+    def it_honours_grid_after_when_flattening_cells(self, document_: Mock):
+        """``w:gridAfter`` lets a row end early; omitted slots must not pull
+        later-column cells into those positions. (upstream#1334, #1193)
+        """
+        tbl_cxml = (
+            "w:tbl/(w:tblGrid/(w:gridCol,w:gridCol,w:gridCol),"
+            "w:tr/(w:tc/w:p,w:tc/w:p,w:tc/w:p),"
+            "w:tr/(w:trPr/w:gridAfter{w:val=1},w:tc/w:p,w:tc/w:p))"
+        )
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+
+        cells = table._cells
+
+        assert len(cells) == 6  # -- 2 rows * 3 cols --
+        # -- row 1 real cells live at columns 0 and 1 --
+        row1_real_tc_0 = table._tbl.tr_lst[1].tc_lst[0]
+        row1_real_tc_1 = table._tbl.tr_lst[1].tc_lst[1]
+        assert table.cell(1, 0)._tc is row1_real_tc_0
+        assert table.cell(1, 1)._tc is row1_real_tc_1
+        # -- column 2 in row 1 is omitted; placeholder comes from row above --
+        row0_real_tc_2 = table._tbl.tr_lst[0].tc_lst[2]
+        assert table.cell(1, 2)._tc is row0_real_tc_2
 
     @pytest.mark.parametrize(
         ("tbl_cxml", "expected_value"),
