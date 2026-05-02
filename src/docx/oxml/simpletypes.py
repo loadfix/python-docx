@@ -355,18 +355,27 @@ class ST_HexColorAuto(XsdStringEnumeration):
 
 
 class ST_HpsMeasure(XsdUnsignedLong):
-    """Half-point measure, e.g. 24.0 represents 12.0 points."""
+    """Half-point measure, e.g. 24.0 represents 12.0 points.
+
+    Some .docx producers (including older Word versions on certain locales,
+    and a handful of third-party tools) write non-integer half-point values
+    such as ``"23.5"``. The schema reads ``xsd:unsignedLong``, but accepting
+    a decimal string here lets us keep loading those documents instead of
+    crashing. Fractional values are rounded to the nearest half-point when
+    written back out. See upstream issues #1475, #1539 and PR #1478.
+    """
 
     @classmethod
     def convert_from_xml(cls, str_value: str) -> Length:
         if "m" in str_value or "n" in str_value or "p" in str_value:
             return ST_UniversalMeasure.convert_from_xml(str_value)
-        return Pt(int(str_value) / 2.0)
+        # -- tolerate decimal half-points (e.g. "23.5") --
+        return Pt(float(str_value) / 2.0)
 
     @classmethod
     def convert_to_xml(cls, value: int | Length) -> str:
-        emu = Emu(value)
-        half_points = int(emu.pt * 2)
+        emu = Emu(int(value))
+        half_points = int(round(emu.pt * 2))
         return str(half_points)
 
 
@@ -441,15 +450,26 @@ class ST_TblWidth(XsdString):
 
 
 class ST_TwipsMeasure(XsdUnsignedLong):
+    """Twips measure (20ths of a point).
+
+    Microsoft Word, when saving documents created by some third-party tools
+    or older revisions, occasionally emits fractional twips like ``"283.5"``.
+    The schema calls for ``xsd:unsignedLong``, but being tolerant here
+    (rounding to the nearest whole twip) lets us load those documents
+    instead of raising ``ValueError``. See upstream issues #1475, #1539
+    and PR #1478.
+    """
+
     @classmethod
     def convert_from_xml(cls, str_value: str) -> Length:
         if "i" in str_value or "m" in str_value or "p" in str_value:
             return ST_UniversalMeasure.convert_from_xml(str_value)
-        return Twips(int(str_value))
+        # -- tolerate decimal twips by rounding to the nearest whole twip --
+        return Twips(int(round(float(str_value))))
 
     @classmethod
     def convert_to_xml(cls, value: int | Length) -> str:
-        emu = Emu(value)
+        emu = Emu(int(value))
         twips = emu.twips
         return str(twips)
 

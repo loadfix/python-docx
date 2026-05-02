@@ -90,3 +90,33 @@ class DescribeBaseXmlEnumMembers:
         assert SomeXmlAttr.FOO != 2
         assert SomeXmlAttr.BAR == 2
         assert SomeXmlAttr.BAR != 1
+
+
+class DescribeWDParagraphAlignmentStartEnd:
+    """`WD_PARAGRAPH_ALIGNMENT.START` / `.END` alias LEFT / RIGHT (upstream #1473)."""
+
+    def it_exposes_START_as_an_alias_of_LEFT(self):
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+        assert WD_ALIGN_PARAGRAPH.START is WD_ALIGN_PARAGRAPH.LEFT
+
+    def it_exposes_END_as_an_alias_of_RIGHT(self):
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+        assert WD_ALIGN_PARAGRAPH.END is WD_ALIGN_PARAGRAPH.RIGHT
+
+    def it_maps_start_from_xml_to_LEFT(self):
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+        assert WD_ALIGN_PARAGRAPH.from_xml("start") is WD_ALIGN_PARAGRAPH.LEFT
+
+    def it_maps_end_from_xml_to_RIGHT(self):
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+        assert WD_ALIGN_PARAGRAPH.from_xml("end") is WD_ALIGN_PARAGRAPH.RIGHT
+
+    def it_remains_equal_to_LEFT_for_legacy_comparisons(self):
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+        alignment = WD_ALIGN_PARAGRAPH.START
+        assert alignment == WD_ALIGN_PARAGRAPH.LEFT

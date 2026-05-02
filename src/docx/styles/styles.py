@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from warnings import warn
 
-from docx.enum.style import WD_STYLE_TYPE
+from docx.enum.style import WD_BUILTIN_STYLE, WD_STYLE_TYPE
 from docx.oxml.styles import CT_Styles
 from docx.shared import ElementProxy
 from docx.styles import BabelFish
@@ -28,12 +28,19 @@ class Styles(ElementProxy):
         internal_name = BabelFish.ui2internal(name)
         return any(style.name_val == internal_name for style in self._element.style_lst)
 
-    def __getitem__(self, key: str):
+    def __getitem__(self, key):
         """Enables dictionary-style access by UI name.
+
+        `key` may also be a :class:`docx.enum.style.WD_BUILTIN_STYLE` member,
+        in which case the member's canonical UI name is used for lookup.
 
         Lookup by style id is deprecated, triggers a warning, and will be removed in a
         near-future release.
         """
+        # -- translate an enum member (e.g. `WD_STYLE.BODY_TEXT`) into its UI name --
+        if isinstance(key, WD_BUILTIN_STYLE):
+            key = _builtin_style_ui_name(key)
+
         style_elm = self._element.get_by_name(BabelFish.ui2internal(key))
         if style_elm is not None:
             return StyleFactory(style_elm)
@@ -134,3 +141,17 @@ class Styles(ElementProxy):
         if style == self.default(style_type):
             return None
         return style.style_id
+
+
+def _builtin_style_ui_name(member: WD_BUILTIN_STYLE) -> str:
+    """Return the canonical UI style name for a `WD_BUILTIN_STYLE` member.
+
+    The enumeration member's docstring already carries the UI name followed by
+    a trailing period (e.g. ``"Body Text."``), which is the same string that
+    appears in Word's Styles pane. Stripping the period makes it usable as a
+    direct key for `Styles.__getitem__`.
+    """
+    doc = (member.__doc__ or "").strip()
+    if doc.endswith("."):
+        doc = doc[:-1]
+    return doc or member.name.replace("_", " ").title()
