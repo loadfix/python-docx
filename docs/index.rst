@@ -96,6 +96,7 @@ User Guide
    user/accessibility
    user/statistics
    user/toc
+   user/track-changes
 
 
 API Documentation
