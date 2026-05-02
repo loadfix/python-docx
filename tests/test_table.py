@@ -98,6 +98,33 @@ class DescribeTable:
         assert column._gridCol is table._tbl.tblGrid.gridCol_lst[-1]
         assert column._parent is table
 
+    def it_add_column_inserts_a_tc_in_every_row(self, document_: Mock):
+        # -- regression for upstream#1102: `add_column` must append a `w:tc`
+        # -- in every row in addition to the new `w:gridCol`; otherwise the
+        # -- rendered document ends up with a grid-column count that doesn't
+        # -- match row cell counts and Word refuses to open the file. --
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblPr,w:tblGrid/(w:gridCol,w:gridCol),"
+                "w:tr/(w:tc/w:p,w:tc/w:p),"
+                "w:tr/(w:tc/w:p,w:tc/w:p))"
+            ),
+        )
+        table = Table(tbl, document_)
+        original_row_tc_counts = [len(tr.tc_lst) for tr in tbl.tr_lst]
+
+        table.add_column(Inches(1.0))
+
+        new_row_tc_counts = [len(tr.tc_lst) for tr in tbl.tr_lst]
+        # -- every row gained exactly one new tc --
+        assert new_row_tc_counts == [n + 1 for n in original_row_tc_counts]
+        # -- tblGrid gained exactly one new gridCol --
+        assert len(tbl.tblGrid.gridCol_lst) == 3
+        # -- every row's total tc count now matches the grid column count --
+        for tr in tbl.tr_lst:
+            assert len(tr.tc_lst) == len(tbl.tblGrid.gridCol_lst)
+
     def it_provides_access_to_a_cell_by_row_and_col_indices(self, table: Table):
         for row_idx in range(2):
             for col_idx in range(2):
@@ -1865,6 +1892,49 @@ class Describe_Columns:
         table_.table = table_
 
         assert columns.table is table_
+
+    def it_provides_sliced_access_to_columns(self, table_: Mock):
+        # -- regression for upstream#770: `columns[1:]` previously passed the
+        # -- slice straight to `_Column.__init__`, returning a single `_Column`
+        # -- wrapping a list. It must now return a list of `_Column` objects. --
+        columns = _Columns(
+            cast(CT_Tbl, element("w:tbl/w:tblGrid/(w:gridCol,w:gridCol,w:gridCol)")),
+            table_,
+        )
+
+        tail = columns[1:]
+
+        assert isinstance(tail, list)
+        assert len(tail) == 2
+        assert all(isinstance(c, _Column) for c in tail)
+
+    @pytest.mark.parametrize(
+        ("start", "stop", "step", "expected_len"),
+        [
+            (0, 2, 1, 2),
+            (1, None, 1, 2),
+            (None, -1, 1, 2),
+            (None, None, 2, 2),
+            (5, 10, 1, 0),
+        ],
+    )
+    def it_supports_slice_objects_on_getitem(
+        self,
+        start: int | None,
+        stop: int | None,
+        step: int | None,
+        expected_len: int,
+        table_: Mock,
+    ):
+        columns = _Columns(
+            cast(CT_Tbl, element("w:tbl/w:tblGrid/(w:gridCol,w:gridCol,w:gridCol)")),
+            table_,
+        )
+
+        result = columns[start:stop:step]
+
+        assert isinstance(result, list)
+        assert len(result) == expected_len
 
     # fixtures -------------------------------------------------------
 

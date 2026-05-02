@@ -1496,7 +1496,7 @@ class _Column(Parented):
 class _Columns(Parented):
     """Sequence of |_Column| instances corresponding to the columns in a table.
 
-    Supports ``len()``, iteration and indexed access.
+    Supports ``len()``, iteration, indexed access, and slicing.
     """
 
     def __init__(self, tbl: CT_Tbl, parent: TableParent):
@@ -1504,8 +1504,21 @@ class _Columns(Parented):
         self._parent = parent
         self._tbl = tbl
 
-    def __getitem__(self, idx: int):
-        """Provide indexed access, e.g. 'columns[0]'."""
+    @overload
+    def __getitem__(self, idx: int) -> _Column: ...
+
+    @overload
+    def __getitem__(self, idx: slice) -> list[_Column]: ...
+
+    def __getitem__(self, idx: int | slice) -> _Column | list[_Column]:
+        """Provide indexed and sliced access, e.g. ``columns[0]`` or ``columns[1:]``.
+
+        A slice returns a ``list[_Column]`` rather than a ``_Columns`` view;
+        integer access returns a single |_Column|. Raises |IndexError| when an
+        integer `idx` is out of range.
+        """
+        if isinstance(idx, slice):
+            return [_Column(gridCol, self) for gridCol in self._gridCol_lst[idx]]
         try:
             gridCol = self._gridCol_lst[idx]
         except IndexError:

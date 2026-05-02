@@ -22,7 +22,7 @@ from docx.parts.document import DocumentPart
 from docx.section import Section, Sections
 from docx.settings import Settings
 from docx.shape import InlineShape, InlineShapes
-from docx.shared import Length, RGBColor
+from docx.shared import Inches, Length, RGBColor
 from docx.styles.styles import Styles
 from docx.table import Table
 from docx.text.paragraph import Paragraph
@@ -259,6 +259,53 @@ class DescribeDocument:
         body_.add_table.assert_called_once_with(rows, cols, width)
         assert table == table_
         assert table.style == style
+
+    def it_rolls_back_add_table_when_style_is_invalid(
+        self, document_part_: Mock
+    ):
+        # -- regression for upstream#563: a freshly-added w:tbl must not be
+        # -- left in the body when the supplied style does not exist. The
+        # -- caller sees the exception and the document is unchanged. --
+        from docx.styles.style import BaseStyle
+
+        document = Document(
+            cast(
+                CT_Document,
+                element(
+                    "w:document/w:body/w:sectPr/"
+                    "(w:pgSz{w:w=12240,w:h=15840},"
+                    "w:pgMar{w:top=1440,w:right=1440,w:bottom=1440,w:left=1440})"
+                ),
+            ),
+            document_part_,
+        )
+        # -- simulate the style lookup raising for an invalid style name --
+        document_part_.get_style_id.side_effect = KeyError("no style")
+        # -- body initially has no table --
+        tbls_before = document._element.body.xpath(".//w:tbl")
+        assert tbls_before == []
+
+        with pytest.raises(KeyError):
+            document.add_table(2, 2, "Not A Real Style")
+
+        # -- the freshly added w:tbl was rolled back --
+        tbls_after = document._element.body.xpath(".//w:tbl")
+        assert tbls_after == []
+
+    def it_uses_default_block_width_when_body_has_no_sectPr(
+        self, document_part_: Mock
+    ):
+        # -- regression for upstream#514: a document whose body carries no
+        # -- w:sectPr must still compute a sensible block width (used by
+        # -- Document.add_table) rather than raising IndexError. --
+        document = Document(
+            cast(CT_Document, element("w:document/w:body")), document_part_
+        )
+
+        width = document._block_width
+
+        # -- US-Letter default: 8.5" page minus 1" left + 1" right = 6.5" --
+        assert width == Inches(6.5)
 
     def it_can_add_a_table_of_contents(self):
         # -- integration test: the TOC helper is thin enough that mocking

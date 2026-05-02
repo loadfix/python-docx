@@ -739,11 +739,76 @@ class DescribeCT_Row:
         tr.trHeight_hRule = new_value
         assert tr.xml == xml(expected_cxml)
 
-    @pytest.mark.parametrize(("snippet_idx", "row_idx", "col_idx"), [(0, 0, 3), (1, 0, 1)])
+    @pytest.mark.parametrize(
+        ("snippet_idx", "row_idx", "col_idx"),
+        [
+            # -- grid_offset beyond last tc (snippet 0 is 3x3 uniform) --
+            (0, 0, 3),
+            # -- negative grid_offset is out of range regardless of spans --
+            (0, 0, -1),
+        ],
+    )
     def it_raises_on_tc_at_grid_col(self, snippet_idx: int, row_idx: int, col_idx: int):
         tr = cast(CT_Tbl, parse_xml(snippet_seq("tbl-cells")[snippet_idx])).tr_lst[row_idx]
         with pytest.raises(ValueError, match=f"no `tc` element at grid_offset={col_idx}"):
             tr.tc_at_grid_offset(col_idx)
+
+    @pytest.mark.parametrize(
+        # -- regression for upstream#1458: tc_at_grid_offset must match by
+        # -- range, not by exact starting offset. A horizontally-spanning
+        # -- w:tc (gridSpan > 1) "covers" every grid column within its span,
+        # -- and w:gridBefore pushes the first tc's starting offset rightward.
+        ("tr_cxml", "grid_offset", "expected_tc_idx"),
+        [
+            # -- gridSpan=2 covers both grid_offset 0 and 1 --
+            ("w:tr/(w:tc/w:tcPr/w:gridSpan{w:val=2},w:tc)", 0, 0),
+            ("w:tr/(w:tc/w:tcPr/w:gridSpan{w:val=2},w:tc)", 1, 0),
+            ("w:tr/(w:tc/w:tcPr/w:gridSpan{w:val=2},w:tc)", 2, 1),
+            # -- gridBefore=2 means first tc starts at grid_offset 2 --
+            ("w:tr/(w:trPr/w:gridBefore{w:val=2},w:tc,w:tc)", 2, 0),
+            ("w:tr/(w:trPr/w:gridBefore{w:val=2},w:tc,w:tc)", 3, 1),
+            # -- gridBefore plus a spanned cell: tc_0 covers 2 and 3 --
+            (
+                "w:tr/(w:trPr/w:gridBefore{w:val=2},w:tc/w:tcPr/w:gridSpan{w:val=2},w:tc)",
+                2,
+                0,
+            ),
+            (
+                "w:tr/(w:trPr/w:gridBefore{w:val=2},w:tc/w:tcPr/w:gridSpan{w:val=2},w:tc)",
+                3,
+                0,
+            ),
+            (
+                "w:tr/(w:trPr/w:gridBefore{w:val=2},w:tc/w:tcPr/w:gridSpan{w:val=2},w:tc)",
+                4,
+                1,
+            ),
+        ],
+    )
+    def it_matches_tc_at_grid_offset_by_range(
+        self, tr_cxml: str, grid_offset: int, expected_tc_idx: int
+    ):
+        tr = cast(CT_Row, element(tr_cxml))
+
+        tc = tr.tc_at_grid_offset(grid_offset)
+
+        assert tc is tr.tc_lst[expected_tc_idx]
+
+    @pytest.mark.parametrize(
+        # -- offsets inside the w:gridBefore run have no covering tc --
+        ("tr_cxml", "grid_offset"),
+        [
+            ("w:tr/(w:trPr/w:gridBefore{w:val=2},w:tc,w:tc)", 0),
+            ("w:tr/(w:trPr/w:gridBefore{w:val=2},w:tc,w:tc)", 1),
+            ("w:tr/(w:trPr/w:gridBefore{w:val=2},w:tc,w:tc)", 4),
+        ],
+    )
+    def it_raises_on_tc_at_grid_offset_in_gridBefore_or_beyond(
+        self, tr_cxml: str, grid_offset: int
+    ):
+        tr = cast(CT_Row, element(tr_cxml))
+        with pytest.raises(ValueError, match=f"no `tc` element at grid_offset={grid_offset}"):
+            tr.tc_at_grid_offset(grid_offset)
 
 
 class DescribeCT_Tc:
@@ -1117,6 +1182,106 @@ class DescribeCT_Tc:
         assert root_tc.bottom == 2
         # -- last continuation has no row below; bottom is its own row +1 --
         assert last_tc.bottom == 2
+
+    def it_resolves_bottom_across_gridBefore_rows(self):
+        """Regression for upstream#1458: ``cell._tc.bottom`` must not crash
+        when the row directly below has ``w:gridBefore`` or gridSpan cells
+        that shift the grid column of the continuation tc.
+        """
+        tbl = cast(
+            CT_Tbl,
+            parse_xml(
+                '<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                "<w:tblGrid><w:gridCol/><w:gridCol/></w:tblGrid>"
+                # -- row 0 starts a vertical merge in the second grid column --
+                "<w:tr>"
+                "<w:tc><w:p/></w:tc>"
+                "<w:tc><w:tcPr><w:vMerge w:val=\"restart\"/></w:tcPr><w:p/></w:tc>"
+                "</w:tr>"
+                # -- row 1 starts with gridBefore=1; its single tc sits at --
+                # -- grid offset 1 and continues the vMerge. --
+                "<w:tr>"
+                "<w:trPr><w:gridBefore w:val=\"1\"/></w:trPr>"
+                "<w:tc><w:tcPr><w:vMerge/></w:tcPr><w:p/></w:tc>"
+                "</w:tr>"
+                "</w:tbl>"
+            ),
+        )
+        top_tc = tbl.tr_lst[0].tc_lst[1]
+        # -- bottom is one past the last continuation row --
+        assert top_tc.bottom == 2
+
+    def it_grows_iteratively_for_large_merges(self):
+        """Regression for upstream#1208: ``_grow_to`` must not recurse per
+        row, because very tall merges exceed Python's recursion limit.
+        """
+        import sys
+
+        # -- a merge height larger than the default recursion limit --
+        row_count = sys.getrecursionlimit() + 50
+        rows_xml = "".join(
+            '<w:tr><w:tc><w:p/></w:tc></w:tr>' for _ in range(row_count)
+        )
+        tbl = cast(
+            CT_Tbl,
+            parse_xml(
+                '<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                "<w:tblGrid><w:gridCol/></w:tblGrid>"
+                + rows_xml
+                + "</w:tbl>"
+            ),
+        )
+        top_tc = tbl.tr_lst[0].tc_lst[0]
+
+        # -- merging all rows into a single span must not raise RecursionError --
+        top_tc._grow_to(1, row_count)
+
+        # -- and the root tc's bottom now spans the full table --
+        assert top_tc.bottom == row_count
+
+    def it_merges_cells_in_a_nested_table_without_crossing_tables(self):
+        """Regression for upstream#169: merging cells in a table that is
+        itself nested inside another table must not leak grid-col lookups
+        into the outer table's rows.
+        """
+        xml_str = (
+            '<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            "<w:tblGrid><w:gridCol/><w:gridCol/></w:tblGrid>"
+            "<w:tr>"
+            "<w:tc><w:p/></w:tc>"
+            "<w:tc>"
+            # -- nested table inside the second outer cell --
+            "<w:tbl>"
+            "<w:tblGrid><w:gridCol/><w:gridCol/></w:tblGrid>"
+            "<w:tr><w:tc><w:p/></w:tc><w:tc><w:p/></w:tc></w:tr>"
+            "<w:tr><w:tc><w:p/></w:tc><w:tc><w:p/></w:tc></w:tr>"
+            "</w:tbl>"
+            "<w:p/>"
+            "</w:tc>"
+            "</w:tr>"
+            "<w:tr>"
+            "<w:tc><w:p/></w:tc>"
+            "<w:tc><w:p/></w:tc>"
+            "</w:tr>"
+            "</w:tbl>"
+        )
+        outer_tbl = cast(CT_Tbl, parse_xml(xml_str))
+        # -- locate the inner tbl and merge its top-left to bottom-right --
+        inner_tbl = cast(CT_Tbl, outer_tbl.xpath(".//w:tc//w:tbl")[0])
+        inner_top_left = inner_tbl.tr_lst[0].tc_lst[0]
+        inner_bottom_right = inner_tbl.tr_lst[1].tc_lst[1]
+
+        merged = inner_top_left.merge(inner_bottom_right)
+
+        # -- merge returned the inner top-left, not anything from outer tbl --
+        assert merged is inner_tbl.tr_lst[0].tc_lst[0]
+        # -- outer table rows are untouched --
+        assert len(outer_tbl.tr_lst) == 2
+        assert len(outer_tbl.tr_lst[0].tc_lst) == 2
+        assert len(outer_tbl.tr_lst[1].tc_lst) == 2
+        # -- inner table has a 2x2 merged span on the (now-only) top cell --
+        assert merged.grid_span == 2
+        assert merged.bottom == 2
 
     # fixtures -------------------------------------------------------
 
