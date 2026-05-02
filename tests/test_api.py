@@ -78,19 +78,35 @@ class DescribeDocument:
         assert document is document_
 
     def it_opens_the_default_docx_if_none_specified(
-        self, _default_docx_path_: Mock, Package_: Mock, document_: Mock
+        self, _default_docx_stream_: Mock, Package_: Mock, document_: Mock
     ):
-        _default_docx_path_.return_value = "default-document.docx"
+        default_stream = io.BytesIO(b"fake-default-bytes")
+        _default_docx_stream_.return_value = default_stream
         document_part = Package_.open.return_value.main_document_part
         document_part.document = document_
         document_part.content_type = CT.WML_DOCUMENT_MAIN
 
         document = DocumentFactoryFn()
 
-        Package_.open.assert_called_once_with(
-            "default-document.docx", recover=False, huge_tree=False
-        )
+        Package_.open.assert_called_once_with(default_stream, recover=False, huge_tree=False)
         assert document is document_
+
+    def it_sources_the_default_docx_via_importlib_resources(self):
+        # -- PyInstaller / cx_freeze / zipimport safety: must not rely on __file__ path.
+        # -- Closes upstream#176, upstream-PR#1310, upstream-PR#177.
+        from docx.api import _default_docx_stream
+
+        data_stream = _default_docx_stream()
+
+        assert isinstance(data_stream, io.BytesIO)
+        # -- first four bytes of every .docx package are the PK\x03\x04 zip signature --
+        assert data_stream.getvalue()[:4] == b"PK\x03\x04"
+
+    def it_produces_a_usable_default_Document_instance(self):
+        # -- round-trip sanity check: Document() with no arg yields a real Document --
+        document = DocumentFactoryFn()
+
+        assert isinstance(document, DocumentCls)
 
     def it_opens_a_docm_file(self, Package_: Mock, document_: Mock):
         document_part = Package_.open.return_value.main_document_part
@@ -235,8 +251,8 @@ class DescribeDocument:
     # -- fixtures --------------------------------------------------------------------------------
 
     @pytest.fixture
-    def _default_docx_path_(self, request: FixtureRequest):
-        return function_mock(request, "docx.api._default_docx_path")
+    def _default_docx_stream_(self, request: FixtureRequest):
+        return function_mock(request, "docx.api._default_docx_stream")
 
     @pytest.fixture
     def document_(self, request: FixtureRequest):

@@ -92,6 +92,73 @@ class DescribeBaseXmlEnumMembers:
         assert SomeXmlAttr.BAR != 1
 
 
+class DescribeDashOOSafety:
+    """`python -OO` strips class/function `__doc__` attributes to `None`.
+
+    upstream-PR#337: reading docstrings anywhere in the import or enum-
+    construction path must not crash when those `__doc__` attributes are
+    missing.
+    """
+
+    def it_tolerates_None_docstring_in_BaseEnum_new(self):
+        # -- simulate -OO by passing docstr=None to BaseEnum.__new__ --
+        from docx.enum.base import BaseEnum
+
+        class SomeEnum(BaseEnum):
+            ALPHA = (1, None)  # type: ignore[arg-type]
+            BETA = (2, None)  # type: ignore[arg-type]
+
+        assert SomeEnum.ALPHA.__doc__ == ""
+        assert SomeEnum.BETA.__doc__ == ""
+
+    def it_tolerates_None_docstring_in_BaseXmlEnum_new(self):
+        # -- simulate -OO by passing docstr=None to BaseXmlEnum.__new__ --
+        class SomeXml(BaseXmlEnum):
+            ONE = (1, "one", None)  # type: ignore[arg-type]
+
+        assert SomeXml.ONE.__doc__ == ""
+        assert SomeXml.ONE.xml_value == "one"
+
+    def it_tolerates_None_docstring_in_DocsPageFormatter_member_def(self):
+        # -- even if an enum member's __doc__ is None, the RST formatter
+        # -- must not blow up --
+        from docx.enum.base import BaseEnum, DocsPageFormatter
+
+        class SomeEnum(BaseEnum):
+            ALPHA = (1, None)  # type: ignore[arg-type]
+
+        clsdict = dict(SomeEnum.__dict__)
+        clsdict["__ms_name__"] = "SomeEnum"
+        clsdict["__members__"] = list(SomeEnum.__members__.values())
+        formatter = DocsPageFormatter("SomeEnum", clsdict)
+
+        # -- does not raise --
+        assert "ALPHA" in formatter.page_str
+
+    def it_runs_Document_under_minus_OO(self):
+        # -- end-to-end smoke test: launch a subprocess with -OO and ensure
+        # -- `Document()` (which pulls the default template, constructs enums,
+        # -- and reads docstrings for built-in style lookups) works.
+        import os
+        import subprocess
+        import sys
+
+        env = os.environ.copy()
+        # -- forward the current interpreter's sys.path so the subprocess
+        # -- resolves this worktree's `docx` package rather than a site-
+        # -- packages copy --
+        env["PYTHONPATH"] = os.pathsep.join(sys.path)
+
+        result = subprocess.run(
+            [sys.executable, "-OO", "-c", "import docx; docx.Document()"],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+
+
 class DescribeWDParagraphAlignmentStartEnd:
     """`WD_PARAGRAPH_ALIGNMENT.START` / `.END` alias LEFT / RIGHT (upstream #1473)."""
 

@@ -25,6 +25,40 @@ from .unitdata.text import a_b, a_u, an_i, an_rPr
 
 
 class DescribeBaseOxmlElement:
+    def it_tolerates_dir_on_CT_subclass_and_instance(self):
+        # -- upstream-PR#1220 / upstream#1433: dir(CT_*) or dir(tc) must not raise
+        # -- TypeError from the instance-dict descriptor binding.
+        from docx.oxml.parser import OxmlElement
+        from docx.oxml.table import CT_Tc
+
+        assert dir(CT_Tc)
+        assert dir(OxmlElement("w:tc"))
+
+    def it_keeps_the_instance_dict_descriptor_off_BaseOxmlElement(self):
+        # -- upstream-PR#1220 / upstream#1433: ensure `BaseOxmlElement` itself
+        # -- does NOT own a `__dict__` getset-descriptor (it must instead
+        # -- inherit via `_OxmlElementBase`). Without this indirection, IDE
+        # -- debuggers walking `type(cls).__mro__` hit the auto-generated
+        # -- descriptor and raise::
+        # --
+        # --     TypeError: descriptor '__dict__' for 'BaseOxmlElement' objects
+        # --                doesn't apply to a 'MetaOxmlElement' object
+        from docx.oxml.xmlchemy import BaseOxmlElement, _OxmlElementBase
+
+        assert "__dict__" not in BaseOxmlElement.__dict__
+        assert "__dict__" in _OxmlElementBase.__dict__
+
+    def it_resolves_instance_dict_descriptor_on_a_CT_instance(self):
+        # -- upstream-PR#1220 / upstream#1433: invoking the `__dict__`
+        # -- getset-descriptor on a CT_* instance must still produce a dict.
+        from docx.oxml.parser import OxmlElement
+        from docx.oxml.xmlchemy import _OxmlElementBase
+
+        tc = OxmlElement("w:tc")
+        descr = _OxmlElementBase.__dict__["__dict__"]
+
+        assert isinstance(descr.__get__(tc, type(tc)), dict)
+
     def it_can_find_the_first_of_its_children_named_in_a_sequence(self, first_fixture):
         element, tagnames, matching_child = first_fixture
         assert element.first_child_found_in(*tagnames) is matching_child

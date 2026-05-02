@@ -640,8 +640,33 @@ class ZeroOrOneChoice(_BaseChildElement):
         return "_remove_%s" % self._prop_name
 
 
+# -- `_OxmlElementBase` is a thin, empty concrete subclass of `lxml.etree.ElementBase`
+# -- whose only purpose is to absorb the `__dict__` getset-descriptor that Python
+# -- auto-generates on the first non-`__slots__`-using subclass of `ElementBase`.
+# --
+# -- Without this indirection, the `__dict__` descriptor would be generated on
+# -- `BaseOxmlElement` itself and would be bound to *instances* of
+# -- `BaseOxmlElement`. IDE debuggers (PyCharm, pydevd) and other inspection
+# -- tooling navigate `type(cls).__mro__` and invoke
+# -- `descriptor.__get__(cls, metaclass)`, producing::
+# --
+# --     TypeError: descriptor '__dict__' for '_OxmlElementBase' objects
+# --                doesn't apply to a 'CT_*' object
+# --
+# -- By putting that descriptor on the shielding `_OxmlElementBase` parent instead,
+# -- the error becomes reproducible only in the narrow case where a caller walks
+# -- past `BaseOxmlElement` into `_OxmlElementBase` — which real debuggers do not
+# -- do in practice. Closes upstream-PR#1220, upstream#1433.
+class _OxmlElementBase(etree.ElementBase):
+    """Thin shim absorbing the auto-generated instance `__dict__` slot.
+
+    Contains no logic of its own — all shared behavior lives on
+    `BaseOxmlElement`. See module comment for why this indirection exists.
+    """
+
+
 # -- lxml typing isn't quite right here, just ignore this error on _Element --
-class BaseOxmlElement(etree.ElementBase, metaclass=MetaOxmlElement):
+class BaseOxmlElement(_OxmlElementBase, metaclass=MetaOxmlElement):
     """Effective base class for all custom element classes.
 
     Adds standardized behavior to all classes in one place.

@@ -5,7 +5,8 @@ Provides a syntactically more convenient API for interacting with the OpcPackage
 
 from __future__ import annotations
 
-from pathlib import Path
+import io
+from importlib import resources
 from typing import IO, TYPE_CHECKING, cast
 
 from docx.opc.constants import CONTENT_TYPE as CT
@@ -44,7 +45,8 @@ def Document(
     .. versionadded:: 1.3.0.dev0
        The `huge_tree` parameter.
     """
-    docx = _default_docx_path() if docx is None else docx
+    if docx is None:
+        docx = _default_docx_stream()
     package = Package.open(docx, recover=recover, huge_tree=huge_tree)
     document_part = cast("DocumentPart", package.main_document_part)
     if document_part.content_type not in (CT.WML_DOCUMENT_MAIN, CT.WML_DOCUMENT_MACRO):
@@ -54,6 +56,13 @@ def Document(
     return document_part.document
 
 
-def _default_docx_path() -> str:
-    """Return the path to the built-in default .docx package."""
-    return str(Path(__file__).parent / "templates" / "default.docx")
+def _default_docx_stream() -> io.BytesIO:
+    """Return a `BytesIO` of the built-in default .docx package.
+
+    Uses :mod:`importlib.resources` so the template is located correctly when
+    `docx` is imported from a zip/egg, a PyInstaller/cx_freeze bundle, or any
+    other non-filesystem :class:`importlib.abc.Traversable`. Closes upstream#176,
+    upstream-PR#1310, upstream-PR#177.
+    """
+    template = resources.files("docx").joinpath("templates/default.docx")
+    return io.BytesIO(template.read_bytes())
