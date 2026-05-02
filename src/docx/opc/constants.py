@@ -157,6 +157,8 @@ class CONTENT_TYPE:
     WML_WEB_SETTINGS = (
         "application/vnd.openxmlformats-officedocument.wordprocessingml.webSettings+xml"
     )
+    WEBP = "image/webp"
+    X_EPS = "application/postscript"
     XML = "application/xml"
     X_EMF = "image/x-emf"
     X_FONTDATA = "application/x-fontdata"
