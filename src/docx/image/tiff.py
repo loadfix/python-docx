@@ -91,6 +91,9 @@ class _TiffParser:
 
         The calculation is based on the values of both that tag and the
         TIFF_TAG.RESOLUTION_UNIT tag in this parser's |_IfdEntries| instance.
+        Falls back to 72 when the resolution tag is missing, non-numeric (e.g.
+        a malformed IFD entry that was left as an opaque placeholder) or
+        otherwise produces a non-positive DPI.
         """
         ifd_entries = self._ifd_entries
 
@@ -105,7 +108,15 @@ class _TiffParser:
         # resolution_unit == 2 for inches, 3 for centimeters
         units_per_inch = 1 if resolution_unit == 2 else 2.54
         dots_per_unit = ifd_entries[resolution_tag]
-        return int(round(dots_per_unit * units_per_inch))
+        # -- guard against non-numeric (e.g. placeholder string from an
+        #    unrecognised field-type) or zero values --
+        if not isinstance(dots_per_unit, (int, float)):
+            return 72
+        try:
+            dpi = int(round(dots_per_unit * units_per_inch))
+        except (TypeError, ValueError):
+            return 72
+        return dpi if dpi > 0 else 72
 
     @classmethod
     def _make_stream_reader(cls, stream):
@@ -231,12 +242,20 @@ class _AsciiIfdEntry(_IfdEntry):
 
     @classmethod
     def _parse_value(cls, stream_rdr, offset, value_count, value_offset):
-        """Return the ASCII string parsed from `stream_rdr` at `value_offset`.
+        """Return the ASCII string parsed from `stream_rdr`.
 
         The length of the string, including a terminating '\x00' (NUL) character, is in
-        `value_count`.
+        `value_count`. Per TIFF 6.0 §2, when the total byte count is 4 bytes or
+        fewer the value is stored inline in the IFD entry's 4-byte
+        Value/Offset field at ``offset + 8`` instead of at ``value_offset``.
         """
-        return stream_rdr.read_str(value_count - 1, value_offset)
+        if value_count == 0:
+            return ""
+        length = value_count - 1  # strip trailing NUL from reported count
+        if value_count <= 4:
+            # -- value is packed inline in the IFD entry itself --
+            return stream_rdr.read_str(length, offset, 8)
+        return stream_rdr.read_str(length, value_offset)
 
 
 class _ShortIfdEntry(_IfdEntry):
@@ -244,15 +263,20 @@ class _ShortIfdEntry(_IfdEntry):
 
     @classmethod
     def _parse_value(cls, stream_rdr, offset, value_count, value_offset):
-        """Return the short int value contained in the `value_offset` field of this
-        entry.
+        """Return the short int value contained in this entry.
 
-        Only supports single values at present.
+        Per TIFF 6.0 §2, a SHORT entry with ``value_count <= 2`` packs its
+        value(s) inline in the 4-byte Value/Offset field at ``offset + 8``;
+        otherwise the values are located at ``value_offset``. Only the first
+        value of multi-valued entries is returned, which is sufficient for the
+        single-valued tags python-docx consults.
         """
         if value_count == 1:
             return stream_rdr.read_short(offset, 8)
-        else:  # pragma: no cover
-            return "Multi-value short integer NOT IMPLEMENTED"
+        if value_count == 2:
+            # -- two shorts pack inline; return the first --
+            return stream_rdr.read_short(offset, 8)
+        return stream_rdr.read_short(value_offset)
 
 
 class _LongIfdEntry(_IfdEntry):

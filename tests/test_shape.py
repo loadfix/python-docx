@@ -54,6 +54,38 @@ class DescribeInlineShapes:
         inline_shapes = InlineShapes(body, document_)
         assert inline_shapes.part is document_.part
 
+    def it_finds_inline_shapes_inside_mc_AlternateContent_Choice(self, document_: Mock):
+        # -- one direct drawing plus one wrapped in mc:AlternateContent/mc:Choice;
+        #    the alternate-content shape must also be discovered --
+        body_cxml = (
+            "w:body/w:p/(w:r/w:drawing/wp:inline,"
+            "w:r/mc:AlternateContent/(mc:Choice{Requires=wps}/w:drawing/wp:inline,"
+            "mc:Fallback/w:pict))"
+        )
+        body_elm = cast(CT_Body, element(body_cxml))
+
+        inline_shapes = InlineShapes(body_elm, document_)
+
+        # -- two inline shapes: the direct one and the mc:Choice one --
+        assert len(inline_shapes) == 2
+        for shape in inline_shapes:
+            assert isinstance(shape, InlineShape)
+
+    def it_prefers_mc_Fallback_when_Choice_has_no_inline(self, document_: Mock):
+        # -- only mc:Fallback contains an inline drawing; the Choice is empty
+        #    (e.g. uses a non-DrawingML alternative). The Fallback should
+        #    still be discoverable as an inline shape. --
+        body_cxml = (
+            "w:body/w:p/w:r/mc:AlternateContent/"
+            "(mc:Choice{Requires=wps},"
+            "mc:Fallback/w:drawing/wp:inline)"
+        )
+        body_elm = cast(CT_Body, element(body_cxml))
+
+        inline_shapes = InlineShapes(body_elm, document_)
+
+        assert len(inline_shapes) == 1
+
     # -- fixtures --------------------------------------------------------------------------------
 
     @pytest.fixture

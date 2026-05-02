@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import io
-from typing import IO, TYPE_CHECKING, cast
+from typing import IO, TYPE_CHECKING, Iterator, cast
 
 from docx.image.constants import MIME_TYPE
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
@@ -14,6 +14,8 @@ from docx.shared import Length, lazyproperty
 if TYPE_CHECKING:
     from docx.enum.style import WD_STYLE_TYPE
     from docx.image.image import Image
+    from docx.opc.part import Part
+    from docx.oxml.xmlchemy import BaseOxmlElement
     from docx.parts.document import DocumentPart
     from docx.styles.style import BaseStyle
 
@@ -129,17 +131,90 @@ class StoryPart(XmlPart):
 
     @property
     def next_id(self) -> int:
-        """Next available positive integer id value in this story XML document.
+        """Next available positive integer id value across all stories in the document.
 
-        The value is determined by incrementing the maximum existing id value. Gaps in
-        the existing id sequence are not filled. The id attribute value is unique in the
-        document, without regard to the element type it appears on.
+        The value is determined by incrementing the maximum existing id value
+        found in the main document body, every header part, and every footer
+        part. Gaps in the existing id sequence are not filled. Spanning all
+        story parts (rather than the current story only) avoids
+        ``wp:docPr/@id`` collisions when images are added in a header/footer
+        while the body — or another header/footer — already uses the same
+        numeric id; Word interprets such collisions as the same drawing
+        object.
+
+        .. versionadded:: 1.3.0.dev0
         """
-        id_str_lst = self._element.xpath("//@id")
-        used_ids = [int(id_str) for id_str in id_str_lst if id_str.isdigit()]
+        used_ids: set[int] = set()
+        for element in self._iter_story_elements():
+            for id_str in element.xpath("//@id"):
+                if id_str.isdigit():
+                    used_ids.add(int(id_str))
         if not used_ids:
             return 1
         return max(used_ids) + 1
+
+    def _iter_story_elements(self) -> Iterator[BaseOxmlElement]:
+        """Yield the root XML element of each story part in the document.
+
+        The current story's element is always yielded first; then the main
+        document element (when this isn't already it) followed by each header
+        and footer part's element, deduplicated. Errors resolving the document
+        part or its related parts are swallowed so that unit tests can use a
+        bare :class:`StoryPart` instance without a real package.
+        """
+        seen: set[int] = set()
+        own = self._element
+        if own is not None:
+            seen.add(id(own))
+            yield own
+
+        doc_part = self._safe_document_part()
+        if doc_part is None:
+            return
+
+        doc_element = cast(
+            "BaseOxmlElement | None", getattr(doc_part, "_element", None)
+        )
+        if doc_element is not None and id(doc_element) not in seen:
+            seen.add(id(doc_element))
+            yield doc_element
+
+        for reltype in (RT.HEADER, RT.FOOTER):
+            for related in self._iter_related_parts(doc_part, reltype):
+                related_element = cast(
+                    "BaseOxmlElement | None", getattr(related, "_element", None)
+                )
+                if related_element is not None and id(related_element) not in seen:
+                    seen.add(id(related_element))
+                    yield related_element
+
+    def _safe_document_part(self) -> Part | None:
+        """Return the main |DocumentPart| or |None| if it can't be resolved.
+
+        |StoryPart| instances constructed in tests may not have a package
+        attached; guard those cases so ``next_id`` still produces a usable
+        value from the local story alone.
+        """
+        try:
+            return self._document_part
+        except (AttributeError, AssertionError, KeyError):
+            return None
+
+    @staticmethod
+    def _iter_related_parts(part: Part, reltype: str) -> Iterator[Part]:
+        """Yield related parts of `part` matching `reltype`, tolerating a missing rels map."""
+        rels = getattr(part, "rels", None)
+        if rels is None:
+            return
+        for rel in rels.values():
+            if getattr(rel, "is_external", False):
+                continue
+            if rel.reltype != reltype:
+                continue
+            try:
+                yield rel.target_part
+            except (KeyError, ValueError):  # pragma: no cover - defensive
+                continue
 
     @lazyproperty
     def _document_part(self) -> DocumentPart:

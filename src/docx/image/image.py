@@ -14,6 +14,26 @@ from typing import IO
 from docx.image.exceptions import UnrecognizedImageError
 from docx.shared import Emu, Inches, Length, lazyproperty
 
+DEFAULT_DPI = 72
+
+
+def _coerce_dpi(value: int | None) -> int:
+    """Return a safe DPI value, substituting 72 for |None| or a non-positive value.
+
+    Some JPEGs declare a zero DPI in their APP0/JFIF marker and some BMPs record
+    a zero ``biXPelsPerMeter``; honouring those values produces a
+    ``ZeroDivisionError`` when python-docx computes the native image size.
+    """
+    if value is None:
+        return DEFAULT_DPI
+    try:
+        dpi = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_DPI
+    if dpi <= 0:
+        return DEFAULT_DPI
+    return dpi
+
 
 class Image:
     """Graphical image stream such as JPEG, PNG, or GIF with properties and methods
@@ -95,17 +115,22 @@ class Image:
     def horz_dpi(self) -> int:
         """Integer dots per inch for the width of this image.
 
-        Defaults to 72 when not present in the file, as is often the case.
+        Defaults to 72 when not present in the file, as is often the case. Also
+        falls back to 72 when the value supplied in the image header is zero or
+        |None|, which guards against malformed JPEG/BMP streams that would
+        otherwise raise ``ZeroDivisionError`` during scaling.
         """
-        return self._image_header.horz_dpi
+        return _coerce_dpi(self._image_header.horz_dpi)
 
     @property
     def vert_dpi(self) -> int:
         """Integer dots per inch for the height of this image.
 
-        Defaults to 72 when not present in the file, as is often the case.
+        Defaults to 72 when not present in the file, as is often the case. Also
+        falls back to 72 when the value supplied in the image header is zero or
+        |None|.
         """
-        return self._image_header.vert_dpi
+        return _coerce_dpi(self._image_header.vert_dpi)
 
     @property
     def width(self) -> Inches:

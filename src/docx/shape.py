@@ -43,9 +43,38 @@ class InlineShapes(Parented):
 
     @property
     def _inline_lst(self):
+        """List of ``wp:inline`` elements reachable from this body.
+
+        Inline shapes may appear either directly under ``w:drawing`` or nested
+        inside an ``mc:AlternateContent`` compatibility block. Word wraps
+        newer features (e.g. SVG-with-PNG-fallback, certain DrawingML
+        effects) in ``mc:AlternateContent/mc:Choice`` with an
+        ``mc:Fallback`` holding a down-level alternative. We prefer each
+        ``mc:Choice`` where present and fall back to ``mc:Fallback`` for
+        compatibility blocks that have no surviving ``Choice``, so that each
+        alternate-content block contributes at most one inline shape.
+        """
         body = self._body
-        xpath = ".//w:p/w:r/w:drawing/wp:inline"
-        return body.xpath(xpath)
+        direct = body.xpath(".//w:p/w:r/w:drawing/wp:inline")
+        # -- enumerate mc:AlternateContent blocks by positional index so we
+        #    can run per-block xpath expressions via `body.xpath()` (the
+        #    enhanced method carries the docx namespace map; generic lxml
+        #    elements returned from descendant queries may not). --
+        alt_block_count = int(body.xpath("count(.//mc:AlternateContent)"))
+        alt_inlines: list[CT_Inline] = []
+        for idx in range(1, alt_block_count + 1):
+            # -- XPath positions are 1-indexed --
+            choice_xpath = (
+                "(.//mc:AlternateContent)[%d]/mc:Choice//wp:inline" % idx
+            )
+            fallback_xpath = (
+                "(.//mc:AlternateContent)[%d]/mc:Fallback//wp:inline" % idx
+            )
+            chosen = body.xpath(choice_xpath)
+            if not chosen:
+                chosen = body.xpath(fallback_xpath)
+            alt_inlines.extend(chosen)
+        return direct + alt_inlines
 
 
 class InlineShape:
