@@ -420,10 +420,30 @@ class CT_CoreProperties(BaseOxmlElement):
         return dt_.replace(tzinfo=dt.timezone.utc)
 
     def _set_element_datetime(self, prop_name: str, value: dt.datetime) -> None:
-        """Set date/time value of child element having `prop_name` to `value`."""
+        """Set date/time value of child element having `prop_name` to `value`.
+
+        The written form is W3CDTF, always serialised with a trailing ``Z`` (UTC).
+        The parse side (``_parse_W3CDTF_to_datetime``) always converts offsets to
+        UTC, so the write path must mirror that:
+
+        * ``value.tzinfo is None`` — assumed to be UTC already and serialised
+          directly (naive in, naive-UTC out). This matches the historical
+          contract and is documented as a requirement on the caller.
+        * ``value.tzinfo`` is UTC (or any zero-offset zone) — serialised
+          as-is.
+        * ``value.tzinfo`` is any other zone — converted via
+          ``astimezone(UTC)`` before formatting, so the written timestamp is
+          the actual UTC instant. Previously the offset was silently dropped
+          and the local wall-clock time was written with a ``Z`` suffix,
+          mislabelling the instant (upstream#1542).
+        """
         if not isinstance(value, dt.datetime):  # pyright: ignore[reportUnnecessaryIsInstance]
             tmpl = "property requires <type 'datetime.datetime'> object, got %s"
             raise ValueError(tmpl % type(value))
+        # -- Normalise tz-aware values to UTC so the trailing ``Z`` is honest.
+        # -- Naive values are assumed to already be UTC (historical contract).
+        if value.tzinfo is not None:
+            value = value.astimezone(dt.timezone.utc)
         element = self._get_or_add(prop_name)
         dt_str = value.strftime("%Y-%m-%dT%H:%M:%SZ")
         element.text = dt_str

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import copy
 import os
 import posixpath
 from typing import IO, TYPE_CHECKING, cast
 from collections.abc import Iterator
+
+from lxml import etree
 
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.opc.packuri import PACKAGE_URI, PackURI
@@ -28,6 +31,86 @@ if TYPE_CHECKING:
 #: in the path prefix but not inside the filename itself). ``/`` and ``\`` are
 #: directory separators and are intentionally omitted from this set.
 _WINDOWS_INVALID_FILENAME_CHARS = frozenset('<>:"|?*')
+
+#: Canonical URI bound to the ``cp:`` prefix inside core.xml (the Open Packaging
+#: Conventions core-properties namespace). Anything else bound to ``cp:`` in an
+#: incoming core-properties part collides with python-docx's own use of the
+#: prefix on the write side.
+_CORE_PROPS_URI = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
+
+#: URI LibreOffice mis-binds to ``cp:`` in some core.xml files — the
+#: officeDocument custom-properties namespace. When detected we rebind it to
+#: the ``custprops:`` prefix python-docx already uses elsewhere.
+_CUSTOM_PROPS_URI = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"
+)
+
+
+def _remap_clashing_cp_prefix(part: CorePropertiesPart) -> None:
+    """Rebuild `part`'s root element when its nsmap binds ``cp:`` to a non-core URI.
+
+    LibreOffice (and a handful of other producers) occasionally emit
+    ``docProps/core.xml`` with an ``xmlns:cp="...custom-properties"``
+    declaration — the ``cp:`` prefix is bound to the custom-properties
+    namespace rather than the canonical core-properties one. python-docx's
+    own code emits ``<cp:lastModifiedBy>`` and siblings using ``qn("cp:...")``,
+    which expands to a *core-properties* Clark name. Serialising against the
+    incoming (mis-bound) nsmap then produces two elements that both print as
+    ``cp:lastModifiedBy`` but carry different URIs, which Word rejects
+    (upstream#1037, extends PR#1436).
+
+    This helper re-emits the tree with a clean nsmap: ``cp:`` firmly bound to
+    the core-properties URI and the custom-properties URI moved to the
+    ``custprops:`` prefix. Element Clark names are preserved — nothing is
+    silently reassigned to a different namespace.
+    """
+    element = part.element
+    # -- only intervene when the root's `cp` prefix points somewhere other
+    # -- than the core-properties URI. The common case (a well-formed
+    # -- core.xml or one with no `cp` binding at all) is a no-op.
+    # -- We also guard against mock parts used in unit tests whose
+    # -- ``element`` isn't a real lxml node. --
+    if element is None or not isinstance(
+        element, etree._Element  # pyright: ignore[reportPrivateUsage]
+    ):
+        return
+    root_nsmap = element.nsmap
+    clashing_uri = root_nsmap.get("cp")
+    if clashing_uri is None or clashing_uri == _CORE_PROPS_URI:
+        return
+    # -- Preserve any existing well-behaved bindings; override the offender
+    # -- and give the custom-properties URI a safe prefix. --
+    replacement_nsmap: dict[str | None, str] = {}
+    for pfx, uri in root_nsmap.items():
+        if pfx == "cp":
+            continue  # -- will rebind below --
+        replacement_nsmap[pfx] = uri
+    replacement_nsmap["cp"] = _CORE_PROPS_URI
+    # -- Only add `custprops:` when it isn't already bound to a *different*
+    # -- URI in the file; if it is, pick a non-clashing fallback prefix. --
+    safe_prefix = "custprops"
+    if replacement_nsmap.get(safe_prefix, _CUSTOM_PROPS_URI) != _CUSTOM_PROPS_URI:
+        for candidate in ("custprops0", "custprops1", "custprops_alt"):
+            if candidate not in replacement_nsmap:
+                safe_prefix = candidate
+                break
+    replacement_nsmap[safe_prefix] = clashing_uri
+    # -- Build the replacement root with the corrected nsmap and deep-copy
+    # -- each child in. Children inherit the new root's nsmap so lxml
+    # -- serialises each element with a prefix matching its actual URI. --
+    new_root = etree.SubElement(
+        etree.Element("tmp"), element.tag, attrib=dict(element.attrib), nsmap=replacement_nsmap
+    )
+    new_root.text = element.text
+    new_root.tail = element.tail
+    for child in list(element):
+        new_root.append(copy.deepcopy(child))
+    # -- Detach from the scratch parent and reparse through the registered
+    # -- CT_CoreProperties element class so the part's ``element`` keeps the
+    # -- same type. --
+    from docx.oxml.parser import parse_xml
+
+    part._element = parse_xml(etree.tostring(new_root))  # pyright: ignore[reportPrivateUsage]
 
 
 def _validate_save_path(path: str) -> None:
@@ -275,17 +358,25 @@ class OpcPackage:
         the ``officeDocument/2006`` alternate emitted by some producers
         (upstream-PR#1436) so a duplicate ``docProps/core.xml`` isn't created
         when the existing rel uses the alternate form.
+
+        If the located part has the ``cp:`` prefix bound to a non-core URI
+        (LibreOffice, upstream#1037), the tree is rebuilt with a safe prefix
+        so subsequent writes don't emit duplicate ``cp:lastModifiedBy``
+        elements.
         """
+        part: CorePropertiesPart | None = None
         try:
-            return cast(CorePropertiesPart, self.part_related_by(RT.CORE_PROPERTIES))
+            part = cast(CorePropertiesPart, self.part_related_by(RT.CORE_PROPERTIES))
         except KeyError:
-            pass
-        try:
-            return cast(CorePropertiesPart, self.part_related_by(RT.CORE_PROPERTIES_ALT))
-        except KeyError:
-            core_properties_part = CorePropertiesPart.default(self)
-            self.relate_to(core_properties_part, RT.CORE_PROPERTIES)
-            return core_properties_part
+            try:
+                part = cast(
+                    CorePropertiesPart, self.part_related_by(RT.CORE_PROPERTIES_ALT)
+                )
+            except KeyError:
+                part = CorePropertiesPart.default(self)
+                self.relate_to(part, RT.CORE_PROPERTIES)
+        _remap_clashing_cp_prefix(part)
+        return part
 
 
 class Unmarshaller:

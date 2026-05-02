@@ -116,6 +116,48 @@ class DescribeCoreProperties:
 
         assert core_properties._element.xml == expected_xml
 
+    def it_converts_tz_aware_datetime_writes_to_UTC(self):
+        # -- upstream#1542: `_set_element_datetime` appended ``Z`` regardless of
+        # -- ``value.tzinfo``, silently mislabelling tz-aware values. Since the
+        # -- parse side normalises to UTC, the write side must too.
+        coreProperties = self.coreProperties(tagname="", str_val="")
+        core_properties = CoreProperties(cast("CT_CoreProperties", parse_xml(coreProperties)))
+        # -- 02:00 UTC+02:00 is 00:00 UTC -- expect the written value to reflect
+        # -- the UTC instant, not the local wall-clock time. --
+        tz_plus_two = dt.timezone(dt.timedelta(hours=2))
+        value = dt.datetime(2024, 3, 15, 2, 0, 0, tzinfo=tz_plus_two)
+
+        core_properties.modified = value
+
+        xml = core_properties._element.xml
+        assert "2024-03-15T00:00:00Z" in xml
+        # -- round-trip check: the parse side agrees. --
+        assert core_properties.modified == dt.datetime(
+            2024, 3, 15, 0, 0, 0, tzinfo=dt.timezone.utc
+        )
+
+    def it_leaves_naive_datetime_writes_as_implied_UTC(self):
+        # -- Documented contract: naive datetimes are treated as already-UTC
+        # -- and serialised as-is with a trailing ``Z``. --
+        coreProperties = self.coreProperties(tagname="", str_val="")
+        core_properties = CoreProperties(cast("CT_CoreProperties", parse_xml(coreProperties)))
+
+        core_properties.modified = dt.datetime(2024, 3, 15, 9, 30, 0)
+
+        xml = core_properties._element.xml
+        assert "2024-03-15T09:30:00Z" in xml
+
+    def it_writes_UTC_datetime_unchanged(self):
+        coreProperties = self.coreProperties(tagname="", str_val="")
+        core_properties = CoreProperties(cast("CT_CoreProperties", parse_xml(coreProperties)))
+
+        core_properties.modified = dt.datetime(
+            2024, 3, 15, 9, 30, 0, tzinfo=dt.timezone.utc
+        )
+
+        xml = core_properties._element.xml
+        assert "2024-03-15T09:30:00Z" in xml
+
     @pytest.mark.parametrize(
         ("str_val", "expected_value"),
         [("42", 42), (None, 0), ("foobar", 0), ("-17", 0), ("32.7", 0)],
