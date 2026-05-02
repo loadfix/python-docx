@@ -260,6 +260,15 @@ def when_I_add_a_LINE_chart_with_categories_and_series(
 
 @when("I save and reopen the chart-create-line document")
 def when_I_save_and_reopen_the_chart_create_line_document(context: Context):
+    buf = io.BytesIO()
+    context.document.save(buf)
+    buf.seek(0)
+    context.document = Document(buf)
+    # -- the added_chart reference is from the pre-save document; drop it so
+    # -- later steps reach for document.charts[...] instead.
+    context.added_chart = None
+
+
 # -- chart-create-pie steps -------------------------------------------------
 
 
@@ -514,6 +523,7 @@ def then_chart_part_xml_contains_n_ser(context: Context, count: int):
     matches = chartSpace.findall(f".//{qn('c:ser')}")
     assert len(matches) == count, (
         f"expected {count} c:ser elements, found {len(matches)}"
+    )
 
 
 @then("document.charts has length {n:d}")

@@ -1,5 +1,4 @@
-"""Step implementations for tracked-changes features.
-"""Step implementations for tracked-changes features (read + reject side).
+"""Step implementations for tracked-changes features (read + accept + reject).
 
 Covers:
 * trk-read-ins-del — iterating Paragraph.tracked_changes
@@ -578,6 +577,14 @@ def then_paragraph_revision_marks_text_equals(
 @then("paragraph {p_idx:d} has {count:d} tracked change remaining")
 @then("paragraph {p_idx:d} has {count:d} tracked changes remaining")
 def then_paragraph_has_count_tracked_changes_remaining(
+    context: Context, p_idx: int, count: int
+):
+    actual = len(context.document.paragraphs[p_idx].tracked_changes)
+    assert actual == count, (
+        f"expected {count} tracked changes remaining, got {actual}"
+    )
+
+
 # -- accept-side steps for tracked deletions -------------------------------------
 
 
@@ -615,24 +622,6 @@ def then_the_accept_changes_count_is(context: Context, count: int):
     )
 
 
-@then("the document has no w:del elements")
-def then_the_document_has_no_w_del_elements(context: Context):
-    dels = context.document._element.body.xpath(".//w:del")
-    assert dels == [], f"expected no w:del elements, got {len(dels)}"
-
-
-@then("the document has no w:delText elements")
-def then_the_document_has_no_w_delText_elements(context: Context):
-    dts = context.document._element.body.xpath(".//w:delText")
-    assert dts == [], f"expected no w:delText elements, got {len(dts)}"
-
-
-@then("the document has no w:cellDel elements")
-def then_the_document_has_no_w_cellDel_elements(context: Context):
-    cd = context.document._element.body.xpath(".//w:cellDel")
-    assert cd == [], f"expected no w:cellDel elements, got {len(cd)}"
-
-
 @then("the document has {count:d} w:del elements")
 def then_the_document_has_n_w_del_elements(context: Context, count: int):
     dels = context.document._element.body.xpath(".//w:del")
@@ -658,7 +647,6 @@ def then_paragraph_p_idx_text_is(context: Context, p_idx: int, expected: str):
 @then("paragraph {p_idx:d} still has {count:d} tracked change")
 @then("paragraph {p_idx:d} still has {count:d} tracked changes")
 def then_paragraph_still_has_n_tracked_changes(
-def then_paragraph_has_n_tracked_changes_remaining(
     context: Context, p_idx: int, count: int
 ):
     actual = len(context.document.paragraphs[p_idx].tracked_changes)
@@ -699,8 +687,6 @@ def then_accept_all_changes_return_value_is(context: Context, count: int):
     actual = context.accept_count
     assert actual == count, (
         f"expected accept_all_changes() == {count}, got {actual}"
-    )
-        f"paragraph {p_idx}: expected {count} tracked change(s), got {actual}"
     )
 
 
@@ -773,8 +759,6 @@ def then_the_first_table_has_rows_and_cells(
 def then_the_first_cell_text_is(context: Context, expected: str):
     actual = context.document.tables[0].cell(0, 0).text
     assert actual == expected, f"expected {expected!r}, got {actual!r}"
-        f"paragraph {p_idx}: expected {count} tracked changes, got {actual}"
-    )
 
 
 @then("the remaining tracked change in paragraph {p_idx:d} is a deletion")
