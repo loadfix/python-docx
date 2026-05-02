@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Dict, Tuple
 
-from behave import given, then
+from behave import given, then, when
 from behave.runner import Context
 
 from docx import Document
@@ -114,3 +114,75 @@ def then_hyperlink_url_is_value(context: Context, value: str):
     actual_value = context.hyperlink.url
     expected_value = "" if value == "''" else value
     assert actual_value == expected_value, f"expected: {expected_value}, got: {actual_value}"
+
+
+# -- hyperlink-create steps --------------------------------------------------
+
+
+@given("a fresh paragraph in a default document")
+def given_a_fresh_paragraph_in_a_default_document(context: Context):
+    context.document = Document()
+    context.paragraph = context.document.add_paragraph("")
+
+
+@when('I call paragraph.add_hyperlink(url="{url}", text="{text}")')
+def when_call_paragraph_add_hyperlink_url_text(
+    context: Context, url: str, text: str
+):
+    # -- pass style=None because the stock default template does not define
+    # -- a "Hyperlink" character style. --
+    context.hyperlink = context.paragraph.add_hyperlink(
+        url=url, text=text, style=None
+    )
+
+
+@when('I call paragraph.add_hyperlink(url="{url}")')
+def when_call_paragraph_add_hyperlink_url(context: Context, url: str):
+    context.hyperlink = context.paragraph.add_hyperlink(url=url, style=None)
+
+
+@when('I call paragraph.add_hyperlink(anchor="{anchor}", text="{text}")')
+def when_call_paragraph_add_hyperlink_anchor_text(
+    context: Context, anchor: str, text: str
+):
+    context.hyperlink = context.paragraph.add_hyperlink(
+        anchor=anchor, text=text, style=None
+    )
+
+
+@then('the returned hyperlink.address is "{value}"')
+def then_returned_hyperlink_address(context: Context, value: str):
+    actual = context.hyperlink.address
+    assert actual == value, f"expected {value!r}, got {actual!r}"
+
+
+@then('the returned hyperlink.fragment is "{value}"')
+def then_returned_hyperlink_fragment(context: Context, value: str):
+    actual = context.hyperlink.fragment
+    assert actual == value, f"expected {value!r}, got {actual!r}"
+
+
+@then('the returned hyperlink.text is "{value}"')
+def then_returned_hyperlink_text(context: Context, value: str):
+    actual = context.hyperlink.text
+    assert actual == value, f"expected {value!r}, got {actual!r}"
+
+
+@then("calling paragraph.add_hyperlink() raises ValueError")
+def then_paragraph_add_hyperlink_raises_valueerror(context: Context):
+    try:
+        context.paragraph.add_hyperlink()
+    except ValueError:
+        return
+    raise AssertionError("expected ValueError")
+
+
+@then('calling paragraph.add_hyperlink(url="{url}", anchor="{anchor}") raises ValueError')
+def then_paragraph_add_hyperlink_url_anchor_raises(
+    context: Context, url: str, anchor: str
+):
+    try:
+        context.paragraph.add_hyperlink(url=url, anchor=anchor)
+    except ValueError:
+        return
+    raise AssertionError("expected ValueError")

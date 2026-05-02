@@ -86,14 +86,19 @@ User Guide
    user/styles-using
    user/comments
    user/bookmarks
+   user/captions
    user/charts
    user/content-controls
+   user/custom-properties
+   user/document-safety
    user/endnotes
    user/fields
    user/footnotes
    user/form-fields
    user/glossary
    user/mail-merge
+   user/numbering
+   user/permissions
    user/search
    user/shapes
    user/drawing
@@ -101,6 +106,8 @@ User Guide
    user/statistics
    user/toc
    user/track-changes
+   user/themes
+   user/watermarks
 
 
 API Documentation

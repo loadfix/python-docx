@@ -20,3 +20,10 @@ Feature: Read and write core document properties
      Given a document having no core properties part
       When I access the core properties object
       Then a core properties part with default values is added
+
+
+  Scenario: core properties round-trip through save/load
+     Given a document having known core properties
+      When I assign new values to the properties
+       And I round-trip the document through a BytesIO
+      Then the core property values match the new values

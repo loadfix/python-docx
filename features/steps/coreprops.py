@@ -1,6 +1,7 @@
 """Gherkin step implementations for core properties-related features."""
 
 import datetime as dt
+import io
 
 from behave import given, then, when
 from behave.runner import Context
@@ -29,6 +30,14 @@ def given_a_document_having_no_core_properties_part(context: Context):
 @when("I access the core properties object")
 def when_I_access_the_core_properties_object(context: Context):
     context.document.core_properties
+
+
+@when("I round-trip the document through a BytesIO")
+def when_I_round_trip_through_bytesio(context: Context):
+    buf = io.BytesIO()
+    context.document.save(buf)
+    buf.seek(0)
+    context.document = Document(buf)
 
 
 @when("I assign new values to the properties")
