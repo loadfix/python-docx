@@ -32,7 +32,7 @@ class CustomProperties:
     Behaves like a mapping keyed by property name. Iteration yields property names
     (matching ``dict``-style iteration convention).
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(
@@ -87,7 +87,7 @@ class CustomProperties:
         Raises |ValueError| if a property with that name already exists. Use
         ``custom_properties[name] = value`` to overwrite.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._validate_value_type(value)
         if self._element.get_property_by_name(name) is not None:
@@ -98,7 +98,7 @@ class CustomProperties:
     def get(self, name: str, default: object = None) -> object:
         """Return the value of property `name`, or `default` if not present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         prop = self._element.get_property_by_name(name)
         if prop is None:
@@ -108,14 +108,14 @@ class CustomProperties:
     def names(self) -> list[str]:
         """Return a list of the names of each property, in document order.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return [prop.name for prop in self._element.property_lst]
 
     def items(self) -> list[tuple[str, object]]:
         """Return a list of ``(name, value)`` pairs, in document order.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return [(prop.name, prop.value) for prop in self._element.property_lst]
 

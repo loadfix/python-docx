@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class Footnotes:
     """Collection containing the footnotes in this document.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, footnotes_elm: CT_Footnotes, footnotes_part: FootnotesPart):
@@ -44,7 +44,7 @@ class Footnotes:
         with the "FootnoteText" style. If `text` is provided, it is added as a run in that
         paragraph following the footnote reference mark.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         footnote_elm = self._footnotes_elm.add_footnote()
         footnote = Footnote(footnote_elm, self._footnotes_part)
@@ -66,7 +66,7 @@ class Footnote(BlockItemContainer):
     A footnote is a block-item container, similar to a table cell, so it can contain both
     paragraphs and tables.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, footnote_elm: CT_Footnote, footnotes_part: FootnotesPart):
@@ -79,7 +79,7 @@ class Footnote(BlockItemContainer):
         The empty paragraph has the "FootnoteText" style. Returns this same footnote
         object for fluent use.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._footnote_elm.clear_content()
         return self
@@ -94,7 +94,7 @@ class Footnote(BlockItemContainer):
         After calling this method, this |Footnote| object is "defunct" and should not be
         used further.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         footnote_id = self.footnote_id
         # -- remove footnoteReference(s) from the document body --
@@ -124,7 +124,7 @@ class Footnote(BlockItemContainer):
         When `style` is |None| or omitted, the "FootnoteText" paragraph style is applied, which is
         the default style for footnotes.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         paragraph = super().add_paragraph(text, style)
 
@@ -137,7 +137,7 @@ class Footnote(BlockItemContainer):
     def footnote_id(self) -> int:
         """The unique identifier of this footnote.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._footnote_elm.id
 
@@ -149,7 +149,7 @@ class Footnote(BlockItemContainer):
 
         Paragraph boundaries are indicated with a newline (`"\\n"`).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return "\n".join(p.text for p in self.paragraphs)
 
@@ -165,7 +165,7 @@ class FootnoteProperties:
     All properties return `None` when the corresponding child element is absent.
     Assigning `None` to a property removes the corresponding child element.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, footnotePr: "CT_FtnDocProps"):
@@ -175,7 +175,7 @@ class FootnoteProperties:
     def element(self) -> "CT_FtnDocProps":
         """The underlying ``<w:footnotePr>`` XML element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._footnotePr
 
@@ -185,7 +185,7 @@ class FootnoteProperties:
 
         Read/write. Returns |None| when no ``w:numFmt`` child is present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         numFmt = self._footnotePr.numFmt
         if numFmt is None:
@@ -206,7 +206,7 @@ class FootnoteProperties:
 
         Read/write. Returns |None| when no ``w:numStart`` child is present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         numStart = self._footnotePr.numStart
         if numStart is None:
@@ -228,7 +228,7 @@ class FootnoteProperties:
         Read/write. Corresponds to ``w:numRestart/@w:val``. Returns |None| when no
         ``w:numRestart`` child is present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         numRestart = self._footnotePr.numRestart
         if numRestart is None:
@@ -250,7 +250,7 @@ class FootnoteProperties:
         Read/write. Corresponds to ``w:pos/@w:val``. Returns |None| when no ``w:pos``
         child is present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pos = self._footnotePr.pos
         if pos is None or pos.val is None:

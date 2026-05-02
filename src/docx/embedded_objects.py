@@ -30,7 +30,7 @@ class EmbeddedObject:
     Wraps an ``<o:OLEObject>`` element (via the paragraph that contains it)
     and optionally its related embedded-object part. Read-only.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(
@@ -51,7 +51,7 @@ class EmbeddedObject:
         resolved to an embedded-object part (for example when the target is
         missing from the package or is of an unexpected part type).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._embedded_part is None:
             return b""
@@ -63,7 +63,7 @@ class EmbeddedObject:
 
         Returns |None| when the relationship cannot be resolved.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._embedded_part is None:
             return None
@@ -73,7 +73,7 @@ class EmbeddedObject:
     def paragraph(self) -> Paragraph:
         """The |Paragraph| that contains the ``w:object`` for this embedded object.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._paragraph
 
@@ -84,7 +84,7 @@ class EmbeddedObject:
         Returns |None| when the ``o:OLEObject`` element has no ``ProgID``
         attribute.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         value = self._ole_object_elm.get("ProgID")
         return value if value else None
@@ -96,7 +96,7 @@ class EmbeddedObject:
         Returns |None| when the ``o:OLEObject`` element has no ``r:id``
         attribute.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.oxml.ns import qn
 
@@ -110,7 +110,7 @@ class EmbeddedObject:
         Usually ``"Embed"`` for embedded objects and ``"Link"`` for linked
         objects. Returns |None| when the ``Type`` attribute is absent.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         value = self._ole_object_elm.get("Type")
         return value if value else None

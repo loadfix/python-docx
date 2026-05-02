@@ -7,7 +7,7 @@ the package as a separate part referenced by an ``r:id`` relationship.
 
 python-docx exposes altChunks read-only via :attr:`Document.attachments`.
 
-.. versionadded:: 1.3.0.dev0
+.. versionadded:: 2026.05.0
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ class Attachment:
     the higher-level document-insert APIs (or write the altChunk XML by hand)
     when authoring.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(
@@ -41,7 +41,7 @@ class Attachment:
     def r_id(self) -> str | None:
         """Relationship id referenced by ``w:altChunk/@r:id``, or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         from docx.oxml.ns import qn
 
@@ -52,7 +52,7 @@ class Attachment:
     def content_type(self) -> str | None:
         """Content-type of the related part, or |None| when unresolved.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._target_part is None:
             return None
@@ -62,7 +62,7 @@ class Attachment:
     def blob(self) -> bytes:
         """Raw bytes of the altChunk payload (empty when unresolved).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._target_part is None:
             return b""
@@ -77,7 +77,7 @@ class Attachment:
     def partname(self) -> str | None:
         """OPC partname of the related part, or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._target_part is None:
             return None

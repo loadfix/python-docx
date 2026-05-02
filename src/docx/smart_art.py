@@ -46,7 +46,7 @@ class SmartArtNode:
     hierarchy (``0`` for top-level nodes). ``children`` is the list of
     direct descendants, each itself a :class:`SmartArtNode`.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(
@@ -63,7 +63,7 @@ class SmartArtNode:
     def children(self) -> list[SmartArtNode]:
         """Direct child nodes, in document (sibling) order.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return list(self._children)
 
@@ -71,7 +71,7 @@ class SmartArtNode:
     def level(self) -> int:
         """Depth of this node in the reconstructed hierarchy (0 = top-level).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._level
 
@@ -79,7 +79,7 @@ class SmartArtNode:
     def model_id(self) -> str | None:
         """Value of the node's ``modelId`` attribute, or ``None`` if absent.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._pt.modelId
 
@@ -90,7 +90,7 @@ class SmartArtNode:
         Paragraphs inside ``dgm:t`` are joined with newlines; runs within a
         paragraph are concatenated without a separator.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._pt.text
 
@@ -104,7 +104,7 @@ class SmartArt:
     list and a convenience ``text`` property that concatenates every node's
     text with indent-based formatting reflecting the hierarchy level.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(
@@ -123,7 +123,7 @@ class SmartArt:
         be resolved (for example, when the referenced part is missing or is of
         an unexpected type).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._data_part is None:
             return None
@@ -133,7 +133,7 @@ class SmartArt:
     def dm_rId(self) -> str | None:
         """Value of the ``r:dm`` attribute on ``dgm:relIds``, or ``None``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._relIds.dm_rId
 
@@ -148,7 +148,7 @@ class SmartArt:
         (e.g. the connection list is missing or malformed), every node is
         returned flat at ``level == 0``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._data_part is None:
             return []
@@ -165,7 +165,7 @@ class SmartArt:
         shape of the tree. When the data part is missing the return value is
         the empty string.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         lines: list[str] = []
         for root in self.nodes:
@@ -257,7 +257,7 @@ def smart_art_for_drawing(
     but the referenced data part cannot be resolved (missing, wrong type,
     etc.) a :class:`SmartArt` is still returned, with an empty node list.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     from docx.parts.smart_art import DiagramDataPart
 

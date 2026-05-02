@@ -26,7 +26,7 @@ class WebP(BaseImageHeader):
     The WebP format does not carry resolution (DPI) metadata, so both
     horizontal and vertical DPI default to 72 (matching GIF behaviour).
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     @classmethod

@@ -37,7 +37,7 @@ class PackageWriter:
         timestamps and sorted member names so repeated saves of the same input
         produce byte-identical output. Closes upstream#1042 / upstream-PR#810.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
            The `reproducible` parameter.
         """
         phys_writer = PhysPkgWriter(pkg_file, reproducible=reproducible)

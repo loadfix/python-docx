@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 class WD_FORM_FIELD_TYPE(enum.Enum):
     """Enumerates the three legacy form-field types.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     TEXT = "text"
@@ -99,7 +99,7 @@ def _int_val(el: "BaseOxmlElement | None", default: int = 0) -> int:
 class TextInputFormField:
     """Read-only view onto a ``w:ffData/w:textInput`` block.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, textInput: "CT_FFTextInput"):
@@ -109,7 +109,7 @@ class TextInputFormField:
     def default(self) -> str:
         """The default text (``w:default/@w:val``), or the empty string.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return _val_attr(self._textInput.default, "")
 
@@ -121,7 +121,7 @@ class TextInputFormField:
         property returns |None| in that case. Returns |None| when the element
         is absent.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         el = self._textInput.maxLength
         if el is None:
@@ -133,7 +133,7 @@ class TextInputFormField:
     def format(self) -> str:
         """The ``w:format/@w:val`` (e.g. ``"UPPERCASE"``), or empty string.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return _val_attr(self._textInput.format, "")
 
@@ -141,7 +141,7 @@ class TextInputFormField:
 class CheckboxFormField:
     """Read-only view onto a ``w:ffData/w:checkBox`` block.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, checkBox: "CT_FFCheckBox"):
@@ -151,7 +151,7 @@ class CheckboxFormField:
     def default(self) -> bool:
         """The default checked state (``w:default``), defaulting to ``False``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return _bool_val(self._checkBox.default, default=False)
 
@@ -163,7 +163,7 @@ class CheckboxFormField:
         is returned. This mirrors Word's behaviour: the initial value of a
         checkbox with no explicit ``w:checked`` is its default.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._checkBox.checked is not None:
             return _bool_val(self._checkBox.checked, default=False)
@@ -173,7 +173,7 @@ class CheckboxFormField:
 class DropdownFormField:
     """Read-only view onto a ``w:ffData/w:ddList`` block.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, ddList: "CT_FFDDList"):
@@ -183,7 +183,7 @@ class DropdownFormField:
     def options(self) -> list[str]:
         """The list-entry values (``w:listEntry/@w:val``), in document order.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return [
             _val_attr(le, "") for le in self._ddList.xpath("./w:listEntry")
@@ -193,7 +193,7 @@ class DropdownFormField:
     def default_index(self) -> int:
         """The 0-based default-selection index (``w:default``), or ``0``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return _int_val(self._ddList.default, 0)
 
@@ -203,7 +203,7 @@ class DropdownFormField:
 
         Falls back to :attr:`default_index` when ``w:result`` is absent.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._ddList.result is not None:
             return _int_val(self._ddList.result, 0)
@@ -220,7 +220,7 @@ class FormField:
     complex-field sequence. All metadata is read from the ``w:ffData`` child
     of that ``w:fldChar``.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, begin_run: "CT_R"):
@@ -253,7 +253,7 @@ class FormField:
         is present in the ``w:ffData`` block. Returns |None| when no type
         marker is present (a malformed but tolerated edge case).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         ffData = self._ffData
         if ffData is None:
@@ -272,7 +272,7 @@ class FormField:
     def name(self) -> str:
         """The form field's name (``w:ffData/w:name/@w:val``), or empty string.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         ffData = self._ffData
         if ffData is None:
@@ -283,7 +283,7 @@ class FormField:
     def help_text(self) -> str:
         """The help text (``w:ffData/w:helpText/@w:val``), or empty string.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         ffData = self._ffData
         if ffData is None:
@@ -294,7 +294,7 @@ class FormField:
     def status_text(self) -> str:
         """The status text (``w:ffData/w:statusText/@w:val``), or empty string.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         ffData = self._ffData
         if ffData is None:
@@ -308,7 +308,7 @@ class FormField:
         An absent element or the default ``True`` (no ``@w:val``) both mean
         the field is enabled. ``@w:val="0"`` means disabled.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         ffData = self._ffData
         if ffData is None:
@@ -319,7 +319,7 @@ class FormField:
     def calc_on_exit(self) -> bool:
         """The calc-on-exit flag (``w:ffData/w:calcOnExit``), defaulting False.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         ffData = self._ffData
         if ffData is None:
@@ -332,7 +332,7 @@ class FormField:
     def text_input(self) -> TextInputFormField | None:
         """A :class:`TextInputFormField` view, or |None| when not a text field.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         ffData = self._ffData
         if ffData is None or ffData.textInput is None:
@@ -343,7 +343,7 @@ class FormField:
     def checkbox(self) -> CheckboxFormField | None:
         """A :class:`CheckboxFormField` view, or |None| when not a checkbox.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         ffData = self._ffData
         if ffData is None or ffData.checkBox is None:
@@ -354,7 +354,7 @@ class FormField:
     def dropdown(self) -> DropdownFormField | None:
         """A :class:`DropdownFormField` view, or |None| when not a dropdown.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         ffData = self._ffData
         if ffData is None or ffData.ddList is None:
@@ -373,7 +373,7 @@ class FormField:
         * ``DROPDOWN``: the currently selected list entry, as a ``str``.
         * |None| when no form-field type marker is present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         ff_type = self.type
         if ff_type == WD_FORM_FIELD_TYPE.CHECKBOX:
@@ -493,7 +493,7 @@ def new_text_form_field_ffData(
 ) -> "CT_FFData":
     """Build a complete ``w:ffData`` element for a text form field.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     ffData = _new_ffData(name)
     textInput = ffData.get_or_add_textInput()
@@ -514,7 +514,7 @@ def new_checkbox_form_field_ffData(
 ) -> "CT_FFData":
     """Build a complete ``w:ffData`` element for a checkbox form field.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     ffData = _new_ffData(name)
     checkBox = ffData.get_or_add_checkBox()
@@ -530,7 +530,7 @@ def new_dropdown_form_field_ffData(
 ) -> "CT_FFData":
     """Build a complete ``w:ffData`` element for a dropdown form field.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     ffData = _new_ffData(name)
     ddList = ffData.get_or_add_ddList()

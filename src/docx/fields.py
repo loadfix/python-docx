@@ -42,7 +42,7 @@ class WD_FIELD_TYPE:
     readers will correctly populate :attr:`Field.type` from whatever is found in
     the document. The enum-ish class is for autocompletion and typo avoidance.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     PAGE = "PAGE"
@@ -69,7 +69,7 @@ class Field:
     * :attr:`result_text` — the most recently computed rendered result, or the
       empty string when absent
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, kind: str, element: "BaseOxmlElement"):
@@ -80,7 +80,7 @@ class Field:
     def for_simple(cls, fldSimple: "CT_FldSimple") -> "Field":
         """Return a :class:`Field` wrapping a ``w:fldSimple`` element.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return cls("simple", fldSimple)
 
@@ -88,7 +88,7 @@ class Field:
     def for_complex(cls, begin_run: "CT_R") -> "Field":
         """Return a :class:`Field` wrapping the ``begin`` run of a complex field.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return cls("complex", begin_run)
 
@@ -96,7 +96,7 @@ class Field:
     def is_complex(self) -> bool:
         """``True`` for a complex (three-marker) field, ``False`` for simple.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._kind == "complex"
 
@@ -109,7 +109,7 @@ class Field:
         between the ``begin`` and ``separate`` markers (or end-of-paragraph if
         no ``separate`` marker is present).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._kind == "simple":
             return self._element.get(qn("w:instr")) or ""
@@ -122,7 +122,7 @@ class Field:
         For ``"REF bookmark1 \\h"`` this returns ``"REF"``. The empty string is
         returned when the instruction is empty or whitespace-only.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         instr = self.instruction.strip()
         if not instr:
@@ -139,7 +139,7 @@ class Field:
         returned when no result is available (for example a complex field with
         no ``separate`` marker).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._kind == "simple":
             return self._read_simple_result()
@@ -222,7 +222,7 @@ class Field:
         "couldn't resolve" by comparing against the field's original
         :attr:`result_text`.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         field_type = self.type
         if field_type == "PAGEREF":
@@ -259,7 +259,7 @@ class Field:
         preview python-docx produces is not a real rendering — marking the
         TOC dirty forces Word to rebuild it on open. Closes upstream#1403.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._kind == "simple":
             self._element.set(qn("w:dirty"), "true")
@@ -284,7 +284,7 @@ class Field:
         count as true; anything else (including the attribute's absence)
         as false.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._kind == "simple":
             val = self._element.get(qn("w:dirty"))
@@ -309,7 +309,7 @@ class Field:
         with a single new run containing `new_text`, inserted immediately
         before the ``end`` marker's run.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if self._kind == "simple":
             self._update_simple_result(new_text)

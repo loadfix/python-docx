@@ -14,7 +14,7 @@ sees a Strict artefact.
 
 Closes upstream#1520, upstream#693.
 
-.. versionadded:: 1.3.0.dev0
+.. versionadded:: 2026.05.0
 """
 
 from __future__ import annotations

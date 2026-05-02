@@ -55,7 +55,7 @@ class Hyperlink(Parented):
         ``r:id`` attribute, leaving the hyperlink as an internal/anchor-only
         link. The ``w:anchor`` attribute is not affected.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if value:
             rId = self._parent.part.relate_to(value, RT.HYPERLINK, is_external=True)
@@ -76,7 +76,7 @@ class Hyperlink(Parented):
         This supports multi-run hyperlinks where parts of the link text need
         different formatting (e.g. a word in bold within the link text).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         r = self._hyperlink.add_r()
         run = Run(r, self._parent)
@@ -130,7 +130,7 @@ class Hyperlink(Parented):
         "named anchor" or URI fragment). Assigning |None| or an empty string
         removes the attribute. The external ``r:id`` / address is not affected.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._hyperlink.anchor = value if value else None
 

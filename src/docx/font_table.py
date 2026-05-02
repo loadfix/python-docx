@@ -38,7 +38,7 @@ class FontTable:
     (``font_table.get("Arial")``). Iteration order matches the XML order of
     the ``w:font`` children.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, fonts_elm: "CT_Fonts", part: "FontTablePart"):
@@ -65,7 +65,7 @@ class FontTable:
     def get(self, name: str) -> "FontMetadata | None":
         """Return the :class:`FontMetadata` for `name`, or |None| if not present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         font_elm = self._fonts.get_font_by_name(name)
         if font_elm is None:
@@ -99,7 +99,7 @@ class FontTable:
 
         Closes upstream#1231, #1307.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if family not in _EMBED_TAG:
             raise ValueError(
@@ -129,7 +129,7 @@ class FontTable:
 class FontMetadata:
     """Read-only view of a single ``<w:font>`` entry in the font table.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, font_elm: "CT_Font"):
@@ -139,7 +139,7 @@ class FontMetadata:
     def name(self) -> str:
         """The font name (``w:font/@w:name``), e.g. ``"Arial"``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._font.name
 
@@ -150,7 +150,7 @@ class FontMetadata:
         Common values: ``"swiss"``, ``"roman"``, ``"modern"``, ``"script"``,
         ``"decorative"``, ``"auto"``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         family = self._font.family
         if family is None:
@@ -161,7 +161,7 @@ class FontMetadata:
     def charset(self) -> str | None:
         """The charset (``w:charset/@w:val``), typically a two-character hex string.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         charset = self._font.charset
         if charset is None:
@@ -174,7 +174,7 @@ class FontMetadata:
 
         Common values: ``"fixed"``, ``"variable"``, ``"default"``.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pitch = self._font.pitch
         if pitch is None:
@@ -188,7 +188,7 @@ class FontMetadata:
         Returned as the raw 20-character hex string as stored in XML, with no
         case-normalisation.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         panose1 = self._font.panose1
         if panose1 is None:
@@ -201,7 +201,7 @@ class FontMetadata:
 
         Word falls back to this name when the primary font is not available.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         altName = self._font.altName
         if altName is None:
@@ -212,7 +212,7 @@ class FontMetadata:
     def embed_regular(self) -> bool:
         """True if a ``<w:embedRegular>`` element is present on this font entry.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._font.embedRegular is not None
 
@@ -220,7 +220,7 @@ class FontMetadata:
     def embed_bold(self) -> bool:
         """True if a ``<w:embedBold>`` element is present on this font entry.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._font.embedBold is not None
 
@@ -228,7 +228,7 @@ class FontMetadata:
     def embed_italic(self) -> bool:
         """True if a ``<w:embedItalic>`` element is present on this font entry.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._font.embedItalic is not None
 
@@ -236,7 +236,7 @@ class FontMetadata:
     def embed_bold_italic(self) -> bool:
         """True if a ``<w:embedBoldItalic>`` element is present on this font entry.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._font.embedBoldItalic is not None
 

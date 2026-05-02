@@ -40,7 +40,7 @@ class Equation:
     ``m:oMathPara`` element (display-mode paragraph). The wrapped element is
     accessible via :attr:`xml_element` for advanced use cases.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, element: CT_OMath | CT_OMathPara):
@@ -55,7 +55,7 @@ class Equation:
     def xml_element(self) -> CT_OMath | CT_OMathPara:
         """The raw lxml element (``m:oMath`` or ``m:oMathPara``).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._element
 
@@ -66,7 +66,7 @@ class Equation:
         Namespaces are preserved; callers can hand this to their own XML
         parser for deeper inspection.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return etree.tostring(self._element, encoding="utf-8")
 
@@ -78,7 +78,7 @@ class Equation:
         (fractions, superscripts, radicals, …) is flattened, which is usually
         good enough for search or preview display.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return "".join(t.text or "" for t in self._element.xpath(".//m:t"))
 
@@ -86,7 +86,7 @@ class Equation:
     def is_display_mode(self) -> bool:
         """|True| when the equation is wrapped in ``m:oMathPara`` (display mode).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._element.tag == _M_OMATH_PARA
 
@@ -100,7 +100,7 @@ class Equation:
         This is a coarse edit: callers needing precise per-run control should
         manipulate :attr:`xml_element` directly.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         t_elms = self._element.xpath(".//m:t")
         if not t_elms:
@@ -127,7 +127,7 @@ class Equation:
         a single-letter variable name throughout an equation without touching
         operators or numeric literals.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         count = 0
         for t in self._element.xpath(".//m:t"):
@@ -145,7 +145,7 @@ class Equation:
 
         Raises :class:`IndexError` when either index is out of range.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         children = list(self._element)
         n = len(children)
@@ -172,7 +172,7 @@ class Equation:
 
         Raises :class:`ValueError` when the root element has a different tag.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         if isinstance(xml_string, str):
             xml_string = xml_string.encode("utf-8")
@@ -212,7 +212,7 @@ def build_identifier(text: str) -> str:
 
         <m:oMath><m:r><m:t>text</m:t></m:r></m:oMath>
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     return "%s%s</m:oMath>" % (_omath_open(), _run(text))
 
@@ -224,7 +224,7 @@ def build_fraction(numerator_text: str, denominator_text: str) -> str:
     arguments are wrapped as a single ``m:r``/``m:t`` run — use
     :meth:`Equation.from_omml_xml` directly if you need nested structure.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     return (
         "%s<m:f>"
@@ -240,7 +240,7 @@ def build_superscript(base_text: str, exponent_text: str) -> str:
 
     Uses the ``m:sSup`` element.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     return (
         "%s<m:sSup>"
@@ -255,7 +255,7 @@ def build_subscript(base_text: str, subscript_text: str) -> str:
 
     Uses the ``m:sSub`` element.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     return (
         "%s<m:sSub>"
@@ -272,7 +272,7 @@ def build_radical(expr_text: str, degree_text: str | None = None) -> str:
     given, a degree run is added inside ``m:deg`` to produce e.g. ∛ for a
     degree of ``"3"``.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     deg_xml = "<m:deg>%s</m:deg>" % _run(degree_text) if degree_text else "<m:deg/>"
     return (

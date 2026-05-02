@@ -8,7 +8,7 @@ cached statistics (``Pages``, ``Words``, ``Characters``, ``CharactersWithSpaces`
 "core" properties exposed via :attr:`Document.core_properties` and the
 user-defined typed name/value pairs exposed via :attr:`Document.custom_properties`.
 
-.. versionadded:: 1.3.0.dev0
+.. versionadded:: 2026.05.0
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ class ExtendedProperties:
     untouched by this API; use :meth:`get` / :meth:`set` for uncommon scalar
     fields.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, element: "CT_ExtendedProperties"):
@@ -76,7 +76,7 @@ class ExtendedProperties:
         child exists but has no text. Use this for uncommon fields that don't
         have dedicated attribute accessors.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._element.get_text(name)
 
@@ -87,7 +87,7 @@ class ExtendedProperties:
         the child entirely. ``value`` is converted to a string for
         serialisation (booleans become ``"true"`` / ``"false"``).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._element.set_text(name, value)
 
@@ -98,7 +98,7 @@ class ExtendedProperties:
         preserved. Useful together with ``CoreProperties.clear_all()`` to
         strip identifying metadata from a new document.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         for child in list(self._element):
             tag = child.tag

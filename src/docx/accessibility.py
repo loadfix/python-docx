@@ -37,7 +37,7 @@ class HeadingIssue:
     ``"no_h1"``). `message` is a human-readable description of the problem suitable for
     display to the author.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     paragraph: Paragraph
@@ -82,7 +82,7 @@ def validate_heading_structure(
 
     Non-heading paragraphs are ignored. Issues are returned in document order.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     issues: list[HeadingIssue] = []
     previous_level: int | None = None

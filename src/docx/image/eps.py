@@ -13,7 +13,7 @@ comment; values are in PostScript points (1/72 inch). We therefore report
 ``horz_dpi``/``vert_dpi`` = 72 and convert the point dimensions to pixels
 at that dpi so ``px_width / horz_dpi`` yields the native size in inches.
 
-.. versionadded:: 1.3.0.dev0
+.. versionadded:: 2026.05.0
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ _BOUNDING_BOX_RE = re.compile(
 class Eps(BaseImageHeader):
     """Image header parser for EPS (Encapsulated PostScript) images.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     @classmethod

@@ -80,7 +80,7 @@ class Part:
         Primarily used to switch a ``.dotx`` template's main-document part
         to ``.docx`` when deriving a new document from a template.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         self._content_type = value
 

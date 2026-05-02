@@ -23,7 +23,7 @@ class NotADocxError(PackageNotFoundError):
     (:class:`MissingDocxFileError`) from a wrongly-formatted file
     (:class:`NotADocxError`). Closes upstream#1410.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
 
@@ -36,5 +36,5 @@ class MissingDocxFileError(PackageNotFoundError, FileNotFoundError):
     ``FileNotFoundError`` for callers that want to handle it uniformly with
     other filesystem missing-file errors). Closes upstream#1410.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """

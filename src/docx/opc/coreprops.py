@@ -33,7 +33,7 @@ class CoreProperties:
         (or ``extended_properties.clear_all()``) to strip identifying metadata
         from a freshly-created document.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         for child in list(self._element):
             self._element.remove(child)

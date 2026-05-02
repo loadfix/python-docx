@@ -32,7 +32,7 @@ class ParagraphFormat(ElementProxy):
         """|ParagraphBorders| object providing access to the border settings for this
         paragraph.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return ParagraphBorders(self._element)
 
@@ -44,7 +44,7 @@ class ParagraphFormat(ElementProxy):
         frame is an absolutely-positioned text container, the legacy predecessor
         to text boxes.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pPr = self._element.pPr
         if pPr is None:
@@ -76,7 +76,7 @@ class ParagraphFormat(ElementProxy):
         the returned |TextFrame| (e.g. ``frame.width = None``) or call
         :meth:`remove_frame` to drop the frame entirely.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pPr = self._element.get_or_add_pPr()
         framePr = pPr.get_or_add_framePr()
@@ -110,7 +110,7 @@ class ParagraphFormat(ElementProxy):
 
         No-op when no ``w:pPr`` or no ``w:framePr`` child is present.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pPr = self._element.pPr
         if pPr is None:
@@ -169,7 +169,7 @@ class ParagraphFormat(ElementProxy):
         Assigning |True| or |False| inserts the element. Assigning |None|
         removes it.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pPr = self._element.pPr
         if pPr is None:
@@ -338,7 +338,7 @@ class ParagraphFormat(ElementProxy):
         removes it. When |True|, paragraph-level runs are laid out right-to-left
         (e.g. for Arabic, Hebrew, or Farsi text).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pPr = self._element.pPr
         if pPr is None:
@@ -405,7 +405,7 @@ class ParagraphFormat(ElementProxy):
         Assigning |True| or |False| inserts the element. Assigning |None|
         removes it.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pPr = self._element.pPr
         if pPr is None:
@@ -442,7 +442,7 @@ class ParagraphFormat(ElementProxy):
         (``10``). Returns |None| when the element is absent (inherited from
         the style hierarchy).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pPr = self._element.pPr
         if pPr is None:
@@ -474,7 +474,7 @@ class ParagraphFormat(ElementProxy):
         items). Returns |None| when the element is absent (inherited from the
         style hierarchy).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pPr = self._element.pPr
         if pPr is None:
@@ -494,7 +494,7 @@ class ParagraphFormat(ElementProxy):
         width (the "character unit" used for East-Asian layouts). Returns
         |None| when the ``w:ind`` element or the attribute is absent.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pPr = self._element.pPr
         if pPr is None:
@@ -516,7 +516,7 @@ class ParagraphFormat(ElementProxy):
         Latin text in this paragraph. Returns |None| when the element is
         absent (inherited from the style hierarchy).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pPr = self._element.pPr
         if pPr is None:
@@ -536,7 +536,7 @@ class ParagraphFormat(ElementProxy):
         and numerals in this paragraph. Returns |None| when the element is
         absent (inherited from the style hierarchy).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pPr = self._element.pPr
         if pPr is None:
@@ -561,7 +561,7 @@ class ParagraphFormat(ElementProxy):
         child. Mirrors :attr:`Font.shading_color` but applies at the
         paragraph level.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         pPr = self._element.pPr
         if pPr is None:
@@ -625,7 +625,7 @@ class ParagraphBorders:
 
     Accessed via the :attr:`ParagraphFormat.borders` property.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, element: object):
@@ -635,7 +635,7 @@ class ParagraphBorders:
     def top(self) -> Border:
         """The |Border| object for the top edge of the paragraph.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return Border(self._element, "top")
 
@@ -643,7 +643,7 @@ class ParagraphBorders:
     def bottom(self) -> Border:
         """The |Border| object for the bottom edge of the paragraph.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return Border(self._element, "bottom")
 
@@ -651,7 +651,7 @@ class ParagraphBorders:
     def left(self) -> Border:
         """The |Border| object for the left edge of the paragraph.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return Border(self._element, "left")
 
@@ -659,7 +659,7 @@ class ParagraphBorders:
     def right(self) -> Border:
         """The |Border| object for the right edge of the paragraph.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return Border(self._element, "right")
 
@@ -667,7 +667,7 @@ class ParagraphBorders:
     def between(self) -> Border:
         """The |Border| object for the border between identical paragraphs.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return Border(self._element, "between")
 
@@ -675,7 +675,7 @@ class ParagraphBorders:
     def bar(self) -> Border:
         """The |Border| object for the bar border of the paragraph.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return Border(self._element, "bar")
 
@@ -686,7 +686,7 @@ class Border:
     Accessed via the properties of |ParagraphBorders|, e.g.
     ``paragraph_format.borders.bottom``.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, element: object, side: str):
@@ -713,7 +713,7 @@ class Border:
         """The border style as a member of :ref:`WdBorderStyle`, or |None| if no border
         is defined.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         border = self._border_elm
         if border is None:
@@ -739,7 +739,7 @@ class Border:
 
         Stored in the XML as eighths of a point in the ``w:sz`` attribute.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         border = self._border_elm
         if border is None:
@@ -761,7 +761,7 @@ class Border:
 
         An ``"auto"`` value in the XML is returned as |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         border = self._border_elm
         if border is None:
@@ -785,7 +785,7 @@ class Border:
         """The spacing between the border and paragraph text as a |Length| value, or
         |None| if not defined.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         border = self._border_elm
         if border is None:
@@ -809,7 +809,7 @@ class TextFrame:
     text frame is an absolutely-positioned text container, the legacy predecessor
     to text boxes.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, framePr: CT_FramePr):
@@ -819,7 +819,7 @@ class TextFrame:
     def width(self) -> Length | None:
         """Frame width (``w:framePr/@w:w``) as a |Length|, or |None| if not set.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._framePr.w
 
@@ -831,7 +831,7 @@ class TextFrame:
     def height(self) -> Length | None:
         """Frame height (``w:framePr/@w:h``) as a |Length|, or |None| if not set.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._framePr.h
 
@@ -843,7 +843,7 @@ class TextFrame:
     def horizontal_position(self) -> Length | None:
         """Horizontal position (``w:framePr/@w:x``) as a |Length|, or |None| if not set.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._framePr.x
 
@@ -855,7 +855,7 @@ class TextFrame:
     def vertical_position(self) -> Length | None:
         """Vertical position (``w:framePr/@w:y``) as a |Length|, or |None| if not set.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._framePr.y
 
@@ -867,7 +867,7 @@ class TextFrame:
     def horizontal_anchor(self) -> WD_FRAME_H_ANCHOR | None:
         """Horizontal anchor (``w:framePr/@w:hAnchor``), or |None| if not set.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._framePr.hAnchor
 
@@ -879,7 +879,7 @@ class TextFrame:
     def vertical_anchor(self) -> WD_FRAME_V_ANCHOR | None:
         """Vertical anchor (``w:framePr/@w:vAnchor``), or |None| if not set.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._framePr.vAnchor
 
@@ -891,7 +891,7 @@ class TextFrame:
     def wrap(self) -> WD_FRAME_WRAP | None:
         """Text-wrap behaviour (``w:framePr/@w:wrap``), or |None| if not set.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._framePr.wrap
 
@@ -903,7 +903,7 @@ class TextFrame:
     def drop_cap(self) -> WD_FRAME_DROP_CAP | None:
         """Drop-cap positioning (``w:framePr/@w:dropCap``), or |None| if not set.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._framePr.dropCap
 
@@ -915,7 +915,7 @@ class TextFrame:
     def lines(self) -> int | None:
         """Number of lines for a drop-cap frame (``w:framePr/@w:lines``), or |None|.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._framePr.lines
 
@@ -927,7 +927,7 @@ class TextFrame:
     def horizontal_alignment(self) -> WD_FRAME_H_ALIGN | None:
         """Horizontal alignment (``w:framePr/@w:xAlign``), or |None| if not set.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._framePr.xAlign
 
@@ -939,7 +939,7 @@ class TextFrame:
     def vertical_alignment(self) -> WD_FRAME_V_ALIGN | None:
         """Vertical alignment (``w:framePr/@w:yAlign``), or |None| if not set.
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         return self._framePr.yAlign
 

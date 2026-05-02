@@ -30,7 +30,7 @@ class ExtendedPropertiesPart(XmlPart):
 
     Corresponds to ``/docProps/app.xml`` in the package.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(

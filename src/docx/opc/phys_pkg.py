@@ -76,7 +76,7 @@ class PhysPkgReader:
     :class:`_StrictTranslatingPkgReader` so blobs are rewritten to
     Transitional as they're read. Closes upstream#1520, upstream#693.
 
-    .. versionchanged:: 1.3.0.dev0
+    .. versionchanged:: 2026.05.0
        Transparent Strict → Transitional translation on open.
     """
 
@@ -142,7 +142,7 @@ def open_phys_pkg_reader(pkg_file):
     Called from :class:`docx.opc.pkgreader.PackageReader.from_file` in place
     of direct construction.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
     reader = PhysPkgReader(pkg_file)
     if _looks_like_strict_package(reader):
@@ -158,7 +158,7 @@ class _StrictTranslatingPkgReader:
     wrapped reader retains sole ownership of the underlying zip handle /
     directory, so ``close()`` still delegates.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, inner):
@@ -187,7 +187,7 @@ class PhysPkgWriter:
     attributes — so repeated saves of the same content produce byte-identical
     output. See upstream#1042 / upstream-PR#810.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
        The `reproducible` parameter.
     """
 
@@ -302,7 +302,7 @@ class _ReproducibleZipPkgWriter(_ZipPkgWriter):
     external attributes (0o644, regular file). Closes upstream#1042,
     upstream-PR#810.
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, pkg_file, reproducible: bool = True):

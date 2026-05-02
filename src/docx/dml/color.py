@@ -115,7 +115,7 @@ class ColorFormat(ElementProxy):
         :attr:`theme_color` first. Assigning ``0.0`` removes both ``themeTint``
         and ``themeShade`` attributes (upstream #665).
 
-        .. versionadded:: 1.3.0.dev0
+        .. versionadded:: 2026.05.0
         """
         color = self._color
         if color is None:

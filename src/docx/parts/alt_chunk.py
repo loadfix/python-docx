@@ -11,7 +11,7 @@ HTML chunk.
 python-docx can write these parts from arbitrary bytes and the part reads
 transparently from an on-disk package.
 
-.. versionadded:: 1.3.0.dev0
+.. versionadded:: 2026.05.0
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ class AltChunkPart(Part):
     content-type (``text/html``, ``application/rtf``, ``text/plain``,
     ``application/xhtml+xml``, ``application/msword``, etc.).
 
-    .. versionadded:: 1.3.0.dev0
+    .. versionadded:: 2026.05.0
     """
 
     def __init__(
