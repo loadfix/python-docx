@@ -96,6 +96,7 @@ User Guide
    user/mail-merge
    user/search
    user/shapes
+   user/drawing
    user/accessibility
    user/statistics
    user/toc
