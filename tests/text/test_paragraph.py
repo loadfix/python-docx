@@ -104,6 +104,91 @@ class DescribeParagraph:
         with pytest.raises(ValueError, match="Only one of url or anchor"):
             paragraph.add_hyperlink(url="https://example.com", anchor="bookmark1")
 
+    def it_can_wrap_a_whole_run_in_a_hyperlink(self, request: pytest.FixtureRequest):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.relate_to.return_value = "rId9"
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element('w:p/w:r/w:t"hello world"'))
+        paragraph = Paragraph(p, FakeParent())
+        run = paragraph.runs[0]
+
+        hyperlink = paragraph.insert_hyperlink_at(run, url="https://example.com/")
+
+        assert isinstance(hyperlink, Hyperlink)
+        assert hyperlink.text == "hello world"
+        assert hyperlink._hyperlink.rId == "rId9"
+        assert len(paragraph.hyperlinks) == 1
+        assert len(paragraph._p.xpath("./w:r")) == 0
+
+    def it_can_wrap_a_substring_of_a_run_in_a_hyperlink(
+        self, request: pytest.FixtureRequest
+    ):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.relate_to.return_value = "rId9"
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element('w:p/w:r/w:t"hello world"'))
+        paragraph = Paragraph(p, FakeParent())
+        run = paragraph.runs[0]
+
+        hyperlink = paragraph.insert_hyperlink_at(
+            run, url="https://example.com/", start=6, end=11
+        )
+
+        assert hyperlink.text == "world"
+        # -- original run's "hello " should remain as a plain run before the hyperlink --
+        plain_texts = [r.text for r in paragraph._p.xpath("./w:r")]
+        assert plain_texts == ["hello "]
+
+    def it_can_wrap_the_head_of_a_run_in_a_hyperlink(
+        self, request: pytest.FixtureRequest
+    ):
+        story_part_ = instance_mock(request, StoryPart)
+        story_part_.relate_to.return_value = "rId9"
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element('w:p/w:r/w:t"hello world"'))
+        paragraph = Paragraph(p, FakeParent())
+        run = paragraph.runs[0]
+
+        hyperlink = paragraph.insert_hyperlink_at(
+            run, url="https://example.com/", end=5
+        )
+
+        assert hyperlink.text == "hello"
+        plain_texts = [r.text for r in paragraph._p.xpath("./w:r")]
+        assert plain_texts == [" world"]
+
+    def it_raises_when_neither_url_nor_anchor_for_insert_hyperlink_at(
+        self, request: pytest.FixtureRequest
+    ):
+        story_part_ = instance_mock(request, StoryPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return story_part_
+
+        p = cast(CT_P, element('w:p/w:r/w:t"hi"'))
+        paragraph = Paragraph(p, FakeParent())
+        run = paragraph.runs[0]
+
+        with pytest.raises(ValueError, match="Exactly one of url or anchor"):
+            paragraph.insert_hyperlink_at(run)
+
     def it_can_add_a_hyperlink_without_style(self, request: pytest.FixtureRequest):
         story_part_ = instance_mock(request, StoryPart)
         story_part_.relate_to.return_value = "rId7"

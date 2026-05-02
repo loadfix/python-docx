@@ -129,6 +129,76 @@ class DescribeHyperlink:
 
         assert hyperlink.url == expected_value
 
+    def it_can_add_a_run(self, fake_parent: t.ProvidesStoryPart):
+        hlink = cast(CT_Hyperlink, element("w:hyperlink"))
+        hyperlink = Hyperlink(hlink, fake_parent)
+
+        run = hyperlink.add_run("foo")
+
+        assert type(run).__name__ == "Run"
+        assert run.text == "foo"
+        assert hyperlink.text == "foo"
+        assert len(hyperlink.runs) == 1
+
+    def it_can_add_multiple_runs_for_multi_run_hyperlinks(
+        self, fake_parent: t.ProvidesStoryPart
+    ):
+        hlink = cast(CT_Hyperlink, element("w:hyperlink"))
+        hyperlink = Hyperlink(hlink, fake_parent)
+
+        hyperlink.add_run("Click ")
+        hyperlink.add_run("here")
+
+        assert hyperlink.text == "Click here"
+        assert len(hyperlink.runs) == 2
+
+    def it_can_add_an_empty_run(self, fake_parent: t.ProvidesStoryPart):
+        hlink = cast(CT_Hyperlink, element("w:hyperlink"))
+        hyperlink = Hyperlink(hlink, fake_parent)
+
+        run = hyperlink.add_run()
+
+        assert run.text == ""
+        assert len(hyperlink.runs) == 1
+
+    def it_can_set_the_address(self, fake_parent: t.ProvidesStoryPart):
+        hlink = cast(CT_Hyperlink, element("w:hyperlink"))
+        hyperlink = Hyperlink(hlink, fake_parent)
+
+        hyperlink.address = "https://example.com/"
+
+        assert hyperlink._hyperlink.rId == "rId99"
+        fake_parent.part.relate_to.assert_called_once_with(
+            "https://example.com/",
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
+            is_external=True,
+        )
+
+    def it_can_clear_the_address(self, fake_parent: t.ProvidesStoryPart):
+        hlink = cast(CT_Hyperlink, element("w:hyperlink{r:id=rId6}"))
+        hyperlink = Hyperlink(hlink, fake_parent)
+
+        hyperlink.address = None
+
+        assert hlink.rId is None
+
+    def it_can_set_the_fragment(self, fake_parent: t.ProvidesStoryPart):
+        hlink = cast(CT_Hyperlink, element("w:hyperlink"))
+        hyperlink = Hyperlink(hlink, fake_parent)
+
+        hyperlink.fragment = "intro"
+
+        assert hlink.anchor == "intro"
+        assert hyperlink.fragment == "intro"
+
+    def it_can_clear_the_fragment(self, fake_parent: t.ProvidesStoryPart):
+        hlink = cast(CT_Hyperlink, element("w:hyperlink{w:anchor=intro}"))
+        hyperlink = Hyperlink(hlink, fake_parent)
+
+        hyperlink.fragment = ""
+
+        assert hlink.anchor is None
+
     # -- fixtures --------------------------------------------------------------------
 
     @pytest.fixture
@@ -146,4 +216,6 @@ class DescribeHyperlink:
 
     @pytest.fixture
     def story_part(self, request: FixtureRequest, rel: Mock):
-        return instance_mock(request, StoryPart, rels={"rId6": rel})
+        story_part_ = instance_mock(request, StoryPart, rels={"rId6": rel})
+        story_part_.relate_to.return_value = "rId99"
+        return story_part_

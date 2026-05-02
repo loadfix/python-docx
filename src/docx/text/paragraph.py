@@ -216,6 +216,43 @@ class Paragraph(StoryChild):
         hyperlink_elm = self._p.add_hyperlink(rId, anchor, display_text, rPr)
         return Hyperlink(hyperlink_elm, self)
 
+    def insert_hyperlink_at(
+        self,
+        run: Run,
+        url: str | None = None,
+        anchor: str | None = None,
+        start: int | None = None,
+        end: int | None = None,
+    ) -> Hyperlink:
+        """Wrap (part of) `run` in a new hyperlink and return the |Hyperlink|.
+
+        `run` must be a direct child |Run| of this paragraph (i.e. appearing in
+        :attr:`runs`). Exactly one of `url` (external) or `anchor` (internal
+        bookmark) must be provided. When `start` and/or `end` are given, the
+        run is split at those character offsets so only the selected slice
+        becomes the hyperlink content; otherwise the entire run is wrapped.
+
+        Run formatting is preserved on every piece produced by splitting. This
+        method does not apply the "Hyperlink" character style automatically —
+        assign it via :attr:`Run.style` on the returned hyperlink's runs if
+        desired.
+
+        .. versionadded:: 1.3.0.dev0
+        """
+        if (url is None) == (anchor is None):
+            raise ValueError("Exactly one of url or anchor must be provided")
+
+        target_run = run
+        text_len = len(run.text)
+
+        # -- split off trailing portion first so `start` offset stays valid --
+        if end is not None and end < text_len:
+            target_run, _tail = target_run.split(end)
+        if start is not None and start > 0:
+            _head, target_run = target_run.split(start)
+
+        return target_run.make_hyperlink(url=url, anchor=anchor)
+
     def add_run(
         self,
         text: str | None = None,
