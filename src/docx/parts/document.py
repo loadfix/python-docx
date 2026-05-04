@@ -358,6 +358,12 @@ class DocumentPart(StoryPart):
         except Exception:  # pragma: no cover - defensive: don't break save
             pass
 
+        # Mirror run formatting onto the paragraph mark (pPr/rPr) so that
+        # typing after the last run in Word continues with the same
+        # formatting. This is the "keep typing in bold" convention Word
+        # emits by default.
+        _mirror_run_formatting_to_paragraph_mark(root)
+
     def save(self, path_or_stream: str | IO[bytes], reproducible: bool = False):
         """Save this document to `path_or_stream`, which can be either a path to a
         filesystem location (a string) or a file-like object.
@@ -477,6 +483,88 @@ class DocumentPart(StoryPart):
             styles_part = StylesPart.default(package)
             self.relate_to(styles_part, RT.STYLES)
             return styles_part
+
+
+# Tags Word mirrors from a run's <w:rPr> onto the paragraph mark's
+# <w:pPr>/<w:rPr>. Toggle properties (bold/italic/underline/strike,
+# caps variants) and character-shape properties (size, color, font
+# name). Deliberately excludes lang, spacing, and the border/shd
+# family because Word doesn't mirror those onto paragraph marks.
+_MIRROR_RUN_PROP_TAGS = frozenset(
+    qn(t)
+    for t in (
+        "w:b",
+        "w:bCs",
+        "w:i",
+        "w:iCs",
+        "w:u",
+        "w:strike",
+        "w:dstrike",
+        "w:caps",
+        "w:smallCaps",
+        "w:color",
+        "w:sz",
+        "w:szCs",
+        "w:rFonts",
+        "w:vertAlign",
+    )
+)
+
+
+def _mirror_run_formatting_to_paragraph_mark(root) -> None:
+    """Copy the first run's rPr formatting onto each paragraph's pPr/rPr.
+
+    Word emits the run formatting of (roughly) the last run in each
+    paragraph onto the paragraph mark via ``<w:pPr><w:rPr>`` so that
+    typing past the paragraph continues in the same formatting. We
+    mirror the FIRST run's formatting because python-docx's idiomatic
+    one-run-per-paragraph usage makes first == last in the common case;
+    multi-run paragraphs will get the first run's formatting on the
+    mark, which matches the Word "select all, format" pattern.
+
+    Only mirrors for paragraphs that have exactly one direct <w:r>
+    child whose <w:rPr> carries any of the whitelisted tags. Avoids
+    over-writing an explicit pPr/rPr on the paragraph.
+    """
+    from copy import deepcopy
+
+    from docx.oxml.parser import OxmlElement
+
+    w_r = qn("w:r")
+    w_pPr = qn("w:pPr")
+    w_rPr = qn("w:rPr")
+
+    for p in root.iter(qn("w:p")):
+        # Find the first direct <w:r> child, ignoring hyperlinks and
+        # other wrapped content where mirroring would be surprising.
+        direct_runs = [child for child in p if child.tag == w_r]
+        if len(direct_runs) != 1:
+            continue
+        source_rPr = direct_runs[0].find(w_rPr)
+        if source_rPr is None:
+            continue
+
+        mirror_children = [
+            child for child in source_rPr if child.tag in _MIRROR_RUN_PROP_TAGS
+        ]
+        if not mirror_children:
+            continue
+
+        pPr = p.find(w_pPr)
+        if pPr is None:
+            pPr = OxmlElement("w:pPr")
+            p.insert(0, pPr)
+
+        target_rPr = pPr.find(w_rPr)
+        if target_rPr is None:
+            target_rPr = OxmlElement("w:rPr")
+            pPr.append(target_rPr)
+
+        existing = {child.tag for child in target_rPr}
+        for src in mirror_children:
+            if src.tag in existing:
+                continue
+            target_rPr.append(deepcopy(src))
 
 
 class _RandomMinter:
