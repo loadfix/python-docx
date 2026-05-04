@@ -3,19 +3,13 @@
 A Python library for reading, creating, and updating Microsoft Word
 2007+ (`.docx`) files.
 
-Based on [python-openxml/python-docx](https://github.com/python-openxml/python-docx)
-by Steve Canny and contributors. Forked at upstream `1.2.0` (2025-06-16)
-and extended with 100+ additional OOXML features — footnotes and
-endnotes, tracked changes, bookmarks, fields, content controls, charts,
-equations, SmartArt, watermarks, digital signatures, accessibility
-tooling, cross-document operations, and more.
-
-## Status
-
-Unstable. Not yet published to PyPI. Install from source only.
-
-Current version: `2026.05.0` (first release as an independent fork).
-Versioning is CalVer (`YYYY.MM.patch`).
+This repository is a fork of [python-docx](https://github.com/python-openxml/python-docx)
+by Steve Canny. It builds on their original work by extending coverage
+to 100+ additional OOXML features — footnotes and endnotes, tracked
+changes, bookmarks, fields, content controls, charts, equations,
+SmartArt, watermarks, digital signatures, accessibility tooling, and
+cross-document operations. Forked at upstream `1.2.0` (2025-06-16).
+Credit for the foundational library goes to the original author.
 
 ## Installation
 
@@ -25,7 +19,9 @@ pip install git+https://github.com/loadfix/python-docx.git
 
 Requires Python 3.9+.
 
-## Example
+Not yet published to PyPI. Install from source only.
+
+## Usage
 
 ```python
 from docx import Document
@@ -42,7 +38,7 @@ print(document.paragraphs[0].text)
 The package is imported as `docx`, matching upstream. Existing
 upstream code runs unchanged against this fork.
 
-## Features
+## API
 
 See [`FEATURES.md`](FEATURES.md) for the full catalogue — 43 sections
 covering every public capability, with fork additions marked
@@ -91,8 +87,6 @@ Summary of areas extended beyond upstream `1.2.0`:
 - Themes, web settings, font table (with font embedding), glossary,
   digital-signature detection
 
-## Documentation
-
 API and user-guide documentation lives under `docs/` and builds with
 Sphinx. The theme is Furo.
 
@@ -100,6 +94,14 @@ Sphinx. The theme is Furo.
 pip install Sphinx furo
 python -m sphinx -b html docs docs/_build/html
 ```
+
+## Status
+
+Unstable. Not yet published to PyPI. Current version: `2026.05.0`
+(first release as an independent fork). Versioning is CalVer
+(`YYYY.MM.patch`). Public API tracks upstream `1.2.0` for the
+inherited surface; fork additions are considered experimental until
+the next calendar release.
 
 ## Contributing
 
@@ -123,9 +125,10 @@ MIT. See `LICENSE`. Inherited from upstream `python-openxml/python-docx`.
 
 ## Related projects
 
-This project is part of a series of OOXML libraries under the loadfix
-org:
+Part of a family of document-rendering libraries:
 
-- [loadfix/python-docx](https://github.com/loadfix/python-docx) — Word (this repo)
-- [loadfix/python-pptx](https://github.com/loadfix/python-pptx) — PowerPoint
-- [loadfix/python-xlsx](https://github.com/loadfix/python-xlsx) — Excel
+- [docxjs](https://github.com/loadfix/docxjs) — browser-side DOCX → HTML renderer (TypeScript)
+- [pptxjs](https://github.com/loadfix/pptxjs) — browser-side PPTX → HTML renderer (TypeScript)
+- [xlsxjs](https://github.com/loadfix/xlsxjs) — browser-side XLSX → HTML renderer (TypeScript)
+- [python-pptx](https://github.com/loadfix/python-pptx) — Python PPTX parser/generator
+- [python-xlsx](https://github.com/loadfix/python-xlsx) — Python XLSX parser/generator
