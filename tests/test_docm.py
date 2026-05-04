@@ -67,3 +67,27 @@ class DescribeDocmSupport:
         document = Document(DOCM_PATH)
         assert len(document.paragraphs) >= 1
         assert document.paragraphs[0].text == "Document with macros"
+
+    def it_writes_vbaProject_content_type_as_Default_not_Override(self):
+        # Word rejects .docm packages where the vbaProject content type is
+        # written as <Override>. It must appear as <Default Extension="bin" ...>.
+        # Regression guard for interop bug #1 in INTEROP_REPORT.md.
+        document = Document(DOCM_PATH)
+
+        with tempfile.NamedTemporaryFile(suffix=".docm", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            document.save(tmp_path)
+
+            with zipfile.ZipFile(tmp_path, "r") as zf:
+                content_types_xml = zf.read("[Content_Types].xml").decode("utf-8")
+
+            assert (
+                '<Default Extension="bin" '
+                'ContentType="application/vnd.ms-office.vbaProject"/>'
+            ) in content_types_xml
+            # ... and must not appear as an Override pointing at vbaProject.bin.
+            assert "vbaProject.bin" not in content_types_xml
+        finally:
+            os.unlink(tmp_path)

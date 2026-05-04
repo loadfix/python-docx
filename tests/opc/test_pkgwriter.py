@@ -149,6 +149,23 @@ class Describe_ContentTypesItem:
         types_elm = cti._element
         assert types_elm.xml == expected_xml
 
+    def it_emits_vbaProject_as_Default_not_Override(self, request: FixtureRequest):
+        # Word rejects .docm packages where the vbaProject content type is
+        # written as <Override>; it must be a <Default Extension="bin" ...>.
+        part_ = self._mock_part(
+            request, "vba_part_", "/word/vbaProject.bin", CT.WML_VBA_PROJECT
+        )
+        cti = _ContentTypesItem.from_parts([part_])
+
+        xml = cti._element.xml
+
+        assert (
+            '<Default Extension="bin" '
+            'ContentType="application/vnd.ms-office.vbaProject"/>'
+        ) in xml
+        # ... and it must not appear as an Override
+        assert "vbaProject.bin" not in xml
+
     # fixtures ---------------------------------------------
 
     def _mock_part(self, request: FixtureRequest, name, partname_str, content_type):
