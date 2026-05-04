@@ -3,6 +3,24 @@
 Release History
 ---------------
 
+2026.05.1 — bCs/iCs correctness fix
++++++++++++++++++++++++++++++++++++
+
+Released: 2026-05-04
+
+- Fix: setting ``font.bold = True`` now also emits ``<w:bCs/>``
+  (complex-script bold); setting ``font.italic = True`` emits
+  ``<w:iCs/>``. Previously only ``<w:b/>`` / ``<w:i/>`` were emitted,
+  which silently dropped bold/italic on Arabic, Hebrew, and Thai runs
+  when Word reopened the file. Mirrors the behavior Word itself writes.
+  Surfaced by the three-way comparison pipeline in
+  ``loadfix/ooxml-reference-corpus/features/docx/bold-text.json``.
+
+  The ``cs_bold`` / ``cs_italic`` properties continue to work
+  independently; callers that need divergent values can still set them
+  explicitly after setting bold/italic.
+
+
 2026.05.0 — first release as independent fork
 +++++++++++++++++++++++++++++++++++++++++++++
 

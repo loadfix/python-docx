@@ -68,6 +68,12 @@ class Font(ElementProxy):
     @bold.setter
     def bold(self, value: bool | None) -> None:
         self._set_bool_prop("b", value)
+        # Mirror to the complex-script bold toggle. Word emits both
+        # <w:b/> and <w:bCs/> together; omitting <w:bCs/> silently drops
+        # bold on Arabic/Hebrew/Thai runs when Word reopens the file.
+        # Callers that need divergent values can still set cs_bold
+        # explicitly after this setter.
+        self._set_bool_prop("bCs", value)
 
     @property
     def border_color(self) -> RGBColor | None:
@@ -343,6 +349,10 @@ class Font(ElementProxy):
     @italic.setter
     def italic(self, value: bool | None) -> None:
         self._set_bool_prop("i", value)
+        # Mirror to the complex-script italic toggle. See bold setter
+        # for the rationale — Word drops italic on complex-script runs
+        # if only <w:i/> is present.
+        self._set_bool_prop("iCs", value)
 
     @property
     def kerning(self) -> Length | None:
