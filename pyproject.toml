@@ -49,6 +49,11 @@ dev = [
     "types-lxml-multi-subclass>=2025.3.30",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "ooxml-validate @ file:///home/ben/code/ooxml-validate",
+]
+
 [project.urls]
 Changelog = "https://github.com/python-openxml/python-docx/blob/master/HISTORY.rst"
 Documentation = "https://python-docx.readthedocs.org/en/latest/"

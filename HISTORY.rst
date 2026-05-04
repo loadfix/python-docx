@@ -115,6 +115,7 @@ Dev / tooling
   - Add py.typed, improve public types
   - Add AI-agent CI pipeline (Product / Develop / Review / Security / Revise
     / Merge / Debug / Watchdog)
+  - Add interop-validate behave scenarios wiring loadfix/ooxml-validate as a round-trip fidelity check.
 
 
 1.2.0 (2025-06-16)
