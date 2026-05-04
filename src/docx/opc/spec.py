@@ -6,6 +6,10 @@ default_content_types = (
     ("bin", CT.PML_PRINTER_SETTINGS),
     ("bin", CT.SML_PRINTER_SETTINGS),
     ("bin", CT.WML_PRINTER_SETTINGS),
+    # Word is strict: vbaProject must appear as a <Default> entry. Emitting an
+    # <Override> (even though ISO/IEC 29500 allows it) makes Word report the
+    # .docm package as having "unreadable content".
+    ("bin", CT.WML_VBA_PROJECT),
     ("bmp", CT.BMP),
     ("emf", CT.X_EMF),
     ("eps", CT.X_EPS),
