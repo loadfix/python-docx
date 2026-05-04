@@ -352,9 +352,33 @@ class OpcPackage:
         """
         if isinstance(pkg_file, str):
             _validate_save_path(pkg_file)
+        self._drop_unused_package_rels()
         for part in self.parts:
             part.before_marshal(reproducible=reproducible)
         PackageWriter.write(pkg_file, self.rels, self.parts, reproducible=reproducible)
+
+    def _drop_unused_package_rels(self) -> None:
+        """Drop package-level rels whose target parts python-docx doesn't author.
+
+        Currently: the package-level thumbnail. The default template
+        ships a rendered JPEG thumbnail; python-docx has no renderer,
+        so the thumbnail is stale the moment any content changes. Word
+        itself only writes a thumbnail on explicit ``File → Info``
+        rendering, never for library-authored minimal docs.
+
+        Drops the ``RT.THUMBNAIL`` rel unconditionally. The target part
+        then falls out of ``self.parts`` because part discovery walks
+        the rels graph.
+        """
+        from docx.opc.constants import RELATIONSHIP_TYPE as RT
+
+        to_drop = [
+            rId
+            for rId, rel in list(self.rels.items())
+            if not rel.is_external and rel.reltype == RT.THUMBNAIL
+        ]
+        for rId in to_drop:
+            del self.rels[rId]
 
     @property
     def _extended_properties_part(self):

@@ -364,6 +364,94 @@ class DocumentPart(StoryPart):
         # emits by default.
         _mirror_run_formatting_to_paragraph_mark(root)
 
+        # Drop optional parts that the template carries but the document
+        # doesn't actually use. Mirrors Word's behaviour — Word only
+        # writes numbering.xml when lists are present, customXml when
+        # content-control bindings are present, stylesWithEffects never
+        # for new docs, and never ships a thumbnail for library-authored
+        # files.
+        self._drop_unused_optional_parts(root)
+
+    def _drop_unused_optional_parts(self, root) -> None:
+        """Drop template-default rels whose target parts are unused.
+
+        Mirrors Microsoft Word's "emit the minimum" behaviour: unused
+        rels (and their target parts) are pruned from the rels graph
+        so the resulting package contains only the parts the document
+        actually needs.
+
+        Drops:
+
+        - ``RT.STYLES_WITH_EFFECTS`` — a Word 2013-compat duplicate of
+          ``styles.xml``. python-docx never produces effects-style
+          content, so this part is always redundant.
+        - ``RT.NUMBERING`` — only needed when the document contains
+          ``<w:numPr>`` references (numbered or bulleted lists).
+        - ``RT.CUSTOM_XML`` — only needed when a content control's
+          ``<w:dataBinding>`` references a customXml item.
+        """
+        uses_numbering = self._document_uses_numbering(root)
+        uses_custom_xml = any(
+            sdt.find(f".//{qn('w:dataBinding')}") is not None
+            for sdt in root.iter(qn("w:sdt"))
+        )
+
+        rels_to_drop: list[str] = []
+        for rId, rel in list(self.rels.items()):
+            if rel.is_external:
+                continue
+            if rel.reltype == RT.STYLES_WITH_EFFECTS:
+                rels_to_drop.append(rId)
+            elif rel.reltype == RT.NUMBERING and not uses_numbering:
+                rels_to_drop.append(rId)
+            elif rel.reltype == RT.CUSTOM_XML and not uses_custom_xml:
+                rels_to_drop.append(rId)
+
+        for rId in rels_to_drop:
+            self.drop_rel(rId)
+
+    def _document_uses_numbering(self, root) -> bool:
+        """Return ``True`` if the document references numbering at all.
+
+        A document uses numbering if either:
+
+        - a paragraph carries a direct ``<w:numPr>`` reference, or
+        - a paragraph uses a style whose definition in ``styles.xml``
+          carries ``<w:numPr>`` (e.g. the ``List Bullet`` / ``List
+          Number`` stock styles).
+
+        Failing the styles.xml lookup is treated as "uses numbering" —
+        erring on the side of keeping the numbering part is always safe,
+        dropping it risks a broken list in the output.
+        """
+        if root.find(f".//{qn('w:numPr')}") is not None:
+            return True
+
+        pStyle_tag = qn("w:pStyle")
+        used_styles = {
+            pstyle.get(qn("w:val"))
+            for pPr in root.iter(qn("w:pPr"))
+            for pstyle in pPr.iter(pStyle_tag)
+            if pstyle.get(qn("w:val"))
+        }
+        if not used_styles:
+            return False
+
+        try:
+            styles_part = self._styles_part
+            styles_root = styles_part.element
+        except Exception:  # pragma: no cover - defensive
+            return True
+
+        style_tag = qn("w:style")
+        styleId_attr = qn("w:styleId")
+        numbering_styles = {
+            style.get(styleId_attr)
+            for style in styles_root.iter(style_tag)
+            if style.find(f".//{qn('w:numPr')}") is not None
+        }
+        return bool(used_styles & numbering_styles)
+
     def save(self, path_or_stream: str | IO[bytes], reproducible: bool = False):
         """Save this document to `path_or_stream`, which can be either a path to a
         filesystem location (a string) or a file-like object.
