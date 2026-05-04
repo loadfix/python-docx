@@ -18,6 +18,7 @@ repo is absent.
 from __future__ import annotations
 
 import importlib.util
+import os
 import runpy
 import shlex
 import subprocess
@@ -150,11 +151,21 @@ def _invoke_parameterised_generator(
     }
     args_str = _substitute(arg_template, parameter_records)
 
+    # Inherit PYTHONPATH so the subprocess can import `docx` from the
+    # editable src/ checkout just like the pytest process does.
+    env = os.environ.copy()
+    pythonpath = env.get("PYTHONPATH", "")
+    src_path = str(_REPO_ROOT / "src")
+    if src_path not in pythonpath.split(os.pathsep):
+        env["PYTHONPATH"] = (
+            src_path if not pythonpath else f"{src_path}{os.pathsep}{pythonpath}"
+        )
     subprocess.run(
         [sys.executable, str(gen_script), *shlex.split(args_str)],
         cwd=_CORPUS_ROOT,
         check=True,
         capture_output=True,
+        env=env,
     )
 
 
