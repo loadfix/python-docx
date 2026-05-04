@@ -313,6 +313,7 @@ class RELATIONSHIP_TYPE:
         "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideUpdateInfo"
     )
     STYLES = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"
+    STYLES_WITH_EFFECTS = "http://schemas.microsoft.com/office/2007/relationships/stylesWithEffects"
     TABLE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/table"
     TABLE_SINGLE_CELLS = (
         "http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableSingleCells"

@@ -3,6 +3,45 @@
 Release History
 ---------------
 
+2026.05.4 — Word-mimicry phase 3: omit unused optional parts
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Released: 2026-05-04
+
+python-docx now omits unused optional parts on save, matching Word's
+"emit the minimum" behaviour for library-authored files. The default
+template still carries these parts — they are pruned at save time
+only when the document doesn't actually reference them.
+
+- **`word/numbering.xml`** — dropped unless the document uses numbering
+  directly (a paragraph with ``<w:numPr>``) or via a numbering-bearing
+  style (``List Bullet``, ``List Number``, etc.). The check reads
+  ``styles.xml`` to resolve style→numPr links.
+- **`word/stylesWithEffects.xml`** — dropped unconditionally. This is
+  a Word 2013-compat duplicate of ``styles.xml``; python-docx never
+  produces effect-style content.
+- **``customXml/``** items — dropped unless a content control's
+  ``<w:dataBinding>`` references custom XML.
+- **``docProps/thumbnail.jpeg``** — dropped unconditionally at the
+  package level. python-docx has no renderer, so any thumbnail it
+  ships would be stale.
+
+Rel removal happens in the before_marshal hook (for document-rooted
+parts) and at package save (for the package-level thumbnail rel),
+which cascades automatically: ``[Content_Types].xml``, ``_rels/.rels``,
+and ``word/_rels/document.xml.rels`` all rebuild from the pruned
+rels graph without additional bookkeeping.
+
+Concrete result on the corpus bold-text feature: the machine-generated
+fixture now ships exactly the same 11 parts as the Word-authored
+companion. The three-way diff's "only in machine" column is empty for
+the simple-text feature pack; residual ``word/document.xml``
+differences are only the locale-default page size / margins (A4 vs
+US Letter, by design out of scope).
+
+Full suite: 5004 pass / 6 skip. Corpus conformance: 5/5 pass.
+
+
 2026.05.3 — Word-mimicry phase 2: paragraph-mark format mirror
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
