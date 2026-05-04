@@ -132,3 +132,4 @@ Part of a family of document-rendering libraries:
 - [xlsxjs](https://github.com/loadfix/xlsxjs) — browser-side XLSX → HTML renderer (TypeScript)
 - [python-pptx](https://github.com/loadfix/python-pptx) — Python PPTX parser/generator
 - [python-xlsx](https://github.com/loadfix/python-xlsx) — Python XLSX parser/generator
+- [ooxml-validate](https://github.com/loadfix/ooxml-validate) — Python/.NET OOXML validator (wraps Microsoft Open XML SDK + LibreOffice)
