@@ -58,7 +58,7 @@ class CT_Footnote(BaseOxmlElement):
 
 - `ZeroOrOne(tag, successors=(...))` — generates getter, `_add_*()`, `get_or_add_*()`, `_remove_*()`, `_insert_*()`
 - `ZeroOrMore(tag, successors=(...))` — generates `*_lst` property, `add_*()`, `_insert_*()`
-- `successors` tuple must match XSD schema ordering exactly — consult `spec/xsd/wml.xsd` (WordprocessingML), `spec/xsd/dml-wordprocessingDrawing.xsd` (anchor/inline drawing), or `spec/xsd/shared-math.xsd` (OMML) for authoritative ordering. `spec/rnc/` has RELAX NG Compact variants that are easier to read than the XSDs.
+- `successors` tuple must match XSD schema ordering exactly — consult `../ooxml-reference-corpus/spec/ecma-376-5/part-1/xsd/wml.xsd` (WordprocessingML), `dml-wordprocessingDrawing.xsd` (anchor/inline drawing), or `shared-math.xsd` (OMML) for authoritative ordering. The sibling `rnc/` directory has RELAX NG Compact variants that are easier to read than the XSDs.
 - Register: `register_element_cls("w:footnote", CT_Footnote)` in `oxml/__init__.py`
 
 ### Part Classes
@@ -109,14 +109,44 @@ class Footnote(BlockItemContainer):
 - Relationship types: same file — `RT.FOOTNOTES` and `RT.ENDNOTES` already defined
 - Namespaces: `src/docx/oxml/ns.py` — `qn("w:footnote")` for Clark notation
 
+## OOXML feature workflow (required before implementing any new feature)
+
+Every OOXML feature is defined by a manifest in the shared corpus
+repository `loadfix/ooxml-reference-corpus` (sibling checkout at
+`../ooxml-reference-corpus/`). Before implementing any new feature:
+
+1. **Read the manifest.** Look under
+   `../ooxml-reference-corpus/features/docx/` for a JSON manifest whose
+   `assertions` block defines what "passing" means. Example:
+   `features/docx/bold-text.json` — the XPath there is the canonical
+   definition of "bold".
+
+2. **Consult the ECMA-376 5th edition spec** (corpus-only — the spec
+   archive is intentionally NOT duplicated into this repo):
+   - PDF: `../ooxml-reference-corpus/spec/ecma-376-5/part-1/Ecma Office Open XML Part 1 - Fundamentals And Markup Language Reference.pdf`
+   - RNC schemas (easier to read): `../ooxml-reference-corpus/spec/ecma-376-5/part-1/rnc/`
+   - XSD schemas (authoritative for validators): `../ooxml-reference-corpus/spec/ecma-376-5/part-1/xsd/`
+
+3. **If no manifest exists yet**, author one *first*. The manifest is
+   the definition of done; the library code is an attempt at it. Follow
+   the schema at
+   `../ooxml-reference-corpus/features/manifest.schema.json`. Commit:
+   the JSON manifest, a `scripts/gen_<name>.py` generator, the
+   machine-generated fixture under `fixtures/docx/`, and (optional but
+   valuable) an Office-authored `.office.docx` companion.
+
+4. **Verify conformance.** Implementation passes when
+   `ooxml_validate.conformance.run_feature(manifest, library="python-docx",
+   fixture_path=output)` returns `status="pass"`.
+
 ## OOXML spec vs Microsoft Word reality
 
 Microsoft Word does NOT strictly implement ISO/IEC 29500 / ECMA-376. Treat the spec as a starting point, not ground truth.
 
 - Word writes the **Transitional** flavor, not **Strict**. The 4th/5th/6th editions of ISO 29500-1 tightened the spec toward Strict; Word still emits Transitional namespaces that trace back to the original 1st edition / ECMA-376 2006.
-- Word emits Microsoft extensions in the `w14:`, `w15:`, `w16:`, `w16cid:`, `w16se:` namespaces (Word 2010/2013/2016+), gated by `mc:Ignorable`. These are documented in the `[MS-DOCX]` / `[MS-OE376]` extension series, not in the ISO PDFs under `spec/`.
+- Word emits Microsoft extensions in the `w14:`, `w15:`, `w16:`, `w16cid:`, `w16se:` namespaces (Word 2010/2013/2016+), gated by `mc:Ignorable`. These are documented in the `[MS-DOCX]` / `[MS-OE376]` extension series, not in the corpus-level spec.
 - Word's reader tolerates out-of-order, extra, and missing elements that the spec forbids. Word's writer emits shapes the spec doesn't mandate. A spec-valid file is not automatically a file Word will open cleanly.
-- **When the spec and Word disagree, match Word.** The canonical way to resolve ambiguity is: save a minimal `.docx` from Word, unzip it, and inspect the XML. `spec/xsd/*.xsd` tells you what is *allowed*; Word tells you what is *interoperable*.
+- **When the spec and Word disagree, match Word.** The canonical way to resolve ambiguity is: save a minimal `.docx` from Word, unzip it, and inspect the XML. The corpus-level `.xsd` files tell you what is *allowed*; the `.office.docx` companions in the corpus tell you what is *interoperable*.
 
 ## Test Conventions
 
@@ -164,7 +194,6 @@ pip install -e ".[dev]"
 - Don't introduce backwards-incompatible API changes without a HISTORY/FEATURES note and a transition plan (deprecation warning where possible).
 - Don't silence warnings with broad `filterwarnings` ignores — they exist to catch real problems.
 - Don't delete `py.typed`; removing it silently breaks downstream type-checking.
-- Don't "fix" code inside `spec/` just because lint would catch it elsewhere — it's an intentionally undisciplined reference archive.
 - Don't bypass the xmlchemy descriptor layer with raw `lxml.etree` access in production code — the descriptors carry namespace, type, and default semantics.
 - Don't move unit tests out of their current location or rename test methods away from the `Describe*` / `it_*` BDD convention — test discovery relies on it.
 
@@ -182,7 +211,7 @@ pip install -e ".[dev]"
 
 ### Adding a new XML element class
 - Custom element classes live in `src/docx/oxml/…`. They use the `xmlchemy` descriptor layer (`ZeroOrOne`, `OneAndOnlyOne`, `ZeroOrMore`, `RequiredAttribute`, `OptionalAttribute`, …).
-- Consult `spec/xsd/*.xsd` (or the easier-to-read `spec/rnc/*.rnc`) for authoritative element ordering before declaring `successors`.
+- Consult `../ooxml-reference-corpus/spec/ecma-376-5/part-1/xsd/*.xsd` (or the easier-to-read sibling `rnc/*.rnc`) for authoritative element ordering before declaring `successors`.
 - Register the class with `register_element_cls("w:tag", CT_Tag)` at the bottom of `src/docx/oxml/__init__.py`.
 - Save a minimal `.docx` from Word that exercises the element, unzip it, and compare — **when the spec and Word disagree, match Word**.
 
@@ -197,7 +226,7 @@ Minimum check before every PR that touches source: `grep -n "<feature name>" REA
 
 ## Important
 
-- Before implementing a new feature or element class, consult `spec/` for authoritative schema information: `spec/xsd/*.xsd` (W3C XSD grammars), `spec/rnc/*.rnc` (RELAX NG Compact equivalents, easier to read), `spec/ISO-IEC-29500-1.pdf` (Part 1: markup language reference prose), and `spec/ISO-IEC-29500-2.pdf` (OPC packaging). These are not runtime dependencies — they are the canonical sources for element ordering, attribute types, and cardinality.
+- Before implementing a new feature or element class, consult `../ooxml-reference-corpus/spec/ecma-376-5/` for authoritative schema information: `part-1/xsd/*.xsd` (W3C XSD grammars), `part-1/rnc/*.rnc` (RELAX NG Compact equivalents, easier to read), and the four `Ecma Office Open XML Part N.pdf` files (markup-language reference, OPC packaging, markup compatibility, transitional migration features). These live in the corpus repo rather than here to avoid duplicating ~50 MB of PDFs across six sibling projects — they are not runtime dependencies, just the canonical sources for element ordering, attribute types, and cardinality.
 - Keep `FEATURES.md` current when adding, modifying, or deleting public API. It is a single-page catalogue of every public feature (43 sections, ~1800 lines) with fork additions marked `[Added in 1.3.0.dev0]`. For each change: add the new entry (or update/remove the existing one) under the relevant section, refresh its snippet if the API surface shifted, and verify the snippet still runs against a fresh `Document()`.
 - Always run tests after changes: `pytest tests/ -v`
 - The successors tuple in element declarations MUST match XSD ordering
