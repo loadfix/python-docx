@@ -353,7 +353,7 @@ class OpcPackage:
         if isinstance(pkg_file, str):
             _validate_save_path(pkg_file)
         for part in self.parts:
-            part.before_marshal()
+            part.before_marshal(reproducible=reproducible)
         PackageWriter.write(pkg_file, self.rels, self.parts, reproducible=reproducible)
 
     @property

@@ -146,7 +146,7 @@ class DescribeOpcPackage:
         pkg = OpcPackage()
         pkg.save(pkg_file_)
         for part in parts_:
-            part.before_marshal.assert_called_once_with()
+            part.before_marshal.assert_called_once_with(reproducible=False)
         PackageWriter_.write.assert_called_once_with(
             pkg_file_, pkg.rels, parts_, reproducible=False
         )
