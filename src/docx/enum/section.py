@@ -162,6 +162,41 @@ class WD_ORIENTATION(BaseXmlEnum):
 WD_ORIENT = WD_ORIENTATION
 
 
+class WD_VERTICAL_ALIGNMENT(BaseXmlEnum):
+    """Specifies the vertical alignment of text in a section.
+
+    Maps to the ``w:val`` attribute of the ``w:vAlign`` child of a ``w:sectPr``
+    element (ECMA-376 17.6.22, simple type ``ST_VerticalJc``).
+
+    Example::
+
+        from docx.enum.section import WD_VERTICAL_ALIGNMENT
+
+        section = document.sections[0]
+        section.vertical_alignment = WD_VERTICAL_ALIGNMENT.CENTER
+
+    .. versionadded:: 2026.05.0
+    """
+
+    TOP = (0, "top", "Text is aligned to the top of the page.")
+    """Text is aligned to the top of the page."""
+
+    CENTER = (1, "center", "Text is centered vertically on the page.")
+    """Text is centered vertically on the page."""
+
+    BOTH = (
+        2,
+        "both",
+        "Text is justified vertically so each line is evenly spaced between the top"
+        " and bottom margins.",
+    )
+    """Text is justified vertically so each line is evenly spaced between the top and
+    bottom margins."""
+
+    BOTTOM = (3, "bottom", "Text is aligned to the bottom of the page.")
+    """Text is aligned to the bottom of the page."""
+
+
 class WD_SECTION_START(BaseXmlEnum):
     """Alias: **WD_SECTION**
 

@@ -25,6 +25,7 @@ if TYPE_CHECKING:
         WD_LINE_NUMBERING_RESTART,
         WD_ORIENTATION,
         WD_SECTION_START,
+        WD_VERTICAL_ALIGNMENT,
     )
     from docx.enum.table import WD_TEXT_DIRECTION
     from docx.enum.text import WD_BORDER_STYLE
@@ -452,6 +453,22 @@ class Section:
     @orientation.setter
     def orientation(self, value: WD_ORIENTATION | None):
         self._sectPr.orientation = value
+
+    @property
+    def vertical_alignment(self) -> WD_VERTICAL_ALIGNMENT | None:
+        """Read/write. Vertical alignment of text for this section, or |None|.
+
+        Maps to the ``w:val`` attribute of the ``w:vAlign`` child of ``w:sectPr``
+        (ECMA-376 17.6.22, simple type ``ST_VerticalJc``). Assigning |None|
+        removes the ``w:vAlign`` child, restoring the default top alignment.
+
+        One of ``WD_VERTICAL_ALIGNMENT.TOP``, ``.CENTER``, ``.BOTH``, ``.BOTTOM``.
+        """
+        return self._sectPr.vertical_alignment
+
+    @vertical_alignment.setter
+    def vertical_alignment(self, value: WD_VERTICAL_ALIGNMENT | None):
+        self._sectPr.vertical_alignment = value
 
     @property
     def page_height(self) -> Length | None:
