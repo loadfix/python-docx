@@ -3,6 +3,28 @@
 Release History
 ---------------
 
+2026.05.3 — Word-mimicry phase 2: paragraph-mark format mirror
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Released: 2026-05-04
+
+- ``DocumentPart.before_marshal()`` now also mirrors a single-run
+  paragraph's ``<w:rPr>`` formatting onto the paragraph mark via
+  ``<w:pPr><w:rPr>``. This matches Word's "keep typing in bold"
+  convention: when a paragraph ends in a bold/italic/coloured run,
+  the paragraph mark inherits that formatting so text typed past the
+  end continues in the same shape.
+- Mirrored properties: b, bCs, i, iCs, u, strike, dstrike, caps,
+  smallCaps, color, sz, szCs, rFonts, vertAlign. Explicitly excludes
+  lang, spacing, border, shading — Word does not mirror these onto
+  paragraph marks.
+- Only applied to paragraphs that have exactly one direct ``<w:r>``
+  child (the common one-run-per-paragraph case). Multi-run and
+  hyperlinked paragraphs are left alone to avoid surprising behaviour.
+- Existing ``<w:pPr><w:rPr>`` content is preserved; only missing
+  mirror properties are added.
+
+
 2026.05.2 — Word-mimicry phase 1: namespace decls, paraId, rsid
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
