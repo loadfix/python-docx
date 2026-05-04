@@ -49,9 +49,14 @@ class Part:
         # subclass
         pass
 
-    def before_marshal(self):
+    def before_marshal(self, reproducible: bool = False):
         """Entry point for pre-serialization processing, for example to finalize part
         naming if necessary.
+
+        ``reproducible`` is True when the caller has requested reproducible
+        save output (fixed timestamps, sorted member names). Subclasses that
+        mint random identifiers should honour this flag by using a
+        deterministic generator when True.
 
         May be overridden by subclasses without forwarding call to super.
         """

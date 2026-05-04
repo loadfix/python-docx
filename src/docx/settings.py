@@ -395,6 +395,28 @@ class Settings(ElementProxy):
             return []
         return rsids.rsid_vals
 
+    def add_rsids(self, rsid_root: str, extra: "set[str] | None" = None) -> None:
+        """Record ``rsid_root`` in the settings' ``<w:rsids>`` table.
+
+        Creates the ``<w:rsids>`` block if absent, sets ``<w:rsidRoot>``
+        if absent (first-save wins), and appends any RSIDs in ``extra``
+        that are not already present. Called from
+        :meth:`DocumentPart.before_marshal` to keep document and
+        settings rsid data consistent.
+
+        .. versionadded:: 2026.05.2
+        """
+        rsids = self._settings.get_or_add_rsids()
+        if rsids.rsidRoot is None:
+            rsidRoot = rsids.get_or_add_rsidRoot()
+            rsidRoot.val = rsid_root
+        existing = set(rsids.rsid_vals)
+        for value in {rsid_root, *(extra or set())}:
+            if value and value not in existing:
+                new_rsid = rsids.add_rsid()
+                new_rsid.val = value
+                existing.add(value)
+
     @property
     def zoom_percent(self) -> int | None:
         """The zoom percentage for the document view (e.g. 100 for 100%).

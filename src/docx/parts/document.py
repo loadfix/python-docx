@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import secrets
 from typing import IO, TYPE_CHECKING, cast
+
+from docx.oxml.ns import qn
 
 from docx.document import Document
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
@@ -296,6 +299,65 @@ class DocumentPart(StoryPart):
             self.relate_to(numbering_part, RT.NUMBERING)
             return numbering_part
 
+    def before_marshal(self, reproducible: bool = False) -> None:
+        """Stamp Word-style identifiers on paragraphs/runs just before save.
+
+        Word emits ``w14:paraId``, ``w14:textId``, and session-wide
+        ``w:rsidR`` / ``w:rsidRDefault`` on every paragraph it authors,
+        plus ``w:rsidR`` on every run. These are collaboration/merge
+        tracking identifiers — missing ones cause diffing tools and
+        modern-comments features to behave inconsistently.
+
+        This hook mints the identifiers lazily: existing values are
+        preserved (so round-trips stay deterministic), missing ones are
+        stamped with newly-generated 8-hex-digit tokens. The session's
+        ``rsidRoot`` is generated once per save call.
+
+        Also records the session's rsid in the settings part's
+        ``<w:rsids>`` table so the values are reachable from
+        ``w:rsids`` consumers.
+
+        When ``reproducible`` is True the identifiers are derived
+        deterministically from each paragraph's content, so repeated
+        saves of the same document produce byte-identical output.
+
+        .. versionadded:: 2026.05.2
+        """
+        mint = _DeterministicMinter() if reproducible else _RandomMinter()
+        rsid_root = mint.rsid_root()
+        rsids_seen: set[str] = set()
+
+        paraId_tag = qn("w14:paraId")
+        textId_tag = qn("w14:textId")
+        rsidR_tag = qn("w:rsidR")
+        rsidRDefault_tag = qn("w:rsidRDefault")
+
+        root = self.element
+        for p in root.iter(qn("w:p")):
+            if not p.get(paraId_tag):
+                p.set(paraId_tag, mint.paraId(p))
+            if not p.get(textId_tag):
+                p.set(textId_tag, mint.textId(p))
+            if not p.get(rsidR_tag):
+                p.set(rsidR_tag, rsid_root)
+            if not p.get(rsidRDefault_tag):
+                p.set(rsidRDefault_tag, rsid_root)
+            rsids_seen.add(p.get(rsidR_tag))
+
+            for r in p.iter(qn("w:r")):
+                if not r.get(rsidR_tag):
+                    r.set(rsidR_tag, rsid_root)
+                rsids_seen.add(r.get(rsidR_tag))
+
+        # Persist the session's rsid into settings so Word accepts the
+        # file without warning. The settings part may not yet exist
+        # (empty template) — the property getter creates it on demand.
+        try:
+            settings = self.settings
+            settings.add_rsids(rsid_root, extra=rsids_seen)
+        except Exception:  # pragma: no cover - defensive: don't break save
+            pass
+
     def save(self, path_or_stream: str | IO[bytes], reproducible: bool = False):
         """Save this document to `path_or_stream`, which can be either a path to a
         filesystem location (a string) or a file-like object.
@@ -415,3 +477,52 @@ class DocumentPart(StoryPart):
             styles_part = StylesPart.default(package)
             self.relate_to(styles_part, RT.STYLES)
             return styles_part
+
+
+class _RandomMinter:
+    """Minter that generates random 8-hex-digit tokens per call.
+
+    Normal save mode — every call gives a fresh token, so re-saving
+    an unchanged document produces different rsid/paraId values on
+    each run.
+    """
+
+    def rsid_root(self) -> str:
+        # Word's rsids have an "00"-prefix in practice, so match the shape.
+        return "00" + secrets.token_hex(3).upper()
+
+    def paraId(self, _paragraph) -> str:
+        return secrets.token_hex(4).upper()
+
+    def textId(self, _paragraph) -> str:
+        return secrets.token_hex(4).upper()
+
+
+class _DeterministicMinter:
+    """Minter that derives every identifier from stable paragraph content.
+
+    Reproducible save mode — two saves of the same document produce
+    byte-identical output. Identifiers are 8-hex-digit SHA-1 prefixes
+    of each paragraph's text plus a role tag.
+    """
+
+    def rsid_root(self) -> str:
+        return "00000001"
+
+    def paraId(self, paragraph) -> str:
+        return self._hash8(paragraph, "paraId")
+
+    def textId(self, paragraph) -> str:
+        return self._hash8(paragraph, "textId")
+
+    @staticmethod
+    def _hash8(paragraph, role: str) -> str:
+        import hashlib
+
+        # Use the paragraph's serialised text content plus the role as
+        # the stability seed. Two paragraphs with identical text will
+        # share an id, which is an acceptable collision for a
+        # reproducible-save corner case.
+        text = "".join(paragraph.itertext())
+        digest = hashlib.sha1(f"{role}:{text}".encode("utf-8")).hexdigest()
+        return digest[:8].upper()

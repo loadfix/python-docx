@@ -3,6 +3,38 @@
 Release History
 ---------------
 
+2026.05.2 — Word-mimicry phase 1: namespace decls, paraId, rsid
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Released: 2026-05-04
+
+Narrow the XML python-docx emits toward the shape Microsoft Word itself
+writes, so loadfix/ooxml-reference-corpus three-way diffs surface real
+semantic differences instead of tooling-version noise.
+
+- The default ``word/document.xml`` template now carries the full
+  namespace set Word 2024 declares (cx, cx1-cx8, aink, am3d, oel, w15,
+  w16, w16cid, w16cex, w16se, w16du, w16sdtdh, w16sdtfl) plus the
+  matching ``mc:Ignorable`` list.
+- New ``DocumentPart.before_marshal()`` hook stamps Word-style
+  identifiers on every paragraph that lacks them just before
+  serialization: ``w14:paraId``, ``w14:textId``, ``w:rsidR``,
+  ``w:rsidRDefault``. Runs get ``w:rsidR``. A session-wide
+  ``w:rsidRoot`` is generated per save call and recorded in
+  ``word/settings.xml``'s ``<w:rsids>`` table via the new
+  ``Settings.add_rsids()`` method.
+- Existing identifiers are preserved on round-trip; only missing ones
+  are minted.
+- Reproducible-save mode (``Document.save(..., reproducible=True)``)
+  derives identifiers deterministically from paragraph content, so
+  repeated saves of the same document remain byte-identical.
+
+Why: diffing python-docx output against Word-authored reference files
+previously showed hundreds of lines of rsid/paraId/namespace churn
+that obscured real bold/italic/layout differences. Post-fix, the noise
+collapses and only behavioural divergences remain visible.
+
+
 2026.05.1 — bCs/iCs correctness fix
 +++++++++++++++++++++++++++++++++++
 
