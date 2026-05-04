@@ -135,6 +135,7 @@ class Document(ElementProxy):
         text: str | None = "",
         author: str = "",
         initials: str | None = "",
+        date: dt.datetime | None = None,
     ) -> Comment:
         """Add a comment to the document, anchored to the specified runs.
 
@@ -164,6 +165,16 @@ class Document(ElementProxy):
         `initials` is optional on a comment and may be omitted by passing |None|, but Word adds an
         `initials` attribute by default and we follow that convention by using the empty string
         when no `initials` argument is provided.
+
+        `date` is the timestamp recorded on the comment's ``w:date`` attribute. When
+        omitted or |None|, ``datetime.now(timezone.utc)`` is used. Pass an explicit
+        datetime for reproducible-save scenarios where an implicit wall-clock
+        timestamp would defeat byte-identical output.
+
+        .. versionchanged:: 2026.05.5
+           Added the ``date`` parameter — previously only the lower-level
+           ``Document.comments.add_comment(date=...)`` accepted it, so
+           reproducible fixtures had to poke ``comment._element.date`` by hand.
         """
         # -- normalize `runs` to a sequence of runs --
         runs = [runs] if isinstance(runs, Run) else runs
@@ -171,7 +182,9 @@ class Document(ElementProxy):
         last_run = runs[-1]
 
         # -- Note that comments can only appear in the document part --
-        comment = self.comments.add_comment(text=text, author=author, initials=initials)
+        comment = self.comments.add_comment(
+            text=text, author=author, initials=initials, date=date
+        )
 
         # -- let the first run orchestrate placement of the comment range start and end --
         first_run.mark_comment_range(last_run, comment.comment_id)

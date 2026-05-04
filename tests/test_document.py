@@ -60,9 +60,36 @@ class DescribeDocument:
 
         comment = document.add_comment(run, "Comment text.")
 
-        comments_.add_comment.assert_called_once_with("Comment text.", "", "")
+        # Document.add_comment forwards to Comments.add_comment via kwargs
+        # since 2026.05.5 (the `date=` pass-through landed then).
+        comments_.add_comment.assert_called_once_with(
+            text="Comment text.", author="", initials="", date=None
+        )
         run_mark_comment_range_.assert_called_once_with(run, run, 42)
         assert comment is comment_
+
+    def it_forwards_an_explicit_date_to_the_comments_collection(
+        self,
+        document_part_: Mock,
+        comments_prop_: Mock,
+        comments_: Mock,
+        comment_: Mock,
+        run_mark_comment_range_: Mock,
+    ):
+        import datetime as dt
+
+        comment_.comment_id = 7
+        comments_.add_comment.return_value = comment_
+        comments_prop_.return_value = comments_
+        document = Document(cast(CT_Document, element("w:document/w:body/w:p/w:r")), document_part_)
+        run = document.paragraphs[0].runs[0]
+        fixed = dt.datetime(2026, 5, 4, tzinfo=dt.timezone.utc)
+
+        document.add_comment(run, "x", author="A", initials="A", date=fixed)
+
+        comments_.add_comment.assert_called_once_with(
+            text="x", author="A", initials="A", date=fixed
+        )
 
     @pytest.mark.parametrize(
         ("level", "style"), [(0, "Title"), (1, "Heading 1"), (2, "Heading 2"), (9, "Heading 9")]
