@@ -48,20 +48,32 @@ class DescribeRun:
         ("initial_r_cxml", "bool_prop_name", "value", "expected_cxml"),
         [
             # -- nothing to True, False, and None ---------------------------
-            ("w:r", "bold", True, "w:r/w:rPr/w:b"),
-            ("w:r", "bold", False, "w:r/w:rPr/w:b{w:val=0}"),
+            # Setting bold/italic mirrors to bCs/iCs (2026.05.1 fix for
+            # complex-script bold/italic being silently dropped by Word).
+            ("w:r", "bold", True, "w:r/w:rPr/(w:b,w:bCs)"),
+            ("w:r", "bold", False, "w:r/w:rPr/(w:b{w:val=0},w:bCs{w:val=0})"),
             ("w:r", "italic", None, "w:r/w:rPr"),
             # -- default to True, False, and None ---------------------------
-            ("w:r/w:rPr/w:b", "bold", True, "w:r/w:rPr/w:b"),
-            ("w:r/w:rPr/w:b", "bold", False, "w:r/w:rPr/w:b{w:val=0}"),
+            ("w:r/w:rPr/w:b", "bold", True, "w:r/w:rPr/(w:b,w:bCs)"),
+            ("w:r/w:rPr/w:b", "bold", False, "w:r/w:rPr/(w:b{w:val=0},w:bCs{w:val=0})"),
             ("w:r/w:rPr/w:i", "italic", None, "w:r/w:rPr"),
             # -- True to True, False, and None ------------------------------
-            ("w:r/w:rPr/w:b{w:val=on}", "bold", True, "w:r/w:rPr/w:b"),
-            ("w:r/w:rPr/w:b{w:val=1}", "bold", False, "w:r/w:rPr/w:b{w:val=0}"),
+            ("w:r/w:rPr/w:b{w:val=on}", "bold", True, "w:r/w:rPr/(w:b,w:bCs)"),
+            (
+                "w:r/w:rPr/w:b{w:val=1}",
+                "bold",
+                False,
+                "w:r/w:rPr/(w:b{w:val=0},w:bCs{w:val=0})",
+            ),
             ("w:r/w:rPr/w:b{w:val=1}", "bold", None, "w:r/w:rPr"),
             # -- False to True, False, and None -----------------------------
-            ("w:r/w:rPr/w:i{w:val=false}", "italic", True, "w:r/w:rPr/w:i"),
-            ("w:r/w:rPr/w:i{w:val=0}", "italic", False, "w:r/w:rPr/w:i{w:val=0}"),
+            ("w:r/w:rPr/w:i{w:val=false}", "italic", True, "w:r/w:rPr/(w:i,w:iCs)"),
+            (
+                "w:r/w:rPr/w:i{w:val=0}",
+                "italic",
+                False,
+                "w:r/w:rPr/(w:i{w:val=0},w:iCs{w:val=0})",
+            ),
             ("w:r/w:rPr/w:i{w:val=off}", "italic", None, "w:r/w:rPr"),
         ],
     )

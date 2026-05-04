@@ -318,12 +318,41 @@ class DescribeFont:
         font = Font(r)
         assert getattr(font, bool_prop_name) == expected_value
 
+    def it_mirrors_bold_to_complex_script_bold(self):
+        # Word emits <w:b/> and <w:bCs/> together. Omitting <w:bCs/>
+        # drops bold on complex-script runs (Arabic/Hebrew/Thai).
+        r = cast(CT_R, element("w:r"))
+        font = Font(r)
+
+        font.bold = True
+
+        assert font.bold is True
+        assert font.cs_bold is True
+        font.bold = False
+        assert font.cs_bold is False
+        font.bold = None
+        assert font.cs_bold is None
+
+    def it_mirrors_italic_to_complex_script_italic(self):
+        r = cast(CT_R, element("w:r"))
+        font = Font(r)
+
+        font.italic = True
+
+        assert font.italic is True
+        assert font.cs_italic is True
+        font.italic = False
+        assert font.cs_italic is False
+        font.italic = None
+        assert font.cs_italic is None
+
     @pytest.mark.parametrize(
         ("r_cxml", "prop_name", "value", "expected_cxml"),
         [
             # nothing to True, False, and None ---------------------------
             ("w:r", "all_caps", True, "w:r/w:rPr/w:caps"),
-            ("w:r", "bold", False, "w:r/w:rPr/w:b{w:val=0}"),
+            # bold mirrors to bCs (2026.05.1 fix for complex-script bold loss)
+            ("w:r", "bold", False, "w:r/w:rPr/(w:b{w:val=0},w:bCs{w:val=0})"),
             ("w:r", "italic", None, "w:r/w:rPr"),
             # default to True, False, and None ---------------------------
             ("w:r/w:rPr/w:cs", "complex_script", True, "w:r/w:rPr/w:cs"),
@@ -344,7 +373,13 @@ class DescribeFont:
             ),
             ("w:r/w:rPr/w:vanish{w:val=1}", "hidden", None, "w:r/w:rPr"),
             # False to True, False, and None -----------------------------
-            ("w:r/w:rPr/w:i{w:val=false}", "italic", True, "w:r/w:rPr/w:i"),
+            # italic mirrors to iCs (2026.05.1 fix for complex-script italic loss)
+            (
+                "w:r/w:rPr/w:i{w:val=false}",
+                "italic",
+                True,
+                "w:r/w:rPr/(w:i,w:iCs)",
+            ),
             (
                 "w:r/w:rPr/w:imprint{w:val=0}",
                 "imprint",

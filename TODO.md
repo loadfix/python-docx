@@ -13,13 +13,6 @@ a candidate for a future implementation wave. Grouped by repo.
 - **Bibliography / citation support.** `Document.bibliography` read
   exists but not create. Need `Document.add_citation()` wiring the
   `customXml/bibliography.xml` part.
-- **Emit `w:bCs` / `w:iCs` alongside `w:b` / `w:i` for CS-affecting
-  runs.** Three-way diff of the corpus bold-text manifest shows Word
-  writes both `<w:b/>` and `<w:bCs/>` (complex-script bold). python-docx
-  emits only `<w:b/>`, so bold on Arabic/Hebrew/Thai text is dropped by
-  Word on load. Same issue for italic (`<w:i/>` vs `<w:iCs/>`).
-  Surfaced by `ooxml-reference-corpus/features/docx/bold-text.json`
-  three-way comparison on 2026-05-04.
 
 ## pptx
 
