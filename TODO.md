@@ -51,6 +51,19 @@ a candidate for a future implementation wave. Grouped by repo.
 All 2026.05.0 feature work. See `HISTORY.rst` and `FEATURES.md` for the
 shipped surface.
 
+### Performance fixes
+
+- **W11-A: O(N^2) indexing on `_Rows[i]` and `Document.paragraphs[i]`**
+  (closed 2026-05-05 on `fix/w11-a-indexing-perf`). `_Rows.__getitem__`
+  and `BlockItemContainer.paragraphs` both materialised the entire
+  child list on every call; a naive indexed loop was O(N^2). Replaced
+  `_Rows.__getitem__` with direct `tr_lst[idx]` access and replaced
+  `BlockItemContainer.paragraphs` with a lazy
+  `_ParagraphsView(Sequence[Paragraph])` that memoises `p_lst` on
+  first access. Cached-idiom access dropped from ~1.53 ms/access to
+  ~0.0007 ms/access at N=5 000 paragraphs. See `SCALE_NOTES.md` for
+  methodology and post-fix numbers.
+
 ---
 
 ## Conformance gaps (auto-filed from corpus 2026-05-04 overnight run)

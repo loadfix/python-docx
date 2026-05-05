@@ -1471,8 +1471,13 @@ class Describe_Cell:
         # -- every w:p produces a Paragraph instance --
         assert len(paragraphs) == 2
         assert all(isinstance(p, Paragraph) for p in paragraphs)
-        # -- the return value is iterable and indexable --
-        assert all(p is paragraphs[idx] for idx, p in enumerate(paragraphs))
+        # -- the return value is iterable and indexable — iteration and
+        # -- [idx] agree on the wrapped <w:p> element. (Paragraph
+        # -- proxies have distinct identities across accesses; we
+        # -- compare the wrapped element instead.) --
+        assert all(
+            p._p is paragraphs[idx]._p for idx, p in enumerate(paragraphs)
+        )
 
     @pytest.mark.parametrize(
         ("tc_cxml", "expected_table_count"),
