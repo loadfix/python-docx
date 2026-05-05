@@ -694,7 +694,7 @@ layout algorithm keyed by its canonical `loTypeId` URN; Word's own
 layout engine handles rendering, so the embedded `layout1.xml` copy
 exists to satisfy package requirements rather than to drive geometry.
 `[Added in 2026.05.0]` (read-side); `add_smart_art` / `add_node`
-`[Added in 2026.05.7]`.
+`[Added in 2026.05.8]`.
 
 ```python
 from docx import Document
@@ -718,9 +718,9 @@ for diagram in document.smart_art:
 
 - `Document.add_smart_art(layout_name, width=None, height=None)` — Return a new
   empty `SmartArt`. `layout_name` is one of `"list"`, `"cycle"`, `"process"`
-  (case-insensitive). `[Added in 2026.05.7]`
+  (case-insensitive). `[Added in 2026.05.8]`
 - `SmartArt.add_node(text)` — Append a top-level content node and return
-  its `SmartArtNode`. `[Added in 2026.05.7]`
+  its `SmartArtNode`. `[Added in 2026.05.8]`
 - `Document.smart_art` — List of `SmartArt`. `[Added in 2026.05.0]`
 - `SmartArt.data_partname` / `SmartArt.dm_rId` / `SmartArt.nodes` / `SmartArt.text`. `[Added in 2026.05.0]`
 - `SmartArtNode.text` / `.level` / `.model_id` / `.children`. `[Added in 2026.05.0]`
@@ -803,7 +803,7 @@ document.save("out.docx")
 - `Document.sections` — `Sections` sequence. `pop(index=-1)` is `[Added in 2026.05.0]`.
 - `Document.add_section(start_type=WD_SECTION.NEW_PAGE)` — Append a new section.
 - `Section.start_type` / `Section.orientation` / `Section.page_height` / `Section.page_width` / `Section.left_margin` / `Section.right_margin` / `Section.top_margin` / `Section.bottom_margin` / `Section.header_distance` / `Section.footer_distance` / `Section.gutter` — Page metrics.
-- `Section.vertical_alignment` — Vertical alignment of text on the page (`WD_VERTICAL_ALIGNMENT.TOP` / `.CENTER` / `.BOTH` / `.BOTTOM`); maps to `w:sectPr/w:vAlign` (ECMA-376 17.6.22). `[Added in 2026.05.0]`
+- `Section.vertical_alignment` — Vertical alignment of text on the page (`WD_VERTICAL_ALIGNMENT.TOP` / `.CENTER` / `.BOTH` / `.BOTTOM`); maps to `w:sectPr/w:vAlign` (ECMA-376 17.6.22). `[Added in 2026.05.6]`
 - `Section.columns` / `Section.set_columns(count, equal_width=True, space=None, widths=None)` — Multi-column layout. `set_columns` is `[Added in 2026.05.0]`.
 - `Section.page_borders` / `Section.set_page_border(side, ...)` / `Section.remove_page_borders()` — Page-level borders. `[Added in 2026.05.0]`
 - `Section.line_numbering` / `Section.set_line_numbering(...)` / `Section.remove_line_numbering()` — `[Added in 2026.05.0]`
@@ -886,7 +886,7 @@ for c in document.comments:
 document.save("out.docx")
 ```
 
-- `Document.add_comment(runs, text="", author="", initials="")` — Add a comment with a reference range.
+- `Document.add_comment(runs, text="", author="", initials="", date=None)` — Add a comment with a reference range. `date` kwarg is `[Added in 2026.05.5]`.
 - `Document.comments` — `Comments` collection.
 - `Comments.add_comment(...)` / `Comments.get(comment_id)` / iteration / `len()`.
 - `Comment.text` / `Comment.author` / `Comment.initials` / `Comment.comment_id` / `Comment.timestamp` — Core properties. `author` and `initials` are writable. `timestamp` is timezone-aware.
@@ -1013,9 +1013,9 @@ document.save("out.docx")
 - `Paragraph.add_complex_field(instr, result_text=None)` — Append `begin`/`separate`/`end`. `[Added in 2026.05.0]`
 - `Paragraph.fields` — Mixed list of simple and complex fields. `[Added in 2026.05.0]`
 - `Field.instruction` / `Field.type` / `Field.result_text` / `Field.is_complex` / `Field.is_dirty` / `Field.mark_dirty()` / `Field.update_result_text(new_text)` / `Field.resolve(document)`. `[Added in 2026.05.0]`
-- `Field.evaluate(context)` — Evaluate `IF` (with nested `{MERGEFIELD}`), `MERGEFIELD`, `HYPERLINK`, `= <expr>` arithmetic formula, and `PAGE` / `NUMPAGES` / `DATE` / `TIME` placeholders against a caller-supplied mapping. `[Added in 2026.05.7]`
+- `Field.evaluate(context)` — Evaluate `IF` (with nested `{MERGEFIELD}`), `MERGEFIELD`, `HYPERLINK`, `= <expr>` arithmetic formula, and `PAGE` / `NUMPAGES` / `DATE` / `TIME` placeholders against a caller-supplied mapping. `[Added in 2026.05.8]`
 - `Document.resolve_cross_references()` — Walk the body, resolve `REF`/`PAGEREF`/`DOCPROPERTY`/core-property fields, return count updated. `[Added in 2026.05.0]`
-- `Document.evaluate_fields(context)` — Batch-apply `Field.evaluate` across every field in the body; writes the evaluated text back in place and returns the number of fields updated. `[Added in 2026.05.7]`
+- `Document.evaluate_fields(context)` — Batch-apply `Field.evaluate` across every field in the body; writes the evaluated text back in place and returns the number of fields updated. `[Added in 2026.05.8]`
 - Field type detection: `docx.fields.WD_FIELD_TYPE` constants. `[Added in 2026.05.0]`
 
 ```python
@@ -1160,7 +1160,7 @@ part with a `<b:Sources>` root element. python-docx exposes the read path
 via `Document.bibliography` and the write path via `Document.add_citation`
 plus `Paragraph.add_citation_reference`. The bibliography part (and its
 sibling `itemProps{N}.xml` datastore part) is materialized lazily on first
-use. `[Added in 2026.05.7]`.
+use. `[Added in 2026.05.8]`.
 
 ```python
 from docx import Document
@@ -1200,13 +1200,13 @@ assert hit is not None and hit.year == "2020"
 document.save("out.docx")
 ```
 
-- `Document.bibliography` — Returns a |Bibliography| proxy; lazily creates the customXml part. `[Added in 2026.05.7]`
-- `Document.add_citation(tag, title=None, author=None, year=None, source_type="Book", **extra)` — Append a |Source| and return it. `[Added in 2026.05.7]`
-- `Paragraph.add_citation_reference(tag, result_text=None, locale_id=1033)` — Insert a `<w:sdt>` with a `CITATION` field referencing `tag`. `[Added in 2026.05.7]`
-- `Bibliography.sources` — List of every |Source|. `[Added in 2026.05.7]`
-- `Bibliography.get_by_tag(tag)` — Lookup; returns |Source| or |None|. `[Added in 2026.05.7]`
-- `Bibliography.selected_style` / `.style_name` — APA / MLA / etc. style selector. `[Added in 2026.05.7]`
-- `Source.tag` / `.title` / `.author` / `.year` / `.source_type` / `.element`. `[Added in 2026.05.7]`
+- `Document.bibliography` — Returns a |Bibliography| proxy; lazily creates the customXml part. `[Added in 2026.05.8]`
+- `Document.add_citation(tag, title=None, author=None, year=None, source_type="Book", **extra)` — Append a |Source| and return it. `[Added in 2026.05.8]`
+- `Paragraph.add_citation_reference(tag, result_text=None, locale_id=1033)` — Insert a `<w:sdt>` with a `CITATION` field referencing `tag`. `[Added in 2026.05.8]`
+- `Bibliography.sources` — List of every |Source|. `[Added in 2026.05.8]`
+- `Bibliography.get_by_tag(tag)` — Lookup; returns |Source| or |None|. `[Added in 2026.05.8]`
+- `Bibliography.selected_style` / `.style_name` — APA / MLA / etc. style selector. `[Added in 2026.05.8]`
+- `Source.tag` / `.title` / `.author` / `.year` / `.source_type` / `.element`. `[Added in 2026.05.8]`
 
 ---
 
@@ -1379,7 +1379,7 @@ document.save("out.docx")
 
 - `Document.core_properties` — `CoreProperties` (author, title, subject, keywords, category, comments, content_status, identifier, language, version, created, last_modified_by, last_printed, modified, revision).
 - `Document.custom_properties` — `CustomProperties` mapping. `[Added in 2026.05.0]`
-- `CustomProperties.__getitem__` / `__setitem__` / `__delitem__` / `__contains__` / `__len__` / `__iter__` / `.add(name, value)` / `.get(name, default=None)` / `.names()` / `.items()` — Full mapping interface. Supports `str`, `int`, `float`, `bool`, and date strings. `[Added in 2026.05.0]`
+- `CustomProperties.__getitem__` / `__setitem__` / `__delitem__` / `__contains__` / `__len__` / `__iter__` / `.add(name, value)` / `.get(name, default=None)` / `.names()` / `.items()` — Full mapping interface. Supports `str`, `int`, `float`, `bool`, and date strings. `[Added in 2026.05.0]`. `datetime.date` values serialise as `vt:date` (ISO-8601 `YYYY-MM-DD`) and `datetime.datetime` values as `vt:filetime`. `[Added in 2026.05.8]`
 - `Document.extended_properties` — `ExtendedProperties` (`app.xml`) proxy. `[Added in 2026.05.0]`
 - `ExtendedProperties.get(name)` / `.set(name, value)` / `.clear_all()` — Generic reads/writes; typed property accessors (`company`, `manager`, `pages`, `words`, `characters`, `total_time`, `application`, `app_version`, `template`, etc.) are generated from a declarative spec. `[Added in 2026.05.0]`
 
