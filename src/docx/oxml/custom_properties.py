@@ -115,7 +115,7 @@ class CT_CustomProperty(BaseOxmlElement):
 
         Returns |None| if the property has no recognized value child. Supported types:
         str (`vt:lpwstr`, `vt:lpstr`), int (`vt:i4`, `vt:int`), float (`vt:r8`),
-        bool (`vt:bool`), datetime (`vt:filetime`).
+        bool (`vt:bool`), datetime (`vt:filetime`), date (`vt:date`).
         """
         vt_child = self._vt_child
         if vt_child is None:
@@ -132,6 +132,8 @@ class CT_CustomProperty(BaseOxmlElement):
             return text.strip().lower() in ("true", "1")
         if localname == "filetime":
             return _parse_filetime(text)
+        if localname == "date":
+            return _parse_date(text)
         # -- unrecognized type: return raw text --
         return text
 
@@ -144,10 +146,12 @@ class CT_CustomProperty(BaseOxmlElement):
         * int → `vt:i4`
         * float → `vt:r8`
         * datetime → `vt:filetime` (naive datetimes treated as UTC)
+        * date (but not datetime) → `vt:date` (format `YYYY-MM-DD`)
         * str → `vt:lpwstr`
         """
         # -- NOTE: `bool` must be checked before `int` because `isinstance(True, int)`
-        # -- is True in Python.
+        # -- is True in Python. Similarly `datetime` must be checked before `date`
+        # -- because `datetime` is a subclass of `date`.
         if isinstance(value, bool):
             localname, text = "bool", "true" if value else "false"
         elif isinstance(value, int):
@@ -156,6 +160,8 @@ class CT_CustomProperty(BaseOxmlElement):
             localname, text = "r8", repr(value)
         elif isinstance(value, dt.datetime):
             localname, text = "filetime", _format_filetime(value)
+        elif isinstance(value, dt.date):
+            localname, text = "date", _format_date(value)
         elif isinstance(value, str):
             localname, text = "lpwstr", value
         else:
@@ -220,3 +226,32 @@ def _format_filetime(value: dt.datetime) -> str:
     if value.tzinfo is not None:
         value = value.astimezone(dt.timezone.utc).replace(tzinfo=None)
     return value.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _parse_date(text: str) -> dt.date:
+    """Parse a `vt:date` value (ISO-8601 date, `YYYY-MM-DD`) into a `datetime.date`.
+
+    Per ECMA-376 Part 1 §22.4.2.7 a `vt:date` is a `xsd:date` — just the date
+    portion without a time component. Some producers tack on a trailing `Z` or
+    time-zone suffix even though the spec forbids it; we tolerate both on read
+    and discard the extraneous portion.
+    """
+    s = text.strip()
+    # -- strip a trailing `Z` or timezone designator that some producers emit --
+    if s.endswith("Z"):
+        s = s[:-1]
+    if len(s) >= 6 and s[-6] in ("+", "-") and s[-3] == ":":
+        s = s[:-6]
+    # -- if a time component sneaks in, keep only the date portion --
+    if "T" in s:
+        s = s.split("T", 1)[0]
+    return dt.datetime.strptime(s, "%Y-%m-%d").date()
+
+
+def _format_date(value: dt.date) -> str:
+    """Format a `datetime.date` as an ISO-8601 `YYYY-MM-DD` string for `vt:date`.
+
+    No time or zone suffix is appended — `vt:date` carries only a calendar
+    date per ECMA-376 Part 1 §22.4.2.7.
+    """
+    return value.strftime("%Y-%m-%d")

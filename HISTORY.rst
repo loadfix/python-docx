@@ -3,6 +3,20 @@
 Release History
 ---------------
 
+2026.05.7 — CustomProperties accepts datetime.date (vt:date)
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+- ``CustomProperties`` now accepts ``datetime.date`` values (distinct
+  from ``datetime.datetime``) and serialises them as ``vt:date``
+  (ISO-8601 ``YYYY-MM-DD``) per ECMA-376 Part 1 §22.4.2.7. On read a
+  ``vt:date`` element deserialises back to a plain ``datetime.date``;
+  ``datetime.datetime`` values continue to round-trip as
+  ``vt:filetime`` (ISO-8601 with trailing ``Z``).
+- Surfaced by Wave 3-B: only ``python-xlsx`` previously mapped
+  ``date`` to ``vt:date``; ``python-docx`` and ``python-pptx`` only
+  recognised ``datetime``.
+
+
 2026.05.6 — Section.vertical_alignment property
 ++++++++++++++++++++++++++++++++++++++++++++++++
 

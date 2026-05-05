@@ -80,6 +80,19 @@ class DescribeCustomProperties:
         assert cp["ReleaseDate"] == moment
         assert isinstance(cp["ReleaseDate"], dt.datetime)
 
+    def it_can_add_and_read_back_a_date_value(self, part_: Mock):
+        """`datetime.date` values round-trip as `vt:date` (distinct from `datetime`)."""
+        cp = _empty_collection(part_)
+        review_date = dt.date(2024, 1, 15)
+
+        cp.add("ReviewDate", review_date)
+
+        retrieved = cp["ReviewDate"]
+        assert retrieved == review_date
+        assert isinstance(retrieved, dt.date)
+        # -- must not be widened to a `datetime` on read --
+        assert not isinstance(retrieved, dt.datetime)
+
     def it_raises_KeyError_on_missing_name(self, part_: Mock):
         cp = _empty_collection(part_)
 
