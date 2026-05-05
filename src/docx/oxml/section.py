@@ -17,7 +17,9 @@ from docx.enum.section import (
     WD_LINE_NUMBERING_RESTART,
     WD_ORIENTATION,
     WD_SECTION_START,
+    WD_VERTICAL_ALIGNMENT,
 )
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
 from docx.oxml.ns import nsmap
 from docx.oxml.shared import CT_OnOff
 from docx.oxml.simpletypes import (
@@ -42,7 +44,7 @@ if TYPE_CHECKING:
     from docx.enum.table import WD_TEXT_DIRECTION
     from docx.oxml.endnotes import CT_EdnDocProps
     from docx.oxml.footnotes import CT_FtnDocProps
-    from docx.oxml.table import CT_TextDirection
+    from docx.oxml.table import CT_TextDirection, CT_VerticalJc
     from docx.oxml.text.parfmt import CT_Border
 
 BlockElement: TypeAlias = "CT_P | CT_Tbl"
@@ -247,6 +249,7 @@ class CT_SectPr(BaseOxmlElement):
     get_or_add_textDirection: Callable[[], "CT_TextDirection"]
     get_or_add_titlePg: Callable[[], CT_OnOff]
     get_or_add_type: Callable[[], CT_SectType]
+    get_or_add_vAlign: Callable[[], "CT_VerticalJc"]
     get_or_add_footnotePr: Callable[[], "CT_FtnDocProps"]
     get_or_add_endnotePr: Callable[[], "CT_EdnDocProps"]
     _add_footerReference: Callable[[], CT_HdrFtrRef]
@@ -261,6 +264,7 @@ class CT_SectPr(BaseOxmlElement):
     _remove_textDirection: Callable[[], None]
     _remove_titlePg: Callable[[], None]
     _remove_type: Callable[[], None]
+    _remove_vAlign: Callable[[], None]
 
     _tag_seq = (
         "w:footnotePr",
@@ -312,6 +316,9 @@ class CT_SectPr(BaseOxmlElement):
     )
     cols: CT_Cols | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:cols", successors=_tag_seq[10:]
+    )
+    vAlign: "CT_VerticalJc | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:vAlign", successors=_tag_seq[12:]
     )
     titlePg: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:titlePg", successors=_tag_seq[14:]
@@ -486,6 +493,31 @@ class CT_SectPr(BaseOxmlElement):
         if pgSz.orient != new_orient and pgSz.w is not None and pgSz.h is not None:
             pgSz.w, pgSz.h = pgSz.h, pgSz.w
         pgSz.orient = new_orient
+
+    @property
+    def vertical_alignment(self) -> WD_VERTICAL_ALIGNMENT | None:
+        """`WD_VERTICAL_ALIGNMENT` member for this section, or |None|.
+
+        This is the value of the `w:val` attribute on the `w:vAlign` child,
+        translated from ST_VerticalJc XML tokens ("top", "center", "both",
+        "bottom"). |None| when the `w:vAlign` child is not present.
+        """
+        vAlign = self.vAlign
+        if vAlign is None:
+            return None
+        # -- `CT_VerticalJc.val` is typed as WD_CELL_VERTICAL_ALIGNMENT; both
+        # -- enums share the same ST_VerticalJc XML tokens, so we convert
+        # -- through the XML value to get the correct section-level member.
+        xml_value = WD_CELL_VERTICAL_ALIGNMENT.to_xml(vAlign.val)
+        return WD_VERTICAL_ALIGNMENT.from_xml(xml_value)
+
+    @vertical_alignment.setter
+    def vertical_alignment(self, value: WD_VERTICAL_ALIGNMENT | None):
+        if value is None:
+            self._remove_vAlign()
+            return
+        xml_value = WD_VERTICAL_ALIGNMENT.to_xml(value)
+        self.get_or_add_vAlign().val = WD_CELL_VERTICAL_ALIGNMENT.from_xml(xml_value)
 
     @property
     def page_height(self) -> Length | None:
