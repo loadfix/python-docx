@@ -60,21 +60,15 @@ The 950-case OOXML reference corpus
 `d75cfc7`) surfaced one authoring-side API gap. Linked to the driving
 corpus manifest on GitHub with an actionable fix hypothesis.
 
-- **`Section.vertical_alignment` property is missing.** Driving
-  manifest:
-  [features/docx/vertical-alignment.json](https://github.com/loadfix/ooxml-validate/blob/master/features/docx/vertical-alignment.json)
-  (P25 finding). Authoring a section with vertical alignment other
-  than the `top` default currently requires falling back to raw
-  `OxmlElement("w:vAlign")` access on `Section._sectPr` because the
-  `Section` proxy (in `src/docx/section.py`) exposes no accessor for
-  `w:vAlign`. Fix: add a `Section.vertical_alignment` property with
-  getter+setter backed by a new `WD_SECTION_VERTICAL_ALIGNMENT` enum
-  (values `TOP=0`, `CENTER=1`, `BOTH=2`, `BOTTOM=3`, mapping to XML
-  `top` / `center` / `both` / `bottom` respectively; see
-  `spec/xsd/wml.xsd` `ST_VerticalJc`). Plumb it through `CT_SectPr`
-  in `src/docx/oxml/section.py` as a `ZeroOrOne("w:vAlign",
-  successors=(...))` following the existing successor-ordering
-  pattern used by siblings like `titlePg` / `docGrid`. Add unit tests
-  under `tests/unit/test_section.py` following the existing
-  `Describe*` / `it_*` BDD convention, a behave scenario under
-  `features/sct-*.feature`, and the FEATURES.md entry.
+### Resolved in overnight wave 1
+
+- ~~**`Section.vertical_alignment` property is missing.**~~ **RESOLVED
+  in commit `1657c0e`** (overnight N4, merged via `cc2afbd`). The
+  `Section.vertical_alignment` property now exists with a
+  `WD_VERTICAL_ALIGNMENT` enum (`TOP=0`, `CENTER=1`, `BOTH=2`,
+  `BOTTOM=3`) backed by `ZeroOrOne("w:vAlign", ...)` on `CT_SectPr`.
+  Unit tests, behave scenario, and `FEATURES.md` entry all shipped.
+  Driving manifest:
+  [features/docx/vertical-alignment.json](https://github.com/loadfix/ooxml-validate/blob/master/features/docx/vertical-alignment.json).
+  See `src/docx/section.py:458-471` and
+  `src/docx/oxml/section.py`.
