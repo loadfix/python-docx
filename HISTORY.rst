@@ -3,6 +3,33 @@
 Release History
 ---------------
 
+2026.05.6 — Section.vertical_alignment property
+++++++++++++++++++++++++++++++++++++++++++++++++
+
+Released: 2026-05-05
+
+- Add ``Section.vertical_alignment`` property + setter.
+- Add ``WD_VERTICAL_ALIGNMENT`` enum (``TOP`` / ``CENTER`` / ``BOTH``
+  / ``BOTTOM``) mapping to OOXML ``ST_VerticalJc``.
+- Plumbed through ``CT_SectPr.vAlign``, following the existing
+  ``Section.orientation`` pattern.
+- 12 parametrised unit tests in ``tests/test_section.py``.
+
+Surfaced by the ``docx/vertical-alignment`` parameterised family in
+``loadfix/ooxml-reference-corpus`` — section-level cases previously
+required ``OxmlElement("w:vAlign")`` fallback.
+
+
+2026.05.5 — Document.add_comment accepts date=
+++++++++++++++++++++++++++++++++++++++++++++++
+
+Released: 2026-05-04
+
+- ``Document.add_comment()`` now forwards an optional
+  ``date: datetime`` kwarg to the underlying comments collection,
+  mirroring ``Comments.add_comment(date=...)``.
+
+
 2026.05.4 — Word-mimicry phase 3: omit unused optional parts
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
