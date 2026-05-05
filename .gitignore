@@ -5,6 +5,7 @@
 /src/*.egg-info
 *.pyc
 .pytest_cache/
+.hypothesis/
 _scratch/
 Session.vim
 /.tox/

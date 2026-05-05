@@ -40,6 +40,8 @@ dev = [
     "Sphinx==1.8.6",
     "alabaster<0.7.14",
     "behave>=1.2.6",
+    # Property-based tests under tests/property/ (wave 6-F).
+    "hypothesis>=6.0",
     "pyparsing>=3.2.3",
     "pyright>=1.1.401",
     "pytest>=8.4.0",
@@ -90,6 +92,10 @@ norecursedirs = [
     "ref",
     "_scratch",
     ".tox",
+    # -- hypothesis stashes its shrink database here under tests/; the
+    #    hypothesis pytest plugin warns if this directory is not
+    #    excluded from collection. --
+    ".hypothesis",
 ]
 python_files = ["test_*.py"]
 python_classes = ["Test", "Describe"]
