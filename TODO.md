@@ -10,9 +10,9 @@ a candidate for a future implementation wave. Grouped by repo.
 - [ ] **Close GitHub issue #172 (bare `KeyError('[Content_Types].xml')` on missing part).** Wrap in a typed `PackageNotFoundError` (or similar) at the OPC load boundary.
 - [ ] **Bump README "Current version" string.** Currently reads `2026.05.0`; should be `2026.05.8`.
 - [ ] **Git-tag all untagged releases.** Only `v2026.05.0` has a git tag; `v2026.05.1` through `v2026.05.8` have HISTORY.rst entries but no git tags. Add all 8 missing tags.
-- [ ] **Land W11-D `UPSTREAM_SYNC.md` onto master.** Commit `d2d5cdcf` lives only on branch `feat/w11-d-upstream-sync`; merge to master so upstream divergence is documented on the canonical tree.
+- [x] **Land W11-D `UPSTREAM_SYNC.md` onto master.** Commit `d2d5cdcf` lives only on branch `feat/w11-d-upstream-sync`; merged to master via merge commit `721b7753` so upstream divergence is documented on the canonical tree.
 - [ ] **Seal submodule oxml leakage.** 590 `CT_*`/`ST_*` names reachable via `docx.oxml.*` / `docx.dml.color.*` / `docx.drawing.*` / etc. Add explicit `__all__` to public submodules (without breaking internal re-imports).
-- [ ] **Fix dev-extras portability.** `pyproject.toml` declares `ooxml-validate @ file:///home/ben/code/ooxml-validate` which is a host-specific absolute path. Replace with a relative path or VCS URL, or make the extra optional.
+- [x] **Fix dev-extras portability.** `pyproject.toml` declared `ooxml-validate @ file:///home/ben/code/ooxml-validate`, a host-specific absolute path. Moved out of `[dev]` into a new opt-in `[conformance]` extra pointing at the GitHub VCS URL so `pip install -e '.[dev]'` works for external contributors.
 - [ ] **Delete obsolete `.travis.yml`.** 243 bytes of dead config; `.github/` was deliberately removed.
 - [ ] **Move scratch audit artefacts to `audits/`.** DOCS_AUDIT.md (49KB), DOCS_SIBLING_AUDIT.md (47KB), FEATURES_AUDIT.md (42KB), TEST_AUDIT.md (30KB), INTEROP_REPORT.md (17KB), SCALE_NOTES.md (5KB), real-world-audit-findings.md (11KB) accumulating at repo root — move to an `audits/` subdirectory or delete after resolution.
 - [ ] **Prune merged remote branches.** ~14 feature branches on origin (`feat/w10-*`, `fix/w8-*`, `chore/overnight-*`, `worktree-agent-*`) merged but not deleted.
