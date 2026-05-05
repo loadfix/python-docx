@@ -1,11 +1,11 @@
-"""Read-only proxy objects for SmartArt diagrams.
+"""Proxy objects for SmartArt diagrams.
 
 A SmartArt diagram is a DrawingML *diagram* embedded in the document via a
 ``w:drawing`` whose ``a:graphicData`` contains a ``dgm:relIds`` element. The
 actual content (tree of nodes with text) lives in a companion
 ``word/diagrams/dataN.xml`` part that this module parses.
 
-python-docx exposes SmartArt read-only. Callers can:
+python-docx exposes SmartArt for both reading and authoring. Callers can:
 
 * Detect SmartArt on any :class:`Drawing` via :attr:`Drawing.is_smart_art`
   and :attr:`Drawing.smart_art`.
@@ -13,6 +13,8 @@ python-docx exposes SmartArt read-only. Callers can:
   :attr:`Document.smart_art`.
 * Walk the parsed node tree via :attr:`SmartArt.nodes`, or fetch the full
   concatenated text via :attr:`SmartArt.text`.
+* Append a new SmartArt via :meth:`docx.document.Document.add_smart_art` and
+  populate it by calling :meth:`SmartArt.add_node` one text string at a time.
 
 Hierarchy reconstruction uses the ``dgm:cxnLst`` connection list — edges of
 type ``parOf`` express parent/child relationships between nodes. When the
@@ -34,6 +36,7 @@ from docx.oxml.smart_art import (
 )
 
 if TYPE_CHECKING:
+    from docx.document import Document
     from docx.oxml.drawing import CT_Drawing
     from docx.parts.smart_art import DiagramDataPart
 
@@ -172,6 +175,42 @@ class SmartArt:
             _append_text_lines(root, lines)
         return "\n".join(lines)
 
+    def add_node(self, text: str) -> SmartArtNode:
+        """Append a top-level content node carrying `text` and return its proxy.
+
+        Nodes are appended in call order and become the children of the
+        diagram's ``type="doc"`` root point. A fresh UUID-shaped ``modelId``
+        is allocated for both the new ``dgm:pt`` and its parent ``parOf``
+        connection. The ``srcOrd`` attribute of the new connection is set to
+        the current number of top-level content nodes, so Word's layout
+        algorithm preserves insertion order.
+
+        Raises :class:`RuntimeError` when the SmartArt has no resolvable
+        data part — the read-only wrapper returned for a drawing whose
+        ``dgm:relIds`` does not resolve to a ``DiagramDataPart`` cannot
+        be authored against.
+
+        .. versionadded:: 2026.05.7
+        """
+        import uuid as _uuid
+
+        from docx.oxml.smart_art import add_data_node, get_root_doc_pt_id
+
+        if self._data_part is None:
+            raise RuntimeError(
+                "cannot add a node to a SmartArt whose data part did not resolve"
+            )
+
+        data_model = self._data_part.data_model
+        parent_id = get_root_doc_pt_id(data_model)
+        # -- src_ord: count of existing content nodes whose parent is the root --
+        src_ord = _count_direct_children(data_model, parent_id)
+        model_id = "{%s}" % str(_uuid.uuid4()).upper()
+        pt_el = add_data_node(
+            data_model, model_id, text, parent_id=parent_id, src_ord=src_ord
+        )
+        return SmartArtNode(pt_el, level=0)
+
 
 def _build_nodes(data_model: CT_DataModel) -> list[SmartArtNode]:
     """Return top-level :class:`SmartArtNode` trees for *data_model*.
@@ -244,6 +283,15 @@ def _append_text_lines(node: SmartArtNode, lines: list[str]) -> None:
         _append_text_lines(child, lines)
 
 
+def _count_direct_children(data_model: CT_DataModel, parent_id: str) -> int:
+    """Return the number of ``parOf`` connections whose ``srcId`` is `parent_id`."""
+    count = 0
+    for cxn in data_model.cxn_lst:
+        if cxn.type in (None, "parOf") and cxn.srcId == parent_id:
+            count += 1
+    return count
+
+
 def smart_art_for_drawing(
     drawing: CT_Drawing,
     document_part,
@@ -278,8 +326,91 @@ def smart_art_for_drawing(
     return SmartArt(relIds, data_part)
 
 
+_SUPPORTED_LAYOUTS = ("list", "cycle", "process")
+
+
+def add_smart_art_to_document(
+    document: "Document",
+    layout_name: str,
+    cx: int,
+    cy: int,
+) -> SmartArt:
+    """Create the four SmartArt companion parts and append an inline drawing.
+
+    ``document`` is the owning :class:`~docx.document.Document` proxy.
+    ``layout_name`` must be one of ``"list"``, ``"cycle"`` or ``"process"``
+    (case-insensitive). ``cx`` / ``cy`` are the EMU display dimensions for the
+    inline drawing.
+
+    Wires up:
+
+    * a new ``word/diagrams/dataN.xml`` part (diagram data)
+    * a new ``word/diagrams/layoutN.xml`` part (diagram layout)
+    * a new ``word/diagrams/quickStyleN.xml`` part (diagram quick style)
+    * a new ``word/diagrams/colorsN.xml`` part (diagram colours)
+    * four relationships from the document part to those four companions
+    * a new paragraph at the end of the body whose run carries a
+      ``w:drawing`` referencing the four rIds
+
+    The returned :class:`SmartArt` is fully authorable via :meth:`SmartArt.add_node`.
+
+    .. versionadded:: 2026.05.7
+    """
+    from docx.opc.constants import RELATIONSHIP_TYPE as _RT
+    from docx.oxml.smart_art import new_smart_art_inline
+    from docx.parts.smart_art import (
+        DiagramColorsPart,
+        DiagramDataPart,
+        DiagramLayoutPart,
+        DiagramStylePart,
+    )
+
+    layout_key = layout_name.lower()
+    if layout_key not in _SUPPORTED_LAYOUTS:
+        raise ValueError(
+            f"unsupported SmartArt layout {layout_name!r}; "
+            f"expected one of {_SUPPORTED_LAYOUTS!r}"
+        )
+
+    document_part = document.part
+    package = document_part.package
+    assert package is not None
+
+    data_part = DiagramDataPart.new(package, layout_key)
+    layout_part = DiagramLayoutPart.new(package)
+    qs_part = DiagramStylePart.new(package)
+    colors_part = DiagramColorsPart.new(package)
+
+    dm_rId = document_part.relate_to(data_part, _RT.DIAGRAM_DATA)
+    lo_rId = document_part.relate_to(layout_part, _RT.DIAGRAM_LAYOUT)
+    qs_rId = document_part.relate_to(qs_part, _RT.DIAGRAM_QUICK_STYLE)
+    cs_rId = document_part.relate_to(colors_part, _RT.DIAGRAM_COLORS)
+
+    shape_id = document_part.next_id
+    inline = new_smart_art_inline(
+        shape_id=shape_id,
+        cx=cx,
+        cy=cy,
+        dm_rId=dm_rId,
+        lo_rId=lo_rId,
+        qs_rId=qs_rId,
+        cs_rId=cs_rId,
+    )
+
+    # -- append a new paragraph + run + drawing to the document body --
+    paragraph = document.add_paragraph()
+    run = paragraph.add_run()
+    drawing = run._r.add_drawing(inline)  # pyright: ignore[reportPrivateUsage]
+
+    # -- reach into the drawing to pull the dgm:relIds back out as a proxy --
+    relIds = dgm_relIds_from_drawing(drawing)
+    assert relIds is not None
+    return SmartArt(relIds, data_part)
+
+
 __all__ = [
     "SmartArt",
     "SmartArtNode",
+    "add_smart_art_to_document",
     "smart_art_for_drawing",
 ]

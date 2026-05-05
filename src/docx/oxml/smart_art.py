@@ -151,6 +151,152 @@ def dgm_relIds_from_drawing(drawing: BaseOxmlElement) -> CT_RelIds | None:
     return cast("CT_RelIds", matches[0])
 
 
+_SMART_ART_INLINE_XML = (
+    '<wp:inline distT="0" distB="0" distL="0" distR="0"'
+    ' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"'
+    ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+    ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+    ' xmlns:dgm="http://schemas.openxmlformats.org/drawingml/2006/diagram">'
+    '<wp:extent cx="%(cx)d" cy="%(cy)d"/>'
+    '<wp:effectExtent l="0" t="0" r="0" b="0"/>'
+    '<wp:docPr id="%(shape_id)d" name="Diagram %(shape_id)d"/>'
+    '<wp:cNvGraphicFramePr>'
+    '<a:graphicFrameLocks noChangeAspect="1"/>'
+    '</wp:cNvGraphicFramePr>'
+    '<a:graphic>'
+    '<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/diagram">'
+    '<dgm:relIds r:dm="%(dm_rId)s" r:lo="%(lo_rId)s" r:qs="%(qs_rId)s" r:cs="%(cs_rId)s"/>'
+    '</a:graphicData>'
+    '</a:graphic>'
+    '</wp:inline>'
+)
+
+
+def new_smart_art_inline(
+    shape_id: int,
+    cx: int,
+    cy: int,
+    dm_rId: str,
+    lo_rId: str,
+    qs_rId: str,
+    cs_rId: str,
+) -> BaseOxmlElement:
+    """Return a new ``wp:inline`` element wrapping a SmartArt diagram.
+
+    `shape_id` is the ``wp:docPr/@id`` value (a document-unique drawing id).
+    `cx`, `cy` are the display extents in EMU. The four rId arguments are the
+    relationships from the document part to the four companion diagram parts
+    — dm=data, lo=layout, qs=quickStyle, cs=colors.
+
+    .. versionadded:: 2026.05.7
+    """
+    from docx.oxml.parser import parse_xml
+
+    xml = _SMART_ART_INLINE_XML % {
+        "cx": cx,
+        "cy": cy,
+        "shape_id": shape_id,
+        "dm_rId": dm_rId,
+        "lo_rId": lo_rId,
+        "qs_rId": qs_rId,
+        "cs_rId": cs_rId,
+    }
+    return cast("BaseOxmlElement", parse_xml(xml.encode("utf-8")))
+
+
+_A_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
+_DGM_NS = "http://schemas.openxmlformats.org/drawingml/2006/diagram"
+
+
+def _escape_xml_text(text: str) -> str:
+    """Return `text` with XML special characters escaped for a text node."""
+    return (
+        text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    )
+
+
+def add_data_node(
+    data_model: CT_DataModel,
+    model_id: str,
+    text: str,
+    parent_id: str,
+    src_ord: int,
+) -> CT_Pt:
+    """Append a content ``dgm:pt`` + ``parOf`` ``dgm:cxn`` to `data_model`.
+
+    `model_id` is the new node's ``modelId`` (caller allocates; typically a GUID).
+    `text` is the display text. `parent_id` is the ``modelId`` of the parent node
+    (the root ``type="doc"`` point for top-level nodes). `src_ord` is the 0-based
+    sibling index under the parent; it sets the ``srcOrd`` attribute on the
+    connection so Word preserves insertion order.
+
+    Returns the newly-added ``dgm:pt`` element.
+
+    .. versionadded:: 2026.05.7
+    """
+    from docx.oxml.parser import parse_xml
+
+    # -- locate or create the ptLst / cxnLst children --
+    ptLst_matches = data_model.xpath("./dgm:ptLst")
+    if not ptLst_matches:
+        raise ValueError("data_model has no <dgm:ptLst> child")
+    ptLst = ptLst_matches[0]
+
+    cxnLst_matches = data_model.xpath("./dgm:cxnLst")
+    if not cxnLst_matches:
+        # -- insert a cxnLst directly after ptLst --
+        cxnLst = parse_xml(
+            f'<dgm:cxnLst xmlns:dgm="{_DGM_NS}"/>'
+        )
+        ptLst.addnext(cxnLst)
+    else:
+        cxnLst = cxnLst_matches[0]
+
+    # -- new content node --
+    pt_xml = (
+        f'<dgm:pt xmlns:dgm="{_DGM_NS}" xmlns:a="{_A_NS}"'
+        f' modelId="{model_id}">'
+        f'<dgm:prSet phldrT="[Text]"/>'
+        f'<dgm:spPr/>'
+        f'<dgm:t>'
+        f'<a:bodyPr/><a:lstStyle/>'
+        f'<a:p><a:r><a:rPr lang="en-US"/><a:t>{_escape_xml_text(text)}</a:t></a:r></a:p>'
+        f'</dgm:t>'
+        f'</dgm:pt>'
+    )
+    pt_el = parse_xml(pt_xml)
+    ptLst.append(pt_el)
+
+    # -- connection from parent to new node --
+    cxn_xml = (
+        f'<dgm:cxn xmlns:dgm="{_DGM_NS}"'
+        f' modelId="{model_id}-cxn" type="parOf"'
+        f' srcId="{parent_id}" destId="{model_id}"'
+        f' srcOrd="{src_ord}" destOrd="0"/>'
+    )
+    cxn_el = parse_xml(cxn_xml)
+    cxnLst.append(cxn_el)
+
+    return cast("CT_Pt", pt_el)
+
+
+def get_root_doc_pt_id(data_model: CT_DataModel) -> str:
+    """Return the ``modelId`` of the ``type="doc"`` root point in `data_model`.
+
+    Raises :class:`ValueError` when no such point is present.
+
+    .. versionadded:: 2026.05.7
+    """
+    for pt in data_model.pt_lst:
+        if pt.type == "doc" and pt.modelId is not None:
+            return pt.modelId
+    # -- doc-type points may also carry attributes via xpath when not registered --
+    matches = data_model.xpath('./dgm:ptLst/dgm:pt[@type="doc"]/@modelId')
+    if matches:
+        return str(matches[0])
+    raise ValueError("data_model has no <dgm:pt type='doc'> root point")
+
+
 # Re-export qn so tests importing from this module can avoid deep paths.
 __all__ = [
     "CT_Cxn",

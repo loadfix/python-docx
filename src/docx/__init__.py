@@ -42,7 +42,12 @@ from docx.parts.image import ImagePart
 from docx.parts.ink import InkPart
 from docx.parts.numbering import NumberingPart
 from docx.parts.settings import SettingsPart
-from docx.parts.smart_art import DiagramDataPart
+from docx.parts.smart_art import (
+    DiagramColorsPart,
+    DiagramDataPart,
+    DiagramLayoutPart,
+    DiagramStylePart,
+)
 from docx.parts.styles import StylesPart
 from docx.parts.theme import ThemePart
 from docx.parts.web_settings import WebSettingsPart
@@ -85,7 +90,10 @@ PartFactory.part_type_for[CT.OFC_OLE_OBJECT] = EmbeddedObjectPart
 PartFactory.part_type_for[CT.WML_NUMBERING] = NumberingPart
 PartFactory.part_type_for[CT.WML_SETTINGS] = SettingsPart
 PartFactory.part_type_for[CT.WML_STYLES] = StylesPart
+PartFactory.part_type_for[CT.DML_DIAGRAM_COLORS] = DiagramColorsPart
 PartFactory.part_type_for[CT.DML_DIAGRAM_DATA] = DiagramDataPart
+PartFactory.part_type_for[CT.DML_DIAGRAM_LAYOUT] = DiagramLayoutPart
+PartFactory.part_type_for[CT.DML_DIAGRAM_STYLE] = DiagramStylePart
 PartFactory.part_type_for[CT.OFC_THEME] = ThemePart
 PartFactory.part_type_for[CT.WML_WEB_SETTINGS] = WebSettingsPart
 
@@ -96,7 +104,10 @@ del (
     CommentsPart,
     CustomPropertiesPart,
     CustomXmlPart,
+    DiagramColorsPart,
     DiagramDataPart,
+    DiagramLayoutPart,
+    DiagramStylePart,
     DocumentPart,
     EndnotesPart,
     ExtendedPropertiesPart,

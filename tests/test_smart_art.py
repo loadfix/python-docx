@@ -314,6 +314,150 @@ class DescribeDrawing_smart_art:
         assert [n.text for n in sa.nodes] == ["Alpha", "Beta", "Gamma"]
 
 
+class DescribeSmartArt_Authoring:
+    """End-to-end integration tests for `Document.add_smart_art` and `SmartArt.add_node`."""
+
+    def it_appends_a_smart_art_and_returns_a_SmartArt_proxy(self):
+        import docx
+
+        document = docx.Document()
+        sa = document.add_smart_art("list")
+
+        assert sa is not None
+        # -- empty immediately after creation (no nodes yet) --
+        assert sa.nodes == []
+        # -- all four companion relationships were established --
+        assert sa.dm_rId is not None
+        assert sa.data_partname is not None
+
+    def it_accepts_all_three_supported_layout_names(self):
+        import docx
+
+        for layout in ("list", "cycle", "process"):
+            document = docx.Document()
+            sa = document.add_smart_art(layout)
+            assert sa is not None, f"layout={layout!r} returned None"
+
+    def it_lower_cases_the_layout_name_argument(self):
+        import docx
+
+        document = docx.Document()
+        # -- ValueError should NOT be raised for mixed case --
+        sa = document.add_smart_art("Process")
+        assert sa is not None
+
+    def it_rejects_an_unknown_layout_name(self):
+        import docx
+        import pytest
+
+        document = docx.Document()
+        with pytest.raises(ValueError, match="unsupported SmartArt layout"):
+            document.add_smart_art("hierarchy")
+
+    def it_round_trips_authored_nodes_through_save_and_load(self):
+        import io
+
+        import docx
+
+        document = docx.Document()
+        sa = document.add_smart_art("process")
+        sa.add_node("First")
+        sa.add_node("Second")
+        sa.add_node("Third")
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+
+        reloaded = docx.Document(buf)
+        diagrams = reloaded.smart_art
+
+        assert len(diagrams) == 1
+        assert [n.text for n in diagrams[0].nodes] == ["First", "Second", "Third"]
+
+    def it_exposes_added_nodes_immediately_via_the_proxy(self):
+        import docx
+
+        document = docx.Document()
+        sa = document.add_smart_art("cycle")
+        sa.add_node("A")
+        sa.add_node("B")
+
+        # -- no save required — the in-memory data_model is updated in place --
+        assert [n.text for n in sa.nodes] == ["A", "B"]
+
+    def it_writes_the_diagram_data_content_type_override(self):
+        import io
+        import zipfile
+
+        import docx
+
+        document = docx.Document()
+        sa = document.add_smart_art("list")
+        sa.add_node("Only")
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        with zipfile.ZipFile(buf) as z:
+            content_types = z.read("[Content_Types].xml").decode()
+            rels = z.read("word/_rels/document.xml.rels").decode()
+            data_xml = z.read("word/diagrams/data1.xml").decode()
+
+        # -- the four content-type overrides are present --
+        assert 'diagramData+xml' in content_types
+        assert 'diagramLayout+xml' in content_types
+        assert 'diagramColors+xml' in content_types
+        assert 'diagramStyle+xml' in content_types
+        # -- the four document-level relationships are present --
+        assert "relationships/diagramData" in rels
+        assert "relationships/diagramLayout" in rels
+        assert "relationships/diagramColors" in rels
+        assert "relationships/diagramQuickStyle" in rels
+        # -- the authored node appears in the data part --
+        assert "Only" in data_xml
+
+    def it_places_different_smart_arts_in_their_own_parts(self):
+        import io
+
+        import docx
+
+        document = docx.Document()
+        sa1 = document.add_smart_art("list")
+        sa1.add_node("Item A")
+        sa2 = document.add_smart_art("cycle")
+        sa2.add_node("Item B")
+
+        assert sa1.data_partname != sa2.data_partname
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+
+        reloaded = docx.Document(buf)
+        diagrams = reloaded.smart_art
+        assert len(diagrams) == 2
+        texts = sorted(n.text for sa in diagrams for n in sa.nodes)
+        assert texts == ["Item A", "Item B"]
+
+    def it_raises_when_add_node_called_on_an_unresolved_smart_art(self):
+        import pytest
+
+        from docx.oxml.parser import parse_xml
+        from docx.oxml.smart_art import CT_RelIds
+
+        relIds_xml = (
+            b'<dgm:relIds'
+            b' xmlns:dgm="http://schemas.openxmlformats.org/drawingml/2006/diagram"'
+            b' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+            b' r:dm="rId4"/>'
+        )
+        relIds = cast(CT_RelIds, parse_xml(relIds_xml))
+        sa = SmartArt(relIds, None)
+        with pytest.raises(RuntimeError, match="did not resolve"):
+            sa.add_node("x")
+
+
 class DescribeDocument_smart_art:
     """Unit-test suite for `Document.smart_art`."""
 
