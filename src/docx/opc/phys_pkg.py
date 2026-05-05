@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import io
 import os
 from typing import IO
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo, is_zipfile
 
-from docx.exceptions import EncryptedDocumentError
+from docx.exceptions import EncryptedDocumentError, RmsProtectedDocumentError
 from docx.opc.exceptions import (  # noqa: F401 -- PackageNotFoundError re-export
     MissingDocxFileError,
     NotADocxError,
@@ -27,34 +28,77 @@ _OLE_COMPOUND_FILE_SIGNATURE = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
 _ENCRYPTED_DOCUMENT_MESSAGE = (
     "Document is password-protected (encrypted .docx detected). "
-    "Install msoffcrypto-tool to decrypt it first: "
-    "https://github.com/nolze/msoffcrypto-tool"
+    "Pass `password=...` to `Document(...)` to decrypt it, or install the "
+    "optional 'python-ooxml-crypto' package "
+    "(https://github.com/loadfix/python-ooxml-crypto)."
+)
+
+_RMS_PROTECTED_DOCUMENT_MESSAGE = (
+    "package is wrapped in Azure RMS / AIP / IRM protection; python-docx "
+    "cannot decrypt RMS-protected files — the payload is encrypted to the "
+    "user's Microsoft 365 identity, not a password. Delegate decryption to "
+    "Microsoft Office automation or the Microsoft Information Protection SDK "
+    "before opening the file with python-docx."
 )
 
 
-def _raise_if_encrypted_path(path: str) -> None:
-    """Raise |EncryptedDocumentError| if file at `path` has the OLE signature."""
+def _decrypt_to_stream(stream: IO[bytes], password: str) -> io.BytesIO:
+    """Return a BytesIO of plaintext zip bytes decrypted from encrypted `stream`.
+
+    Also raises :class:`RmsProtectedDocumentError` when the stream is wrapped in
+    Azure RMS / AIP / IRM protection — python-ooxml-crypto cannot decrypt those
+    since the payload is keyed to an Azure AD identity rather than a password.
+    """
+    from docx.opc._crypto import (
+        decrypt_stream,
+        is_rms_protected_stream,
+    )
+
+    if is_rms_protected_stream(stream):
+        raise RmsProtectedDocumentError(_RMS_PROTECTED_DOCUMENT_MESSAGE)
+
+    plain = decrypt_stream(stream, password)
+    return io.BytesIO(plain)
+
+
+def _maybe_decrypt_path(path: str, password: str | None) -> io.BytesIO | None:
+    """Return decrypted-payload BytesIO if file at `path` is encrypted, else None.
+
+    Raises :class:`EncryptedDocumentError` when the file is encrypted and
+    either `password` is None or ``python-ooxml-crypto`` is not installed.
+    Returns None when the file is not encrypted (or does not exist / is
+    unreadable — the caller handles those outcomes).
+    """
     try:
         with open(path, "rb") as f:
             header = f.read(len(_OLE_COMPOUND_FILE_SIGNATURE))
     except OSError:
-        return
-    if header == _OLE_COMPOUND_FILE_SIGNATURE:
+        return None
+    if header != _OLE_COMPOUND_FILE_SIGNATURE:
+        return None
+
+    if password is None:
         raise EncryptedDocumentError(_ENCRYPTED_DOCUMENT_MESSAGE)
 
+    with open(path, "rb") as f:
+        return _decrypt_to_stream(f, password)
 
-def _raise_if_encrypted_stream(stream: IO[bytes]) -> None:
-    """Raise |EncryptedDocumentError| if `stream` begins with the OLE signature.
 
-    The stream position is restored after the peek.
+def _maybe_decrypt_stream(stream: IO[bytes], password: str | None) -> io.BytesIO | None:
+    """Return decrypted-payload BytesIO if `stream` is encrypted, else None.
+
+    Raises :class:`EncryptedDocumentError` when the stream is encrypted and
+    either `password` is None or ``python-ooxml-crypto`` is not installed.
+    The stream's position is restored before decryption proceeds so the
+    decryptor sees the full container bytes.
     """
     if not hasattr(stream, "read"):
-        return
+        return None
     try:
         pos = stream.tell()
     except (OSError, AttributeError):
         # Not seekable — we can't safely peek without consuming bytes.
-        return
+        return None
     try:
         header = stream.read(len(_OLE_COMPOUND_FILE_SIGNATURE))
     finally:
@@ -62,8 +106,13 @@ def _raise_if_encrypted_stream(stream: IO[bytes]) -> None:
             stream.seek(pos)
         except (OSError, AttributeError):
             pass
-    if header == _OLE_COMPOUND_FILE_SIGNATURE:
+    if header != _OLE_COMPOUND_FILE_SIGNATURE:
+        return None
+
+    if password is None:
         raise EncryptedDocumentError(_ENCRYPTED_DOCUMENT_MESSAGE)
+
+    return _decrypt_to_stream(stream, password)
 
 
 class PhysPkgReader:
@@ -76,36 +125,58 @@ class PhysPkgReader:
     :class:`_StrictTranslatingPkgReader` so blobs are rewritten to
     Transitional as they're read. Closes upstream#1520, upstream#693.
 
+    When `password` is provided and the input is an encrypted OOXML package
+    (CFBF / OLE2 container), the file is decrypted with `password` via the
+    optional ``python-ooxml-crypto`` dependency and the resulting plaintext
+    bytes are read as a zip package.
+
     .. versionchanged:: 2026.05.0
        Transparent Strict → Transitional translation on open.
+    .. versionchanged:: 2026.05.10
+       Added ``password`` parameter for opening ECMA-376 Agile-Encryption
+       password-protected packages.
     """
 
-    def __new__(cls, pkg_file):
-        # if `pkg_file` is a string, treat it as a path
+    def __new__(cls, pkg_file, password: str | None = None):
+        # -- if `pkg_file` is a string, treat it as a path --
         if isinstance(pkg_file, str):
             if os.path.isdir(pkg_file):
                 reader_cls = _DirPkgReader
-            elif is_zipfile(pkg_file):
+                return super(PhysPkgReader, cls).__new__(reader_cls)
+            if is_zipfile(pkg_file):
                 reader_cls = _ZipPkgReader
-            else:
-                # -- check for password-encrypted .docx (OLE compound file) before
-                # -- reporting "not found", so users get an actionable error message.
-                _raise_if_encrypted_path(pkg_file)
-                # -- distinguish missing file from wrong-format file
-                # -- (closes upstream#1410). Both subclass PackageNotFoundError for
-                # -- backward-compatibility. --
-                if not os.path.exists(pkg_file):
-                    raise MissingDocxFileError(
-                        "Package not found at '%s'" % pkg_file
-                    )
-                raise NotADocxError(
-                    "File '%s' is not a valid Word (.docx) package "
-                    "(not a ZIP archive)." % pkg_file
-                )
-        else:  # assume it's a stream and pass it to Zip reader to sort out
-            _raise_if_encrypted_stream(pkg_file)
-            reader_cls = _ZipPkgReader
+                return super(PhysPkgReader, cls).__new__(reader_cls)
 
+            # -- detect password-encrypted .docx (OLE compound file). When a
+            # -- password was supplied we decrypt here and stash the plain-zip
+            # -- BytesIO on the class for `_ZipPkgReader.__init__` to pick up
+            # -- (Python auto-calls `__init__` with the original `pkg_file`
+            # -- arg after `__new__`, so we can't just pass the decrypted
+            # -- stream through — the override lets us swap it in cleanly).
+            decrypted = _maybe_decrypt_path(pkg_file, password)
+            if decrypted is not None:
+                PhysPkgReader._decrypted_stream_override = decrypted
+                return super(PhysPkgReader, cls).__new__(_ZipPkgReader)
+
+            # -- distinguish missing file from wrong-format file
+            # -- (closes upstream#1410). Both subclass PackageNotFoundError for
+            # -- backward-compatibility. --
+            if not os.path.exists(pkg_file):
+                raise MissingDocxFileError(
+                    "Package not found at '%s'" % pkg_file
+                )
+            raise NotADocxError(
+                "File '%s' is not a valid Word (.docx) package "
+                "(not a ZIP archive)." % pkg_file
+            )
+
+        # -- assume it's a stream and pass it to Zip reader to sort out --
+        decrypted = _maybe_decrypt_stream(pkg_file, password)
+        if decrypted is not None:
+            cls._decrypted_stream_override = decrypted
+            return super(PhysPkgReader, cls).__new__(_ZipPkgReader)
+
+        reader_cls = _ZipPkgReader
         return super(PhysPkgReader, cls).__new__(reader_cls)
 
 
@@ -134,7 +205,7 @@ def _looks_like_strict_package(reader) -> bool:
     return doc_blob is not None and STRICT_SENTINEL in doc_blob
 
 
-def open_phys_pkg_reader(pkg_file):
+def open_phys_pkg_reader(pkg_file, password: str | None = None):
     """Return a physical package reader for `pkg_file` with Strict translation.
 
     Wraps the concrete :class:`PhysPkgReader` subclass in
@@ -142,9 +213,15 @@ def open_phys_pkg_reader(pkg_file):
     Called from :class:`docx.opc.pkgreader.PackageReader.from_file` in place
     of direct construction.
 
+    When `password` is provided and `pkg_file` is an ECMA-376 Agile-Encryption
+    container (CFBF / OLE2), it is transparently decrypted via the optional
+    ``python-ooxml-crypto`` dependency before being read.
+
     .. versionadded:: 2026.05.0
+    .. versionchanged:: 2026.05.10
+       Added ``password`` parameter.
     """
-    reader = PhysPkgReader(pkg_file)
+    reader = PhysPkgReader(pkg_file, password=password)
     if _looks_like_strict_package(reader):
         return _StrictTranslatingPkgReader(reader)
     return reader
@@ -200,8 +277,12 @@ class _DirPkgReader(PhysPkgReader):
     """Implements |PhysPkgReader| interface for an OPC package extracted into a
     directory."""
 
-    def __init__(self, path):
-        """`path` is the path to a directory containing an expanded package."""
+    def __init__(self, path, password: str | None = None):
+        """`path` is the path to a directory containing an expanded package.
+
+        `password` is accepted for uniformity with :class:`_ZipPkgReader` but
+        is ignored: a directory-extracted package is already plaintext.
+        """
         super().__init__()
         self._path = os.path.abspath(path)
 
@@ -242,8 +323,25 @@ class _DirPkgReader(PhysPkgReader):
 class _ZipPkgReader(PhysPkgReader):
     """Implements |PhysPkgReader| interface for a zip file OPC package."""
 
-    def __init__(self, pkg_file):
+    def __init__(self, pkg_file, password: str | None = None):
+        # -- `password` is consumed by `PhysPkgReader.__new__` to dispatch
+        # -- decryption; it is accepted here only so Python's default
+        # -- ``type(...).__init__`` handling works with the selector kwarg. --
         super().__init__()
+        # -- When `PhysPkgReader.__new__` decrypted an encrypted package, it
+        # -- stashed the plain-zip BytesIO on the `PhysPkgReader` class.
+        # -- Honour that override so we open the decrypted payload rather
+        # -- than the original (encrypted) CFBF bytes. The override is
+        # -- single-use; consume it here whether or not we were routed by
+        # -- the decryption path to keep the flag from leaking across
+        # -- unrelated reader instantiations. --
+        override = getattr(PhysPkgReader, "_decrypted_stream_override", None)
+        if override is not None:
+            try:
+                del PhysPkgReader._decrypted_stream_override
+            except AttributeError:  # pragma: no cover -- defensive
+                pass
+            pkg_file = override
         self._zipf = ZipFile(pkg_file, "r")
 
     def blob_for(self, pack_uri):

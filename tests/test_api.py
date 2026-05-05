@@ -74,7 +74,9 @@ class DescribeDocument:
 
         document = DocumentFactoryFn("foobar.docx")
 
-        Package_.open.assert_called_once_with("foobar.docx", recover=False, huge_tree=False)
+        Package_.open.assert_called_once_with(
+            "foobar.docx", recover=False, huge_tree=False, password=None
+        )
         assert document is document_
 
     def it_accepts_a_PathLike_docx_path(self, Package_: Mock, document_: Mock):
@@ -86,7 +88,9 @@ class DescribeDocument:
         document = DocumentFactoryFn(Path("foobar.docx"))
 
         # -- os.fspath normalises the PathLike to str before delegating --
-        Package_.open.assert_called_once_with("foobar.docx", recover=False, huge_tree=False)
+        Package_.open.assert_called_once_with(
+            "foobar.docx", recover=False, huge_tree=False, password=None
+        )
         assert document is document_
 
     def it_opens_the_default_docx_if_none_specified(
@@ -100,7 +104,9 @@ class DescribeDocument:
 
         document = DocumentFactoryFn()
 
-        Package_.open.assert_called_once_with(default_stream, recover=False, huge_tree=False)
+        Package_.open.assert_called_once_with(
+            default_stream, recover=False, huge_tree=False, password=None
+        )
         assert document is document_
 
     def it_sources_the_default_docx_via_importlib_resources(self):
@@ -148,7 +154,9 @@ class DescribeDocument:
 
         document = DocumentFactoryFn("foobar.docm")
 
-        Package_.open.assert_called_once_with("foobar.docm", recover=False, huge_tree=False)
+        Package_.open.assert_called_once_with(
+            "foobar.docm", recover=False, huge_tree=False, password=None
+        )
         assert document is document_
 
     def it_raises_on_not_a_Word_file(self, Package_: Mock):
@@ -161,7 +169,7 @@ class DescribeDocument:
         encrypted_path = tmp_path / "encrypted.docx"
         encrypted_path.write_bytes(_OLE_SIGNATURE + b"\x00" * 512)
 
-        with pytest.raises(EncryptedDocumentError, match="msoffcrypto-tool"):
+        with pytest.raises(EncryptedDocumentError, match="python-ooxml-crypto"):
             DocumentFactoryFn(str(encrypted_path))
 
     def it_raises_FileNotFoundError_on_missing_path(self, tmp_path):
@@ -279,7 +287,9 @@ class DescribeDocument:
 
         DocumentFactoryFn("foobar.docx", recover=True)
 
-        Package_.open.assert_called_once_with("foobar.docx", recover=True, huge_tree=False)
+        Package_.open.assert_called_once_with(
+            "foobar.docx", recover=True, huge_tree=False, password=None
+        )
 
     def it_passes_huge_tree_True_through_to_Package_open(
         self, Package_: Mock, document_: Mock
@@ -291,7 +301,9 @@ class DescribeDocument:
 
         DocumentFactoryFn("foobar.docx", huge_tree=True)
 
-        Package_.open.assert_called_once_with("foobar.docx", recover=False, huge_tree=True)
+        Package_.open.assert_called_once_with(
+            "foobar.docx", recover=False, huge_tree=True, password=None
+        )
 
     def it_defaults_huge_tree_to_False(self, Package_: Mock, document_: Mock):
         document_part = Package_.open.return_value.main_document_part
@@ -300,7 +312,22 @@ class DescribeDocument:
 
         DocumentFactoryFn("foobar.docx")
 
-        Package_.open.assert_called_once_with("foobar.docx", recover=False, huge_tree=False)
+        Package_.open.assert_called_once_with(
+            "foobar.docx", recover=False, huge_tree=False, password=None
+        )
+
+    def it_passes_password_through_to_Package_open(
+        self, Package_: Mock, document_: Mock
+    ):
+        document_part = Package_.open.return_value.main_document_part
+        document_part.document = document_
+        document_part.content_type = CT.WML_DOCUMENT_MAIN
+
+        DocumentFactoryFn("protected.docx", password="hunter2")
+
+        Package_.open.assert_called_once_with(
+            "protected.docx", recover=False, huge_tree=False, password="hunter2"
+        )
 
     def it_ships_hanging_indents_on_List_Bullet_and_List_Number(self):
         # -- upstream#1443: default.docx used to omit hanging indents on these
@@ -342,3 +369,83 @@ class DescribeDocument:
     @pytest.fixture
     def Package_(self, request: FixtureRequest):
         return class_mock(request, "docx.api.Package")
+
+
+class DescribePasswordRoundTrip:
+    """Integration tests for encrypted Document open/save via ``python-ooxml-crypto``."""
+
+    def _requires_ooxml_crypto(self):
+        import importlib.util
+
+        if importlib.util.find_spec("ooxml_crypto") is None:
+            pytest.skip(
+                "python-ooxml-crypto is not installed (optional dependency)"
+            )
+
+    def it_round_trips_through_a_stream(self):
+        self._requires_ooxml_crypto()
+
+        document = DocumentFactoryFn()
+        document.add_paragraph("encrypted round-trip body")
+
+        buf = io.BytesIO()
+        document.save(buf, password="hunter2")
+
+        # -- the saved bytes are a CFBF (OLE2) container, not a plain zip --
+        assert buf.getvalue()[:8] == _OLE_SIGNATURE
+
+        buf.seek(0)
+        reopened = DocumentFactoryFn(buf, password="hunter2")
+
+        texts = [p.text for p in reopened.paragraphs]
+        assert "encrypted round-trip body" in texts
+
+    def it_round_trips_through_a_path(self, tmp_path):
+        self._requires_ooxml_crypto()
+
+        document = DocumentFactoryFn()
+        document.add_paragraph("encrypted round-trip body via path")
+
+        out_path = tmp_path / "protected.docx"
+        document.save(str(out_path), password="hunter2")
+
+        # -- the saved bytes are a CFBF (OLE2) container, not a plain zip --
+        with open(out_path, "rb") as f:
+            assert f.read(8) == _OLE_SIGNATURE
+
+        reopened = DocumentFactoryFn(str(out_path), password="hunter2")
+
+        texts = [p.text for p in reopened.paragraphs]
+        assert "encrypted round-trip body via path" in texts
+
+    def it_raises_EncryptedDocumentError_with_wrong_password(self, tmp_path):
+        self._requires_ooxml_crypto()
+
+        document = DocumentFactoryFn()
+        document.add_paragraph("wrong-password reject test")
+        out_path = tmp_path / "protected.docx"
+        document.save(str(out_path), password="correct")
+
+        with pytest.raises(EncryptedDocumentError, match="password does not match"):
+            DocumentFactoryFn(str(out_path), password="incorrect")
+
+    def it_raises_EncryptedDocumentError_when_password_is_missing(self, tmp_path):
+        self._requires_ooxml_crypto()
+
+        document = DocumentFactoryFn()
+        document.add_paragraph("missing-password reject test")
+        out_path = tmp_path / "protected.docx"
+        document.save(str(out_path), password="correct")
+
+        with pytest.raises(EncryptedDocumentError, match="password-protected"):
+            DocumentFactoryFn(str(out_path))
+
+    def it_rejects_flat_opc_with_password(self, tmp_path):
+        # -- flat_opc and password are mutually exclusive: Flat-OPC is not a zip. --
+        document = DocumentFactoryFn()
+
+        out_path = tmp_path / "protected.xml"
+        with pytest.raises(ValueError, match="mutually exclusive"):
+            document.save(str(out_path), flat_opc=True, password="hunter2")
+
+

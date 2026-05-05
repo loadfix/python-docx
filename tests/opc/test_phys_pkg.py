@@ -105,7 +105,7 @@ class DescribePhysPkgReader:
         # -- OLE signature + some trailing bytes; enough to look like an OLE file --
         encrypted_path.write_bytes(_OLE_SIGNATURE + b"\x00" * 512)
 
-        with pytest.raises(EncryptedDocumentError, match="msoffcrypto-tool"):
+        with pytest.raises(EncryptedDocumentError, match="python-ooxml-crypto"):
             PhysPkgReader(str(encrypted_path))
 
     def it_raises_EncryptedDocumentError_for_OLE_stream(self):

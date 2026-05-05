@@ -95,13 +95,14 @@ document.save("out.docx", reproducible=True)
 document.save("out.xml", flat_opc=True)
 ```
 
-- `docx.Document(docx=None, recover=False, huge_tree=False, include_metadata=True)` — Factory returning a `docx.document.Document`. `recover=True`, `huge_tree=True`, `include_metadata=False`, `os.PathLike` paths, `.dotx`/`.dotm` templates, Strict-OOXML, and Flat-OPC inputs are all `[Added in 2026.05.0]`.
+- `docx.Document(docx=None, recover=False, huge_tree=False, include_metadata=True, password=None)` — Factory returning a `docx.document.Document`. `recover=True`, `huge_tree=True`, `include_metadata=False`, `os.PathLike` paths, `.dotx`/`.dotm` templates, Strict-OOXML, and Flat-OPC inputs are all `[Added in 2026.05.0]`. `password=` decrypts an ECMA-376 Agile-Encryption (password-protected) `.docx` via the optional `python-ooxml-crypto` dependency. `[Added in 2026.05.10]`
 - `docx.Document.from_template(template)` — Open a `.dotx`/`.dotm` and return a document whose main-part content-type is switched to the matching non-template variant. `[Added in 2026.05.0]`
-- `Document.save(path_or_stream, flat_opc=False, reproducible=False)` — Write the document. `flat_opc` and `reproducible` are `[Added in 2026.05.0]`.
+- `Document.save(path_or_stream, flat_opc=False, reproducible=False, password=None)` — Write the document. `flat_opc` and `reproducible` are `[Added in 2026.05.0]`. `password=` encrypts the output using ECMA-376 Agile Encryption via the optional `python-ooxml-crypto` dependency. `[Added in 2026.05.10]`
 - `Document.close()` — Drop transient state (tracked-changes contexts). Safe to call more than once. `[Added in 2026.05.0]`
 - `Document.__enter__` / `Document.__exit__` — Context-manager support. `[Added in 2026.05.0]`
 - `Document.recovery_warnings` — List of parser warnings collected when `recover=True` was used. `[Added in 2026.05.0]`
-- `docx.exceptions.EncryptedDocumentError` — Raised when opening a password-protected `.docx`. `[Added in 2026.05.0]`
+- `docx.exceptions.EncryptedDocumentError` — Raised when opening a password-protected `.docx` without a correct password, or when `python-ooxml-crypto` is required but not installed. `[Added in 2026.05.0]`
+- `docx.exceptions.RmsProtectedDocumentError` — Subclass of `EncryptedDocumentError`, raised when opening a file wrapped in Azure RMS / AIP / IRM protection (not decryptable with a password). `[Added in 2026.05.10]`
 - `docx.exceptions.PythonDocxError` / `InvalidSpanError` / `InvalidXmlError` — Library-specific exceptions.
 
 ---
@@ -1807,8 +1808,11 @@ Opening supports:
   `[Added in 2026.05.0]`
 - `include_metadata=False` stripping the default template's core /
   extended properties on load. `[Added in 2026.05.0]`
-- `EncryptedDocumentError` raised for password-protected packages.
-  `[Added in 2026.05.0]`
+- `EncryptedDocumentError` raised for password-protected packages when
+  no `password=` is supplied. `[Added in 2026.05.0]`
+- `password=` kwarg decrypts an ECMA-376 Agile-Encryption
+  (password-protected) `.docx` via the optional `python-ooxml-crypto`
+  dependency. `[Added in 2026.05.10]`
 
 ```python
 from docx import Document
@@ -1830,13 +1834,54 @@ macro.save("macros-out.docm")
 with open("bad.docx", "rb") as f:
     broken = Document(f, recover=True)
 print(broken.recovery_warnings)
+
+# password-protected (requires optional `python-ooxml-crypto`)
+doc = Document()
+doc.add_paragraph("confidential")
+doc.save("protected.docx", password="hunter2")
+reopened = Document("protected.docx", password="hunter2")
 ```
 
-- `Document.save(path_or_stream, flat_opc=False, reproducible=False)` — Save options as above.
+- `Document.save(path_or_stream, flat_opc=False, reproducible=False, password=None)` — Save options as above. `password=` encrypts the output using ECMA-376 Agile Encryption via `python-ooxml-crypto`. `[Added in 2026.05.10]`
 - `Document.has_macros` — `True` when a VBA project is present. `[Added in 2026.05.0]`
 - `docx.exceptions.EncryptedDocumentError` — `[Added in 2026.05.0]`
+- `docx.exceptions.RmsProtectedDocumentError` — `[Added in 2026.05.10]`
 - `docx.package.Package` — `Package.open(...)` / `.is_signed` / `.recovery_warnings` / `.signatures` — Low-level package access.
 - Flat-OPC helpers: `docx.opc.flat_opc.write_flat_opc` / `is_flat_opc`.
+
+### Password-protected documents
+
+python-docx supports both reading and writing ECMA-376 Agile-Encryption
+password-protected `.docx` files via the optional
+[`python-ooxml-crypto`](https://github.com/loadfix/python-ooxml-crypto)
+dependency. Install it with `pip install 'python-docx[encryption]'` (or
+directly with `pip install python-ooxml-crypto`).
+
+```python
+from docx import Document
+from docx.exceptions import EncryptedDocumentError
+
+# encrypt on save
+doc = Document()
+doc.add_paragraph("confidential")
+doc.save("protected.docx", password="hunter2")
+
+# decrypt on load
+reopened = Document("protected.docx", password="hunter2")
+
+# wrong-password / missing-password cases raise EncryptedDocumentError
+try:
+    Document("protected.docx", password="wrong")
+except EncryptedDocumentError as e:
+    print(e)
+```
+
+Azure RMS / AIP / IRM-wrapped files (whose payload is keyed to the user's
+Microsoft 365 identity, not a password) cannot be decrypted by
+python-ooxml-crypto and raise `docx.exceptions.RmsProtectedDocumentError`
+(a subclass of `EncryptedDocumentError`). Delegate decryption to
+Microsoft Office automation or the Microsoft Information Protection SDK
+before opening such files with python-docx. `[Added in 2026.05.10]`
 
 ---
 
