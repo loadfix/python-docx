@@ -86,6 +86,24 @@ CustomProperties accepts datetime.date (vt:date)
   ``date`` to ``vt:date``; ``python-docx`` and ``python-pptx`` only
   recognised ``datetime``.
 
+O(N^2) indexing on _Rows[i] and BlockItemContainer.paragraphs[i]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- ``_Rows.__getitem__`` no longer constructs a ``_Row`` proxy for
+  every row in the table on each access (#170). It now reads the
+  single requested ``<w:tr>`` out of ``self._tbl.tr_lst`` and wraps
+  only that element, dropping a naive ``for i in range(N): rows[i]``
+  loop from ~1.46 ms/access to ~0.54 ms/access at N = 2000.
+- ``BlockItemContainer.paragraphs`` now returns a lightweight
+  ``_ParagraphsView(Sequence[Paragraph])`` that memoises the
+  underlying ``p_lst`` on first access and wraps only the ``<w:p>``
+  the caller requests. The view supports ``len()``, indexed and
+  sliced access, iteration, ``list(...)`` coercion, ``in``,
+  ``.index(…)``, truthiness, and equality against a
+  ``list[Paragraph]``.
+- New ``tests/test_indexing_perf.py`` enforces a < 1 ms/access
+  ceiling at N = 5000 (paragraphs) / N = 2000 (rows).
+
 
 2026.05.6 — Section.vertical_alignment property
 ++++++++++++++++++++++++++++++++++++++++++++++++
