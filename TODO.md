@@ -8,7 +8,7 @@ a candidate for a future implementation wave. Grouped by repo.
 - [ ] **Remove shipped `Section.vertical_alignment` entry from "Conformance gaps".** Already resolved by commit `1657c0ef`; move to a "Resolved" block or delete the stale open entry below.
 - [ ] **Close GitHub issue #171 (vt:date custom-properties).** Partially addressed by `c3edf01b` in 2026.05.8 (accept `datetime.date`, serialise as `vt:date`); verify round-trip fully works and close the issue.
 - [ ] **Close GitHub issue #172 (bare `KeyError('[Content_Types].xml')` on missing part).** Wrap in a typed `PackageNotFoundError` (or similar) at the OPC load boundary.
-- [ ] **Bump README "Current version" string.** Currently reads `2026.05.0`; should be `2026.05.8`.
+- [x] **Bump README "Current version" string.** Currently reads `2026.05.0`; should be `2026.05.8`.
 - [x] **Git-tag all untagged releases.** Only `v2026.05.0` has a git tag; `v2026.05.1` through `v2026.05.8` have HISTORY.rst entries but no git tags. Add all 8 missing tags.
 - [x] **Land W11-D `UPSTREAM_SYNC.md` onto master.** Commit `d2d5cdcf` lives only on branch `feat/w11-d-upstream-sync`; merged to master via merge commit `721b7753` so upstream divergence is documented on the canonical tree.
 - [ ] **Seal submodule oxml leakage.** 590 `CT_*`/`ST_*` names reachable via `docx.oxml.*` / `docx.dml.color.*` / `docx.drawing.*` / etc. Add explicit `__all__` to public submodules (without breaking internal re-imports).
@@ -16,7 +16,7 @@ a candidate for a future implementation wave. Grouped by repo.
 - [x] **Delete obsolete `.travis.yml`.** 243 bytes of dead config; `.github/` was deliberately removed.
 - [x] **Move scratch audit artefacts to `audits/`.** DOCS_AUDIT.md (49KB), DOCS_SIBLING_AUDIT.md (47KB), FEATURES_AUDIT.md (42KB), TEST_AUDIT.md (30KB), INTEROP_REPORT.md (17KB), SCALE_NOTES.md (5KB), real-world-audit-findings.md (11KB) accumulating at repo root — move to an `audits/` subdirectory or delete after resolution.
 - [x] **Prune merged remote branches.** ~14 feature branches on origin (`feat/w10-*`, `fix/w8-*`, `chore/overnight-*`, `worktree-agent-*`) merged but not deleted.
-- [ ] **Fix API-addition version markers in FEATURES.md.** Many entries uniformly say `[Added in 2026.05.0]` regardless of the release that actually introduced them; audit and correct to reflect .1–.8 where appropriate.
+- [x] **Fix API-addition version markers in FEATURES.md.** Many entries uniformly say `[Added in 2026.05.0]` regardless of the release that actually introduced them; audit and correct to reflect .1–.8 where appropriate.
 
 ## docx
 
