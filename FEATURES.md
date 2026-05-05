@@ -779,6 +779,7 @@ document.save("out.docx")
 - `Document.sections` — `Sections` sequence. `pop(index=-1)` is `[Added in 2026.05.0]`.
 - `Document.add_section(start_type=WD_SECTION.NEW_PAGE)` — Append a new section.
 - `Section.start_type` / `Section.orientation` / `Section.page_height` / `Section.page_width` / `Section.left_margin` / `Section.right_margin` / `Section.top_margin` / `Section.bottom_margin` / `Section.header_distance` / `Section.footer_distance` / `Section.gutter` — Page metrics.
+- `Section.vertical_alignment` — Vertical alignment of text on the page (`WD_VERTICAL_ALIGNMENT.TOP` / `.CENTER` / `.BOTH` / `.BOTTOM`); maps to `w:sectPr/w:vAlign` (ECMA-376 17.6.22). `[Added in 2026.05.0]`
 - `Section.columns` / `Section.set_columns(count, equal_width=True, space=None, widths=None)` — Multi-column layout. `set_columns` is `[Added in 2026.05.0]`.
 - `Section.page_borders` / `Section.set_page_border(side, ...)` / `Section.remove_page_borders()` — Page-level borders. `[Added in 2026.05.0]`
 - `Section.line_numbering` / `Section.set_line_numbering(...)` / `Section.remove_line_numbering()` — `[Added in 2026.05.0]`
@@ -795,7 +796,7 @@ document.save("out.docx")
 - `Section.formatting_change` — `FormattingChange` for `w:sectPrChange`. `[Added in 2026.05.0]`
 - `SectionColumns` / `Column` — Column collection; `count`, `equal_width`, `space`, per-column `width` / `space`. `[Added in 2026.05.0]`
 - `PageBorders`, `PageBorder`, `LineNumbering`, `DocumentGrid` — Helper proxies. `[Added in 2026.05.0]`
-- Enums: `WD_SECTION`, `WD_SECTION_START`, `WD_ORIENTATION`, `WD_BORDER_DISPLAY`, `WD_BORDER_OFFSET_FROM`, `WD_LINE_NUMBERING_RESTART`, `WD_DOC_GRID_TYPE`, `WD_HEADER_FOOTER_INDEX`.
+- Enums: `WD_SECTION`, `WD_SECTION_START`, `WD_ORIENTATION`, `WD_VERTICAL_ALIGNMENT`, `WD_BORDER_DISPLAY`, `WD_BORDER_OFFSET_FROM`, `WD_LINE_NUMBERING_RESTART`, `WD_DOC_GRID_TYPE`, `WD_HEADER_FOOTER_INDEX`.
 
 ---
 

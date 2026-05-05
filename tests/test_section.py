@@ -9,7 +9,12 @@ from typing import cast
 import pytest
 
 from docx import Document
-from docx.enum.section import WD_HEADER_FOOTER, WD_ORIENTATION, WD_SECTION
+from docx.enum.section import (
+    WD_HEADER_FOOTER,
+    WD_ORIENTATION,
+    WD_SECTION,
+    WD_VERTICAL_ALIGNMENT,
+)
 from docx.oxml.document import CT_Document
 from docx.oxml.section import CT_SectPr
 from docx.parts.document import DocumentPart
@@ -504,6 +509,60 @@ class DescribeSection:
         section = Section(sectPr, document_part_)
 
         section.orientation = value
+
+        assert section._sectPr.xml == expected_xml
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "expected_value"),
+        [
+            ("w:sectPr", None),
+            ("w:sectPr/w:vAlign{w:val=top}", WD_VERTICAL_ALIGNMENT.TOP),
+            ("w:sectPr/w:vAlign{w:val=center}", WD_VERTICAL_ALIGNMENT.CENTER),
+            ("w:sectPr/w:vAlign{w:val=both}", WD_VERTICAL_ALIGNMENT.BOTH),
+            ("w:sectPr/w:vAlign{w:val=bottom}", WD_VERTICAL_ALIGNMENT.BOTTOM),
+        ],
+    )
+    def it_knows_its_vertical_alignment(
+        self,
+        sectPr_cxml: str,
+        expected_value: WD_VERTICAL_ALIGNMENT | None,
+        document_part_: Mock,
+    ):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        section = Section(sectPr, document_part_)
+
+        vertical_alignment = section.vertical_alignment
+
+        assert vertical_alignment is expected_value
+
+    @pytest.mark.parametrize(
+        ("initial_cxml", "value", "expected_cxml"),
+        [
+            ("w:sectPr", WD_VERTICAL_ALIGNMENT.TOP, "w:sectPr/w:vAlign{w:val=top}"),
+            ("w:sectPr", WD_VERTICAL_ALIGNMENT.CENTER, "w:sectPr/w:vAlign{w:val=center}"),
+            ("w:sectPr", WD_VERTICAL_ALIGNMENT.BOTH, "w:sectPr/w:vAlign{w:val=both}"),
+            ("w:sectPr", WD_VERTICAL_ALIGNMENT.BOTTOM, "w:sectPr/w:vAlign{w:val=bottom}"),
+            (
+                "w:sectPr/w:vAlign{w:val=center}",
+                WD_VERTICAL_ALIGNMENT.BOTTOM,
+                "w:sectPr/w:vAlign{w:val=bottom}",
+            ),
+            ("w:sectPr/w:vAlign{w:val=center}", None, "w:sectPr"),
+            ("w:sectPr", None, "w:sectPr"),
+        ],
+    )
+    def it_can_change_its_vertical_alignment(
+        self,
+        initial_cxml: str,
+        value: WD_VERTICAL_ALIGNMENT | None,
+        expected_cxml: str,
+        document_part_: Mock,
+    ):
+        sectPr = cast(CT_SectPr, element(initial_cxml))
+        expected_xml = xml(expected_cxml)
+        section = Section(sectPr, document_part_)
+
+        section.vertical_alignment = value
 
         assert section._sectPr.xml == expected_xml
 
