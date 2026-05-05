@@ -12,6 +12,17 @@ from docx.text.font import Font
 from docx.text.parfmt import ParagraphFormat
 
 
+__all__ = [
+    "BaseStyle",
+    "CharacterStyle",
+    "ParagraphStyle",
+    "StyleFactory",
+    # -- underscored-but-publicly-referenced subclasses --
+    "_NumberingStyle",
+    "_TableStyle",
+]
+
+
 def StyleFactory(style_elm: CT_Style) -> BaseStyle:
     """Return `Style` object of appropriate |BaseStyle| subclass for `style_elm`."""
     style_cls: type[BaseStyle] = {

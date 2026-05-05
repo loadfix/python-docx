@@ -22,6 +22,15 @@ if TYPE_CHECKING:
     from docx.text.paragraph import Paragraph
 
 
+__all__ = [
+    "Canvas",
+    "Drawing",
+    "GroupShape",
+    "Picture",
+    "WordprocessingShape",
+]
+
+
 class Drawing(Parented):
     """Container for a DrawingML object."""
 
