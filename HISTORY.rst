@@ -3,6 +3,52 @@
 Release History
 ---------------
 
+2026.05.10 — Password-protected read + write
+++++++++++++++++++++++++++++++++++++++++++++
+
+Released: 2026-05-10
+
+python-docx now **reads and writes** password-protected ``.docx``
+files (ECMA-376 Agile Encryption — the scheme Word uses when a user
+sets a password in the desktop app). Previous releases only *detected*
+encrypted input and raised ``EncryptedDocumentError`` pointing users at
+an external tool. This release delegates actual AES key derivation and
+CFBF (OLE2) compound-document parsing to the new optional
+``python-ooxml-crypto`` dependency, mirroring the read/write surface
+python-pptx already ships (closes #327 upstream in the sibling repo;
+unlocks the same workflow for python-docx).
+
+- **``Document(path, password=...)``** decrypts an encrypted ``.docx``
+  on open. Supplying the kwarg with no encryption is a no-op; omitting
+  it when the input is encrypted continues to raise
+  ``EncryptedDocumentError`` with the now-updated message pointing
+  callers at ``python-ooxml-crypto`` instead of the old
+  ``msoffcrypto-tool`` recommendation.
+- **``Document.save(path, password=...)``** encrypts the output using
+  ECMA-376 Agile Encryption. ``flat_opc=True`` and ``password=`` are
+  mutually exclusive (Flat-OPC is an XML document, not a zip).
+  ``reproducible=True`` and ``password=`` compose normally — the
+  fixed-timestamp zip is built first and then encrypted.
+- **New ``docx.exceptions.RmsProtectedDocumentError``** (subclass of
+  ``EncryptedDocumentError``) is raised when opening a file wrapped in
+  Azure RMS / AIP / IRM protection. The payload is keyed to the user's
+  Microsoft 365 identity rather than a password, so python-ooxml-crypto
+  cannot decrypt it — delegate to Microsoft Office automation or the
+  Microsoft Information Protection SDK before opening with python-docx.
+- **New adapter module ``docx.opc._crypto``** with the public helpers
+  ``is_encrypted_stream``, ``is_rms_protected_stream``,
+  ``decrypt_stream``, and ``encrypt_bytes``. The adapter is the single
+  point where the optional ``ooxml_crypto`` import is resolved; every
+  error from that library is rewrapped as
+  ``EncryptedDocumentError`` with an actionable message.
+- **Optional install extra.** ``pip install 'python-docx[encryption]'``
+  pulls in ``python-ooxml-crypto``. The library keeps zero new
+  mandatory runtime dependencies; calling ``Document(path,
+  password=...)`` (or ``Document.save(..., password=...)``) without
+  the extra installed raises ``EncryptedDocumentError`` with the
+  install instructions.
+
+
 2026.05.9 — Audit bug-fix round
 +++++++++++++++++++++++++++++++
 

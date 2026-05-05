@@ -25,4 +25,31 @@ class EncryptedDocumentError(PythonDocxError):
     encrypted package, which cannot be opened by the standard zipfile reader.
     Detection is performed by checking the file's magic bytes against the OLE
     compound file signature ``D0 CF 11 E0 A1 B1 1A E1``.
+
+    Also raised when the optional ``python-ooxml-crypto`` dependency is required
+    to decrypt or encrypt a package but is not installed, when the supplied
+    password does not match the one used to encrypt the package, or when the
+    underlying encryption container is malformed.
+    """
+
+
+class RmsProtectedDocumentError(EncryptedDocumentError):
+    """Raised when opening a .docx wrapped in Azure RMS / AIP / IRM protection.
+
+    "Rights Management Services" (also marketed as Azure Information Protection /
+    Microsoft Purview Information Protection / "Information Rights Management")
+    wraps the regular OOXML zip inside a CFBF (OLE2 compound file) container
+    that stores the encrypted payload under a ``DRMContent`` stream and a
+    ``DRMEncryptedTransform`` descriptor. Unlike an ECMA-376 Agile-Encryption
+    package, an RMS package cannot be decrypted with a password alone — the
+    user's Azure AD / Microsoft 365 identity must be presented to the RMS
+    service to retrieve the content key.
+
+    python-docx does not bundle an RMS client (the Microsoft Information
+    Protection SDK is C#/.NET-only and requires an interactive Azure AD login
+    flow). Callers that need RMS decryption should delegate to Microsoft Office
+    automation, the MIP SDK, or a pre-processing step before opening the file
+    with python-docx.
+
+    .. versionadded:: 2026.05.10
     """

@@ -18,7 +18,7 @@ class PackageReader:
         self._sparts = sparts
 
     @staticmethod
-    def from_file(pkg_file):
+    def from_file(pkg_file, password: str | None = None):
         """Return a |PackageReader| instance loaded with contents of `pkg_file`.
 
         If `pkg_file` is a Flat-OPC ``<pkg:package>`` XML file, it is expanded
@@ -26,6 +26,13 @@ class PackageReader:
         Strict-OOXML packages are transparently translated to Transitional
         as blobs flow through the physical reader. Closes upstream#892,
         upstream#1520, upstream#693.
+
+        When `password` is provided and `pkg_file` is an ECMA-376 Agile-
+        Encryption container (CFBF / OLE2), it is transparently decrypted via
+        the optional ``python-ooxml-crypto`` dependency before being read.
+
+        .. versionchanged:: 2026.05.10
+           Added ``password`` parameter.
         """
         from docx.opc.flat_opc import (
             expand_flat_opc_to_zip_stream,
@@ -35,7 +42,7 @@ class PackageReader:
 
         if looks_like_flat_opc(pkg_file):
             pkg_file = expand_flat_opc_to_zip_stream(pkg_file)
-        phys_reader = PhysPkgReader(pkg_file)
+        phys_reader = PhysPkgReader(pkg_file, password=password)
         if _looks_like_strict_package(phys_reader):
             phys_reader = _StrictTranslatingPkgReader(phys_reader)
         # -- `[Content_Types].xml` is mandatory per OPC §9.2; a zip that lacks it
