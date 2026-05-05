@@ -317,9 +317,14 @@ class DocumentPart(StoryPart):
         ``<w:rsids>`` table so the values are reachable from
         ``w:rsids`` consumers.
 
-        When ``reproducible`` is True the identifiers are derived
-        deterministically from each paragraph's content, so repeated
-        saves of the same document produce byte-identical output.
+        When ``reproducible`` is True the rsid-family attributes
+        (``w:rsidR`` / ``w:rsidRDefault``) are **not** minted onto
+        elements that don't already carry them. Existing rsid values
+        are preserved (so a round-trip is faithful), but no new
+        session-scoped churn markers are introduced. ``w14:paraId``
+        and ``w14:textId`` are still stamped when missing because
+        they are derived deterministically from each paragraph's
+        content, so repeated saves remain byte-identical.
 
         .. versionadded:: 2026.05.2
         """
@@ -338,23 +343,38 @@ class DocumentPart(StoryPart):
                 p.set(paraId_tag, mint.paraId(p))
             if not p.get(textId_tag):
                 p.set(textId_tag, mint.textId(p))
-            if not p.get(rsidR_tag):
-                p.set(rsidR_tag, rsid_root)
-            if not p.get(rsidRDefault_tag):
-                p.set(rsidRDefault_tag, rsid_root)
-            rsids_seen.add(p.get(rsidR_tag))
+            # Under reproducible=True do not mint rsid-family attributes
+            # on elements that don't already carry them. Those markers
+            # are session-scoped churn that serve no purpose in a
+            # content-deterministic artefact (W8-B).
+            if not reproducible:
+                if not p.get(rsidR_tag):
+                    p.set(rsidR_tag, rsid_root)
+                if not p.get(rsidRDefault_tag):
+                    p.set(rsidRDefault_tag, rsid_root)
+            existing_p_rsidR = p.get(rsidR_tag)
+            if existing_p_rsidR:
+                rsids_seen.add(existing_p_rsidR)
 
             for r in p.iter(qn("w:r")):
-                if not r.get(rsidR_tag):
+                if not reproducible and not r.get(rsidR_tag):
                     r.set(rsidR_tag, rsid_root)
-                rsids_seen.add(r.get(rsidR_tag))
+                existing_r_rsidR = r.get(rsidR_tag)
+                if existing_r_rsidR:
+                    rsids_seen.add(existing_r_rsidR)
 
         # Persist the session's rsid into settings so Word accepts the
-        # file without warning. The settings part may not yet exist
-        # (empty template) — the property getter creates it on demand.
+        # file without warning. Skip this in reproducible mode when no
+        # rsids were seen (nothing to persist and no point adding a
+        # synthetic one). The settings part may not yet exist (empty
+        # template) — the property getter creates it on demand.
         try:
             settings = self.settings
-            settings.add_rsids(rsid_root, extra=rsids_seen)
+            if reproducible:
+                if rsids_seen:
+                    settings.add_rsids(next(iter(sorted(rsids_seen))), extra=rsids_seen)
+            else:
+                settings.add_rsids(rsid_root, extra=rsids_seen)
         except Exception:  # pragma: no cover - defensive: don't break save
             pass
 
