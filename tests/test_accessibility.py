@@ -238,12 +238,14 @@ class DescribeDocument_validate_heading_structure:
         ) as validate_mock:
             result = doc.validate_heading_structure()
 
-        # -- the helper is called exactly once, with a list of Paragraph objects --
+        # -- the helper is called exactly once, with the Sequence of
+        # -- Paragraph objects exposed by Document.paragraphs (now a
+        # -- lightweight view rather than a plain list — the helper
+        # -- accepts Iterable[Paragraph], so either is fine). --
         validate_mock.assert_called_once()
         (call_paragraphs,) = validate_mock.call_args.args
         from docx.text.paragraph import Paragraph
 
-        assert isinstance(call_paragraphs, list)
         assert len(call_paragraphs) == 1
         assert isinstance(call_paragraphs[0], Paragraph)
         assert result == validate_mock.return_value
