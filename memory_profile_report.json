@@ -1,0 +1,90 @@
+[
+  {
+    "fixture": "/tmp/w11_b_docx_fixtures/scale_100p.docx",
+    "fixture_size_bytes": 21417,
+    "saved_size_bytes": 21500,
+    "paragraphs_visited": 100,
+    "baseline_rss_kib": 13064,
+    "rss_kib": {
+      "pre_load": 30896,
+      "post_load": 36804,
+      "post_manipulate": 36804,
+      "post_save": 37572
+    },
+    "tracemalloc_bytes": {
+      "pre_load": 32,
+      "post_load": 81799,
+      "post_manipulate": 108537,
+      "post_save": 134060,
+      "peak": 905794
+    },
+    "scale": "100p",
+    "paragraphs_target": 100
+  },
+  {
+    "fixture": "/tmp/w11_b_docx_fixtures/scale_1k.docx",
+    "fixture_size_bytes": 40484,
+    "saved_size_bytes": 40625,
+    "paragraphs_visited": 1000,
+    "baseline_rss_kib": 12856,
+    "rss_kib": {
+      "pre_load": 30648,
+      "post_load": 41760,
+      "post_manipulate": 41760,
+      "post_save": 43052
+    },
+    "tracemalloc_bytes": {
+      "pre_load": 32,
+      "post_load": 81799,
+      "post_manipulate": 108371,
+      "post_save": 153019,
+      "peak": 2074529
+    },
+    "scale": "1k",
+    "paragraphs_target": 1000
+  },
+  {
+    "fixture": "/tmp/w11_b_docx_fixtures/scale_5k.docx",
+    "fixture_size_bytes": 124903,
+    "saved_size_bytes": 125051,
+    "paragraphs_visited": 5000,
+    "baseline_rss_kib": 12860,
+    "rss_kib": {
+      "pre_load": 30156,
+      "post_load": 64020,
+      "post_manipulate": 64788,
+      "post_save": 69652
+    },
+    "tracemalloc_bytes": {
+      "pre_load": 32,
+      "post_load": 81799,
+      "post_manipulate": 108373,
+      "post_save": 237447,
+      "peak": 8406953
+    },
+    "scale": "5k",
+    "paragraphs_target": 5000
+  },
+  {
+    "fixture": "/tmp/w11_b_docx_fixtures/scale_10k.docx",
+    "fixture_size_bytes": 230388,
+    "saved_size_bytes": 230531,
+    "paragraphs_visited": 10000,
+    "baseline_rss_kib": 12856,
+    "rss_kib": {
+      "pre_load": 30544,
+      "post_load": 92464,
+      "post_manipulate": 95024,
+      "post_save": 105264
+    },
+    "tracemalloc_bytes": {
+      "pre_load": 32,
+      "post_load": 81799,
+      "post_manipulate": 108373,
+      "post_save": 342927,
+      "peak": 11082443
+    },
+    "scale": "10k",
+    "paragraphs_target": 10000
+  }
+]
