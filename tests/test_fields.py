@@ -634,3 +634,256 @@ class DescribeField_MarkDirty:
         fldSimple.set(qn("w:instr"), "PAGE")
         fldSimple.set(qn("w:dirty"), value)
         assert Field.for_simple(fldSimple).is_dirty is expected
+
+
+class DescribeField_evaluate:
+    """Unit-test suite for `Field.evaluate()` complex-field evaluation."""
+
+    def _simple(self, instr: str, cached: str = "") -> Field:
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), instr)
+        if cached:
+            r = OxmlElement("w:r")
+            t = OxmlElement("w:t")
+            t.text = cached
+            r.append(t)
+            fldSimple.append(r)
+        return Field.for_simple(fldSimple)
+
+    # -- MERGEFIELD ----------------------------------------------------------
+
+    def it_evaluates_MERGEFIELD_from_context(self):
+        field = self._simple("MERGEFIELD firstname", cached="<<firstname>>")
+        assert field.evaluate({"firstname": "Ada"}) == "Ada"
+
+    def it_falls_back_to_cached_result_when_MERGEFIELD_key_missing(self):
+        field = self._simple("MERGEFIELD firstname", cached="<<firstname>>")
+        assert field.evaluate({}) == "<<firstname>>"
+
+    def it_evaluates_MERGEFIELD_with_quoted_multiword_name(self):
+        field = self._simple('MERGEFIELD "Full Name"')
+        assert field.evaluate({"Full Name": "Ada Lovelace"}) == "Ada Lovelace"
+
+    # -- IF ------------------------------------------------------------------
+
+    def it_evaluates_IF_with_equal_match(self):
+        field = self._simple('IF "yes" = "yes" "match" "nope"')
+        assert field.evaluate({}) == "match"
+
+    def it_evaluates_IF_with_equal_mismatch(self):
+        field = self._simple('IF "yes" = "no" "match" "nope"')
+        assert field.evaluate({}) == "nope"
+
+    def it_evaluates_IF_with_nested_MERGEFIELD(self):
+        field = self._simple('IF {MERGEFIELD status} = "active" "OK" "FAIL"')
+        assert field.evaluate({"status": "active"}) == "OK"
+        assert field.evaluate({"status": "cancelled"}) == "FAIL"
+
+    @pytest.mark.parametrize(
+        ("op", "lhs", "rhs", "expected"),
+        [
+            ("<>", "a", "b", "yes"),
+            ("<>", "a", "a", "no"),
+            ("!=", "a", "a", "no"),
+            ("<", "1", "2", "yes"),
+            (">", "2", "1", "yes"),
+            ("<=", "2", "2", "yes"),
+            (">=", "2", "3", "no"),
+        ],
+    )
+    def it_supports_the_common_comparison_operators(
+        self, op: str, lhs: str, rhs: str, expected: str
+    ):
+        field = self._simple(f'IF "{lhs}" {op} "{rhs}" "yes" "no"')
+        assert field.evaluate({}) == expected
+
+    def it_uses_numeric_comparison_when_both_sides_parse_as_numbers(self):
+        field = self._simple('IF "10" > "9" "big" "small"')
+        assert field.evaluate({}) == "big"
+
+    def it_returns_empty_false_branch_when_only_true_text_given(self):
+        field = self._simple('IF "a" = "b" "match"')
+        assert field.evaluate({}) == ""
+
+    def it_returns_cached_result_when_IF_is_malformed(self):
+        field = self._simple("IF", cached="x")
+        assert field.evaluate({}) == "x"
+
+    # -- HYPERLINK -----------------------------------------------------------
+
+    def it_returns_cached_display_text_for_HYPERLINK_when_present(self):
+        field = self._simple('HYPERLINK "https://example.com"', cached="click me")
+        assert field.evaluate({}) == "click me"
+
+    def it_returns_the_url_for_HYPERLINK_when_no_cached_text(self):
+        field = self._simple('HYPERLINK "https://example.com"')
+        assert field.evaluate({}) == "https://example.com"
+
+    # -- runtime-dynamic -----------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "instr", ["PAGE", "NUMPAGES", "DATE", "TIME"]
+    )
+    def it_returns_cached_result_for_runtime_dynamic_fields(self, instr: str):
+        field = self._simple(instr, cached="7")
+        assert field.evaluate({}) == "7"
+
+    @pytest.mark.parametrize(
+        "instr", ["PAGE", "NUMPAGES", "DATE", "TIME"]
+    )
+    def it_returns_question_mark_for_runtime_dynamic_fields_with_no_cache(
+        self, instr: str
+    ):
+        field = self._simple(instr)
+        assert field.evaluate({}) == "?"
+
+    # -- formula (=) ---------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        ("expr", "expected"),
+        [
+            ("= 1+2", "3"),
+            ("= 2*3", "6"),
+            ("= (2+3)*4", "20"),
+            ("= 7/2", "3.5"),
+            ("= 10 % 3", "1"),
+            ("= 2**8", "256"),
+        ],
+    )
+    def it_evaluates_arithmetic_formula_fields(self, expr: str, expected: str):
+        field = self._simple(expr)
+        assert field.evaluate({}) == expected
+
+    def it_substitutes_MERGEFIELD_in_formula(self):
+        field = self._simple("= {MERGEFIELD qty} * 10")
+        assert field.evaluate({"qty": 4}) == "40"
+
+    def it_returns_cached_for_formula_with_disallowed_chars(self):
+        field = self._simple('= __import__("os").system("ls")', cached="stale")
+        assert field.evaluate({}) == "stale"
+
+    # -- pass-through --------------------------------------------------------
+
+    def it_returns_cached_result_for_unknown_field_types(self):
+        field = self._simple("TOC \\o \"1-3\"", cached="toc-preview")
+        assert field.evaluate({}) == "toc-preview"
+
+
+class DescribeDocument_evaluate_fields:
+    """Unit-test suite for `Document.evaluate_fields()`."""
+
+    def it_updates_MERGEFIELD_cached_text_in_place(self):
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        doc_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/"
+                'w:p/w:fldSimple{w:instr=MERGEFIELD name}/w:r/w:t"stale"'
+            ),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+        count = doc.evaluate_fields({"name": "Ada"})
+        assert count == 1
+        fs = doc._element.body.xpath(".//w:fldSimple")[0]  # pyright: ignore[reportPrivateUsage]
+        assert Field.for_simple(fs).result_text == "Ada"
+
+    def it_returns_zero_when_nothing_changed(self):
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        doc_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/"
+                'w:p/w:fldSimple{w:instr=MERGEFIELD name}/w:r/w:t"Ada"'
+            ),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+        count = doc.evaluate_fields({"name": "Ada"})
+        assert count == 0
+
+    def it_evaluates_IF_formula_and_MERGEFIELD_together(self):
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+        from docx.oxml.parser import OxmlElement
+
+        doc_elm = cast(
+            CT_Document,
+            element("w:document/w:body/(w:p,w:p,w:p)"),
+        )
+        ps = doc_elm.body.xpath(".//w:p")
+        # -- merge field --
+        fs1 = OxmlElement("w:fldSimple")
+        fs1.set(qn("w:instr"), "MERGEFIELD name")
+        ps[0].append(fs1)
+        # -- IF --
+        fs2 = OxmlElement("w:fldSimple")
+        fs2.set(qn("w:instr"), 'IF {MERGEFIELD status} = "active" "yes" "no"')
+        ps[1].append(fs2)
+        # -- formula --
+        fs3 = OxmlElement("w:fldSimple")
+        fs3.set(qn("w:instr"), "= 2+3")
+        ps[2].append(fs3)
+
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+        count = doc.evaluate_fields({"name": "Ada", "status": "active"})
+        assert count == 3
+        fs_list = doc._element.body.xpath(".//w:fldSimple")  # pyright: ignore[reportPrivateUsage]
+        assert [Field.for_simple(f).result_text for f in fs_list] == [
+            "Ada", "yes", "5"
+        ]
+
+    def it_passes_document_context_for_property_fields(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        doc_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/"
+                'w:p/w:fldSimple{w:instr=AUTHOR}/w:r/w:t"stale"'
+            ),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+
+        # -- stub core_properties.author --
+        class _Props:
+            author = "Jane Doe"
+            title = None
+            subject = None
+            keywords = None
+            comments = None
+            last_modified_by = None
+
+        doc.__class__.core_properties = property(  # type: ignore[assignment]
+            lambda self: _Props()
+        )
+        try:
+            count = doc.evaluate_fields({})
+            assert count == 1
+            fs = doc._element.body.xpath(".//w:fldSimple")[0]  # pyright: ignore[reportPrivateUsage]
+            assert Field.for_simple(fs).result_text == "Jane Doe"
+        finally:
+            del doc.__class__.core_properties  # type: ignore[attr-defined]
+
+    def it_accepts_a_missing_context_argument(self):
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        doc_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/"
+                'w:p/w:fldSimple{w:instr=PAGE}/w:r/w:t"7"'
+            ),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+        count = doc.evaluate_fields()
+        # -- PAGE with cached "7" stays "7" --
+        assert count == 0

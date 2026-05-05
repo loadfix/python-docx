@@ -245,6 +245,80 @@ class Field:
             return self.result_text
         return text
 
+    def evaluate(self, context: "dict[str, object] | None" = None) -> str:
+        """Return the best-effort evaluated text for this field.
+
+        Extends :meth:`resolve` to a wider subset of field types, driven by a
+        caller-supplied ``context`` mapping (typically mail-merge values):
+
+        * ``MERGEFIELD name`` — looked up in ``context`` by name; if the key
+          is missing the cached :attr:`result_text` is returned unchanged.
+        * ``IF expr1 op expr2 "true-text" "false-text"`` — ``expr1`` and
+          ``expr2`` may be quoted string literals, nested ``{MERGEFIELD name}``
+          references, or bare names resolved from ``context``. Supported
+          operators are ``=``, ``<>``, ``!=``, ``<``, ``>``, ``<=``, ``>=``.
+          Numeric comparison is used when both sides parse as numbers;
+          otherwise a case-sensitive string compare is used.
+        * ``HYPERLINK "url"`` — returns the URL argument (or the cached
+          :attr:`result_text` when present and non-empty; that is the display
+          text Word already rendered).
+        * ``= <expr>`` formula — evaluated as a restricted arithmetic
+          expression over ``+``, ``-``, ``*``, ``/``, ``%``, ``**`` and
+          parentheses. Nested ``{MERGEFIELD name}`` references are substituted
+          from ``context`` before evaluation. Returns the string form of the
+          result, or the cached :attr:`result_text` on parse/eval error.
+        * ``PAGE`` / ``NUMPAGES`` / ``DATE`` / ``TIME`` — runtime-dynamic
+          fields that python-docx cannot compute. Returns the cached
+          :attr:`result_text` when present, otherwise the sentinel ``"?"``.
+        * ``REF`` / ``PAGEREF`` / ``DOCPROPERTY`` / core-property fields —
+          delegated to :meth:`resolve` against the owning document discovered
+          through the element tree (``context["document"]`` if provided).
+
+        Any other field type returns the existing :attr:`result_text`
+        unchanged. This method never raises for unresolvable references.
+
+        .. versionadded:: 2026.05.7
+        """
+        ctx: dict[str, object] = dict(context) if context else {}
+        field_type = self.type
+
+        if field_type in _PROPERTY_FIELD_TYPES or field_type in ("REF", "PAGEREF"):
+            document = ctx.get("document")
+            if document is not None:
+                try:
+                    return self.resolve(document)  # type: ignore[arg-type]
+                except Exception:
+                    return self.result_text
+            return self.result_text
+
+        if field_type == "MERGEFIELD":
+            name = _parse_mergefield_name(self.instruction)
+            if name is None:
+                return self.result_text
+            value = ctx.get(name)
+            return self.result_text if value is None else str(value)
+
+        if field_type == "IF":
+            evaluated = _evaluate_if(self.instruction, ctx)
+            return self.result_text if evaluated is None else evaluated
+
+        if field_type == "HYPERLINK":
+            url = _parse_hyperlink_url(self.instruction)
+            cached = self.result_text
+            if cached:
+                return cached
+            return url if url is not None else self.result_text
+
+        if field_type == "=":
+            evaluated = _evaluate_formula(self.instruction, ctx)
+            return self.result_text if evaluated is None else evaluated
+
+        if field_type in _RUNTIME_DYNAMIC_FIELD_TYPES:
+            cached = self.result_text
+            return cached if cached else "?"
+
+        return self.result_text
+
     def mark_dirty(self) -> None:
         """Mark this field's cached result as stale (``@w:dirty="true"``).
 
@@ -551,3 +625,270 @@ def _bookmark_text(document: "Document", name: str) -> str | None:
         if elm.tag == qn("w:t"):
             parts.append(elm.text or "")
     return "".join(parts)
+
+
+# -- evaluation helpers ---------------------------------------------------
+
+
+_RUNTIME_DYNAMIC_FIELD_TYPES = frozenset(
+    {"PAGE", "NUMPAGES", "DATE", "TIME", "SECTIONPAGES", "SECTION"}
+)
+
+
+def _parse_mergefield_name(instruction: str) -> str | None:
+    """Return the field-name argument from a ``MERGEFIELD`` instruction.
+
+    Handles both bare (``MERGEFIELD foo``) and quoted (``MERGEFIELD "foo bar"``)
+    forms. Formatting switches (``\\* MERGEFORMAT``, ``\\b``, ``\\f``) are
+    skipped. Returns |None| when no name can be extracted.
+    """
+    stripped = instruction.strip()
+    if not stripped.upper().startswith("MERGEFIELD"):
+        return None
+    remainder = stripped[len("MERGEFIELD") :].strip()
+    if not remainder:
+        return None
+    if remainder.startswith('"'):
+        end = remainder.find('"', 1)
+        if end == -1:
+            return None
+        return remainder[1:end]
+    for token in remainder.split():
+        if token.startswith("\\"):
+            continue
+        return token.strip('"')
+    return None
+
+
+def _parse_hyperlink_url(instruction: str) -> str | None:
+    """Return the URL argument from a ``HYPERLINK`` instruction.
+
+    Accepts ``HYPERLINK "https://…"`` and ``HYPERLINK https://…``. Switches
+    (``\\l`` for bookmark target, ``\\m``, ``\\n``, ``\\o``, ``\\t``) and their
+    arguments are skipped; the first bare non-switch token is returned.
+    """
+    stripped = instruction.strip()
+    if not stripped.upper().startswith("HYPERLINK"):
+        return None
+    remainder = stripped[len("HYPERLINK") :].strip()
+    if not remainder:
+        return None
+    if remainder.startswith('"'):
+        end = remainder.find('"', 1)
+        if end == -1:
+            return None
+        return remainder[1:end]
+    tokens = remainder.split()
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token.startswith("\\"):
+            # -- switches `\l`, `\m`, `\n`, `\o`, `\t` take an argument --
+            if token.lower() in (r"\l", r"\m", r"\n", r"\o", r"\t"):
+                i += 2
+                continue
+            i += 1
+            continue
+        return token.strip('"')
+    return None
+
+
+def _tokenize_field_args(text: str) -> list[str]:
+    """Tokenize `text` into whitespace-separated words, honouring double quotes
+    and ``{...}`` nested-field groups as atomic tokens.
+
+    ``{MERGEFIELD foo}`` is returned as the single token ``{MERGEFIELD foo}``
+    (braces included) so the caller can spot nested fields. ``"quoted value"``
+    returns ``quoted value`` (quotes stripped). Backslash-prefixed switches are
+    returned verbatim including the backslash.
+    """
+    tokens: list[str] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if ch.isspace():
+            i += 1
+            continue
+        if ch == '"':
+            end = text.find('"', i + 1)
+            if end == -1:
+                tokens.append(text[i + 1 :])
+                break
+            tokens.append(text[i + 1 : end])
+            i = end + 1
+            continue
+        if ch == "{":
+            depth = 1
+            j = i + 1
+            while j < n and depth > 0:
+                if text[j] == "{":
+                    depth += 1
+                elif text[j] == "}":
+                    depth -= 1
+                j += 1
+            tokens.append(text[i:j])
+            i = j
+            continue
+        # -- bare word: read until whitespace, quote, or brace --
+        j = i
+        while j < n and not text[j].isspace() and text[j] not in ('"', "{"):
+            j += 1
+        tokens.append(text[i:j])
+        i = j
+    return tokens
+
+
+def _resolve_operand(token: str, context: "dict[str, object]") -> str:
+    """Resolve an operand token from :func:`_tokenize_field_args` into a string.
+
+    * ``{MERGEFIELD name}`` or ``{ MERGEFIELD name }`` → ``context[name]`` as
+      string (empty string when missing).
+    * Anything else → returned verbatim (quoted literals are already
+      unquoted by the tokenizer).
+    """
+    stripped = token.strip()
+    if stripped.startswith("{") and stripped.endswith("}"):
+        inner = stripped[1:-1].strip()
+        if inner.upper().startswith("MERGEFIELD"):
+            name = _parse_mergefield_name(inner)
+            if name is None:
+                return ""
+            value = context.get(name)
+            return "" if value is None else str(value)
+        # -- unknown nested field: return empty string --
+        return ""
+    return token
+
+
+def _compare(lhs: str, op: str, rhs: str) -> bool:
+    """Compare two operands using `op`. Numeric comparison when both parse
+    as ``float``; case-sensitive string compare otherwise.
+    """
+    try:
+        lhs_n: float | None = float(lhs)
+    except ValueError:
+        lhs_n = None
+    try:
+        rhs_n: float | None = float(rhs)
+    except ValueError:
+        rhs_n = None
+
+    if lhs_n is not None and rhs_n is not None:
+        left: object = lhs_n
+        right: object = rhs_n
+    else:
+        left = lhs
+        right = rhs
+
+    if op == "=":
+        return left == right
+    if op in ("<>", "!="):
+        return left != right
+    if op == "<":
+        return left < right  # type: ignore[operator]
+    if op == ">":
+        return left > right  # type: ignore[operator]
+    if op == "<=":
+        return left <= right  # type: ignore[operator]
+    if op == ">=":
+        return left >= right  # type: ignore[operator]
+    # -- unknown operator → falsy --
+    return False
+
+
+def _evaluate_if(
+    instruction: str, context: "dict[str, object]"
+) -> str | None:
+    """Evaluate an ``IF`` field instruction against `context`.
+
+    Expected shape (per ECMA-376 § 17.16.5.22):
+    ``IF <expr1> <op> <expr2> <true-text> <false-text>``
+    Returns the chosen text, or |None| when the instruction is malformed.
+    """
+    stripped = instruction.strip()
+    if not stripped.upper().startswith("IF"):
+        return None
+    remainder = stripped[len("IF") :].strip()
+    tokens = _tokenize_field_args(remainder)
+    if len(tokens) < 4:
+        return None
+    # -- filter out formatting switches that may trail the field --
+    core: list[str] = []
+    skip_next = False
+    for tok in tokens:
+        if skip_next:
+            skip_next = False
+            continue
+        if tok.startswith("\\"):
+            if tok in ("\\*", "\\@", "\\#", "\\f"):
+                skip_next = True
+            continue
+        core.append(tok)
+    if len(core) < 4:
+        return None
+    lhs_raw, op, rhs_raw, true_text = core[0], core[1], core[2], core[3]
+    false_text = core[4] if len(core) >= 5 else ""
+
+    lhs = _resolve_operand(lhs_raw, context)
+    rhs = _resolve_operand(rhs_raw, context)
+    return true_text if _compare(lhs, op, rhs) else false_text
+
+
+_ALLOWED_FORMULA_CHARS = set("0123456789.+-*/%() \t")
+
+
+def _evaluate_formula(
+    instruction: str, context: "dict[str, object]"
+) -> str | None:
+    """Evaluate a ``=`` field instruction as a restricted arithmetic expression.
+
+    Nested ``{MERGEFIELD name}`` references are substituted from `context`
+    first, then the resulting expression is checked against a small
+    character-class whitelist (digits, the four basic operators, ``%``,
+    parens, whitespace) and evaluated with :func:`eval` in an empty
+    namespace. Returns the string form of the result, or |None| on error.
+    """
+    stripped = instruction.strip()
+    if not stripped.startswith("="):
+        return None
+    expr = stripped[1:].strip()
+
+    # -- substitute {MERGEFIELD name} → context[name] --
+    def _sub(token: str) -> str:
+        return _resolve_operand(token, context)
+
+    parts: list[str] = []
+    i = 0
+    n = len(expr)
+    while i < n:
+        ch = expr[i]
+        if ch == "{":
+            depth = 1
+            j = i + 1
+            while j < n and depth > 0:
+                if expr[j] == "{":
+                    depth += 1
+                elif expr[j] == "}":
+                    depth -= 1
+                j += 1
+            parts.append(_sub(expr[i:j]))
+            i = j
+            continue
+        parts.append(ch)
+        i += 1
+    substituted = "".join(parts)
+
+    # -- whitelist check --
+    for ch in substituted:
+        if ch not in _ALLOWED_FORMULA_CHARS:
+            return None
+    if not substituted.strip():
+        return None
+    try:
+        value = eval(substituted, {"__builtins__": {}}, {})  # noqa: S307
+    except Exception:
+        return None
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    return str(value)
