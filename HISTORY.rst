@@ -3,6 +3,73 @@
 Release History
 ---------------
 
+2026.05.8 — New authoring APIs
+++++++++++++++++++++++++++++++
+
+Released: 2026-05-05
+
+Three independently-developed authoring feature branches landed in
+this release, extending the fork's writer surface in areas previously
+supported for *read* only (or not at all).
+
+SmartArt
+~~~~~~~~
+
+- New ``Document.add_smart_art(layout_name)`` returns a ``SmartArt``
+  proxy. Built-in layouts: ``"list"``, ``"cycle"``, ``"process"``.
+  Each call provisions the full quartet of SmartArt parts
+  (``diagrams/data{N}.xml``, ``layout{N}.xml``, ``quickStyle{N}.xml``,
+  ``colors{N}.xml``) from the templates under
+  ``src/docx/templates/smart_art/`` and wires the drawing into the
+  document body at the current insertion point.
+- New ``SmartArt.add_node(text)`` appends a data-point node into the
+  underlying ``<dgm:dataModel>``/``<dgm:ptLst>`` with the text you
+  supply, picking up the layout's default style so the rendered shape
+  picks the right fill/line/font automatically.
+- See ``FEATURES.md`` § "SmartArt" for the full snippet.
+
+Bibliography and citations
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- New ``Document.bibliography`` property returns a ``Bibliography``
+  proxy (read + write). On first access it lazily provisions
+  ``/customXml/item{N}.xml`` (with a ``<b:Sources>`` root) plus the
+  matching ``itemProps{N}.xml`` and relates both to the document part.
+- New ``Document.add_citation(tag, source_type, ...)`` adds a
+  ``<b:Source>`` entry to the bibliography. ``tag`` is the key that
+  citation references resolve against.
+- New ``Paragraph.add_citation_reference(tag)`` inserts an ``SDT``
+  citation marker that Word reifies to ``(Author, Year)`` using the
+  current bibliography style.
+- The save-time custom-XML drop heuristic now preserves freshly-
+  authored bibliography parts even without a ``w:dataBinding``
+  (citations bind implicitly through matching ``<b:Tag>`` values).
+- See ``FEATURES.md`` § "Bibliography and citations".
+
+Field evaluation
+~~~~~~~~~~~~~~~~
+
+- New ``Field.evaluate(context)`` and
+  ``Document.evaluate_fields(context)`` evaluate complex field codes
+  against a supplied context dict. Supported codes:
+
+  - ``MERGEFIELD FieldName`` — substitutes ``context["FieldName"]``.
+  - ``IF cond op cond "then" "else"`` — boolean evaluation with
+    nested ``{MERGEFIELD}`` allowed on either side of the comparator.
+  - ``HYPERLINK "url"`` — resolves to the URL and updates the
+    displayed run so the cached result matches.
+  - ``= <expr>`` — arithmetic formula evaluator (``+``, ``-``, ``*``,
+    ``/``, parentheses, numeric literals, and references to
+    ``context`` keys).
+  - ``PAGE`` / ``NUMPAGES`` / ``DATE`` / ``TIME`` — runtime-dynamic
+    placeholders pulled from the context or from ``datetime.now()``.
+- Deferred (raised as ``FieldEvalError``): string-function formulas
+  (``=SUM()``, ``=AVERAGE()`` beyond arithmetic), nested ``IF``,
+  ``QUOTE``, ``FILLIN``, and the full date-picture/numeric-format
+  switch grammar.
+- See ``FEATURES.md`` § "Complex-field evaluation".
+
+
 2026.05.7 — Round-trip fidelity and performance fixes
 +++++++++++++++++++++++++++++++++++++++++++++++++++++
 
