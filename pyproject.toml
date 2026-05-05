@@ -50,8 +50,16 @@ dev = [
 ]
 
 [project.optional-dependencies]
-dev = [
-    "ooxml-validate @ file:///home/ben/code/ooxml-validate",
+# Opt-in extra for running OOXML conformance checks against the
+# `loadfix/ooxml-reference-corpus` manifests. Kept out of the default
+# `dev` group so `pip install -e '.[dev]'` stays fast and portable for
+# external contributors (the previous host-specific `file://` path
+# broke installs for anyone without that directory on disk).
+#
+#   pip install -e '.[conformance]'
+#
+conformance = [
+    "ooxml-validate @ git+https://github.com/loadfix/ooxml-validate.git@master",
 ]
 
 [project.urls]
