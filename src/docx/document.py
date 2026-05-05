@@ -1567,6 +1567,51 @@ class Document(ElementProxy):
             updated += 1
         return updated
 
+    def evaluate_fields(self, context: "dict[str, object] | None" = None) -> int:
+        """Evaluate complex-type fields in the document body against `context`.
+
+        For every ``w:fldSimple`` or complex field in the body, calls
+        :meth:`Field.evaluate` with ``context`` augmented with
+        ``context["document"] = self`` (so property / cross-reference fields
+        can still resolve). When the evaluated text differs from the cached
+        :attr:`~docx.fields.Field.result_text`, it is written back in place
+        via :meth:`Field.update_result_text`.
+
+        Supported field types include ``IF`` (with nested ``MERGEFIELD``),
+        ``MERGEFIELD``, ``HYPERLINK``, the ``=``-prefix formula field, and
+        the runtime-dynamic ``PAGE`` / ``NUMPAGES`` / ``DATE`` / ``TIME``
+        placeholders (which fall through to the cached result when present).
+        ``REF`` / ``PAGEREF`` / ``DOCPROPERTY`` / core-property fields are
+        delegated to :meth:`Document.resolve_cross_references` semantics.
+
+        Returns the number of fields whose ``result_text`` was updated.
+
+        .. versionadded:: 2026.05.7
+        """
+        from docx.fields import Field
+
+        ctx: dict[str, object] = dict(context) if context else {}
+        ctx.setdefault("document", self)
+
+        body = self._element.body
+        updated = 0
+        for el in body.xpath(
+            ".//w:fldSimple | .//w:r[w:fldChar[@w:fldCharType='begin']]"
+        ):
+            tag = el.tag.rsplit("}", 1)[-1]
+            field = (
+                Field.for_simple(el) if tag == "fldSimple" else Field.for_complex(el)
+            )
+            try:
+                evaluated = field.evaluate(ctx)
+            except Exception:
+                continue
+            if evaluated == field.result_text:
+                continue
+            field.update_result_text(evaluated)
+            updated += 1
+        return updated
+
     def revision_marks_text(
         self,
         open_ins: str = "[+",

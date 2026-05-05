@@ -989,8 +989,20 @@ document.save("out.docx")
 - `Paragraph.add_complex_field(instr, result_text=None)` — Append `begin`/`separate`/`end`. `[Added in 2026.05.0]`
 - `Paragraph.fields` — Mixed list of simple and complex fields. `[Added in 2026.05.0]`
 - `Field.instruction` / `Field.type` / `Field.result_text` / `Field.is_complex` / `Field.is_dirty` / `Field.mark_dirty()` / `Field.update_result_text(new_text)` / `Field.resolve(document)`. `[Added in 2026.05.0]`
+- `Field.evaluate(context)` — Evaluate `IF` (with nested `{MERGEFIELD}`), `MERGEFIELD`, `HYPERLINK`, `= <expr>` arithmetic formula, and `PAGE` / `NUMPAGES` / `DATE` / `TIME` placeholders against a caller-supplied mapping. `[Added in 2026.05.7]`
 - `Document.resolve_cross_references()` — Walk the body, resolve `REF`/`PAGEREF`/`DOCPROPERTY`/core-property fields, return count updated. `[Added in 2026.05.0]`
+- `Document.evaluate_fields(context)` — Batch-apply `Field.evaluate` across every field in the body; writes the evaluated text back in place and returns the number of fields updated. `[Added in 2026.05.7]`
 - Field type detection: `docx.fields.WD_FIELD_TYPE` constants. `[Added in 2026.05.0]`
+
+```python
+# data-driven field evaluation (mail-merge-style)
+document = Document()
+p = document.add_paragraph()
+p.add_simple_field('IF {MERGEFIELD status} = "active" "Active" "Archived"', "?")
+
+n = document.evaluate_fields({"status": "active"})
+print(f"{n} field(s) updated")  # → "Active"
+```
 
 ---
 
