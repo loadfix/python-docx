@@ -95,8 +95,14 @@ class DescribeBlockItemContainer:
         assert len(paragraphs) == expected_count
         # -- is iterable --
         assert all(isinstance(p, Paragraph) for p in paragraphs)
-        # -- is indexable --
-        assert all(p is paragraphs[idx] for idx, p in enumerate(paragraphs))
+        # -- is indexable — iteration and ``[idx]`` agree on the
+        # -- underlying ``<w:p>`` element. (We compare the wrapped
+        # -- element rather than using ``is``: the view re-wraps each
+        # -- access so the Paragraph proxies have distinct identities,
+        # -- but they're equivalent wrappers over the same element.) --
+        assert all(
+            p._p is paragraphs[idx]._p for idx, p in enumerate(paragraphs)
+        )
 
     @pytest.mark.parametrize(
         ("blkcntnr_cxml", "expected_count"),
