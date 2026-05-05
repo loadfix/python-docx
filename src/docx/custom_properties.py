@@ -11,6 +11,8 @@ Supported value types:
 * ``float`` -- serialised as ``vt:r8``
 * ``bool`` -- serialised as ``vt:bool``
 * ``datetime.datetime`` -- serialised as ``vt:filetime`` (ISO-8601 with trailing ``Z``)
+* ``datetime.date`` (but *not* ``datetime``) -- serialised as ``vt:date``
+  (ISO-8601 ``YYYY-MM-DD``, no time component)
 """
 
 from __future__ import annotations
@@ -127,9 +129,11 @@ class CustomProperties:
         ``CT_CustomProperty.value`` setter.
         """
         # -- ``bool`` must be accepted explicitly; it subclasses ``int``. ----
+        # -- ``date`` covers both ``date`` and ``datetime`` (the setter dispatch
+        # -- below is responsible for picking `vt:filetime` vs `vt:date`).
         import datetime as _dt
 
-        if isinstance(value, (bool, int, float, str, _dt.datetime)):
+        if isinstance(value, (bool, int, float, str, _dt.date)):
             return
         raise TypeError(
             f"unsupported custom-property value type: {type(value).__name__}"

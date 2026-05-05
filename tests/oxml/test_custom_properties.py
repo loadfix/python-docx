@@ -155,6 +155,44 @@ class DescribeCT_CustomProperty:
 
         assert prop.value == original
 
+    def it_writes_a_vt_date_for_a_date(self):
+        """`datetime.date` (not `datetime`) serialises as `vt:date`, `YYYY-MM-DD`."""
+        props = _empty_properties()
+        prop = props.add_property("P")
+
+        prop.value = dt.date(2024, 1, 15)
+
+        child = prop._vt_child
+        assert child is not None
+        assert child.tag.endswith("}date")
+        assert child.text == "2024-01-15"
+
+    def it_round_trips_a_date(self):
+        props = _empty_properties()
+        prop = props.add_property("P")
+        original = dt.date(2024, 1, 15)
+
+        prop.value = original
+
+        round_tripped = prop.value
+        # -- must be a plain `date`, not a `datetime`, to preserve type identity --
+        assert isinstance(round_tripped, dt.date)
+        assert not isinstance(round_tripped, dt.datetime)
+        assert round_tripped == original
+
+    def it_dispatches_datetime_to_filetime_not_date(self):
+        """A `datetime` must still route to `vt:filetime`, not `vt:date` (it is
+        also a `date` instance, so ordering of the isinstance checks matters).
+        """
+        props = _empty_properties()
+        prop = props.add_property("P")
+
+        prop.value = dt.datetime(2024, 1, 15, 10, 30, 45)
+
+        child = prop._vt_child
+        assert child is not None
+        assert child.tag.endswith("}filetime")
+
     def it_raises_on_unsupported_value_type(self):
         props = _empty_properties()
         prop = props.add_property("P")
