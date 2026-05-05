@@ -56,7 +56,7 @@ Summary of areas extended beyond upstream `1.2.0`:
   dropdown, picture; custom XML data binding)
 - Form fields (text input, checkbox, dropdown)
 - Charts (read + create for bar/line/pie; `Chart.replace_data()`)
-- SmartArt (read)
+- SmartArt (read + create for list/cycle/process layout families)
 - Equations (OMML read + builders for identifier, fraction, superscript,
   subscript, radical)
 - Watermarks, captions, ink annotations, embedded OLE objects, alt-chunks

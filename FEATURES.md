@@ -681,14 +681,33 @@ document.save("out.docx")
 
 ## SmartArt
 
-SmartArt is read-only. `Document.smart_art` walks every `<w:drawing>` that
-references a `dgm:relIds` diagram and returns a `SmartArt` proxy carrying
-`.nodes`, `.text`, and the underlying diagram-data partname.
-`[Added in 2026.05.0]`.
+SmartArt is read *and* authorable. `Document.smart_art` walks every
+`<w:drawing>` that references a `dgm:relIds` diagram and returns a
+`SmartArt` proxy carrying `.nodes`, `.text`, and the underlying
+diagram-data partname. `Document.add_smart_art(layout_name)` appends a
+new SmartArt at the end of the document body, backed by four freshly
+minted companion parts (`data`, `layout`, `colors`, `quickStyle`) under
+`word/diagrams/`. The returned `SmartArt` is populated one content node
+at a time via `SmartArt.add_node(text)`. Supported layout families are
+`"list"`, `"cycle"` and `"process"` — each selects a Word built-in
+layout algorithm keyed by its canonical `loTypeId` URN; Word's own
+layout engine handles rendering, so the embedded `layout1.xml` copy
+exists to satisfy package requirements rather than to drive geometry.
+`[Added in 2026.05.0]` (read-side); `add_smart_art` / `add_node`
+`[Added in 2026.05.7]`.
 
 ```python
 from docx import Document
 
+# -- authoring --
+document = Document()
+diagram = document.add_smart_art("process")
+diagram.add_node("Plan")
+diagram.add_node("Build")
+diagram.add_node("Ship")
+document.save("with-smartart.docx")
+
+# -- reading --
 document = Document("with-smartart.docx")
 for diagram in document.smart_art:
     print(diagram.data_partname)
@@ -697,6 +716,11 @@ for diagram in document.smart_art:
         print(" " * node.level, node.text)
 ```
 
+- `Document.add_smart_art(layout_name, width=None, height=None)` — Return a new
+  empty `SmartArt`. `layout_name` is one of `"list"`, `"cycle"`, `"process"`
+  (case-insensitive). `[Added in 2026.05.7]`
+- `SmartArt.add_node(text)` — Append a top-level content node and return
+  its `SmartArtNode`. `[Added in 2026.05.7]`
 - `Document.smart_art` — List of `SmartArt`. `[Added in 2026.05.0]`
 - `SmartArt.data_partname` / `SmartArt.dm_rId` / `SmartArt.nodes` / `SmartArt.text`. `[Added in 2026.05.0]`
 - `SmartArtNode.text` / `.level` / `.model_id` / `.children`. `[Added in 2026.05.0]`
