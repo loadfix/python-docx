@@ -115,7 +115,9 @@ class DescribeDocumentPart:
 
         document_part.save("foobar.docx")
 
-        package_.save.assert_called_once_with("foobar.docx", reproducible=False)
+        package_.save.assert_called_once_with(
+            "foobar.docx", reproducible=False, password=None
+        )
 
     def it_provides_access_to_the_comments_added_to_the_document(
         self, _comments_part_prop_: Mock, comments_part_: Mock, comments_: Mock, package_: Mock

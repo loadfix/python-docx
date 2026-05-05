@@ -6,6 +6,7 @@ OpcPackage.save().
 
 from __future__ import annotations
 
+import io
 from typing import TYPE_CHECKING
 from collections.abc import Iterable
 
@@ -29,22 +30,56 @@ class PackageWriter:
     """
 
     @staticmethod
-    def write(pkg_file, pkg_rels, parts, reproducible: bool = False):
-        """Write a physical package (.pptx file) to `pkg_file` containing `pkg_rels` and
+    def write(
+        pkg_file,
+        pkg_rels,
+        parts,
+        reproducible: bool = False,
+        password: str | None = None,
+    ):
+        """Write a physical package (.docx file) to `pkg_file` containing `pkg_rels` and
         `parts` and a content types stream based on the content types of the parts.
 
         When `reproducible` is True, the underlying zip writer emits fixed
         timestamps and sorted member names so repeated saves of the same input
         produce byte-identical output. Closes upstream#1042 / upstream-PR#810.
 
+        When `password` is provided the resulting .docx is password-protected
+        using ECMA-376 Agile Encryption; this requires the optional
+        ``python-ooxml-crypto`` dependency. ``reproducible`` and ``password``
+        are orthogonal — fixed timestamps stamp the inner (plaintext) zip
+        members before the encryption wrapper is applied.
+
         .. versionadded:: 2026.05.0
            The `reproducible` parameter.
+        .. versionadded:: 2026.05.10
+           The `password` parameter.
         """
-        phys_writer = PhysPkgWriter(pkg_file, reproducible=reproducible)
+        if password is None:
+            phys_writer = PhysPkgWriter(pkg_file, reproducible=reproducible)
+            PackageWriter._write_content_types_stream(phys_writer, parts)
+            PackageWriter._write_pkg_rels(phys_writer, pkg_rels)
+            PackageWriter._write_parts(phys_writer, parts, reproducible=reproducible)
+            phys_writer.close()
+            return
+
+        # -- build the plain zip into an in-memory buffer, then encrypt it --
+        from docx.opc._crypto import encrypt_bytes
+
+        plain_buffer = io.BytesIO()
+        phys_writer = PhysPkgWriter(plain_buffer, reproducible=reproducible)
         PackageWriter._write_content_types_stream(phys_writer, parts)
         PackageWriter._write_pkg_rels(phys_writer, pkg_rels)
         PackageWriter._write_parts(phys_writer, parts, reproducible=reproducible)
         phys_writer.close()
+
+        encrypted = encrypt_bytes(plain_buffer.getvalue(), password)
+
+        if isinstance(pkg_file, str):
+            with open(pkg_file, "wb") as f:
+                f.write(encrypted)
+        else:
+            pkg_file.write(encrypted)
 
     @staticmethod
     def _write_content_types_stream(phys_writer, parts):

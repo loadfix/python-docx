@@ -643,7 +643,12 @@ class DocumentPart(StoryPart):
 
         return any(inherits_numPr(sid) for sid in used_styles if sid)
 
-    def save(self, path_or_stream: str | IO[bytes], reproducible: bool = False):
+    def save(
+        self,
+        path_or_stream: str | IO[bytes],
+        reproducible: bool = False,
+        password: str | None = None,
+    ):
         """Save this document to `path_or_stream`, which can be either a path to a
         filesystem location (a string) or a file-like object.
 
@@ -651,10 +656,18 @@ class DocumentPart(StoryPart):
         timestamps and sorted member names so repeated saves yield byte-identical
         output (closes upstream#1042 / upstream-PR#810).
 
+        When `password` is provided the saved ``.docx`` is password-protected
+        using ECMA-376 Agile Encryption. Encryption requires the optional
+        ``python-ooxml-crypto`` dependency.
+
         .. versionadded:: 2026.05.0
            The `reproducible` parameter.
+        .. versionadded:: 2026.05.10
+           The `password` parameter.
         """
-        self.package.save(path_or_stream, reproducible=reproducible)
+        self.package.save(
+            path_or_stream, reproducible=reproducible, password=password
+        )
 
     @property
     def settings(self) -> Settings:

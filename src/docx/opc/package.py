@@ -254,6 +254,7 @@ class OpcPackage:
         pkg_file: str | IO[bytes],
         recover: bool = False,
         huge_tree: bool = False,
+        password: str | None = None,
     ) -> Self:
         """Return an |OpcPackage| instance loaded with the contents of `pkg_file`.
 
@@ -268,11 +269,19 @@ class OpcPackage:
         10 MB-per-AttValue and 256-deep nesting limits so extremely large
         documents can be parsed (upstream#1086). Only enable for trusted
         input — the default parser's XML-bomb protections no longer apply.
+
+        When `password` is provided and `pkg_file` is an ECMA-376 Agile-
+        Encryption (password-protected) ``.docx``, it is transparently
+        decrypted before loading. Decryption requires the optional
+        ``python-ooxml-crypto`` dependency.
+
+        .. versionchanged:: 2026.05.10
+           Added ``password`` parameter.
         """
         from docx.oxml.parser import huge_tree_mode, recovery_mode
 
         def _load() -> Self:
-            pkg_reader = PackageReader.from_file(pkg_file)
+            pkg_reader = PackageReader.from_file(pkg_file, password=password)
             package = cls()
             Unmarshaller.unmarshal(pkg_reader, package, PartFactory)
             return package
@@ -332,7 +341,12 @@ class OpcPackage:
         relationships for this package."""
         return Relationships(PACKAGE_URI.baseURI)
 
-    def save(self, pkg_file: str | IO[bytes], reproducible: bool = False):
+    def save(
+        self,
+        pkg_file: str | IO[bytes],
+        reproducible: bool = False,
+        password: str | None = None,
+    ):
         """Save this package to `pkg_file`.
 
         `pkg_file` can be either a file-path or a file-like object.
@@ -347,15 +361,30 @@ class OpcPackage:
         timestamps and sorted member names so repeated saves of the same content
         produce byte-identical output. Closes upstream#1042 / upstream-PR#810.
 
+        When `password` is provided the saved ``.docx`` is password-protected
+        using ECMA-376 Agile Encryption (the scheme Word uses). Encryption
+        requires the optional ``python-ooxml-crypto`` dependency.
+        ``reproducible`` and ``password`` are orthogonal — fixed timestamps
+        stamp the inner (plaintext) zip members before the encryption wrapper
+        is applied.
+
         .. versionadded:: 2026.05.0
            The `reproducible` parameter.
+        .. versionadded:: 2026.05.10
+           The `password` parameter.
         """
         if isinstance(pkg_file, str):
             _validate_save_path(pkg_file)
         self._drop_unused_package_rels()
         for part in self.parts:
             part.before_marshal(reproducible=reproducible)
-        PackageWriter.write(pkg_file, self.rels, self.parts, reproducible=reproducible)
+        PackageWriter.write(
+            pkg_file,
+            self.rels,
+            self.parts,
+            reproducible=reproducible,
+            password=password,
+        )
 
     def _drop_unused_package_rels(self) -> None:
         """Drop package-level rels whose target parts python-docx doesn't author.

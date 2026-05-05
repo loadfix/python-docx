@@ -41,7 +41,7 @@ class DescribePackageReader:
 
         pkg_reader = PackageReader.from_file(pkg_file)
 
-        PhysPkgReader_.assert_called_once_with(pkg_file)
+        PhysPkgReader_.assert_called_once_with(pkg_file, password=None)
         from_xml.assert_called_once_with(phys_reader.content_types_xml)
         _srels_for.assert_called_once_with(phys_reader, "/")
         _load_serialized_parts.assert_called_once_with(phys_reader, pkg_srels, content_types)
