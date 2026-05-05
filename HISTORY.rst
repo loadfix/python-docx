@@ -3,31 +3,75 @@
 Release History
 ---------------
 
-Unreleased — reproducible-save fidelity + default-template zip rebuild
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+2026.05.7 — Round-trip fidelity and performance fixes
++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Two drift bugs in the 2026.05.2 reproducible-save invariant:
+Released: 2026-05-05
+
+Reproducible-save fidelity
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``Document.save(..., reproducible=True)`` no longer mints
   ``w:rsidR`` / ``w:rsidRDefault`` on paragraphs and runs that don't
-  already carry them. Those attributes are session-scoped churn
-  markers; synthesising them from a constant-valued root made the
-  output reproducible but *not* faithful — round-tripping
+  already carry them (#168). Those attributes are session-scoped
+  churn markers; synthesising them from a constant-valued root made
+  the output reproducible but *not* faithful — round-tripping
   ``bold-text.office.docx`` gained a spurious ``w:rsidR`` on its
   single ``<w:r>``. ``w14:paraId`` / ``w14:textId`` continue to be
   derived deterministically from paragraph content so repeated saves
   remain byte-identical.
+
+Default template rebuild
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 - ``src/docx/templates/default.docx`` has been rebuilt from the
-  ``default-docx-template/`` source tree so a fresh ``Document()``
-  exposes the Word-2024 namespace set (``w15``, ``w16``, ``w16cex``,
-  ``w16cid``, ``w16du``, ``w16sdtdh``, ``w16sdtfl``, ``w16se``,
-  ``cx``–``cx8``, ``aink``, ``am3d``, ``oel``) plus the matching
-  ``mc:Ignorable`` list. The unzipped tree was updated in 2026.05.2
-  but the zipped blob was not regenerated — ``Document()`` was still
-  loading the pre-2026.05.2 namespace set at runtime.
+  ``default-docx-template/`` source tree (#169) so a fresh
+  ``Document()`` exposes the Word-2024 namespace set (``w15``,
+  ``w16``, ``w16cex``, ``w16cid``, ``w16du``, ``w16sdtdh``,
+  ``w16sdtfl``, ``w16se``, ``cx``–``cx8``, ``aink``, ``am3d``,
+  ``oel``) plus the matching ``mc:Ignorable`` list. The unzipped
+  tree was updated in 2026.05.2 but the zipped blob was not
+  regenerated — ``Document()`` was still loading the pre-2026.05.2
+  namespace set at runtime.
 - New ``scripts/rebuild_default_template.py`` deterministically
   rebuilds the zipped blob from the source tree so future template
   edits cannot drift out of sync silently.
+
+Narrow part-drop heuristics to preserve Word-authored data
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The 2026.05.4 "word-mimicry phase 3" release introduced aggressive
+drop heuristics that silently destroyed optional parts from
+Word-authored files on round-trip (#167). This release narrows the
+policy so parts that shipped in the source package are preserved
+verbatim — dropping happens only when python-docx itself created
+the part.
+
+- ``Unmarshaller._unmarshal_parts`` now flags every part it loads with
+  ``_loaded_from_package = True``. Save-time heuristics consult this
+  flag and preserve any part that shipped in the source package,
+  regardless of whether python-docx can statically prove it is
+  referenced.
+- **``word/stylesWithEffects.xml``** — was dropped unconditionally.
+  Now dropped only when python-docx created the part itself (it never
+  does today, but the policy is symmetric with the others).
+- **``customXml/*``** — was dropped whenever no ``<w:dataBinding>`` was
+  present. That false-negatived on customXml used by Power BI,
+  bibliography sources, and Office Add-in backing data. Now preserved
+  whenever the source package shipped it.
+- **``docProps/thumbnail.jpeg``** — was dropped unconditionally at
+  the package level. Now preserved whenever the source package
+  shipped it. Library-authored documents still skip the thumbnail.
+- **``word/numbering.xml``** — the style-indirect heuristic now walks
+  the ``w:basedOn`` chain when resolving which styles declare
+  ``<w:numPr>``, catching user-defined styles rooted in a numbering
+  style (the common "My Bullet → List Bullet" pattern). Dropped only
+  when python-docx authored the part and the document uses no
+  numbering at all.
+
+Found by W5-A / W5-E / W6-A audits: every Word-authored corpus fixture
+round-tripped through the 2026.05.4 drop heuristics lost at least one
+of these four parts.
 
 
 2026.05.6 — Section.vertical_alignment property
