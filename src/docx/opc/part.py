@@ -26,6 +26,16 @@ class Part:
     to implement specific part behaviors.
     """
 
+    #: Flag set to ``True`` by :class:`Unmarshaller` when the part was
+    #: parsed from the source package. Library-authored parts (created
+    #: on demand from a default template) leave this at its class-level
+    #: default ``False``. Used by save-time drop heuristics to distinguish
+    #: data that came from the user's package (and must be preserved) from
+    #: data python-docx wrote itself (safe to prune when unreferenced).
+    #:
+    #: .. versionadded:: 2026.05.7
+    _loaded_from_package: bool = False
+
     def __init__(
         self,
         partname: PackURI,

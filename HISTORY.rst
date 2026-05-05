@@ -3,6 +3,44 @@
 Release History
 ---------------
 
+2026.05.7 — Narrow part-drop heuristics to preserve Word-authored data
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Released: 2026-05-05
+
+The 2026.05.4 "word-mimicry phase 3" release introduced aggressive
+drop heuristics that silently destroyed optional parts from
+Word-authored files on round-trip. This release narrows the policy
+so parts that shipped in the source package are preserved verbatim —
+dropping happens only when python-docx itself created the part.
+
+- ``Unmarshaller._unmarshal_parts`` now flags every part it loads with
+  ``_loaded_from_package = True``. Save-time heuristics consult this
+  flag and preserve any part that shipped in the source package,
+  regardless of whether python-docx can statically prove it is
+  referenced.
+- **``word/stylesWithEffects.xml``** — was dropped unconditionally.
+  Now dropped only when python-docx created the part itself (it never
+  does today, but the policy is symmetric with the others).
+- **``customXml/*``** — was dropped whenever no ``<w:dataBinding>`` was
+  present. That false-negatived on customXml used by Power BI,
+  bibliography sources, and Office Add-in backing data. Now preserved
+  whenever the source package shipped it.
+- **``docProps/thumbnail.jpeg``** — was dropped unconditionally at
+  the package level. Now preserved whenever the source package
+  shipped it. Library-authored documents still skip the thumbnail.
+- **``word/numbering.xml``** — the style-indirect heuristic now walks
+  the ``w:basedOn`` chain when resolving which styles declare
+  ``<w:numPr>``, catching user-defined styles rooted in a numbering
+  style (the common "My Bullet → List Bullet" pattern). Dropped only
+  when python-docx authored the part and the document uses no
+  numbering at all.
+
+Found by W5-A / W5-E / W6-A audits: every Word-authored corpus fixture
+round-tripped through the 2026.05.4 drop heuristics lost at least one
+of these four parts.
+
+
 2026.05.6 — Section.vertical_alignment property
 ++++++++++++++++++++++++++++++++++++++++++++++++
 

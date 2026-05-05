@@ -119,3 +119,85 @@ class DescribeNumberingRoundTrip:
         assert _canonicalise(_read_xml(_NUMBERING_SRC, "word/numbering.xml")) == _canonicalise(
             _read_xml(str(out), "word/numbering.xml")
         )
+
+
+class DescribeOrphanPartPreservation:
+    """W8-A: round-tripping a Word-authored file must not destroy its
+    optional parts just because python-docx can't statically prove they
+    are referenced.
+
+    The 2026.05.4 "word-mimicry phase 3" release introduced drop
+    heuristics that were too aggressive — they silently pruned
+    ``stylesWithEffects.xml``, ``customXml/*``, ``thumbnail.jpeg``, and
+    style-indirectly-referenced ``numbering.xml``. These tests lock in
+    the narrower policy introduced in 2026.05.7: such parts are
+    preserved verbatim when they shipped in the source package.
+    """
+
+    def it_preserves_stylesWithEffects_from_source(self, tmp_path):
+        out = tmp_path / "rt.docx"
+
+        Document(_STYLES_SRC).save(str(out))
+
+        orig = _read_xml(_STYLES_SRC, "word/stylesWithEffects.xml")
+        rt = _read_xml(str(out), "word/stylesWithEffects.xml")
+        # -- just proving presence is enough; the heuristic used to
+        # -- drop the part unconditionally. --
+        assert orig, "fixture must ship stylesWithEffects.xml"
+        assert rt, "round-trip must preserve stylesWithEffects.xml"
+
+    def it_preserves_thumbnail_from_source(self, tmp_path):
+        out = tmp_path / "rt.docx"
+
+        Document(_STYLES_SRC).save(str(out))
+
+        orig = _read_xml(_STYLES_SRC, "docProps/thumbnail.jpeg")
+        with zipfile.ZipFile(str(out)) as z:
+            names = z.namelist()
+            assert "docProps/thumbnail.jpeg" in names, (
+                f"thumbnail dropped on round-trip; got {names}"
+            )
+            rt = z.read("docProps/thumbnail.jpeg")
+        assert orig == rt, "thumbnail bytes must round-trip verbatim"
+
+    def it_preserves_numbering_for_style_indirect_references(self, tmp_path):
+        """Paragraphs using a style whose definition carries <w:numPr>
+        (directly or via a basedOn chain) must keep numbering.xml even
+        without a direct <w:numPr> in the paragraph."""
+        out = tmp_path / "rt.docx"
+
+        Document(_NUMBERING_SRC).save(str(out))
+
+        with zipfile.ZipFile(str(out)) as z:
+            names = z.namelist()
+        assert "word/numbering.xml" in names, (
+            f"numbering.xml dropped despite style-indirect references; got {names}"
+        )
+
+    def it_preserves_customXml_parts_from_source(self, tmp_path):
+        """customXml parts ship with Word files for purposes (Power BI,
+        bibliographies, add-in backing data) that a static XPath for
+        <w:dataBinding> can't detect. They must be preserved."""
+        src = "tests/test_files/expanded_docx"
+        # The expanded docx fixture already has customXml/item1.xml.
+        # Build a zip from it and check customXml survives round-trip.
+        import os
+        from pathlib import Path
+
+        pkg = tmp_path / "src.docx"
+        with zipfile.ZipFile(str(pkg), "w") as z:
+            for dirpath, _dirs, files in os.walk(src):
+                for f in files:
+                    full = os.path.join(dirpath, f)
+                    arc = os.path.relpath(full, src).replace(os.sep, "/")
+                    z.write(full, arc)
+
+        out = tmp_path / "rt.docx"
+        Document(str(pkg)).save(str(out))
+        with zipfile.ZipFile(str(out)) as z:
+            names = z.namelist()
+
+        customxml_members = [n for n in names if n.startswith("customXml/")]
+        assert customxml_members, (
+            f"all customXml parts dropped on round-trip; got {names}"
+        )
