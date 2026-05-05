@@ -100,7 +100,7 @@ python -m sphinx -b html docs docs/_build/html
 
 ## Status
 
-Unstable. Not yet published to PyPI. Current version: `2026.05.0`
+Unstable. Not yet published to PyPI. Current version: `2026.05.8`
 (first release as an independent fork). Versioning is CalVer
 (`YYYY.MM.patch`). Public API tracks upstream `1.2.0` for the
 inherited surface; fork additions are considered experimental until
