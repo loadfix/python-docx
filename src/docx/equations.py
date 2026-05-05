@@ -33,6 +33,16 @@ _M_OMATH = qn("m:oMath")
 _M_OMATH_PARA = qn("m:oMathPara")
 
 
+__all__ = [
+    "Equation",
+    "build_fraction",
+    "build_identifier",
+    "build_radical",
+    "build_subscript",
+    "build_superscript",
+]
+
+
 class Equation:
     """Proxy for an Office Math (OMML) expression.
 

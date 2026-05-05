@@ -59,6 +59,9 @@ def _content_type_for_ole(prog_id: str, ext: str, blob: bytes) -> str:
     return _CT.OFC_OLE_OBJECT
 
 
+__all__ = ["Run"]
+
+
 class Run(StoryChild):
     """Proxy object wrapping `<w:r>` element.
 

@@ -217,6 +217,36 @@ class DescribeDocument:
         with pytest.raises(PackageNotFoundError):
             DocumentFactoryFn(str(not_a_zip), recover=True)
 
+    def it_raises_PackageNotFoundError_on_zip_missing_content_types(self, tmp_path):
+        # -- Regression for issue #172: a zip that happens to be a valid archive
+        # -- but lacks `[Content_Types].xml` used to surface a bare
+        # -- `KeyError("[Content_Types].xml")` from `zipfile.read`, which leaks
+        # -- the internal file name and is hard to match on. Now wrapped in a
+        # -- typed `PackageNotFoundError`. --
+        bogus = tmp_path / "no-content-types.docx"
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("word/document.xml", b"<doc/>")
+        bogus.write_bytes(buf.getvalue())
+
+        with pytest.raises(PackageNotFoundError, match=r"\[Content_Types\]\.xml"):
+            DocumentFactoryFn(str(bogus))
+
+    def it_raises_PackageNotFoundError_on_zip_missing_content_types_in_recover_mode(
+        self, tmp_path
+    ):
+        # -- The wrapping happens at the OPC load boundary, before recovery mode
+        # -- gets a chance to kick in. `PackageNotFoundError` must surface even
+        # -- when the caller opts into `recover=True`. --
+        bogus = tmp_path / "no-content-types.docx"
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("word/document.xml", b"<doc/>")
+        bogus.write_bytes(buf.getvalue())
+
+        with pytest.raises(PackageNotFoundError):
+            DocumentFactoryFn(str(bogus), recover=True)
+
     def it_recovery_mode_still_raises_for_encrypted_docx(self, tmp_path):
         encrypted_path = tmp_path / "encrypted.docx"
         encrypted_path.write_bytes(_OLE_SIGNATURE + b"\x00" * 512)

@@ -20,6 +20,9 @@ if TYPE_CHECKING:
     from docx.oxml.styles import CT_Style
 
 
+__all__ = ["Styles"]
+
+
 class Styles(ElementProxy):
     """Provides access to the styles defined in a document.
 

@@ -19,6 +19,9 @@ if TYPE_CHECKING:
 RPrParent: TypeAlias = "CT_R"
 
 
+__all__ = ["ColorFormat"]
+
+
 class ColorFormat(ElementProxy):
     """Provides access to color settings like RGB color, theme color, and luminance adjustments."""
 
