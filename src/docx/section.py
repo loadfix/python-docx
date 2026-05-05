@@ -46,6 +46,22 @@ if TYPE_CHECKING:
     from docx.shared import Length
 
 
+__all__ = [
+    "Column",
+    "DocumentGrid",
+    "LineNumbering",
+    "PageBorder",
+    "PageBorders",
+    "Section",
+    "SectionColumns",
+    "Sections",
+    # -- underscored-but-public header/footer proxies --
+    "_BaseHeaderFooter",
+    "_Footer",
+    "_Header",
+]
+
+
 class Section:
     """Document section, providing access to section and page setup settings.
 

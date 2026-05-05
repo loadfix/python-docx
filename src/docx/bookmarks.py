@@ -11,6 +11,9 @@ if TYPE_CHECKING:
     from docx.oxml.document import CT_Body
 
 
+__all__ = ["Bookmark", "Bookmarks"]
+
+
 class Bookmarks:
     """Collection of |Bookmark| objects in the document.
 

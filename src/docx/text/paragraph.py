@@ -47,6 +47,9 @@ if TYPE_CHECKING:
     from docx.styles.style import _TableStyle  # pyright: ignore[reportPrivateUsage]
 
 
+__all__ = ["Paragraph"]
+
+
 class Paragraph(StoryChild):
     """Proxy object wrapping a `<w:p>` element."""
 
