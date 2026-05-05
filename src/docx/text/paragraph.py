@@ -327,6 +327,94 @@ class Paragraph(StoryChild):
         self._p.append(sdt)
         return ContentControl(sdt)
 
+    def add_citation_reference(
+        self,
+        tag: str,
+        result_text: "str | None" = None,
+        locale_id: int = 1033,
+    ) -> ContentControl:
+        """Append an inline citation SDT referencing the bibliography entry `tag`.
+
+        Inserts a ``<w:sdt>`` carrying a ``<w:citation/>`` type marker and
+        a complex ``CITATION`` field instruction (``CITATION <tag> \\l <lcid>``)
+        inside ``<w:sdtContent>``. The rendered (cached) text falls back to
+        ``(tag)`` when `result_text` is not supplied.
+
+        `locale_id` is the LCID used in the field-code ``\\l`` switch;
+        ``1033`` is ``en-US`` and matches Word's default.
+
+        Does **not** verify that the bibliography actually contains a
+        matching source — produce the source first with
+        :meth:`Document.add_citation`.
+
+        .. versionadded:: 2026.05.7
+        """
+        from docx.content_controls import ContentControl
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import OxmlElement
+
+        sdt = OxmlElement("w:sdt")
+        sdtPr = OxmlElement("w:sdtPr")
+        sdt.append(sdtPr)
+        # -- allocate a (negative, Word-style) random SDT id --
+        import random as _random
+
+        id_elm = OxmlElement("w:id")
+        id_elm.set(qn("w:val"), str(-_random.randint(1, 2_000_000_000)))
+        sdtPr.append(id_elm)
+        citation_marker = OxmlElement("w:citation")
+        sdtPr.append(citation_marker)
+
+        sdtContent = OxmlElement("w:sdtContent")
+        sdt.append(sdtContent)
+
+        display = result_text if result_text is not None else f"({tag})"
+        instr = f" CITATION {tag} \\l {locale_id} "
+
+        # -- build the five-run complex field inside sdtContent directly --
+        def _r() -> object:
+            return OxmlElement("w:r")
+
+        # -- begin --
+        r_begin = _r()
+        fld_begin = OxmlElement("w:fldChar")
+        fld_begin.set(qn("w:fldCharType"), "begin")
+        r_begin.append(fld_begin)
+        sdtContent.append(r_begin)
+
+        # -- instrText --
+        r_instr = _r()
+        instr_text = OxmlElement("w:instrText")
+        instr_text.set(qn("xml:space"), "preserve")
+        instr_text.text = instr
+        r_instr.append(instr_text)
+        sdtContent.append(r_instr)
+
+        # -- separate --
+        r_sep = _r()
+        fld_sep = OxmlElement("w:fldChar")
+        fld_sep.set(qn("w:fldCharType"), "separate")
+        r_sep.append(fld_sep)
+        sdtContent.append(r_sep)
+
+        # -- result text run --
+        r_text = _r()
+        t_elm = OxmlElement("w:t")
+        t_elm.set(qn("xml:space"), "preserve")
+        t_elm.text = display
+        r_text.append(t_elm)
+        sdtContent.append(r_text)
+
+        # -- end --
+        r_end = _r()
+        fld_end = OxmlElement("w:fldChar")
+        fld_end.set(qn("w:fldCharType"), "end")
+        r_end.append(fld_end)
+        sdtContent.append(r_end)
+
+        self._p.append(sdt)
+        return ContentControl(cast("CT_Sdt", sdt))
+
     def add_page_break(self) -> Paragraph:
         """Append a page-break run to this paragraph and return self.
 

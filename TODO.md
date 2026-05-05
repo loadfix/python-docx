@@ -10,9 +10,6 @@ a candidate for a future implementation wave. Grouped by repo.
   other field types (IF, HYPERLINK, MERGEFIELD with conditions, formula
   fields) are returned as raw field-code + cached result. Implement a
   proper evaluator.
-- **Bibliography / citation support.** `Document.bibliography` read
-  exists but not create. Need `Document.add_citation()` wiring the
-  `customXml/bibliography.xml` part.
 
 ## pptx
 
@@ -63,6 +60,13 @@ shipped surface.
   first access. Cached-idiom access dropped from ~1.53 ms/access to
   ~0.0007 ms/access at N=5 000 paragraphs. See `SCALE_NOTES.md` for
   methodology and post-fix numbers.
+
+### Authoring features
+
+- **Bibliography / citation support.** Shipped in 2026.05.8: `Document.bibliography`
+  (read + write), `Document.add_citation(tag, ...)`, `Paragraph.add_citation_reference(tag)`,
+  and the backing `/customXml/item{N}.xml` part with a `<b:Sources>` root plus a
+  sibling `itemProps{N}.xml`. See `FEATURES.md` § "Bibliography and citations".
 
 ---
 

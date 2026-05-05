@@ -1141,6 +1141,63 @@ document.save("out.docx")
 
 ---
 
+## Bibliography and citations
+
+A bibliography of citation sources is stored in a `/customXml/item{N}.xml`
+part with a `<b:Sources>` root element. python-docx exposes the read path
+via `Document.bibliography` and the write path via `Document.add_citation`
+plus `Paragraph.add_citation_reference`. The bibliography part (and its
+sibling `itemProps{N}.xml` datastore part) is materialized lazily on first
+use. `[Added in 2026.05.7]`.
+
+```python
+from docx import Document
+
+document = Document()
+
+# Add a source. `tag` is the citation key used by references; `source_type`
+# defaults to "Book". Extra kwargs become text-only <b:Capitalized> children.
+document.add_citation(
+    "smith2020",
+    title="Distributed Systems",
+    author="Smith, John",
+    year=2020,
+    city="London",
+    publisher="Acme",
+)
+document.add_citation(
+    "einstein1905",
+    source_type="JournalArticle",
+    title="Zur Elektrodynamik bewegter Koerper",
+    author="Einstein, Albert",
+    year=1905,
+)
+
+# Insert a citation SDT that points at the source by tag.
+p = document.add_paragraph("As argued in ")
+p.add_citation_reference("smith2020")
+p.add_run(", ...")
+
+# Read back.
+for source in document.bibliography:
+    print(source.tag, source.author, source.year, source.title)
+
+hit = document.bibliography.get_by_tag("smith2020")
+assert hit is not None and hit.year == "2020"
+
+document.save("out.docx")
+```
+
+- `Document.bibliography` — Returns a |Bibliography| proxy; lazily creates the customXml part. `[Added in 2026.05.7]`
+- `Document.add_citation(tag, title=None, author=None, year=None, source_type="Book", **extra)` — Append a |Source| and return it. `[Added in 2026.05.7]`
+- `Paragraph.add_citation_reference(tag, result_text=None, locale_id=1033)` — Insert a `<w:sdt>` with a `CITATION` field referencing `tag`. `[Added in 2026.05.7]`
+- `Bibliography.sources` — List of every |Source|. `[Added in 2026.05.7]`
+- `Bibliography.get_by_tag(tag)` — Lookup; returns |Source| or |None|. `[Added in 2026.05.7]`
+- `Bibliography.selected_style` / `.style_name` — APA / MLA / etc. style selector. `[Added in 2026.05.7]`
+- `Source.tag` / `.title` / `.author` / `.year` / `.source_type` / `.element`. `[Added in 2026.05.7]`
+
+---
+
 ## Form fields
 
 Legacy `w:ffData` form fields (`FORMTEXT`, `FORMCHECKBOX`, `FORMDROPDOWN`)
