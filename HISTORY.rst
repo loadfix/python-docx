@@ -3,6 +3,33 @@
 Release History
 ---------------
 
+Unreleased — reproducible-save fidelity + default-template zip rebuild
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Two drift bugs in the 2026.05.2 reproducible-save invariant:
+
+- ``Document.save(..., reproducible=True)`` no longer mints
+  ``w:rsidR`` / ``w:rsidRDefault`` on paragraphs and runs that don't
+  already carry them. Those attributes are session-scoped churn
+  markers; synthesising them from a constant-valued root made the
+  output reproducible but *not* faithful — round-tripping
+  ``bold-text.office.docx`` gained a spurious ``w:rsidR`` on its
+  single ``<w:r>``. ``w14:paraId`` / ``w14:textId`` continue to be
+  derived deterministically from paragraph content so repeated saves
+  remain byte-identical.
+- ``src/docx/templates/default.docx`` has been rebuilt from the
+  ``default-docx-template/`` source tree so a fresh ``Document()``
+  exposes the Word-2024 namespace set (``w15``, ``w16``, ``w16cex``,
+  ``w16cid``, ``w16du``, ``w16sdtdh``, ``w16sdtfl``, ``w16se``,
+  ``cx``–``cx8``, ``aink``, ``am3d``, ``oel``) plus the matching
+  ``mc:Ignorable`` list. The unzipped tree was updated in 2026.05.2
+  but the zipped blob was not regenerated — ``Document()`` was still
+  loading the pre-2026.05.2 namespace set at runtime.
+- New ``scripts/rebuild_default_template.py`` deterministically
+  rebuilds the zipped blob from the source tree so future template
+  edits cannot drift out of sync silently.
+
+
 2026.05.6 — Section.vertical_alignment property
 ++++++++++++++++++++++++++++++++++++++++++++++++
 
