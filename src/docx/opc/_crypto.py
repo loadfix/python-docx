@@ -1,0 +1,165 @@
+"""Optional password-protection (ECMA-376 Agile Encryption) support.
+
+Reading and writing password-protected ``.docx`` files is delegated to the optional
+``python-ooxml-crypto`` third-party package so that python-docx does not need to carry
+its own implementation of AES key derivation and CFBF compound-document parsing.
+
+This module is a thin adapter:
+
+* :func:`is_encrypted_stream` sniffs the OLE2 compound-document magic signature so a
+  caller can detect an encrypted package without loading ``ooxml_crypto`` at all.
+* :func:`is_rms_protected_stream` identifies RMS/AIP/IRM-protected CFBF wrappers so
+  callers can emit a targeted error (python-ooxml-crypto does not decrypt those).
+* :func:`decrypt_stream` decrypts an encrypted OOXML stream to bytes.
+* :func:`encrypt_bytes` encrypts plain OOXML bytes to an encrypted bytestring.
+
+Each function raises :class:`docx.exceptions.EncryptedDocumentError` with an
+actionable message when ``python-ooxml-crypto`` is not installed or the password
+is wrong.
+
+.. versionadded:: 2026.05.10
+"""
+
+from __future__ import annotations
+
+from typing import IO
+
+from docx.exceptions import EncryptedDocumentError
+
+# -- OLE2 Compound File Binary Format signature; every ECMA-376 encrypted OOXML file
+# -- (Agile or Standard) begins with this magic because it is stored as a CFBF container
+# -- with an ``EncryptionInfo`` and ``EncryptedPackage`` stream.
+_OLE_SIGNATURE = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+
+# -- RMS / AIP / IRM-protected OOXML files are CFBF containers whose directory entries
+# -- (UTF-16LE-encoded in the compound document's directory sectors) include
+# -- ``DRMContent`` (the encrypted payload stream) and ``DRMEncryptedTransform`` (the
+# -- DataSpaces transform descriptor). Matching either marker in the raw file bytes is
+# -- an inexpensive-but-specific way to discriminate RMS-wrapped packages from
+# -- vanilla Agile-Encryption packages without depending on a CFBF parser.
+_RMS_MARKERS: tuple[bytes, ...] = (
+    "DRMEncryptedTransform".encode("utf-16-le"),
+    "DRMContent".encode("utf-16-le"),
+)
+
+# -- Bytes to sniff for RMS markers. CFBF sector size is 512 bytes; the directory
+# -- sector is commonly within the first few kilobytes. 64 KiB is comfortably enough
+# -- to cover all directory entries for a small package and bounded enough to keep
+# -- the sniff cheap on large files.
+_RMS_SNIFF_MAX = 64 * 1024
+
+_MISSING_DEP_MSG = (
+    "password-protected .docx files require the optional 'python-ooxml-crypto' "
+    "package. Install it with `pip install python-ooxml-crypto`."
+)
+
+
+def is_encrypted_stream(stream: IO[bytes]) -> bool:
+    """Return True if the first 8 bytes of `stream` are the OLE2 magic signature.
+
+    The stream's position is restored before return. A `.docx` that is stored as a plain
+    ZIP archive starts with ``PK\\x03\\x04``; an encrypted one is wrapped in a CFBF
+    container and starts with the OLE2 magic.
+    """
+    pos = stream.tell()
+    try:
+        header = stream.read(len(_OLE_SIGNATURE))
+    finally:
+        stream.seek(pos)
+    return header == _OLE_SIGNATURE
+
+
+def is_rms_protected_stream(stream: IO[bytes]) -> bool:
+    """Return True when `stream` is a CFBF container wrapping RMS / AIP / IRM protection.
+
+    The caller is responsible for having already established the stream is a CFBF
+    container (typically via :func:`is_encrypted_stream`). This helper then looks for
+    RMS-specific directory-entry names (``DRMEncryptedTransform`` or ``DRMContent``)
+    that distinguish an Azure RMS / AIP / IRM-protected file from an ordinary
+    ECMA-376 Agile-Encryption package. Matching either marker is sufficient; both
+    typically appear together in an RMS-protected package.
+
+    The stream's position is restored before return.
+    """
+    pos = stream.tell()
+    try:
+        stream.seek(0)
+        prefix = stream.read(_RMS_SNIFF_MAX)
+    finally:
+        stream.seek(pos)
+    return any(marker in prefix for marker in _RMS_MARKERS)
+
+
+def decrypt_stream(stream: IO[bytes], password: str) -> bytes:
+    """Return the plaintext OOXML bytes from encrypted `stream`.
+
+    Raises :class:`docx.exceptions.EncryptedDocumentError` if ``python-ooxml-crypto``
+    is not installed, if the file is not a supported encrypted OOXML file, or if
+    `password` is wrong.
+    """
+    try:
+        from ooxml_crypto import (
+            IntegrityCheckError,
+            MalformedContainerError,
+            OoxmlCryptoError,
+            UnsupportedAlgorithmError,
+            WrongPasswordError,
+            decrypt,
+        )
+    except ImportError as exc:
+        raise EncryptedDocumentError(_MISSING_DEP_MSG) from exc
+
+    # -- read the whole stream; ooxml_crypto's bytes-in API decouples us from stream
+    # -- semantics and matches how we emit from encrypt_bytes below.
+    pos = stream.tell()
+    try:
+        stream.seek(0)
+        data = stream.read()
+    finally:
+        stream.seek(pos)
+
+    try:
+        return decrypt(data, password)
+    except WrongPasswordError as exc:
+        raise EncryptedDocumentError(
+            "password does not match the password used to encrypt this .docx file"
+        ) from exc
+    except UnsupportedAlgorithmError as exc:
+        raise EncryptedDocumentError(
+            f"encryption algorithm not supported by ooxml_crypto: {exc}"
+        ) from exc
+    except (IntegrityCheckError, MalformedContainerError) as exc:
+        raise EncryptedDocumentError(f"unable to decrypt .docx file: {exc}") from exc
+    except OoxmlCryptoError as exc:
+        raise EncryptedDocumentError(f"unable to decrypt .docx file: {exc}") from exc
+
+
+def encrypt_bytes(plain_bytes: bytes, password: str) -> bytes:
+    """Return encrypted OOXML bytes for the given plain `plain_bytes`.
+
+    Uses ECMA-376 Agile Encryption (the format Word writes when a user sets a
+    password in the desktop app).
+
+    Raises :class:`docx.exceptions.EncryptedDocumentError` if ``python-ooxml-crypto``
+    is not installed or encryption fails.
+    """
+    try:
+        from ooxml_crypto import (
+            InvalidEncryptOptionsError,
+            OoxmlCryptoError,
+            WeakPasswordError,
+            encrypt,
+        )
+    except ImportError as exc:
+        raise EncryptedDocumentError(_MISSING_DEP_MSG) from exc
+
+    try:
+        # -- allow any password length to preserve prior (msoffcrypto-tool predecessor) behavior where
+        # -- the caller is responsible for password policy, not the library. --
+        from ooxml_crypto import EncryptOptions
+
+        return encrypt(plain_bytes, password, EncryptOptions(allow_weak_password=True))
+    except (WeakPasswordError, InvalidEncryptOptionsError) as exc:
+        raise EncryptedDocumentError(f"invalid encryption options: {exc}") from exc
+    except OoxmlCryptoError as exc:
+        raise EncryptedDocumentError(f"unable to encrypt .docx file: {exc}") from exc

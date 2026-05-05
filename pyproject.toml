@@ -61,6 +61,22 @@ dev = [
 conformance = [
     "ooxml-validate @ git+https://github.com/loadfix/ooxml-validate.git@master",
 ]
+# Optional extra for reading and writing ECMA-376 Agile-Encryption
+# password-protected .docx files. `python-ooxml-crypto` delegates AES
+# key derivation and CFBF compound-document parsing to a shared
+# library used by the sibling loadfix/python-pptx and
+# loadfix/python-xlsx projects. Zero new mandatory runtime deps; only
+# callers who pass ``password=`` to ``Document(...)`` or
+# ``Document.save(...)`` need the extra installed.
+#
+#   pip install 'python-docx[encryption]'
+#
+encryption = [
+    # python-ooxml-crypto is not yet on PyPI; pin to the GitHub master
+    # branch until a PyPI release lands, after which this becomes
+    # ``python-ooxml-crypto>=0.3.0``.
+    "python-ooxml-crypto @ git+https://github.com/loadfix/python-ooxml-crypto@master",
+]
 
 [project.urls]
 Changelog = "https://github.com/python-openxml/python-docx/blob/master/HISTORY.rst"

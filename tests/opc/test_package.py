@@ -38,9 +38,16 @@ class DescribeOpcPackage:
         # exercise ---------------------
         pkg = OpcPackage.open(pkg_file)
         # verify -----------------------
-        PackageReader_.from_file.assert_called_once_with(pkg_file)
+        PackageReader_.from_file.assert_called_once_with(pkg_file, password=None)
         Unmarshaller_.unmarshal.assert_called_once_with(pkg_reader, pkg, PartFactory_)
         assert isinstance(pkg, OpcPackage)
+
+    def it_plumbs_password_through_to_PackageReader_from_file(
+        self, PackageReader_, PartFactory_, Unmarshaller_
+    ):
+        pkg_file = Mock(name="pkg_file")
+        OpcPackage.open(pkg_file, password="hunter2")
+        PackageReader_.from_file.assert_called_once_with(pkg_file, password="hunter2")
 
     def it_activates_huge_tree_mode_when_requested(
         self, PackageReader_, PartFactory_, Unmarshaller_
@@ -148,7 +155,17 @@ class DescribeOpcPackage:
         for part in parts_:
             part.before_marshal.assert_called_once_with(reproducible=False)
         PackageWriter_.write.assert_called_once_with(
-            pkg_file_, pkg.rels, parts_, reproducible=False
+            pkg_file_, pkg.rels, parts_, reproducible=False, password=None
+        )
+
+    def it_plumbs_password_through_to_PackageWriter_write(
+        self, pkg_file_: Mock, PackageWriter_: Mock, parts_prop_: Mock, parts_: list[Mock]
+    ):
+        parts_prop_.return_value = parts_
+        pkg = OpcPackage()
+        pkg.save(pkg_file_, password="hunter2")
+        PackageWriter_.write.assert_called_once_with(
+            pkg_file_, pkg.rels, parts_, reproducible=False, password="hunter2"
         )
 
     def it_raises_on_save_path_with_windows_invalid_chars(self):
@@ -176,7 +193,7 @@ class DescribeOpcPackage:
         # -- drive-letter colon is in the path prefix, not the filename. Valid. --
         pkg.save("C:/tmp/foo.docx")
         PackageWriter_.write.assert_called_once_with(
-            "C:/tmp/foo.docx", pkg.rels, parts_, reproducible=False
+            "C:/tmp/foo.docx", pkg.rels, parts_, reproducible=False, password=None
         )
 
     def it_raises_on_save_path_with_embedded_control_chars(self):

@@ -1775,6 +1775,7 @@ class Document(ElementProxy):
         path_or_stream: str | IO[bytes],
         flat_opc: bool = False,
         reproducible: bool = False,
+        password: str | None = None,
     ):
         """Save this document to `path_or_stream`.
 
@@ -1799,10 +1800,27 @@ class Document(ElementProxy):
         This is the single bit of plumbing that closes upstream#1042 and
         upstream-PR#810.
 
+        When `password` is provided, the saved ``.docx`` is password-protected
+        using ECMA-376 Agile Encryption (the scheme Word uses when a user sets
+        a password in the desktop app). Encryption requires the optional
+        ``python-ooxml-crypto`` dependency. ``flat_opc`` and ``password`` are
+        mutually exclusive: the Flat-OPC format is an XML document, not a zip
+        archive, and is not password-protectable. ``reproducible`` and
+        ``password`` compose normally — the fixed-timestamp zip members are
+        produced first and the encryption wrapper is applied to that buffer.
+
         .. versionadded:: 2026.05.0
            The `flat_opc` and `reproducible` parameters.
+        .. versionadded:: 2026.05.10
+           The `password` parameter.
         """
         if flat_opc:
+            if password is not None:
+                raise ValueError(
+                    "flat_opc and password are mutually exclusive; the Flat-OPC "
+                    "format is an XML document, not a zip archive, and is not "
+                    "password-protectable."
+                )
             import io as _io
 
             from docx.opc.flat_opc import write_flat_opc
@@ -1811,7 +1829,9 @@ class Document(ElementProxy):
             self._part.save(buf, reproducible=reproducible)
             write_flat_opc(path_or_stream, buf.getvalue())
             return
-        self._part.save(path_or_stream, reproducible=reproducible)
+        self._part.save(
+            path_or_stream, reproducible=reproducible, password=password
+        )
 
     def search(
         self,

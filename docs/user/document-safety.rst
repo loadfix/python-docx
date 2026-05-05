@@ -10,9 +10,12 @@ and whether it bears a digital signature. These matter when a tool has to
 decide whether to load, process, forward, or reject a document it received
 from somewhere else.
 
-None of these features require additional dependencies. |docx| does not
-decrypt, execute VBA, or cryptographically verify signatures — it only
-inspects what the package contains.
+The core package does not execute VBA or cryptographically verify
+signatures — it only inspects what the package contains. Reading *or
+writing* password-protected files is supported via the optional
+``python-ooxml-crypto`` dependency (see :ref:`encrypted-documents` below);
+without that extra installed, :class:`.EncryptedDocumentError` is raised
+when encryption is detected.
 
 
 Recover mode for malformed documents
@@ -51,15 +54,18 @@ propagates; if the file is an encrypted OLE compound file,
 ``recover=True`` flag only relaxes XML parsing.
 
 
-Detecting password-encrypted documents
---------------------------------------
+.. _encrypted-documents:
+
+Password-encrypted documents
+----------------------------
 
 Word stores password-protected documents as OLE compound files (CFBF), not
 as regular ZIP packages. The ZIP-based OPC reader cannot process them; the
 naive error would be a confusing ``BadZipFile`` from the standard library.
 
 |docx| short-circuits that by peeking at the first eight bytes of the file
-and raising :class:`.EncryptedDocumentError` if they match the OLE signature
+and — when no ``password=`` is supplied — raising
+:class:`.EncryptedDocumentError` if they match the OLE signature
 ``D0 CF 11 E0 A1 B1 1A E1``::
 
     >>> from docx import Document
@@ -68,25 +74,42 @@ and raising :class:`.EncryptedDocumentError` if they match the OLE signature
     ...     Document("secret.docx")
     ... except EncryptedDocumentError as e:
     ...     print(e)
-    Document is password-protected (encrypted .docx detected). Install
-    msoffcrypto-tool to decrypt it first: https://github.com/nolze/msoffcrypto-tool
+    Document is password-protected (encrypted .docx detected). Pass
+    `password=...` to `Document(...)` to decrypt it, or install the
+    optional 'python-ooxml-crypto' package
+    (https://github.com/loadfix/python-ooxml-crypto).
 
 Recover mode does **not** bypass this check — the file is not just
 malformed XML, it is an entirely different format.
 
-To decrypt the document before loading it with |docx|, use
-`msoffcrypto-tool <https://github.com/nolze/msoffcrypto-tool>`_::
+Decrypting on open and encrypting on save
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    import io
-    import msoffcrypto
+Install the optional ``python-ooxml-crypto`` dependency
+(``pip install 'python-docx[encryption]'``) and pass ``password=`` through
+the public API; |docx| delegates AES key derivation and CFBF parsing to
+the dependency::
 
-    with open("secret.docx", "rb") as f:
-        office = msoffcrypto.OfficeFile(f)
-        office.load_key(password="s3cret")
-        plain = io.BytesIO()
-        office.decrypt(plain)
-        plain.seek(0)
-        document = Document(plain)
+    from docx import Document
+
+    # decrypt an existing protected file
+    document = Document("secret.docx", password="s3cret")
+
+    # encrypt on save (ECMA-376 Agile Encryption — the scheme Word writes)
+    document.add_paragraph("confidential")
+    document.save("protected.docx", password="s3cret")
+
+Supplying the wrong password raises :class:`.EncryptedDocumentError` with
+a ``"password does not match"`` message. Azure RMS / AIP / IRM-wrapped
+files (whose payload is keyed to the user's Microsoft 365 identity rather
+than a password) raise :class:`.RmsProtectedDocumentError` — a subclass
+of :class:`.EncryptedDocumentError` — because ``python-ooxml-crypto``
+cannot decrypt them; those files need Microsoft Office automation or the
+Microsoft Information Protection SDK as a preprocessing step.
+
+When the optional extra is not installed, the call still raises a
+helpful :class:`.EncryptedDocumentError` pointing at the install
+instructions — so code paths stay callable without the extra on hand.
 
 
 Macro-enabled documents (.docm)
