@@ -5,11 +5,8 @@ a candidate for a future implementation wave. Grouped by repo.
 
 ## docx
 
-- **Real XLookup / complex-field evaluation.** Current fork can read
-  complex field codes and resolve REF/PAGEREF/DOCPROPERTY, but most
-  other field types (IF, HYPERLINK, MERGEFIELD with conditions, formula
-  fields) are returned as raw field-code + cached result. Implement a
-  proper evaluator.
+_No open docx items — bibliography and complex-field evaluation both
+shipped in 2026.05.8 (see "Completed items" below)._
 
 ## pptx
 
@@ -61,12 +58,22 @@ shipped surface.
   ~0.0007 ms/access at N=5 000 paragraphs. See `SCALE_NOTES.md` for
   methodology and post-fix numbers.
 
-### Authoring features
+### Authoring features (2026.05.8)
 
-- **Bibliography / citation support.** Shipped in 2026.05.8: `Document.bibliography`
+- **Bibliography / citation support.** `Document.bibliography`
   (read + write), `Document.add_citation(tag, ...)`, `Paragraph.add_citation_reference(tag)`,
   and the backing `/customXml/item{N}.xml` part with a `<b:Sources>` root plus a
   sibling `itemProps{N}.xml`. See `FEATURES.md` § "Bibliography and citations".
+- **SmartArt authoring.** `Document.add_smart_art(layout_name)` and
+  `SmartArt.add_node(text)` with three built-in layouts (list, cycle,
+  process). See `FEATURES.md` § "SmartArt".
+- **Complex-field evaluation.** `Field.evaluate(context)` and
+  `Document.evaluate_fields(context)` now evaluate `IF` (with nested
+  `{MERGEFIELD}`), `MERGEFIELD`, `HYPERLINK`, `= <expr>` arithmetic
+  formulas, and the runtime-dynamic `PAGE` / `NUMPAGES` / `DATE` /
+  `TIME` placeholders. Deferred: string-function formulas (`=SUM()`,
+  `=AVERAGE()`, etc. beyond arithmetic), nested `IF`, `QUOTE`, `FILLIN`,
+  and the full date-picture/numeric-format switch grammar.
 
 ---
 
