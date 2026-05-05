@@ -1,6 +1,7 @@
 """Low-level, read-only API to a serialized Open Packaging Convention (OPC) package."""
 
 from docx.opc.constants import RELATIONSHIP_TARGET_MODE as RTM
+from docx.opc.exceptions import PackageNotFoundError
 from docx.opc.oxml import parse_xml
 from docx.opc.packuri import PACKAGE_URI, PackURI
 from docx.opc.phys_pkg import PhysPkgReader, _looks_like_strict_package
@@ -37,7 +38,19 @@ class PackageReader:
         phys_reader = PhysPkgReader(pkg_file)
         if _looks_like_strict_package(phys_reader):
             phys_reader = _StrictTranslatingPkgReader(phys_reader)
-        content_types = _ContentTypeMap.from_xml(phys_reader.content_types_xml)
+        # -- `[Content_Types].xml` is mandatory per OPC §9.2; a zip that lacks it
+        # -- is not a valid OOXML package. `ZipFile.read` raises a bare `KeyError`
+        # -- whose message is the missing member name, which leaked through to
+        # -- callers as an opaque `KeyError('[Content_Types].xml')`. Wrap it in
+        # -- the typed `PackageNotFoundError` so upstream handlers can catch the
+        # -- OPC-level failure without matching on exception message. Closes #172.
+        try:
+            content_types_blob = phys_reader.content_types_xml
+        except KeyError as e:
+            raise PackageNotFoundError(
+                "Package is not a valid OPC file: missing [Content_Types].xml"
+            ) from e
+        content_types = _ContentTypeMap.from_xml(content_types_blob)
         pkg_srels = PackageReader._srels_for(phys_reader, PACKAGE_URI)
         sparts = PackageReader._load_serialized_parts(phys_reader, pkg_srels, content_types)
         phys_reader.close()
