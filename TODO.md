@@ -5,11 +5,6 @@ a candidate for a future implementation wave. Grouped by repo.
 
 ## docx
 
-- **Real XLookup / complex-field evaluation.** Current fork can read
-  complex field codes and resolve REF/PAGEREF/DOCPROPERTY, but most
-  other field types (IF, HYPERLINK, MERGEFIELD with conditions, formula
-  fields) are returned as raw field-code + cached result. Implement a
-  proper evaluator.
 - **Bibliography / citation support.** `Document.bibliography` read
   exists but not create. Need `Document.add_citation()` wiring the
   `customXml/bibliography.xml` part.
@@ -50,6 +45,16 @@ a candidate for a future implementation wave. Grouped by repo.
 
 All 2026.05.0 feature work. See `HISTORY.rst` and `FEATURES.md` for the
 shipped surface.
+
+### Resolved in fork (2026.05.7)
+
+- **Complex-field evaluation** — `Field.evaluate(context)` and
+  `Document.evaluate_fields(context)` now evaluate `IF` (with nested
+  `{MERGEFIELD}`), `MERGEFIELD`, `HYPERLINK`, `= <expr>` arithmetic
+  formulas, and the runtime-dynamic `PAGE` / `NUMPAGES` / `DATE` /
+  `TIME` placeholders. Deferred: string-function formulas (`=SUM()`,
+  `=AVERAGE()`, etc. beyond arithmetic), nested `IF`, `QUOTE`, `FILLIN`,
+  and the full date-picture/numeric-format switch grammar.
 
 ---
 
