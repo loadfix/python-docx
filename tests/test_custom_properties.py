@@ -188,3 +188,71 @@ class DescribeCustomProperties:
         # -- the collection doesn't need to interact with the part in these tests, so
         # -- a plain Mock is sufficient.
         return instance_mock(request, object)
+
+
+class DescribeCustomProperties_RoundTrip:
+    """Full save/reload integration for custom-property types (regression for #171).
+
+    Exercises the real ``Document`` → ``custom.xml`` pipeline (not just the in-memory
+    element wrapper) so that part (re-)serialisation, relationship wiring, and the
+    vt-type dispatch all work end-to-end.
+    """
+
+    def it_round_trips_a_date_value_as_vt_date(self, tmp_path):
+        # -- regression for GitHub issue #171: `datetime.date` must round-trip as
+        # -- `vt:date` (not widened to `datetime` on read, not rejected on write).
+        from docx import Document
+
+        doc = Document()
+        review = dt.date(2026, 5, 5)
+        doc.custom_properties["ReviewDate"] = review
+        out = tmp_path / "roundtrip-date.docx"
+        doc.save(str(out))
+
+        reloaded = Document(str(out))
+        value = reloaded.custom_properties["ReviewDate"]
+
+        assert value == review
+        assert isinstance(value, dt.date)
+        # -- crucially NOT a `datetime` (which is a `date` subclass) --
+        assert not isinstance(value, dt.datetime)
+
+    def it_round_trips_a_datetime_value_as_vt_filetime(self, tmp_path):
+        from docx import Document
+
+        doc = Document()
+        moment = dt.datetime(2026, 5, 5, 12, 30, 0)
+        doc.custom_properties["Released"] = moment
+        out = tmp_path / "roundtrip-datetime.docx"
+        doc.save(str(out))
+
+        reloaded = Document(str(out))
+        value = reloaded.custom_properties["Released"]
+
+        assert value == moment
+        assert type(value) is dt.datetime
+
+    def it_round_trips_mixed_scalar_types_in_one_document(self, tmp_path):
+        """All supported vt-types survive save/reload side-by-side."""
+        from docx import Document
+
+        doc = Document()
+        doc.custom_properties["Project"] = "Alpha"
+        doc.custom_properties["Year"] = 2026
+        doc.custom_properties["Ratio"] = 1.25
+        doc.custom_properties["Released"] = True
+        doc.custom_properties["ReleaseDate"] = dt.datetime(2026, 5, 5, 10, 0, 0)
+        doc.custom_properties["ReviewDate"] = dt.date(2026, 5, 5)
+        out = tmp_path / "roundtrip-mixed.docx"
+        doc.save(str(out))
+
+        r = Document(str(out)).custom_properties
+
+        assert r["Project"] == "Alpha"
+        assert r["Year"] == 2026
+        assert r["Ratio"] == 1.25
+        assert r["Released"] is True
+        assert r["ReleaseDate"] == dt.datetime(2026, 5, 5, 10, 0, 0)
+        assert r["ReviewDate"] == dt.date(2026, 5, 5)
+        # -- date must not have been widened to datetime --
+        assert not isinstance(r["ReviewDate"], dt.datetime)
