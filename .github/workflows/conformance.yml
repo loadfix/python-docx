@@ -1,0 +1,83 @@
+# Re-runs the conformance matrix for this library on every push to master,
+# then uploads the per-feature result JSONs as a GitHub Actions artifact.
+#
+# The corpus's diff-reports workflow downloads the latest artifact from
+# each library (artifact name: `conformance-results-python-docx`) and
+# layers them into its results tree before rendering the matrix page —
+# no cross-repo writes required.
+#
+# Cross-repo reads use `actions/checkout` with `repository:` and the
+# default `GITHUB_TOKEN` (contents: read).  No PAT needed for this
+# direction of the pipeline.
+name: Conformance
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: conformance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-conformance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out python-docx
+        uses: actions/checkout@v4
+        with:
+          path: python-docx
+
+      - name: Check out ooxml-reference-corpus (sibling)
+        uses: actions/checkout@v4
+        with:
+          repository: loadfix/ooxml-reference-corpus
+          path: ooxml-reference-corpus
+
+      - name: Check out ooxml-validate (sibling)
+        uses: actions/checkout@v4
+        with:
+          repository: loadfix/ooxml-validate
+          path: ooxml-validate
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install python-docx + deps
+        working-directory: python-docx
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install -r requirements-test.txt
+          # `.[dev]` pins ooxml-validate to a local filesystem path that
+          # only exists on the maintainer's workstation; install the
+          # sibling checkout directly instead.
+          pip install -e ../ooxml-validate
+
+      - name: Run conformance pytest (non-blocking)
+        working-directory: python-docx
+        continue-on-error: true
+        run: pytest tests/test_conformance_corpus.py -q
+
+      - name: Refresh conformance result JSONs
+        env:
+          CORPUS_ROOT: ${{ github.workspace }}/ooxml-reference-corpus
+          OOXML_VALIDATE_RESULTS_ROOT: ${{ github.workspace }}/ooxml-validate/conformance/results
+          PYTHONPATH: ${{ github.workspace }}/python-docx/src
+        run: python ooxml-reference-corpus/scripts/run-conformance.py python-docx docx
+
+      - name: Upload conformance results artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-results-python-docx
+          path: ooxml-validate/conformance/results/python-docx/
+          if-no-files-found: warn
+          retention-days: 30
