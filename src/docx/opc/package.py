@@ -360,23 +360,32 @@ class OpcPackage:
     def _drop_unused_package_rels(self) -> None:
         """Drop package-level rels whose target parts python-docx doesn't author.
 
-        Currently: the package-level thumbnail. The default template
-        ships a rendered JPEG thumbnail; python-docx has no renderer,
-        so the thumbnail is stale the moment any content changes. Word
-        itself only writes a thumbnail on explicit ``File → Info``
-        rendering, never for library-authored minimal docs.
+        Historically this pruned the ``RT.THUMBNAIL`` rel unconditionally
+        on the theory that python-docx has no renderer, so any shipped
+        thumbnail is stale the moment any content changes. That heuristic
+        was too aggressive: files authored by Word ship a thumbnail part
+        and users reasonably expect it to survive a round-trip. Dropping
+        it silently destroys user data with no signal.
 
-        Drops the ``RT.THUMBNAIL`` rel unconditionally. The target part
-        then falls out of ``self.parts`` because part discovery walks
-        the rels graph.
+        The narrowed policy: drop the thumbnail **only** when python-docx
+        created it itself (no ``_loaded_from_package`` flag). Thumbnails
+        that shipped in the source package are preserved verbatim — they
+        may be stale relative to new edits but keeping them is strictly
+        less destructive than dropping them.
         """
         from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
-        to_drop = [
-            rId
-            for rId, rel in list(self.rels.items())
-            if not rel.is_external and rel.reltype == RT.THUMBNAIL
-        ]
+        to_drop: list[str] = []
+        for rId, rel in list(self.rels.items()):
+            if rel.is_external:
+                continue
+            if rel.reltype != RT.THUMBNAIL:
+                continue
+            # -- only drop library-authored thumbnails; preserve those
+            # -- that shipped in the source package. --
+            if getattr(rel.target_part, "_loaded_from_package", False):
+                continue
+            to_drop.append(rId)
         for rId in to_drop:
             del self.rels[rId]
 
@@ -451,11 +460,20 @@ class Unmarshaller:
         by partname.
 
         Side-effect is that each part in `pkg_reader` is constructed using
-        `part_factory`.
+        `part_factory`. Each constructed part is flagged with
+        ``_loaded_from_package = True`` so later save-time heuristics can
+        distinguish parts that shipped in the source package from parts the
+        library itself created on demand. The distinction matters because
+        optional parts (``stylesWithEffects.xml``, ``customXml/*``,
+        ``thumbnail.jpeg``) must survive round-tripping even when python-docx
+        cannot statically prove they are referenced — dropping them destroys
+        user data that Word-authored files depend on.
         """
         parts = {}
         for partname, content_type, reltype, blob in pkg_reader.iter_sparts():
-            parts[partname] = part_factory(partname, content_type, reltype, blob, package)
+            part = part_factory(partname, content_type, reltype, blob, package)
+            part._loaded_from_package = True  # pyright: ignore[reportPrivateUsage]
+            parts[partname] = part
         return parts
 
     @staticmethod

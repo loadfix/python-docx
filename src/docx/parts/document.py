@@ -375,20 +375,35 @@ class DocumentPart(StoryPart):
     def _drop_unused_optional_parts(self, root) -> None:
         """Drop template-default rels whose target parts are unused.
 
-        Mirrors Microsoft Word's "emit the minimum" behaviour: unused
-        rels (and their target parts) are pruned from the rels graph
-        so the resulting package contains only the parts the document
-        actually needs.
+        Mirrors Microsoft Word's "emit the minimum" behaviour for
+        library-authored content: parts that the default template carried
+        but the document never references are pruned so the resulting
+        package contains only what's needed.
 
-        Drops:
+        Narrowed policy (W8-A, 2026.05.7): parts are only dropped when
+        python-docx itself created them (no ``_loaded_from_package``
+        flag). Parts that shipped in the source package are preserved
+        verbatim — dropping them silently destroys user data from
+        Word-authored files whose structure python-docx can't fully
+        reason about at save time.
+
+        Drop candidates:
 
         - ``RT.STYLES_WITH_EFFECTS`` — a Word 2013-compat duplicate of
-          ``styles.xml``. python-docx never produces effects-style
-          content, so this part is always redundant.
-        - ``RT.NUMBERING`` — only needed when the document contains
-          ``<w:numPr>`` references (numbered or bulleted lists).
-        - ``RT.CUSTOM_XML`` — only needed when a content control's
-          ``<w:dataBinding>`` references a customXml item.
+          ``styles.xml``. Dropped only when python-docx authored it;
+          preserved if the source package shipped it.
+        - ``RT.NUMBERING`` — only needed when a paragraph carries
+          ``<w:numPr>`` directly OR uses a style whose definition in
+          ``styles.xml`` declares ``<w:numPr>`` (e.g. ``List Bullet``,
+          ``List Number``). Also preserved if the source package shipped
+          it — the numbering part frequently carries abstract numbering
+          definitions referenced through indirection python-docx doesn't
+          model.
+        - ``RT.CUSTOM_XML`` — conservatively preserved whenever the
+          source package shipped it. Previously dropped unless a
+          ``<w:dataBinding>`` was present, which false-negatived on any
+          customXml used for non-binding purposes (Power BI, Office Add-ins,
+          Bibliographic sources, etc.).
         """
         uses_numbering = self._document_uses_numbering(root)
         uses_custom_xml = any(
@@ -400,12 +415,30 @@ class DocumentPart(StoryPart):
         for rId, rel in list(self.rels.items()):
             if rel.is_external:
                 continue
+            target = rel.target_part
+            shipped = getattr(target, "_loaded_from_package", False)
             if rel.reltype == RT.STYLES_WITH_EFFECTS:
-                rels_to_drop.append(rId)
-            elif rel.reltype == RT.NUMBERING and not uses_numbering:
-                rels_to_drop.append(rId)
-            elif rel.reltype == RT.CUSTOM_XML and not uses_custom_xml:
-                rels_to_drop.append(rId)
+                # Keep if it shipped in the source package; only drop
+                # when python-docx authored it (template default).
+                if not shipped:
+                    rels_to_drop.append(rId)
+            elif rel.reltype == RT.NUMBERING:
+                # Drop only when the document doesn't use numbering AND
+                # python-docx created the numbering part itself. A shipped
+                # numbering part is preserved even without a usage match —
+                # it may carry abstract-num definitions referenced through
+                # style-indirect or list-override chains the heuristic
+                # doesn't model.
+                if not uses_numbering and not shipped:
+                    rels_to_drop.append(rId)
+            elif rel.reltype == RT.CUSTOM_XML:
+                # Preserve customXml parts that shipped in the source
+                # package unconditionally. They cost nothing to keep and
+                # dropping them silently destroys user data (Power BI
+                # datasets, bibliography sources, content-control backing
+                # data — the static heuristic misses all of these).
+                if not uses_custom_xml and not shipped:
+                    rels_to_drop.append(rId)
 
         for rId in rels_to_drop:
             self.drop_rel(rId)
@@ -413,12 +446,15 @@ class DocumentPart(StoryPart):
     def _document_uses_numbering(self, root) -> bool:
         """Return ``True`` if the document references numbering at all.
 
-        A document uses numbering if either:
+        A document uses numbering if any of the following holds:
 
-        - a paragraph carries a direct ``<w:numPr>`` reference, or
-        - a paragraph uses a style whose definition in ``styles.xml``
-          carries ``<w:numPr>`` (e.g. the ``List Bullet`` / ``List
-          Number`` stock styles).
+        - a paragraph (or its paragraph-mark ``<w:pPr>``) carries a
+          direct ``<w:numPr>`` reference, or
+        - a paragraph uses a style whose definition (or any style it
+          inherits from via ``w:basedOn``) carries ``<w:numPr>`` in
+          ``styles.xml``. This catches built-in styles like ``List
+          Bullet`` and ``List Number`` plus any user-defined style
+          chains rooted in them.
 
         Failing the styles.xml lookup is treated as "uses numbering" —
         erring on the side of keeping the numbering part is always safe,
@@ -445,12 +481,36 @@ class DocumentPart(StoryPart):
 
         style_tag = qn("w:style")
         styleId_attr = qn("w:styleId")
-        numbering_styles = {
-            style.get(styleId_attr)
-            for style in styles_root.iter(style_tag)
-            if style.find(f".//{qn('w:numPr')}") is not None
-        }
-        return bool(used_styles & numbering_styles)
+        basedOn_tag = qn("w:basedOn")
+        val_attr = qn("w:val")
+
+        # Build a map styleId -> (has_direct_numPr, basedOnId) so we can
+        # walk the w:basedOn chain for each used style.
+        style_info: dict[str, tuple[bool, str | None]] = {}
+        for style in styles_root.iter(style_tag):
+            sid = style.get(styleId_attr)
+            if not sid:
+                continue
+            has_numPr = style.find(f".//{qn('w:numPr')}") is not None
+            basedOn = style.find(basedOn_tag)
+            parent = basedOn.get(val_attr) if basedOn is not None else None
+            style_info[sid] = (has_numPr, parent)
+
+        def inherits_numPr(style_id: str) -> bool:
+            visited: set[str] = set()
+            current: str | None = style_id
+            while current and current not in visited:
+                visited.add(current)
+                info = style_info.get(current)
+                if info is None:
+                    return False
+                has_numPr, parent = info
+                if has_numPr:
+                    return True
+                current = parent
+            return False
+
+        return any(inherits_numPr(sid) for sid in used_styles if sid)
 
     def save(self, path_or_stream: str | IO[bytes], reproducible: bool = False):
         """Save this document to `path_or_stream`, which can be either a path to a
