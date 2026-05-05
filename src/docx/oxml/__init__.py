@@ -166,6 +166,11 @@ from .custom_properties import CT_CustomProperties, CT_CustomProperty
 register_element_cls("custprops:Properties", CT_CustomProperties)
 register_element_cls("custprops:property", CT_CustomProperty)
 
+from .bibliography import CT_Source, CT_Sources
+
+register_element_cls("b:Sources", CT_Sources)
+register_element_cls("b:Source", CT_Source)
+
 from .extended_properties import CT_ExtendedProperties
 
 register_element_cls("extprops:Properties", CT_ExtendedProperties)

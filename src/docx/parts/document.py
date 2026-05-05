@@ -9,6 +9,7 @@ from docx.oxml.ns import qn
 
 from docx.document import Document
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.parts.bibliography import BibliographyPart
 from docx.parts.comments import CommentsPart
 from docx.parts.custom_properties import CustomPropertiesPart
 from docx.parts.endnotes import EndnotesPart
@@ -27,6 +28,7 @@ from docx.shape import InlineShapes
 from docx.shared import lazyproperty
 
 if TYPE_CHECKING:
+    from docx.bibliography import Bibliography
     from docx.comments import Comments
     from docx.custom_properties import CustomProperties
     from docx.custom_xml import CustomXmlPart as CustomXmlPartProxy
@@ -63,6 +65,87 @@ class DocumentPart(StoryPart):
         header_part = HeaderPart.new(self.package)
         rId = self.relate_to(header_part, RT.HEADER)
         return header_part, rId
+
+    @property
+    def bibliography(self) -> "Bibliography":
+        """|Bibliography| collection of citation sources for this document.
+
+        Lazily creates a ``/customXml/item{N}.xml`` part carrying an empty
+        ``<b:Sources>`` root (plus the sibling ``itemProps{N}.xml`` datastore
+        part) if no bibliography is already related to the document.
+
+        .. versionadded:: 2026.05.7
+        """
+        from docx.bibliography import Bibliography
+
+        part = self._bibliography_part
+        return Bibliography(part.sources_element, part)
+
+    @property
+    def _bibliography_part(self) -> BibliographyPart:
+        """Existing |BibliographyPart|, or a newly created empty one.
+
+        Searches every ``customXml`` relationship for a data part whose
+        root element is ``<b:Sources>``; when none is found, builds a fresh
+        :class:`BibliographyPart` and attaches a sibling properties part.
+
+        .. versionadded:: 2026.05.7
+        """
+        from lxml import etree
+
+        from docx.oxml.bibliography import CT_Sources
+
+        b_sources_tag = qn("b:Sources")
+
+        for rel in self.rels.values():
+            if rel.is_external or rel.reltype != RT.CUSTOM_XML:
+                continue
+            try:
+                target = rel.target_part
+            except ValueError:
+                continue
+            blob = getattr(target, "blob", b"")
+            if not blob:
+                continue
+            # -- peek at the root element name without a full parse that
+            # -- would blow up on bibliography parts that use the default
+            # -- namespace declaration. `etree.fromstring` is tolerant. --
+            try:
+                root = etree.fromstring(blob)
+            except etree.XMLSyntaxError:
+                continue
+            if root.tag != b_sources_tag:
+                continue
+            # -- found one; upgrade the part into a BibliographyPart if it
+            # -- isn't already. The PartFactory default for CT.XML is the
+            # -- plain CustomXmlPart, so most existing packages need this
+            # -- in-place rebind. --
+            if isinstance(target, BibliographyPart):
+                return target
+            # -- swap for a BibliographyPart holding the same blob/partname --
+            bib_part = BibliographyPart(target.partname, target.content_type, blob)
+            # -- preserve the sibling props rel(s) --
+            for props_rel in list(target.rels.values()):
+                if props_rel.is_external:
+                    continue
+                try:
+                    props_target = props_rel.target_part
+                except ValueError:
+                    continue
+                bib_part.relate_to(props_target, props_rel.reltype)
+            # -- rewire package: replace old part --
+            assert self.package is not None
+            # -- rewire the existing relationship rather than dropping/re-adding
+            # -- so we preserve the existing rId value. --
+            rel._target = bib_part
+            return bib_part
+
+        # -- none found: create from scratch --
+        assert self.package is not None
+        bib_part = BibliographyPart.default(self.package)
+        self.relate_to(bib_part, RT.CUSTOM_XML)
+        bib_part.attach_itemProps(self.package)
+        return bib_part
 
     @property
     def comments(self) -> Comments:
@@ -405,10 +488,36 @@ class DocumentPart(StoryPart):
             elif rel.reltype == RT.NUMBERING and not uses_numbering:
                 rels_to_drop.append(rId)
             elif rel.reltype == RT.CUSTOM_XML and not uses_custom_xml:
+                # -- keep bibliography parts with non-empty content even
+                # -- when no w:dataBinding is present (citations link to
+                # -- the bibliography implicitly via w:citation markers +
+                # -- matching <b:Tag> values rather than XPath). --
+                if self._rel_targets_nonempty_bibliography(rel):
+                    continue
                 rels_to_drop.append(rId)
 
         for rId in rels_to_drop:
             self.drop_rel(rId)
+
+    @staticmethod
+    def _rel_targets_nonempty_bibliography(rel) -> bool:
+        """Return True when ``rel`` targets a ``<b:Sources>`` part with >=1 child."""
+        from lxml import etree
+
+        try:
+            target = rel.target_part
+        except ValueError:
+            return False
+        blob = getattr(target, "blob", b"")
+        if not blob:
+            return False
+        try:
+            root = etree.fromstring(blob)
+        except etree.XMLSyntaxError:
+            return False
+        if root.tag != qn("b:Sources"):
+            return False
+        return len(root) > 0
 
     def _document_uses_numbering(self, root) -> bool:
         """Return ``True`` if the document references numbering at all.

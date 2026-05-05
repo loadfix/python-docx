@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from docx.accessibility import HeadingIssue
     from docx.alt_chunk import AltChunk
     from docx.attachments import Attachment
+    from docx.bibliography import Bibliography, Source
     from docx.bookmarks import Bookmark, Bookmarks
     from docx.chart import Chart, WD_CHART_TYPE
     from docx.comments import Comment, Comments
@@ -190,6 +191,40 @@ class Document(ElementProxy):
         first_run.mark_comment_range(last_run, comment.comment_id)
 
         return comment
+
+    def add_citation(
+        self,
+        tag: str,
+        title: "str | None" = None,
+        author: "str | None" = None,
+        year: "str | int | None" = None,
+        source_type: str = "Book",
+        **extra: str,
+    ) -> "Source":
+        """Append a bibliographic source to the document's bibliography.
+
+        Creates the backing ``/customXml/item{N}.xml`` part (and its
+        ``itemProps{N}.xml`` sibling) on first use. `tag` is the unique
+        citation key that :meth:`Paragraph.add_citation_reference` looks up;
+        re-using an existing tag raises :class:`ValueError`.
+
+        `source_type` defaults to ``"Book"``; pass e.g. ``"JournalArticle"``
+        or ``"InternetSite"`` for richer fixtures. Any ``**extra`` kwargs
+        become text-only ``<b:{Capitalized}>`` children of the source
+        element (e.g. ``city="London"`` → ``<b:City>London</b:City>``).
+
+        Returns the newly-added :class:`Source`.
+
+        .. versionadded:: 2026.05.7
+        """
+        return self.bibliography.add_source(
+            tag,
+            title=title,
+            author=author,
+            year=year,
+            source_type=source_type,
+            **extra,
+        )
 
     def add_bookmark(self, runs: Run | Sequence[Run], name: str) -> Bookmark:
         """Add a bookmark spanning `runs`, and return the |Bookmark| proxy.
@@ -879,6 +914,19 @@ class Document(ElementProxy):
             return
         background = self._element.get_or_add_background()
         background.color = value
+
+    @property
+    def bibliography(self) -> "Bibliography":
+        """A |Bibliography| of citation sources backing this document.
+
+        Lazily materializes a ``/customXml/item{N}.xml`` part carrying an empty
+        ``<b:Sources>`` root if no bibliography is already related to the
+        document. Subsequent calls return a proxy over the same underlying
+        part.
+
+        .. versionadded:: 2026.05.7
+        """
+        return self._part.bibliography
 
     @property
     def bookmarks(self) -> Bookmarks:

@@ -1,0 +1,131 @@
+{
+  "$schema": "../manifest.schema.json",
+  "id": "docx/bibliography-authoring",
+  "title": "Bibliography and citation authoring",
+  "format": "docx",
+  "category": "references",
+  "summary": "A document with one bibliography source (`smith2020`) stored in `customXml/item{N}.xml` under `<b:Sources>`, and a matching inline `<w:sdt>` citation reference in `word/document.xml` carrying a `<w:citation/>` marker and a complex `CITATION` field instruction.",
+  "spec": {
+    "source": "ecma-376-5-part-1",
+    "clause": "22.9 (bibliography) and 17.5.2 (structured document tags)",
+    "element": "b:Sources / w:sdt / w:citation",
+    "rnc_reference": "spec/ecma-376-5/part-1/rnc/wml.rnc",
+    "xsd_reference": "spec/ecma-376-5/part-1/xsd/wml.xsd",
+    "notes": "The bibliography namespace is `http://schemas.openxmlformats.org/officeDocument/2006/bibliography` (`b:` prefix). A bibliography part is a customXml data part at `/customXml/item{N}.xml` with a `<b:Sources>` root; each source is a `<b:Source>` child carrying `<b:Tag>`, `<b:SourceType>`, `<b:Title>`, `<b:Year>`, and one or more `<b:Author>` entries. Citation references in the document body are `<w:sdt>` content controls whose `<w:sdtPr>` carries a `<w:citation/>` type marker; `<w:sdtContent>` holds a complex-field instruction of the form ` CITATION <tag> \\l <lcid> `. Word tolerates implicit binding by `<b:Tag>` value; explicit `<w:dataBinding>` is not required for the citation to round-trip through Word."
+  },
+  "fixtures": {
+    "machine": "docx/bibliography-authoring",
+    "office":  "docx/bibliography-authoring"
+  },
+  "generator": {
+    "python": "scripts/gen_bibliography_authoring.py"
+  },
+  "assertions": [
+    {
+      "id": "bibliography-part-exists",
+      "part": "customXml/item1.xml",
+      "namespaces": {
+        "b": "http://schemas.openxmlformats.org/officeDocument/2006/bibliography"
+      },
+      "xpath": "/b:Sources",
+      "must": "exist",
+      "description": "A `<b:Sources>` root element must be present in `/customXml/item1.xml`."
+    },
+    {
+      "id": "bibliography-source-tag-present",
+      "part": "customXml/item1.xml",
+      "namespaces": {
+        "b": "http://schemas.openxmlformats.org/officeDocument/2006/bibliography"
+      },
+      "xpath": "//b:Source/b:Tag[normalize-space()='smith2020']",
+      "must": "exist",
+      "description": "A `<b:Source>` whose `<b:Tag>` text equals `smith2020` must exist."
+    },
+    {
+      "id": "bibliography-source-title-present",
+      "part": "customXml/item1.xml",
+      "namespaces": {
+        "b": "http://schemas.openxmlformats.org/officeDocument/2006/bibliography"
+      },
+      "xpath": "//b:Source[b:Tag='smith2020']/b:Title[normalize-space()='Distributed Systems']",
+      "must": "exist",
+      "description": "The `smith2020` source must carry the expected `<b:Title>`."
+    },
+    {
+      "id": "bibliography-source-year-present",
+      "part": "customXml/item1.xml",
+      "namespaces": {
+        "b": "http://schemas.openxmlformats.org/officeDocument/2006/bibliography"
+      },
+      "xpath": "//b:Source[b:Tag='smith2020']/b:Year[normalize-space()='2020']",
+      "must": "exist",
+      "description": "The `smith2020` source must carry the expected `<b:Year>`."
+    },
+    {
+      "id": "bibliography-itemprops-schemaref",
+      "part": "customXml/itemProps1.xml",
+      "namespaces": {
+        "ds": "http://schemas.openxmlformats.org/officeDocument/2006/customXml"
+      },
+      "xpath": "//ds:schemaRef[@ds:uri='http://schemas.openxmlformats.org/officeDocument/2006/bibliography']",
+      "must": "exist",
+      "description": "The sibling `itemProps1.xml` must declare the bibliography schemaRef URI."
+    },
+    {
+      "id": "citation-sdt-marker-present",
+      "part": "word/document.xml",
+      "namespaces": {
+        "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+      },
+      "xpath": "//w:sdt/w:sdtPr[w:citation]",
+      "must": "exist",
+      "description": "A `<w:sdt>` with a `<w:citation/>` marker inside its `<w:sdtPr>` must exist (the citation reference produced by `Paragraph.add_citation_reference`)."
+    },
+    {
+      "id": "citation-sdt-instrText-contains-tag",
+      "part": "word/document.xml",
+      "namespaces": {
+        "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+      },
+      "xpath": "//w:sdt[w:sdtPr/w:citation]//w:instrText[contains(normalize-space(), 'CITATION smith2020')]",
+      "must": "exist",
+      "description": "The citation SDT must carry a `CITATION <tag>` complex-field instruction referencing `smith2020`."
+    },
+    {
+      "id": "customxml-rel-retained",
+      "part": "word/_rels/document.xml.rels",
+      "namespaces": {
+        "r": "http://schemas.openxmlformats.org/package/2006/relationships"
+      },
+      "xpath": "//r:Relationship[@Type='http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml']",
+      "must": "exist",
+      "description": "A `customXml` relationship from `word/document.xml` to the bibliography part must be retained in the output package."
+    }
+  ],
+  "render_assertions": [
+    {
+      "id": "citation-rendered-in-body",
+      "kind": "css_selector",
+      "selector": ".docx-wrapper *",
+      "must": "match-text",
+      "value": "(smith2020)",
+      "description": "Renderers that do not resolve CITATION fields should fall back to the cached result text — python-docx emits `(smith2020)` by default when no explicit `result_text` is supplied."
+    }
+  ],
+  "authoring": {
+    "library": "python-docx",
+    "apis": [
+      "Document.bibliography",
+      "Document.add_citation",
+      "Paragraph.add_citation_reference",
+      "Bibliography.sources",
+      "Bibliography.get_by_tag",
+      "Source.tag",
+      "Source.title",
+      "Source.author",
+      "Source.year",
+      "Source.source_type"
+    ],
+    "notes": "This manifest exercises the authoring surface shipped in python-docx 2026.05.7. The generator script builds a fresh document, calls `Document.add_citation` once, wires an inline citation reference into a paragraph, and saves to the machine-fixture output directory."
+  }
+}
