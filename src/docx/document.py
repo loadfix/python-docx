@@ -1323,6 +1323,42 @@ class Document(ElementProxy):
             result.extend(paragraph.embedded_objects)
         return result
 
+    def add_smart_art(
+        self,
+        layout_name: str = "list",
+        width: Length | None = None,
+        height: Length | None = None,
+    ) -> SmartArt:
+        """Append a SmartArt diagram of `layout_name` and return a |SmartArt| proxy.
+
+        `layout_name` is one of ``"list"``, ``"cycle"`` or ``"process"``
+        (case-insensitive). Each selects a Word built-in layout family whose
+        URN is baked into the freshly-minted ``data1.xml`` part. Word uses
+        its internal layout engine keyed by that URN, so the embedded
+        ``layout1.xml`` serves mainly to satisfy the OOXML package
+        requirements rather than to drive rendering.
+
+        `width` and `height` are |Length| values for the inline drawing's
+        display size. When omitted a 5.5" x 3" default is used — a shape
+        close to Word's own default SmartArt frame.
+
+        The returned |SmartArt| is empty; populate it with
+        :meth:`SmartArt.add_node` one string at a time. The diagram is
+        appended in its own paragraph at the end of the document body,
+        wrapped in a ``wp:inline`` so it flows with text like any other
+        inline picture.
+
+        Raises :class:`ValueError` when `layout_name` is not one of the
+        supported families.
+
+        .. versionadded:: 2026.05.7
+        """
+        from docx.smart_art import add_smart_art_to_document
+
+        cx = int(width) if width is not None else int(Inches(5.5))
+        cy = int(height) if height is not None else int(Inches(3))
+        return add_smart_art_to_document(self, layout_name, cx, cy)
+
     @property
     def smart_art(self) -> list[SmartArt]:
         """List of |SmartArt| proxies for every SmartArt diagram in the body.
