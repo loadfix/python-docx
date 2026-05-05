@@ -6,12 +6,12 @@ a candidate for a future implementation wave. Grouped by repo.
 ## Audit findings 2026-05-05
 
 - [ ] **Remove shipped `Section.vertical_alignment` entry from "Conformance gaps".** Already resolved by commit `1657c0ef`; move to a "Resolved" block or delete the stale open entry below.
-- [ ] **Close GitHub issue #171 (vt:date custom-properties).** Partially addressed by `c3edf01b` in 2026.05.8 (accept `datetime.date`, serialise as `vt:date`); verify round-trip fully works and close the issue.
-- [ ] **Close GitHub issue #172 (bare `KeyError('[Content_Types].xml')` on missing part).** Wrap in a typed `PackageNotFoundError` (or similar) at the OPC load boundary.
+- [x] **Close GitHub issue #171 (vt:date custom-properties).** Round-trip verified end-to-end in 2026.05.9; added `DescribeCustomProperties_RoundTrip` regression test covering the `Document` → `custom.xml` → reload pipeline. Issue closed.
+- [x] **Close GitHub issue #172 (bare `KeyError('[Content_Types].xml')` on missing part).** Wrapped at the narrowest scope in `PackageReader.from_file` as `PackageNotFoundError` in 2026.05.9. Corpus manifest `malformed-content-types-missing` now passes. Issue closed.
 - [x] **Bump README "Current version" string.** Currently reads `2026.05.0`; should be `2026.05.8`.
 - [x] **Git-tag all untagged releases.** Only `v2026.05.0` has a git tag; `v2026.05.1` through `v2026.05.8` have HISTORY.rst entries but no git tags. Add all 8 missing tags.
 - [x] **Land W11-D `UPSTREAM_SYNC.md` onto master.** Commit `d2d5cdcf` lives only on branch `feat/w11-d-upstream-sync`; merged to master via merge commit `721b7753` so upstream divergence is documented on the canonical tree.
-- [ ] **Seal submodule oxml leakage.** 590 `CT_*`/`ST_*` names reachable via `docx.oxml.*` / `docx.dml.color.*` / `docx.drawing.*` / etc. Add explicit `__all__` to public submodules (without breaking internal re-imports).
+- [x] **Seal submodule oxml leakage.** Added explicit `__all__` to 12 public submodules (`docx.table`, `section`, `bookmarks`, `blkcntnr`, `dml.color`, `drawing`, `equations`, `styles.styles`, `styles.style`, `text.paragraph`, `text.run`, `text.pagebreak`) in 2026.05.9. The `docx.oxml.*` subpackage is deliberately left alone; it's internal by convention and does not re-export via star.
 - [x] **Fix dev-extras portability.** `pyproject.toml` declared `ooxml-validate @ file:///home/ben/code/ooxml-validate`, a host-specific absolute path. Moved out of `[dev]` into a new opt-in `[conformance]` extra pointing at the GitHub VCS URL so `pip install -e '.[dev]'` works for external contributors.
 - [x] **Delete obsolete `.travis.yml`.** 243 bytes of dead config; `.github/` was deliberately removed.
 - [x] **Move scratch audit artefacts to `audits/`.** DOCS_AUDIT.md (49KB), DOCS_SIBLING_AUDIT.md (47KB), FEATURES_AUDIT.md (42KB), TEST_AUDIT.md (30KB), INTEROP_REPORT.md (17KB), SCALE_NOTES.md (5KB), real-world-audit-findings.md (11KB) accumulating at repo root — move to an `audits/` subdirectory or delete after resolution.

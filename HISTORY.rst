@@ -3,6 +3,40 @@
 Release History
 ---------------
 
+2026.05.9 — Audit bug-fix round
++++++++++++++++++++++++++++++++
+
+Released: 2026-05-05
+
+Small targeted fixes surfaced by the 2026-05-05 audit. No new
+feature surface; existing behaviour either gets a regression test
+or a crisper error type.
+
+- **vt:date round-trip regression test.** The ``datetime.date``
+  serialisation added in 2026.05.8 (commit ``c3edf01b``) now has a
+  full ``Document`` → ``custom.xml`` → reload regression test
+  (``tests/test_custom_properties.py::DescribeCustomProperties_RoundTrip``)
+  so the GitHub issue #171 round-trip behaviour stays locked in.
+- **Typed exception on missing ``[Content_Types].xml``** (closes
+  #172). Loading a zip that happens to be a valid archive but lacks
+  the mandatory OPC content-types part used to leak a bare
+  ``KeyError('[Content_Types].xml')`` from ``zipfile.read``.
+  ``docx.opc.pkgreader.PackageReader.from_file`` now wraps it in
+  ``docx.opc.exceptions.PackageNotFoundError`` at the narrowest
+  possible scope, matching the corpus manifest
+  ``malformed-content-types-missing`` (whose ``forbidden_exception``
+  clause explicitly rejected bare ``KeyError``).
+- **Explicit ``__all__`` on 12 public submodules.** ``docx.table``,
+  ``docx.section``, ``docx.bookmarks``, ``docx.blkcntnr``,
+  ``docx.dml.color``, ``docx.drawing``, ``docx.equations``,
+  ``docx.styles.styles``, ``docx.styles.style``,
+  ``docx.text.paragraph``, ``docx.text.run``,
+  ``docx.text.pagebreak`` now declare the public surface so
+  internal ``CT_*`` / ``ST_*`` names can no longer be reached via
+  ``from docx.<mod> import *``. Star-import only — existing explicit
+  imports continue to work.
+
+
 2026.05.8 — New authoring APIs
 ++++++++++++++++++++++++++++++
 
