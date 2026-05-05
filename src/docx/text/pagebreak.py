@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from docx.text.paragraph import Paragraph
 
 
+__all__ = ["RenderedPageBreak"]
+
+
 class RenderedPageBreak(Parented):
     """A page-break inserted by Word during page-layout for print or display purposes.
 

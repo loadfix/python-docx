@@ -33,6 +33,9 @@ if TYPE_CHECKING:
 BlockItemElement: TypeAlias = "CT_Body | CT_Comment | CT_Endnote | CT_Footnote | CT_HdrFtr | CT_Tc"
 
 
+__all__ = ["BlockItemContainer"]
+
+
 class _ParagraphsView(Sequence[Paragraph]):
     """Lazy read-only view over the paragraphs in a block-item container.
 

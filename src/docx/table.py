@@ -52,6 +52,24 @@ if TYPE_CHECKING:
 TableParent: TypeAlias = "Table | _Columns | _Rows"
 
 
+__all__ = [
+    "BorderElement",
+    "CellBorders",
+    "CellMargins",
+    "CellShading",
+    "Table",
+    "TableBorders",
+    "TableCellMargins",
+    "TableStyleFlags",
+    # -- underscored-but-public proxy classes: documented in FEATURES.md --
+    "_Cell",
+    "_Column",
+    "_Columns",
+    "_Row",
+    "_Rows",
+]
+
+
 class Table(StoryChild):
     """Proxy class for a WordprocessingML ``<w:tbl>`` element."""
 
