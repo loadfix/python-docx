@@ -2,37 +2,48 @@
 
 Custom properties are user-defined, typed name/value pairs stored in the
 ``docProps/custom.xml`` part of the package. They are distinct from the fixed
-Dublin-Core "core" properties available via `document.core_properties`.
+Dublin-Core "core" properties available via ``document.core_properties``.
 
 Supported value types:
 
-* ``str``  -- serialised as ``vt:lpwstr``
-* ``int``  -- serialised as ``vt:i4``
-* ``float`` -- serialised as ``vt:r8``
-* ``bool`` -- serialised as ``vt:bool``
-* ``datetime.datetime`` -- serialised as ``vt:filetime`` (ISO-8601 with trailing ``Z``)
-* ``datetime.date`` (but *not* ``datetime``) -- serialised as ``vt:date``
+* ``str``     — serialised as ``vt:lpwstr``
+* ``int``     — serialised as ``vt:i4``
+* ``float``   — serialised as ``vt:r8``
+* ``bool``    — serialised as ``vt:bool``
+* ``datetime.datetime`` — serialised as ``vt:filetime`` (ISO-8601 with ``Z``)
+* ``datetime.date`` (not ``datetime``) — serialised as ``vt:date``
   (ISO-8601 ``YYYY-MM-DD``, no time component)
+
+.. versionchanged:: 2026.05.0
+    Delegates to :class:`ooxml_docprops.CustomProperties`. The docx-local
+    class remains as a thin adapter preserving the
+    ``(element, part)`` constructor, the ``ValueError``-on-duplicate
+    contract of :meth:`add`, and the list-returning :meth:`names`.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any
+
+from ooxml_docprops import CustomProperties as _SharedCustomProperties
 
 if TYPE_CHECKING:
     from docx.oxml.custom_properties import CT_CustomProperties
     from docx.parts.custom_properties import CustomPropertiesPart
 
 
-_MISSING = object()
+class CustomProperties(_SharedCustomProperties):
+    """Mapping-like collection of custom document properties.
 
+    Thin adapter over :class:`ooxml_docprops.CustomProperties` that
+    preserves three pre-2026.05 docx API contracts:
 
-class CustomProperties:
-    """Collection of custom document properties.
-
-    Behaves like a mapping keyed by property name. Iteration yields property names
-    (matching ``dict``-style iteration convention).
+    1. ``CustomProperties(element, part)`` two-argument constructor
+       (the shared base only takes ``element``).
+    2. :meth:`add` raises :class:`ValueError` on a duplicate name; the
+       shared base raises :class:`KeyError`.
+    3. :meth:`names` returns a concrete ``list[str]``; the shared base
+       returns an iterator.
 
     .. versionadded:: 2026.05.0
     """
@@ -40,101 +51,31 @@ class CustomProperties:
     def __init__(
         self,
         element: "CT_CustomProperties",
-        part: "CustomPropertiesPart",
+        part: "CustomPropertiesPart" | None = None,
     ):
-        self._element = element
+        super().__init__(element)
         self._part = part
 
-    # -- mapping protocol --------------------------------------------------------------
+    def add(self, name: str, value: Any) -> None:
+        """Add a new property named *name* with *value*.
 
-    def __contains__(self, name: object) -> bool:
-        if not isinstance(name, str):
-            return False
-        return self._element.get_property_by_name(name) is not None
-
-    def __delitem__(self, name: str) -> None:
-        prop = self._element.get_property_by_name(name)
-        if prop is None:
-            raise KeyError(name)
-        self._element.remove(prop)
-
-    def __getitem__(self, name: str) -> object:
-        prop = self._element.get_property_by_name(name)
-        if prop is None:
-            raise KeyError(name)
-        return prop.value
-
-    def __iter__(self) -> Iterator[str]:
-        """Yield the name of each custom property, in document order."""
-        return (prop.name for prop in self._element.property_lst)
-
-    def __len__(self) -> int:
-        return len(self._element.property_lst)
-
-    def __setitem__(self, name: str, value: object) -> None:
-        """Set `name` to `value`, overwriting any existing property with that name."""
-        self._validate_value_type(value)
-        existing = self._element.get_property_by_name(name)
-        if existing is not None:
-            existing.value = value
-            return
-        prop = self._element.add_property(name)
-        prop.value = value
-
-    # -- convenience methods -----------------------------------------------------------
-
-    def add(self, name: str, value: object) -> None:
-        """Add a new custom property named `name` with `value`.
-
-        Raises |ValueError| if a property with that name already exists. Use
-        ``custom_properties[name] = value`` to overwrite.
-
-        .. versionadded:: 2026.05.0
+        Raises :class:`ValueError` if a property with that name already
+        exists. Use ``custom_properties[name] = value`` for last-write-wins
+        semantics.
         """
-        self._validate_value_type(value)
-        if self._element.get_property_by_name(name) is not None:
-            raise ValueError(f"a custom property named {name!r} already exists")
-        prop = self._element.add_property(name)
-        prop.value = value
+        # -- the shared base raises KeyError on duplicate; docx's historical
+        # -- contract was ValueError. Translate. Any other exception from the
+        # -- shared impl (e.g. InvalidCustomPropertyTypeError / TypeError on
+        # -- unsupported value types) is propagated unchanged.
+        try:
+            super().add(name, value)
+        except KeyError as exc:
+            raise ValueError(*exc.args) from None
 
-    def get(self, name: str, default: object = None) -> object:
-        """Return the value of property `name`, or `default` if not present.
+    def names(self) -> list[str]:  # type: ignore[override]
+        """Return a list of property names in document order.
 
-        .. versionadded:: 2026.05.0
+        Overrides the shared base's iterator-returning ``names()`` to
+        preserve docx's list contract.
         """
-        prop = self._element.get_property_by_name(name)
-        if prop is None:
-            return default
-        return prop.value
-
-    def names(self) -> list[str]:
-        """Return a list of the names of each property, in document order.
-
-        .. versionadded:: 2026.05.0
-        """
-        return [prop.name for prop in self._element.property_lst]
-
-    def items(self) -> list[tuple[str, object]]:
-        """Return a list of ``(name, value)`` pairs, in document order.
-
-        .. versionadded:: 2026.05.0
-        """
-        return [(prop.name, prop.value) for prop in self._element.property_lst]
-
-    @staticmethod
-    def _validate_value_type(value: object) -> None:
-        """Raise |TypeError| if `value` is not a supported custom-property value type.
-
-        The accepted ``isinstance`` check matches the set of types supported by
-        ``CT_CustomProperty.value`` setter.
-        """
-        # -- ``bool`` must be accepted explicitly; it subclasses ``int``. ----
-        # -- ``date`` covers both ``date`` and ``datetime`` (the setter dispatch
-        # -- below is responsible for picking `vt:filetime` vs `vt:date`).
-        import datetime as _dt
-
-        if isinstance(value, (bool, int, float, str, _dt.date)):
-            return
-        raise TypeError(
-            f"unsupported custom-property value type: {type(value).__name__}"
-        )
+        return list(super().names())
