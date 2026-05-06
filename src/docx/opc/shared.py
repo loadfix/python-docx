@@ -1,31 +1,11 @@
-"""Objects shared by opc modules."""
+"""Re-export of :mod:`ooxml_opc.shared`.
+
+:class:`CaseInsensitiveDict` and :func:`cls_method_fn` now live in the
+shared :mod:`ooxml_opc` package.
+"""
 
 from __future__ import annotations
 
-from typing import Any, TypeVar
+from ooxml_opc.shared import CaseInsensitiveDict, cls_method_fn
 
-_T = TypeVar("_T")
-
-
-class CaseInsensitiveDict(dict[str, Any]):
-    """Mapping type that behaves like dict except that it matches without respect to the
-    case of the key.
-
-    E.g. cid['A'] == cid['a']. Note this is not general-purpose, just complete enough to
-    satisfy opc package needs. It assumes str keys, and that it is created empty; keys
-    passed in constructor are not accounted for
-    """
-
-    def __contains__(self, key):
-        return super().__contains__(key.lower())
-
-    def __getitem__(self, key):
-        return super().__getitem__(key.lower())
-
-    def __setitem__(self, key, value):
-        return super().__setitem__(key.lower(), value)
-
-
-def cls_method_fn(cls: type, method_name: str):
-    """Return method of `cls` having `method_name`."""
-    return getattr(cls, method_name)
+__all__ = ["CaseInsensitiveDict", "cls_method_fn"]

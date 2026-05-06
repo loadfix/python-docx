@@ -1,30 +1,11 @@
-"""Provides mappings that embody aspects of the Open XML spec ISO/IEC 29500."""
+"""Re-export of :mod:`ooxml_opc.spec`.
 
-from docx.opc.constants import CONTENT_TYPE as CT
+The ``default_content_types`` table now lives in the shared
+:mod:`ooxml_opc` package.
+"""
 
-default_content_types = (
-    ("bin", CT.PML_PRINTER_SETTINGS),
-    ("bin", CT.SML_PRINTER_SETTINGS),
-    ("bin", CT.WML_PRINTER_SETTINGS),
-    # Word is strict: vbaProject must appear as a <Default> entry. Emitting an
-    # <Override> (even though ISO/IEC 29500 allows it) makes Word report the
-    # .docm package as having "unreadable content".
-    ("bin", CT.WML_VBA_PROJECT),
-    ("bmp", CT.BMP),
-    ("emf", CT.X_EMF),
-    ("eps", CT.X_EPS),
-    ("fntdata", CT.X_FONTDATA),
-    ("gif", CT.GIF),
-    ("jpe", CT.JPEG),
-    ("jpeg", CT.JPEG),
-    ("jpg", CT.JPEG),
-    ("png", CT.PNG),
-    ("rels", CT.OPC_RELATIONSHIPS),
-    ("tif", CT.TIFF),
-    ("tiff", CT.TIFF),
-    ("wdp", CT.MS_PHOTO),
-    ("webp", CT.WEBP),
-    ("wmf", CT.X_WMF),
-    ("xlsx", CT.SML_SHEET),
-    ("xml", CT.XML),
-)
+from __future__ import annotations
+
+from ooxml_opc.spec import default_content_types, image_content_types
+
+__all__ = ["default_content_types", "image_content_types"]
