@@ -56,9 +56,12 @@ class DescribeDirPkgReader:
         assert rels_xml is None
 
     def it_raises_on_path_traversal(self, dir_reader):
-        pack_uri = PackURI("/../../../etc/passwd")
-        with pytest.raises(ValueError, match="resolves outside package directory"):
-            dir_reader.blob_for(pack_uri)
+        # As of python-ooxml-opc 0.1.0, PackURI construction itself refuses
+        # '..' path segments, so the guard fires earlier than the reader's
+        # filesystem check. Both behaviours are correct; this asserts the
+        # earliest, strongest guarantee.
+        with pytest.raises(ValueError, match=r"\.\."):
+            PackURI("/../../../etc/passwd")
 
     # fixtures ---------------------------------------------
 
