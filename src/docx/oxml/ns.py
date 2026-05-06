@@ -10,7 +10,16 @@ nsmap = {
     "b": "http://schemas.openxmlformats.org/officeDocument/2006/bibliography",
     "c": "http://schemas.openxmlformats.org/drawingml/2006/chart",
     "cp": "http://schemas.openxmlformats.org/package/2006/metadata/core-properties",
+    # -- ``cst`` / ``ep`` are the prefixes the shared ``ooxml_docprops``
+    # -- package uses in its xmlchemy descriptors (``ZeroOrMore("cst:property")``
+    # -- etc.). Keep the docx-native ``custprops`` / ``extprops`` prefixes as the
+    # -- primary entries (they appear in fixture XML, serialisation output, and
+    # -- historical element-class registrations); the ``cst`` / ``ep`` aliases
+    # -- map to the same URIs so descriptors declared against the shared prefix
+    # -- resolve correctly when evaluated under docx's namespace registry.
+    "cst": "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties",
     "custprops": "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties",
+    "ep": "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties",
     "extprops": "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties",
     "dc": "http://purl.org/dc/elements/1.1/",
     "dcmitype": "http://purl.org/dc/dcmitype/",
