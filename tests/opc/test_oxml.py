@@ -123,8 +123,11 @@ class DescribeCT_Relationships:
         assert serialize_for_reading(rels) == expected_rels_xml
 
     def it_can_generate_rels_file_xml(self):
+        # -- Shared runtime emits double-quoted XML declaration attributes
+        # -- to match Microsoft Office output; pre-0.2 docx relied on
+        # -- lxml's single-quoted default. --
         expected_xml = (
-            "<?xml version='1.0' encoding='UTF-8' standalone='yes'?>\n"
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
             '<Relationships xmlns="http://schemas.openxmlformats.org/package'
             '/2006/relationships"/>'.encode("utf-8")
         )
