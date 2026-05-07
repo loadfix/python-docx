@@ -1,7 +1,23 @@
 """Provides low-level, write-only API to serialized (OPC) package.
 
-OPC stands for Open Packaging Convention. This is e, essentially an implementation of
-OpcPackage.save().
+OPC stands for Open Packaging Convention. This is essentially an implementation
+of :meth:`OpcPackage.save`.
+
+Kept docx-local rather than re-exporting :mod:`ooxml_opc.pkgwriter` because the
+two are not API-compatible: docx's :class:`PackageWriter` exposes static
+methods (``write`` / ``_write_content_types_stream`` / ``_write_pkg_rels`` /
+``_write_parts``) that are individually unit-tested, while the shared
+runtime's :class:`~ooxml_opc.pkgwriter.PackageWriter` is instance-based with
+a ``zip_date_time`` knob. Both paths depend on the same shared primitives.
+
+Adoption is effective via the transitive graph: :class:`~docx.opc.oxml.CT_Types`
+and :func:`~docx.opc.oxml.serialize_part_xml` come from :mod:`ooxml_opc.oxml`;
+:class:`~docx.opc.phys_pkg.PhysPkgWriter` is the docx-shape wrapper around
+:class:`ooxml_opc.phys_pkg`'s reproducible-zip primitives.
+
+.. versionchanged:: 2026.05.11
+   Uses the shared runtime's xml serialisation + physical-writer primitives;
+   the outward docx :class:`PackageWriter` static-method API is unchanged.
 """
 
 from __future__ import annotations

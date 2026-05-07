@@ -1,4 +1,24 @@
-"""Low-level, read-only API to a serialized Open Packaging Convention (OPC) package."""
+"""Low-level, read-only API to a serialized Open Packaging Convention (OPC) package.
+
+Kept docx-local rather than re-exporting :mod:`ooxml_opc.pkgreader` because
+the two are not API-compatible: docx's :class:`PackageReader` is a
+:class:`Unmarshaller`-compatible generator (``from_file`` + ``iter_sparts`` +
+``iter_srels`` + :class:`_SerializedPart` / :class:`_SerializedRelationship`
+value objects), while the shared runtime's :class:`~ooxml_opc.pkgreader.PackageReader`
+is a :class:`~collections.abc.Mapping`-semantics accessor keyed by
+:class:`~ooxml_opc.packuri.PackURI`. The shared and docx layers each drive
+their own higher-level package loaders.
+
+Adoption is effective via the transitive graph: :func:`parse_xml` comes from
+:mod:`ooxml_opc.oxml` (re-exported via :mod:`docx.opc.oxml`);
+:class:`~docx.opc.phys_pkg.PhysPkgReader` consumes zip-bomb and CFBF
+helpers from :mod:`ooxml_opc.phys_pkg`; :class:`~docx.opc.shared.CaseInsensitiveDict`
+comes from :mod:`ooxml_opc.shared`.
+
+.. versionchanged:: 2026.05.11
+   Uses the shared runtime's xml parsing + physical-reader dispatch; the
+   outward docx :class:`PackageReader` API is unchanged.
+"""
 
 from docx.opc.constants import RELATIONSHIP_TARGET_MODE as RTM
 from docx.opc.exceptions import PackageNotFoundError
