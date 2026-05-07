@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import re
 from collections import namedtuple
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Union
 from collections.abc import Iterator, Mapping, Sequence
 
 from docx.enum.text import WD_NUMBER_FORMAT
@@ -52,7 +52,7 @@ paragraph is not part of a list), and ``level`` is the integer indent level
 """
 
 
-LevelSpec = Mapping[str, Any] | Sequence[Any]
+LevelSpec = Union[Mapping[str, Any], Sequence[Any]]
 """A per-level specification. Accepts either a mapping with any of the keys
 ``format``, ``text``, ``start``, ``indent``, ``font`` or a positional tuple
 ``(format, text[, indent[, font]])``."""

@@ -1,5 +1,7 @@
 """Test suite for the docx.oxml.text.parfmt module (text-frame focus)."""
 
+from __future__ import annotations
+
 from typing import cast
 
 import pytest

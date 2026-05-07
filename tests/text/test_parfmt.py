@@ -1,5 +1,7 @@
 """Test suite for docx.text.parfmt module, containing the ParagraphFormat object."""
 
+from __future__ import annotations
+
 import pytest
 
 from docx.enum.text import (

@@ -1,5 +1,7 @@
 """Unit test suite for the docx.text.paragraph module."""
 
+from __future__ import annotations
+
 from typing import List, cast
 
 import pytest
