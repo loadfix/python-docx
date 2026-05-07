@@ -11,6 +11,15 @@ A signed OOXML package contains:
 * one or more relationships of type ``.../digital-signature/signature`` from the origin
   part, each targeting a ``/_xmlsignatures/sigN.xml`` part holding an XML-DSig document,
   optionally with XAdES extensions carrying the signing time and signer identity.
+
+The shared-package integration (``python-ooxml-signatures`` / ``ooxml_signatures``)
+is picked up opportunistically: when that package is importable,
+:attr:`SignatureInfo.shared_signature` returns the corresponding
+``ooxml_signatures.Signature`` instance and the metadata accessors
+(``signer``, ``signed_at``) delegate to the richer shared-package parser,
+which supports Microsoft's ``mdssi:SignatureTime`` + ``mdssi:SignatureComments``
+extensions alongside XAdES. When the shared package is not installed, the
+legacy inline parser continues to handle the common happy path unchanged.
 """
 
 from __future__ import annotations
@@ -29,6 +38,22 @@ _XMLDSIG_NS = "http://www.w3.org/2000/09/xmldsig#"
 _XADES_NS = "http://uri.etsi.org/01903/v1.3.2#"
 
 
+def _import_ooxml_signatures() -> Any:
+    """Return the ``ooxml_signatures`` module, or |None| if not installed.
+
+    Kept as a function (rather than a module-level import) so that the
+    import is attempted lazily on first access. Tests can monkey-patch
+    this symbol to force the fallback path regardless of the real
+    environment.
+    """
+    try:
+        import ooxml_signatures  # type: ignore[import-not-found]
+
+        return ooxml_signatures
+    except ImportError:
+        return None
+
+
 class SignatureInfo:
     """Read-only metadata for a single digital signature in a package.
 
@@ -41,6 +66,8 @@ class SignatureInfo:
     def __init__(self, part: Part):
         self._part = part
         self._parsed: tuple[str | None, datetime | None] | None = None
+        self._shared: Any = None
+        self._shared_resolved = False
 
     @property
     def partname(self) -> PackURI:
@@ -59,15 +86,46 @@ class SignatureInfo:
         return self._part.blob
 
     @property
+    def shared_signature(self) -> Any:
+        """Return the ``ooxml_signatures.Signature`` for this part, or |None|.
+
+        Present when ``python-ooxml-signatures`` is installed; |None| otherwise.
+        The richer shared-package parser supports Microsoft's
+        ``mdssi:SignatureTime`` and ``mdssi:SignatureComments`` extensions
+        alongside XAdES ``SigningTime``, and exposes ``references`` /
+        ``comments`` attributes that python-docx's inline parser doesn't.
+
+        .. versionadded:: 2026.05.0
+        """
+        if not self._shared_resolved:
+            mod = _import_ooxml_signatures()
+            if mod is not None:
+                try:
+                    self._shared = mod.Signature.from_bytes(
+                        self.blob, partname=str(self.partname)
+                    )
+                except Exception:  # noqa: BLE001 — malformed → no shared proxy
+                    self._shared = None
+            self._shared_resolved = True
+        return self._shared
+
+    @property
     def signer(self) -> str | None:
         """Subject name of the signing certificate, or |None| if not present.
 
         Extracted from ``<X509SubjectName>`` under the XML-DSig ``KeyInfo`` or from the
         XAdES ``SigningCertificate`` block. Returns |None| when the signature XML is
-        malformed or does not expose this information.
+        malformed or does not expose this information. When
+        ``python-ooxml-signatures`` is installed, this delegates to
+        :attr:`ooxml_signatures.Signature.signer` for richer handling
+        (picks up non-default ``X509SubjectName`` locations that Office
+        emits for XAdES signatures).
 
         .. versionadded:: 2026.05.0
         """
+        shared = self.shared_signature
+        if shared is not None:
+            return shared.signer
         return self._parse()[0]
 
     @property
@@ -75,10 +133,18 @@ class SignatureInfo:
         """Time the signature was created, or |None| if not declared.
 
         Parsed from the XAdES ``<SigningTime>`` element when present. Returns |None|
-        when the signature XML is malformed or does not declare a signing time.
+        when the signature XML is malformed or does not declare a signing time. When
+        ``python-ooxml-signatures`` is installed, this delegates to
+        :attr:`ooxml_signatures.Signature.signed_at` which prefers
+        Microsoft's ``mdssi:SignatureTime`` (the shape Office writes by
+        default) and falls back to XAdES — the inline parser only sees
+        the XAdES case.
 
         .. versionadded:: 2026.05.0
         """
+        shared = self.shared_signature
+        if shared is not None:
+            return shared.signed_at
         return self._parse()[1]
 
     def _parse(self) -> tuple[str | None, datetime | None]:

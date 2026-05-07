@@ -224,3 +224,103 @@ class DescribeSignatureInfo:
         assert info.signed_at is None
         # -- second access uses the cached parse --
         assert info.signer == "CN=Bob"
+
+
+class DescribeSharedPackageDelegation:
+    """Tests for the optional ``python-ooxml-signatures`` integration.
+
+    Covers the two behaviours that matter:
+
+    1. When the shared package is not installed, the legacy inline
+       parser handles everything (proven by the XAdES fixtures above).
+    2. When the shared package is installed, ``shared_signature`` is
+       non-None and ``signer`` / ``signed_at`` delegate to it, picking
+       up Microsoft's ``mdssi:SignatureTime`` + ``mdssi:SignatureComments``
+       that the inline parser doesn't recognise.
+
+    These tests are **skip-silent** when ``ooxml_signatures`` is not
+    importable so they don't fail in a venv that hasn't installed the
+    shared package yet.
+    """
+
+    @staticmethod
+    def _shared_available() -> bool:
+        try:
+            import ooxml_signatures  # noqa: F401
+
+            return True
+        except ImportError:
+            return False
+
+    def it_returns_None_for_shared_signature_when_package_not_installed(self, monkeypatch):
+        """Force the fallback path by monkey-patching the import function."""
+        from docx import signatures as _sigs
+
+        monkeypatch.setattr(_sigs, "_import_ooxml_signatures", lambda: None)
+
+        xml = (
+            b'<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">'
+            b"<KeyInfo><X509Data>"
+            b"<X509SubjectName>CN=Bob</X509SubjectName>"
+            b"</X509Data></KeyInfo>"
+            b"</Signature>"
+        )
+
+        class _StubPart:
+            partname = "/_xmlsignatures/sig1.xml"
+            blob = xml
+
+        info = SignatureInfo(_StubPart())  # type: ignore[arg-type]
+        assert info.shared_signature is None
+        # Legacy inline parser still works.
+        assert info.signer == "CN=Bob"
+
+    def it_delegates_to_shared_package_when_available(self):
+        if not self._shared_available():
+            return  # skip silently when shared package not installed
+
+        # mdssi:SignatureTime — Office's default, which the inline parser
+        # does NOT recognise but the shared package does.
+        xml = (
+            b'<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">'
+            b"<KeyInfo><X509Data>"
+            b"<X509SubjectName>CN=Alice</X509SubjectName>"
+            b"</X509Data></KeyInfo>"
+            b"<Object>"
+            b'<SignatureProperties xmlns:mdssi="http://schemas.openxmlformats.org/package/2006/digital-signature">'
+            b'<SignatureProperty Target="#idPackageSignature">'
+            b"<mdssi:SignatureTime>"
+            b"<mdssi:Format>YYYY-MM-DDTHH:MM:SSZ</mdssi:Format>"
+            b"<mdssi:Value>2024-06-15T09:10:11Z</mdssi:Value>"
+            b"</mdssi:SignatureTime>"
+            b"</SignatureProperty>"
+            b"</SignatureProperties>"
+            b"</Object>"
+            b"</Signature>"
+        )
+
+        class _StubPart:
+            partname = "/_xmlsignatures/sig1.xml"
+            blob = xml
+
+        info = SignatureInfo(_StubPart())  # type: ignore[arg-type]
+        assert info.shared_signature is not None
+        # signer delegation works
+        assert info.signer == "CN=Alice"
+        # signed_at delegation picks up mdssi:SignatureTime
+        assert info.signed_at == datetime(2024, 6, 15, 9, 10, 11, tzinfo=timezone.utc)
+
+    def it_gracefully_falls_back_on_malformed_xml_with_shared_package(self):
+        if not self._shared_available():
+            return  # skip silently
+
+        class _StubPart:
+            partname = "/_xmlsignatures/sig1.xml"
+            blob = b"<NotASignature/>"
+
+        info = SignatureInfo(_StubPart())  # type: ignore[arg-type]
+        # shared_signature returns None because the root is not <Signature>;
+        # the legacy parser also returns None/None.
+        assert info.shared_signature is None
+        assert info.signer is None
+        assert info.signed_at is None
