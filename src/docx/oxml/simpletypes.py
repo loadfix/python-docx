@@ -3,8 +3,10 @@
 """Simple-type classes, corresponding to ST_* schema items.
 
 The generic XSD primitive base classes live in the shared
-:mod:`ooxml_xmlchemy.simpletypes` package and are re-exported below so
-existing ``docx.oxml.simpletypes.*`` import paths keep working.  The
+:mod:`ooxml_xmlchemy.simpletypes` package; the cross-format concrete
+``ST_*`` classes (``ST_CoordinateUnqualified``, ``ST_RelationshipId``)
+live in :mod:`ooxml_xmlchemy.commontypes`.  Both are re-exported below
+so existing ``docx.oxml.simpletypes.*`` import paths keep working.  The
 WordprocessingML-specific concrete ``ST_*`` classes that depend on
 docx's ``Emu`` / ``Pt`` / ``Twips`` / ``RGBColor`` value objects stay
 local to docx.
@@ -15,6 +17,10 @@ from __future__ import annotations
 import datetime as dt
 from typing import TYPE_CHECKING, Any
 
+from ooxml_xmlchemy.commontypes import (
+    ST_CoordinateUnqualified,
+    ST_RelationshipId,
+)
 from ooxml_xmlchemy.simpletypes import (
     BaseFloatType,
     BaseIntType,
@@ -118,12 +124,6 @@ class ST_Coordinate(BaseIntType):
     @classmethod
     def validate(cls, value: Any) -> None:
         ST_CoordinateUnqualified.validate(value)
-
-
-class ST_CoordinateUnqualified(XsdLong):
-    @classmethod
-    def validate(cls, value: Any) -> None:
-        cls.validate_int_in_range(value, -27273042329600, 27273042316900)
 
 
 class ST_EighthPointMeasure(BaseIntType):
@@ -308,10 +308,6 @@ class ST_PositiveCoordinate(XsdLong):
     @classmethod
     def validate(cls, value: Any) -> None:
         cls.validate_int_in_range(value, 0, 27273042316900)
-
-
-class ST_RelationshipId(XsdString):
-    pass
 
 
 class ST_SignedTwipsMeasure(XsdInt):
