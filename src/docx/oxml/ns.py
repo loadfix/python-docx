@@ -1,9 +1,32 @@
-"""Namespace-related objects."""
+"""Namespace-related objects.
+
+The ``nsmap`` is assembled from the shared ``ooxml_opc.namespaces`` extension
+registry (the canonical source for Microsoft 2010+ extension prefixes that
+Office writes on every default-authored document) plus docx-local entries
+for aliases and Dublin-Core / OPC core namespaces.
+
+See ``ooxml_opc.namespaces`` for the catalogue of ``w14`` / ``w15`` /
+``w16*`` / ``wp14`` / ``cx1..cx8`` / ``oel`` / ``aink`` / ``am3d``
+prefixes that all default-authored Word documents declare on the
+``<w:document>`` root. Closes the "Extension namespaces beyond w14 are
+unregistered" gap from the docx audit (2026-05-08).
+"""
 
 from __future__ import annotations
 
+from ooxml_opc.namespaces import EXTENSION_NAMESPACES
 
 
+# -- Start from the legacy docx-local nsmap (what docx has always carried).
+# -- The extension subset is merged in below *additively*: only the
+# -- Microsoft 2010+ extension URIs that docx never registered locally
+# -- (``w15``, ``w16*``, ``wp14``, ``oel``, ``aink``, ``am3d``, ``cx1..cx8``)
+# -- are added. The OPC-layer prefixes (``ct:``, ``pr:``) are deliberately
+# -- NOT pulled in — those stay owned by ``ooxml_opc`` and are resolved via
+# -- the composite xmlchemy namespace registry at descriptor lookup time.
+# -- Adding ``ct:`` here would route ``ct:Default`` element-class lookup
+# -- through docx's lxml parser (which doesn't know about ``CT_Default``)
+# -- instead of ooxml_opc's, breaking Content_Types.xml serialisation. --
 nsmap = {
     "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
     "asvg": "http://schemas.microsoft.com/office/drawing/2016/SVG/main",
@@ -45,6 +68,41 @@ nsmap = {
     "xml": "http://www.w3.org/XML/1998/namespace",
     "xsi": "http://www.w3.org/2001/XMLSchema-instance",
 }
+
+# -- Pull in every Microsoft extension prefix Word writes on the document
+# -- root that was NOT already in the docx-local nsmap. These are additive:
+# -- docx.oxml.ns never owned its own copy of these URIs, so adding them
+# -- closes the audit gap "qn('w15:docId') raises KeyError" without
+# -- re-routing any existing prefix through a different element-class
+# -- lookup. Word 2012+ writes these namespaces in every default-authored
+# -- .docx, gated by ``mc:Ignorable`` on the root. --
+_WORD_DOC_ROOT_EXTENSIONS = (
+    "w15",
+    "w16",
+    "w16cex",
+    "w16du",
+    "w16sdtdh",
+    "w16sdtfl",
+    "w16se",
+    "wp14",
+    "wpi",
+    "wne",
+    "oel",
+    "aink",
+    "am3d",
+    "cx",
+    "cx1",
+    "cx2",
+    "cx3",
+    "cx4",
+    "cx5",
+    "cx6",
+    "cx7",
+    "cx8",
+)
+for _pfx in _WORD_DOC_ROOT_EXTENSIONS:
+    nsmap.setdefault(_pfx, EXTENSION_NAMESPACES[_pfx])
+del _pfx, _WORD_DOC_ROOT_EXTENSIONS
 
 pfxmap = {value: key for key, value in nsmap.items()}
 
