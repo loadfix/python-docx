@@ -50,3 +50,21 @@ class CT_String(BaseOxmlElement):
         elm = cast(CT_String, OxmlElement(nsptagname))
         elm.val = val
         return elm
+
+
+class CT_ProofErr(BaseOxmlElement):
+    """``<w:proofErr>`` element -- spell/grammar proofing-error marker.
+
+    Word writes ``<w:proofErr w:type="spellStart"/>`` /
+    ``<w:proofErr w:type="spellEnd"/>`` (also ``gramStart`` / ``gramEnd``)
+    around any span its proofer has flagged but the user hasn't yet accepted.
+    python-docx does not author these markers -- but registering the element
+    class keeps the required ``w:type`` attribute visible to descriptor-based
+    round-trip code so existing markers are preserved faithfully across save.
+
+    .. versionadded:: 2026.05.3
+    """
+
+    type: str = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:type", ST_String
+    )

@@ -139,6 +139,26 @@ class CT_AbstractNum(BaseOxmlElement):
         return None
 
 
+class CT_NumPicBullet(BaseOxmlElement):
+    """``<w:numPicBullet>`` element, a picture used as a custom bullet glyph.
+
+    Contains a single ``<w:drawing>`` child wrapping the bullet image plus a
+    required ``@w:numPicBulletId`` attribute that level definitions reference
+    via ``<w:numPicBulletId w:val="..."/>`` to use the picture as the bullet
+    for that level.
+
+    Created by Word's *Home* > *Bullets* > *Define New Bullet* > *Picture*
+    command.
+
+    .. versionadded:: 2026.05.3
+    """
+
+    drawing = ZeroOrOne("w:drawing", successors=())
+    numPicBulletId: int = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:numPicBulletId", ST_DecimalNumber
+    )
+
+
 class CT_Num(BaseOxmlElement):
     """``<w:num>`` element, which represents a concrete list definition instance, having
     a required child <w:abstractNumId> that references an abstract numbering definition
@@ -227,10 +247,14 @@ class CT_Numbering(BaseOxmlElement):
 
     abstractNum_lst: list[CT_AbstractNum]
     num_lst: list[CT_Num]
+    numPicBullet_lst: list[CT_NumPicBullet]
 
+    numPicBullet = ZeroOrMore(
+        "w:numPicBullet", successors=("w:abstractNum", "w:numIdMacAtCleanup", "w:num")
+    )
     abstractNum = ZeroOrMore(
         "w:abstractNum",
-        successors=("w:numIdMacAtCleanup", "w:numPicBullet", "w:num"),
+        successors=("w:numIdMacAtCleanup", "w:num"),
     )
     num = ZeroOrMore("w:num", successors=("w:numIdMacAtCleanup",))
 

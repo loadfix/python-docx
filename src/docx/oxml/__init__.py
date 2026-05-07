@@ -49,7 +49,7 @@ from docx.oxml.shape import (
     CT_WrapTight,
     CT_WrapTopBottom,
 )
-from docx.oxml.shared import CT_DecimalNumber, CT_OnOff, CT_String
+from docx.oxml.shared import CT_DecimalNumber, CT_OnOff, CT_ProofErr, CT_String
 from docx.oxml.text.hyperlink import CT_Hyperlink
 from docx.oxml.text.pagebreak import CT_LastRenderedPageBreak
 from docx.oxml.text.run import (
@@ -126,6 +126,7 @@ register_element_cls("w:cr", CT_Cr)
 register_element_cls("w:lastRenderedPageBreak", CT_LastRenderedPageBreak)
 register_element_cls("w:noBreakHyphen", CT_NoBreakHyphen)
 register_element_cls("w:ptab", CT_PTab)
+register_element_cls("w:proofErr", CT_ProofErr)
 register_element_cls("w:r", CT_R)
 register_element_cls("w:sym", CT_Sym)
 register_element_cls("w:t", CT_Text)
@@ -279,6 +280,7 @@ from .numbering import (
     CT_Num,
     CT_Numbering,
     CT_NumLvl,
+    CT_NumPicBullet,
     CT_NumPr,
 )
 
@@ -290,6 +292,8 @@ register_element_cls("w:lvlOverride", CT_NumLvl)
 register_element_cls("w:lvlText", CT_LvlText)
 register_element_cls("w:num", CT_Num)
 register_element_cls("w:numId", CT_DecimalNumber)
+register_element_cls("w:numPicBullet", CT_NumPicBullet)
+register_element_cls("w:numPicBulletId", CT_DecimalNumber)
 register_element_cls("w:numPr", CT_NumPr)
 register_element_cls("w:numbering", CT_Numbering)
 register_element_cls("w:start", CT_DecimalNumber)

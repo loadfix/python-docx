@@ -37,7 +37,12 @@ from docx.oxml.parser import OxmlElement
 from docx.shared import Length, Twips
 
 if TYPE_CHECKING:
-    from docx.oxml.numbering import CT_AbstractNum, CT_Lvl, CT_Numbering
+    from docx.oxml.numbering import (
+        CT_AbstractNum,
+        CT_Lvl,
+        CT_Numbering,
+        CT_NumPicBullet,
+    )
     from docx.oxml.text.paragraph import CT_P
     from docx.parts.numbering import NumberingPart
     from docx.text.paragraph import Paragraph
@@ -129,6 +134,54 @@ class Numbering:
     def __init__(self, numbering_elm: "CT_Numbering", part: "NumberingPart"):
         self._numbering = numbering_elm
         self._part = part
+
+    @property
+    def picture_bullets(self) -> list["PictureBullet"]:
+        """List of |PictureBullet| proxies wrapping each ``w:numPicBullet``.
+
+        Word authors ``<w:numPicBullet>`` entries when the user picks
+        *Home* > *Bullets* > *Define New Bullet* > *Picture*. Each bullet is
+        identified by a stable ``numPicBulletId`` that level definitions
+        reference via ``<w:numPicBulletId w:val="..."/>``.
+
+        .. versionadded:: 2026.05.3
+        """
+        return [PictureBullet(elm, self) for elm in self._numbering.numPicBullet_lst]
+
+    def picture_bullet(self, numPicBulletId: int) -> "PictureBullet | None":
+        """Return the |PictureBullet| with matching ``numPicBulletId``, or |None|.
+
+        .. versionadded:: 2026.05.3
+        """
+        for elm in self._numbering.numPicBullet_lst:
+            if elm.numPicBulletId == numPicBulletId:
+                return PictureBullet(elm, self)
+        return None
+
+    def remove_picture_bullet(self, numPicBulletId: int) -> bool:
+        """Remove the ``w:numPicBullet`` whose id matches `numPicBulletId`.
+
+        Returns |True| when a matching element was removed, |False| otherwise.
+
+        .. versionadded:: 2026.05.3
+        """
+        for elm in list(self._numbering.numPicBullet_lst):
+            if elm.numPicBulletId == numPicBulletId:
+                self._numbering.remove(elm)
+                return True
+        return False
+
+    @property
+    def _next_numPicBulletId(self) -> int:
+        """The lowest positive integer not already used by a ``w:numPicBullet``.
+
+        .. versionadded:: 2026.05.3
+        """
+        used = {elm.numPicBulletId for elm in self._numbering.numPicBullet_lst}
+        candidate = 0
+        while candidate in used:
+            candidate += 1
+        return candidate
 
     @property
     def definitions(self) -> list["NumberingDefinition"]:
@@ -717,3 +770,48 @@ class ListLabelRenderer:
         if not _LVLTEXT_TOKEN_RE.search(lvlText):
             return lvlText
         return _LVLTEXT_TOKEN_RE.sub(replace, lvlText)
+
+
+class PictureBullet:
+    """Proxy for a single ``w:numPicBullet`` element in numbering.xml.
+
+    Picture bullets are created via *Home* > *Bullets* > *Define New Bullet*
+    > *Picture* in Word. The bullet image is an ordinary ``w:drawing`` child
+    referencing an image part in the document's relationships; the picture is
+    identified within numbering.xml by its ``@w:numPicBulletId`` so list-level
+    definitions can cross-reference it.
+
+    .. versionadded:: 2026.05.3
+    """
+
+    def __init__(self, element: "CT_NumPicBullet", numbering: "Numbering"):
+        self._element = element
+        self._numbering = numbering
+
+    @property
+    def id(self) -> int:
+        """The ``@w:numPicBulletId`` of this bullet entry.
+
+        .. versionadded:: 2026.05.3
+        """
+        return self._element.numPicBulletId
+
+    @property
+    def drawing(self):
+        """The inner ``w:drawing`` element, or |None| if absent.
+
+        The returned value is the raw ``CT_Drawing`` element (same type used
+        by ``InlineShape``) for callers that need to inspect or replace the
+        picture payload.
+
+        .. versionadded:: 2026.05.3
+        """
+        return self._element.drawing
+
+    @property
+    def element(self) -> "CT_NumPicBullet":
+        """The underlying ``w:numPicBullet`` element.
+
+        .. versionadded:: 2026.05.3
+        """
+        return self._element
