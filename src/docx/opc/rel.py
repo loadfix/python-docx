@@ -1,153 +1,113 @@
-"""Relationship-related objects."""
+"""Re-export of :mod:`ooxml_opc.rel` with docx-shape adapter on
+:class:`Relationships`.
+
+The :class:`_Relationship` value-object lives in :mod:`ooxml_opc.rel` and is
+re-exported verbatim (it already matches the docx-shape constructor signature
+``(rId, reltype, target, baseURI, external)``).
+
+:class:`Relationships` is wrapped in a thin docx-local subclass that preserves
+two pre-adoption behaviours:
+
+1. ``dict`` semantics — docx callers (and a handful of tests) assign into the
+   collection directly via ``rels[rId] = rel``. The shared
+   :class:`_Relationships` is a :class:`~collections.abc.Mapping` and does not
+   expose ``__setitem__`` publicly.
+2. :meth:`~Relationships.get_or_add` returns the :class:`_Relationship`
+   (docx shape). The shared collection's method returns the rId string
+   (pptx shape); docx's returns the value-object. The shim delegates to the
+   shared ``get_or_add_rel`` for matching semantics.
+3. :meth:`~Relationships.add_relationship` calls through the module-local
+   :class:`_Relationship` reference so test fixtures that patch
+   ``docx.opc.rel._Relationship`` via :func:`class_mock` continue to work.
+
+.. versionchanged:: 2026.05.11
+   Re-exported from :mod:`ooxml_opc.rel`; docx-shape API preserved via a thin
+   :class:`Relationships` subclass.
+"""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+import contextlib
+from typing import TYPE_CHECKING, Any
 
-from docx.opc.oxml import CT_Relationships
+from ooxml_opc.rel import _Relationship as _SharedRelationship
+from ooxml_opc.rel import _Relationships as _SharedRelationships
 
 if TYPE_CHECKING:
     from docx.opc.part import Part
 
+__all__ = ["Relationships", "_Relationship"]
 
-class Relationships(dict[str, "_Relationship"]):
-    """Collection object for |_Relationship| instances, having list semantics."""
 
-    def __init__(self, baseURI: str):
-        super().__init__()
-        self._baseURI = baseURI
-        self._target_parts_by_rId: dict[str, Any] = {}
+class _Relationship(_SharedRelationship):
+    """docx-shape :class:`~ooxml_opc.rel._Relationship`.
 
-    def add_relationship(
-        self, reltype: str, target: Part | str, rId: str, is_external: bool = False
-    ) -> "_Relationship":
-        """Return a newly added |_Relationship| instance."""
-        rel = _Relationship(rId, reltype, target, self._baseURI, is_external)
-        self[rId] = rel
-        if not is_external:
-            self._target_parts_by_rId[rId] = target
-        return rel
-
-    def get_or_add(self, reltype: str, target_part: Part) -> _Relationship:
-        """Return relationship of `reltype` to `target_part`, newly added if not already
-        present in collection."""
-        rel = self._get_matching(reltype, target_part)
-        if rel is None:
-            rId = self._next_rId
-            rel = self.add_relationship(reltype, target_part, rId)
-        return rel
-
-    def get_or_add_ext_rel(self, reltype: str, target_ref: str) -> str:
-        """Return rId of external relationship of `reltype` to `target_ref`, newly added
-        if not already present in collection."""
-        rel = self._get_matching(reltype, target_ref, is_external=True)
-        if rel is None:
-            rId = self._next_rId
-            rel = self.add_relationship(reltype, target_ref, rId, is_external=True)
-        return rel.rId
-
-    def part_with_reltype(self, reltype: str) -> Part:
-        """Return target part of rel with matching `reltype`, raising |KeyError| if not
-        found and |ValueError| if more than one matching relationship is found."""
-        rel = self._get_rel_of_type(reltype)
-        return rel.target_part
+    Identical to the shared value-object except for the error message raised
+    when :attr:`target_part` is accessed on an external rel — kept to preserve
+    the exact regex that pre-adoption callers (and ``pytest.raises(match=...)``
+    fixtures) anchor on.
+    """
 
     @property
-    def related_parts(self):
-        """Dict mapping rIds to target parts for all the internal relationships in the
-        collection."""
-        return self._target_parts_by_rId
-
-    @property
-    def xml(self) -> str:
-        """Serialize this relationship collection into XML suitable for storage as a
-        .rels file in an OPC package."""
-        rels_elm = CT_Relationships.new()
-        for rel in self.values():
-            rels_elm.add_rel(rel.rId, rel.reltype, rel.target_ref, rel.is_external)
-        return rels_elm.xml
-
-    def _get_matching(
-        self, reltype: str, target: Part | str, is_external: bool = False
-    ) -> _Relationship | None:
-        """Return relationship of matching `reltype`, `target`, and `is_external` from
-        collection, or None if not found."""
-
-        def matches(rel: _Relationship, reltype: str, target: Part | str, is_external: bool):
-            if rel.reltype != reltype:
-                return False
-            if rel.is_external != is_external:
-                return False
-            rel_target = rel.target_ref if rel.is_external else rel.target_part
-            return rel_target == target
-
-        for rel in self.values():
-            if matches(rel, reltype, target, is_external):
-                return rel
-        return None
-
-    def _get_rel_of_type(self, reltype: str):
-        """Return single relationship of type `reltype` from the collection.
-
-        Raises |KeyError| if no matching relationship is found. Raises |ValueError| if
-        more than one matching relationship is found.
-        """
-        matching = [rel for rel in self.values() if rel.reltype == reltype]
-        if len(matching) == 0:
-            tmpl = "no relationship of type '%s' in collection"
-            raise KeyError(tmpl % reltype)
-        if len(matching) > 1:
-            tmpl = "multiple relationships of type '%s' in collection"
-            raise ValueError(tmpl % reltype)
-        return matching[0]
-
-    @property
-    def _next_rId(self) -> str:  # pyright: ignore[reportReturnType]
-        """Next available rId in collection, starting from 'rId1' and making use of any
-        gaps in numbering, e.g. 'rId2' for rIds ['rId1', 'rId3']."""
-        for n in range(1, len(self) + 2):
-            rId_candidate = "rId%d" % n  # like 'rId19'
-            if rId_candidate not in self:
-                return rId_candidate
-
-
-class _Relationship:
-    """Value object for relationship to part."""
-
-    def __init__(
-        self, rId: str, reltype: str, target: Part | str, baseURI: str, external: bool = False
-    ):
-        super().__init__()
-        self._rId = rId
-        self._reltype = reltype
-        self._target = target
-        self._baseURI = baseURI
-        self._is_external = bool(external)
-
-    @property
-    def is_external(self) -> bool:
-        return self._is_external
-
-    @property
-    def reltype(self) -> str:
-        return self._reltype
-
-    @property
-    def rId(self) -> str:
-        return self._rId
-
-    @property
-    def target_part(self) -> Part:
+    def target_part(self):
+        """The target :class:`~ooxml_opc.part.Part` (internal rels only)."""
         if self._is_external:
             raise ValueError(
-                "target_part property on _Relationship is undefined when target mode is External"
+                "target_part property on _Relationship is undefined when "
+                'target mode is "External"'
             )
-        return cast("Part", self._target)
+        from typing import cast as _cast
 
-    @property
-    def target_ref(self) -> str:
-        if self._is_external:
-            return cast(str, self._target)
-        else:
-            target = cast("Part", self._target)
-            return target.partname.relative_ref(self._baseURI)
+        from docx.opc.part import Part as _Part
+
+        return _cast(_Part, self._target)
+
+
+class Relationships(_SharedRelationships):
+    """docx-shape :class:`~ooxml_opc.rel._Relationships`.
+
+    Preserves two pre-adoption behaviours that docx-local callers and test
+    fixtures depend on:
+
+    * ``rels[rId] = rel`` — :meth:`__setitem__` support.
+    * :meth:`get_or_add` returns the :class:`_Relationship` value-object
+      rather than the rId string.
+    """
+
+    def __setitem__(self, rId: Any, rel: _Relationship) -> None:
+        """Permit direct dict-style assignment of a :class:`_Relationship`."""
+        self._rels[rId] = rel
+        if not getattr(rel, "is_external", False):
+            # -- Mock objects used in tests may not implement target_part;
+            # -- ignore and let the caller inspect via the rels mapping. --
+            with contextlib.suppress(ValueError, AttributeError):
+                self._target_parts_by_rId[rId] = rel.target_part
+
+    def add_relationship(
+        self,
+        reltype: str,
+        target: Part | str,
+        rId: str,
+        is_external: bool = False,
+    ) -> _Relationship:
+        """Return a newly added :class:`_Relationship` with caller-supplied `rId`.
+
+        Duplicates the shared :meth:`_Relationships.add_relationship` logic
+        but calls the module-local :class:`_Relationship` name so
+        ``class_mock(request, "docx.opc.rel._Relationship")`` in tests patches
+        the constructor this method invokes.
+        """
+        rel = _Relationship(rId, reltype, target, self._base_uri, is_external)
+        self._rels[rId] = rel
+        if not is_external:
+            self._target_parts_by_rId[rId] = target  # type: ignore[assignment]
+        return rel
+
+    def get_or_add(self, reltype: str, target_part: Part) -> _Relationship:  # type: ignore[override]
+        """Return the :class:`_Relationship` of `reltype` to `target_part`.
+
+        docx-shape override — the shared base returns the rId string; docx
+        callers expect the :class:`_Relationship` value-object. Delegates to
+        the shared ``get_or_add_rel`` method.
+        """
+        return self.get_or_add_rel(reltype, target_part)

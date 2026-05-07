@@ -1,4 +1,24 @@
-"""Provides a general interface to a `physical` OPC package, such as a zip file."""
+"""Physical-package reader/writer for a docx package.
+
+docx re-exports the Strict-translation sentinel (:data:`STRICT_SENTINEL`),
+the reproducible-zip timestamp, and the zip-bomb guard
+(:data:`MAX_UNCOMPRESSED_PACKAGE_SIZE`) from :mod:`ooxml_opc.phys_pkg`, but
+the concrete reader/writer classes and the encryption-detection dispatch
+retain docx-local exception types (``EncryptedDocumentError``,
+``RmsProtectedDocumentError``, ``MissingDocxFileError``, ``NotADocxError``)
+that consumers of :func:`docx.Document` expect. The shared library raises
+format-agnostic types (``EncryptedPackageError`` / ``RmsProtectedPackageError``
+/ ``PackageNotFoundError``); docx's exception hierarchy is preserved by
+catching the shared types at the module boundary and re-raising the docx
+subclasses.
+
+.. versionchanged:: 2026.05.11
+   Aligned with :mod:`ooxml_opc.phys_pkg` — re-exports
+   :data:`MAX_UNCOMPRESSED_PACKAGE_SIZE` and
+   :data:`REPRODUCIBLE_TIMESTAMP` from the shared runtime. docx-specific
+   encryption-error re-wrap and Strict-translation open-time detection
+   remain local.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +26,11 @@ import io
 import os
 from typing import IO
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo, is_zipfile
+
+from ooxml_opc.phys_pkg import (  # noqa: F401 -- re-exports
+    MAX_UNCOMPRESSED_PACKAGE_SIZE,
+    REPRODUCIBLE_TIMESTAMP,
+)
 
 from docx.exceptions import EncryptedDocumentError, RmsProtectedDocumentError
 from docx.opc.exceptions import (  # noqa: F401 -- PackageNotFoundError re-export
@@ -16,11 +41,19 @@ from docx.opc.exceptions import (  # noqa: F401 -- PackageNotFoundError re-expor
 from docx.opc.packuri import CONTENT_TYPES_URI
 from docx.opc.strict import STRICT_SENTINEL, translate_strict_blob
 
-#: Fixed timestamp used when writing a reproducible package. The 1980-01-01 epoch
-#: is the minimum the ZIP format can express; any ``ZipInfo.date_time`` earlier
-#: than that is silently clamped by :mod:`zipfile`. Matches the convention used by
-#: reproducible-build tooling (e.g. `SOURCE_DATE_EPOCH`-aware writers).
-REPRODUCIBLE_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
+__all__ = [
+    "MAX_UNCOMPRESSED_PACKAGE_SIZE",
+    "REPRODUCIBLE_TIMESTAMP",
+    "PhysPkgReader",
+    "PhysPkgWriter",
+    "open_phys_pkg_reader",
+    "_DirPkgReader",
+    "_ReproducibleZipPkgWriter",
+    "_StrictTranslatingPkgReader",
+    "_ZipPkgReader",
+    "_ZipPkgWriter",
+]
+
 
 #: OLE compound file (CFBF) binary signature. Encrypted Office documents are wrapped
 #: in this container rather than the usual ZIP package.
@@ -45,9 +78,10 @@ _RMS_PROTECTED_DOCUMENT_MESSAGE = (
 def _decrypt_to_stream(stream: IO[bytes], password: str) -> io.BytesIO:
     """Return a BytesIO of plaintext zip bytes decrypted from encrypted `stream`.
 
-    Also raises :class:`RmsProtectedDocumentError` when the stream is wrapped in
-    Azure RMS / AIP / IRM protection — python-ooxml-crypto cannot decrypt those
-    since the payload is keyed to an Azure AD identity rather than a password.
+    Raises :class:`RmsProtectedDocumentError` when the stream is wrapped in
+    Azure RMS / AIP / IRM protection — python-ooxml-crypto cannot decrypt
+    those since the payload is keyed to an Azure AD identity rather than a
+    password.
     """
     from docx.opc._crypto import (
         decrypt_stream,
@@ -119,22 +153,19 @@ class PhysPkgReader:
     """Factory for physical package reader objects.
 
     Chooses the concrete reader matching `pkg_file` (directory vs zip). When
-    the package turns out to be Strict OOXML (detected by sniffing
-    ``[Content_Types].xml`` or ``/word/document.xml`` for the Strict
-    namespace sentinel), the concrete reader is wrapped in
-    :class:`_StrictTranslatingPkgReader` so blobs are rewritten to
-    Transitional as they're read. Closes upstream#1520, upstream#693.
+    the package turns out to be Strict OOXML, the concrete reader is wrapped
+    in :class:`_StrictTranslatingPkgReader` so blobs are rewritten to
+    Transitional as they're read.
 
     When `password` is provided and the input is an encrypted OOXML package
     (CFBF / OLE2 container), the file is decrypted with `password` via the
     optional ``python-ooxml-crypto`` dependency and the resulting plaintext
     bytes are read as a zip package.
 
-    .. versionchanged:: 2026.05.0
-       Transparent Strict → Transitional translation on open.
-    .. versionchanged:: 2026.05.10
-       Added ``password`` parameter for opening ECMA-376 Agile-Encryption
-       password-protected packages.
+    Encryption-error types raised from this dispatch layer are the
+    docx-local :class:`docx.exceptions.EncryptedDocumentError` /
+    :class:`docx.exceptions.RmsProtectedDocumentError` — preserved from the
+    pre-adoption behaviour so existing ``except`` handlers continue to work.
     """
 
     def __new__(cls, pkg_file, password: str | None = None):
@@ -186,9 +217,7 @@ def _looks_like_strict_package(reader) -> bool:
     Sniffs ``[Content_Types].xml`` first (cheap, usually decisive); if that
     is Transitional but the main document part is Strict — produced by some
     conversion tools — the content-types check misses, so we fall back to
-    peeking at ``/word/document.xml``. A substring match against the Strict
-    sentinel ``purl.oclc.org/ooxml`` is false-negative-free: Transitional
-    packages never contain it.
+    peeking at ``/word/document.xml``.
     """
     try:
         ct_blob = reader.content_types_xml
@@ -210,16 +239,6 @@ def open_phys_pkg_reader(pkg_file, password: str | None = None):
 
     Wraps the concrete :class:`PhysPkgReader` subclass in
     :class:`_StrictTranslatingPkgReader` when the package is Strict OOXML.
-    Called from :class:`docx.opc.pkgreader.PackageReader.from_file` in place
-    of direct construction.
-
-    When `password` is provided and `pkg_file` is an ECMA-376 Agile-Encryption
-    container (CFBF / OLE2), it is transparently decrypted via the optional
-    ``python-ooxml-crypto`` dependency before being read.
-
-    .. versionadded:: 2026.05.0
-    .. versionchanged:: 2026.05.10
-       Added ``password`` parameter.
     """
     reader = PhysPkgReader(pkg_file, password=password)
     if _looks_like_strict_package(reader):
@@ -234,8 +253,6 @@ class _StrictTranslatingPkgReader:
     :func:`docx.opc.strict.translate_strict_blob` to each returned blob. The
     wrapped reader retains sole ownership of the underlying zip handle /
     directory, so ``close()`` still delegates.
-
-    .. versionadded:: 2026.05.0
     """
 
     def __init__(self, inner):
@@ -262,10 +279,7 @@ class PhysPkgWriter:
     When `reproducible` is True, the returned writer emits a deterministic zip
     archive — fixed timestamps, sorted member names, and normalized external
     attributes — so repeated saves of the same content produce byte-identical
-    output. See upstream#1042 / upstream-PR#810.
-
-    .. versionadded:: 2026.05.0
-       The `reproducible` parameter.
+    output.
     """
 
     def __new__(cls, pkg_file, reproducible: bool = False):
@@ -301,8 +315,7 @@ class _DirPkgReader(PhysPkgReader):
         return blob
 
     def close(self):
-        """Provides interface consistency with |ZipFileSystem|, but does nothing, a
-        directory file system doesn't need closing."""
+        """Interface consistency only; nothing to close for a directory package."""
         pass
 
     @property
@@ -331,10 +344,9 @@ class _ZipPkgReader(PhysPkgReader):
         # -- When `PhysPkgReader.__new__` decrypted an encrypted package, it
         # -- stashed the plain-zip BytesIO on the `PhysPkgReader` class.
         # -- Honour that override so we open the decrypted payload rather
-        # -- than the original (encrypted) CFBF bytes. The override is
-        # -- single-use; consume it here whether or not we were routed by
-        # -- the decryption path to keep the flag from leaking across
-        # -- unrelated reader instantiations. --
+        # -- than the original (encrypted) CFBF bytes. Single-use; consume
+        # -- it here whether or not we were routed by the decryption path to
+        # -- keep the flag from leaking across unrelated reader instantiations. --
         override = getattr(PhysPkgReader, "_decrypted_stream_override", None)
         if override is not None:
             try:
@@ -381,13 +393,13 @@ class _ZipPkgWriter(PhysPkgWriter):
         self._zipf = ZipFile(pkg_file, "w", compression=ZIP_DEFLATED)
 
     def close(self):
-        """Close the zip archive, flushing any pending physical writes and releasing any
-        resources it's using."""
+        """Close the zip archive, flushing any pending writes and releasing
+        any resources it's using."""
         self._zipf.close()
 
     def write(self, pack_uri, blob):
-        """Write `blob` to this zip package with the membername corresponding to
-        `pack_uri`."""
+        """Write `blob` to this zip package with the membername corresponding
+        to `pack_uri`."""
         self._zipf.writestr(pack_uri.membername, blob)
 
 
@@ -397,10 +409,7 @@ class _ReproducibleZipPkgWriter(_ZipPkgWriter):
     Buffers every ``(pack_uri, blob)`` pair and flushes them to the underlying
     archive in sorted membername order at ``close()``. Each member is written
     with a fixed timestamp (:data:`REPRODUCIBLE_TIMESTAMP`) and normalized
-    external attributes (0o644, regular file). Closes upstream#1042,
-    upstream-PR#810.
-
-    .. versionadded:: 2026.05.0
+    external attributes (0o644, regular file).
     """
 
     def __init__(self, pkg_file, reproducible: bool = True):
