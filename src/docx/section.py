@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from docx.enum.section import (
         WD_BORDER_DISPLAY,
         WD_BORDER_OFFSET_FROM,
+        WD_CHAPTER_SEPARATOR,
         WD_DOC_GRID_TYPE,
         WD_LINE_NUMBERING_RESTART,
         WD_ORIENTATION,
@@ -28,7 +29,7 @@ if TYPE_CHECKING:
         WD_VERTICAL_ALIGNMENT,
     )
     from docx.enum.table import WD_TEXT_DIRECTION
-    from docx.enum.text import WD_BORDER_STYLE
+    from docx.enum.text import WD_BORDER_STYLE, WD_NUMBER_FORMAT
     from docx.footnotes import FootnoteProperties
     from docx.oxml.document import CT_Document
     from docx.oxml.section import (
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
         CT_Cols,
         CT_DocGrid,
         CT_LineNumber,
+        CT_PageNumber,
         CT_PgBorders,
         CT_SectPr,
     )
@@ -52,6 +54,7 @@ __all__ = [
     "LineNumbering",
     "PageBorder",
     "PageBorders",
+    "PageNumbering",
     "Section",
     "SectionColumns",
     "Sections",
@@ -625,6 +628,63 @@ class Section:
         .. versionadded:: 2026.05.0
         """
         self._sectPr._remove_lnNumType()  # pyright: ignore[reportPrivateUsage]
+
+    @property
+    def page_numbering(self) -> "PageNumbering | None":
+        """|PageNumbering| proxy or |None| when no ``w:pgNumType`` child is present.
+
+        Page numbering controls appear on the *Insert* > *Page Number* >
+        *Format Page Numbers* dialog in Word: number format (decimal, Roman,
+        letter, ...), starting value, and chapter-heading cross-reference.
+        Use :meth:`set_page_numbering` to create or update the ``w:pgNumType``
+        element and :meth:`remove_page_numbering` to remove it.
+
+        .. versionadded:: 2026.05.3
+        """
+        pgNumType = self._sectPr.pgNumType
+        if pgNumType is None:
+            return None
+        return PageNumbering(pgNumType)
+
+    def set_page_numbering(
+        self,
+        fmt: "WD_NUMBER_FORMAT | None" = None,
+        start: int | None = None,
+        chapter_style: int | None = None,
+        chapter_separator: "WD_CHAPTER_SEPARATOR | None" = None,
+    ) -> "PageNumbering":
+        """Create or update this section's ``w:pgNumType`` with provided values.
+
+        Any argument left as |None| leaves the corresponding attribute on an
+        existing ``w:pgNumType`` element unchanged. Returns the |PageNumbering|
+        proxy for the resulting element.
+
+        ``chapter_style`` is the outline-level number (1-9) of the heading
+        style whose text supplies the chapter portion of the page number
+        (e.g. ``1-1``, ``1-2``). ``chapter_separator`` is the glyph inserted
+        between the chapter number and the page number.
+
+        .. versionadded:: 2026.05.3
+        """
+        pgNumType = self._sectPr.get_or_add_pgNumType()
+        if fmt is not None:
+            pgNumType.fmt = fmt
+        if start is not None:
+            pgNumType.start = start
+        if chapter_style is not None:
+            pgNumType.chapStyle = chapter_style
+        if chapter_separator is not None:
+            pgNumType.chapSep = chapter_separator
+        return PageNumbering(pgNumType)
+
+    def remove_page_numbering(self) -> None:
+        """Remove any ``w:pgNumType`` element from this section's ``w:sectPr``.
+
+        Does nothing when no ``w:pgNumType`` child is present.
+
+        .. versionadded:: 2026.05.3
+        """
+        self._sectPr._remove_pgNumType()  # pyright: ignore[reportPrivateUsage]
 
     @property
     def first_page_paper_source(self) -> int | None:
@@ -1539,6 +1599,84 @@ class LineNumbering:
     @restart.setter
     def restart(self, value: "WD_LINE_NUMBERING_RESTART | None") -> None:
         self._lnNumType.restart = value
+
+
+class PageNumbering:
+    """Proxy for a ``<w:pgNumType>`` element on a section's ``w:sectPr``.
+
+    Accessed via :attr:`Section.page_numbering`. Provides read/write access
+    to the ``fmt`` (number format), ``start`` (starting value), ``chapStyle``
+    (chapter heading-level cross-reference), and ``chapSep`` (chapter-style
+    separator) attributes.
+
+    .. versionadded:: 2026.05.3
+    """
+
+    def __init__(self, pgNumType: "CT_PageNumber"):
+        self._pgNumType = pgNumType
+
+    @property
+    def format(self) -> "WD_NUMBER_FORMAT | None":
+        """Read/write. |WD_NUMBER_FORMAT| member or |None|.
+
+        Controls the numbering format used for the section's page numbers
+        (``decimal``, ``upperRoman``, ``lowerLetter``, ...). |None| when the
+        ``w:fmt`` attribute is absent (Word reads absence as ``decimal``).
+
+        .. versionadded:: 2026.05.3
+        """
+        return self._pgNumType.fmt
+
+    @format.setter
+    def format(self, value: "WD_NUMBER_FORMAT | None") -> None:
+        self._pgNumType.fmt = value
+
+    @property
+    def start(self) -> int | None:
+        """Read/write. Starting page number for this section.
+
+        |None| when the ``w:start`` attribute is absent (Word continues
+        numbering from the previous section).
+
+        .. versionadded:: 2026.05.3
+        """
+        return self._pgNumType.start
+
+    @start.setter
+    def start(self, value: int | None) -> None:
+        self._pgNumType.start = value
+
+    @property
+    def chapter_style(self) -> int | None:
+        """Read/write. Heading-style outline-level (1-9) providing the chapter number.
+
+        When set, Word prepends the text of the first paragraph at that
+        heading level to each page number, separated by :attr:`chapter_separator`.
+        |None| when chapter numbering is disabled.
+
+        .. versionadded:: 2026.05.3
+        """
+        return self._pgNumType.chapStyle
+
+    @chapter_style.setter
+    def chapter_style(self, value: int | None) -> None:
+        self._pgNumType.chapStyle = value
+
+    @property
+    def chapter_separator(self) -> "WD_CHAPTER_SEPARATOR | None":
+        """Read/write. |WD_CHAPTER_SEPARATOR| member or |None|.
+
+        The glyph inserted between the chapter number and the page number
+        (``HYPHEN``, ``PERIOD``, ``COLON``, ``EM_DASH``, ``EN_DASH``). |None|
+        when the ``w:chapSep`` attribute is absent (Word defaults to hyphen).
+
+        .. versionadded:: 2026.05.3
+        """
+        return self._pgNumType.chapSep
+
+    @chapter_separator.setter
+    def chapter_separator(self, value: "WD_CHAPTER_SEPARATOR | None") -> None:
+        self._pgNumType.chapSep = value
 
 
 class DocumentGrid:

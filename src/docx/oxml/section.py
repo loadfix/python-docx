@@ -12,6 +12,7 @@ from typing_extensions import TypeAlias
 from docx.enum.section import (
     WD_BORDER_DISPLAY,
     WD_BORDER_OFFSET_FROM,
+    WD_CHAPTER_SEPARATOR,
     WD_DOC_GRID_TYPE,
     WD_HEADER_FOOTER,
     WD_LINE_NUMBERING_RESTART,
@@ -19,6 +20,7 @@ from docx.enum.section import (
     WD_SECTION_START,
     WD_VERTICAL_ALIGNMENT,
 )
+from docx.enum.text import WD_NUMBER_FORMAT
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
 from docx.oxml.ns import nsmap
 from docx.oxml.shared import CT_OnOff
@@ -192,6 +194,33 @@ class CT_LineNumber(BaseOxmlElement):
     )
 
 
+class CT_PageNumber(BaseOxmlElement):
+    """``<w:pgNumType>`` element, configuring page-number format for a section.
+
+    Exposes the ECMA-376 §17.6.12 attribute set: ``w:fmt`` (number format —
+    decimal, roman, letter, ideograph, ...), ``w:start`` (starting number),
+    ``w:chapStyle`` (chapter heading-level cross-reference), and ``w:chapSep``
+    (separator glyph between chapter and page number).
+
+    Populated by *Insert* > *Page Number* > *Format Page Numbers* in Word.
+
+    .. versionadded:: 2026.05.3
+    """
+
+    fmt: "WD_NUMBER_FORMAT | None" = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:fmt", WD_NUMBER_FORMAT
+    )
+    start: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:start", ST_DecimalNumber
+    )
+    chapStyle: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:chapStyle", ST_DecimalNumber
+    )
+    chapSep: "WD_CHAPTER_SEPARATOR | None" = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:chapSep", WD_CHAPTER_SEPARATOR
+    )
+
+
 class CT_DocGrid(BaseOxmlElement):
     """``<w:docGrid>`` element, defining the East Asian character grid for a section."""
 
@@ -247,6 +276,7 @@ class CT_SectPr(BaseOxmlElement):
     get_or_add_pgMar: Callable[[], CT_PageMar]
     get_or_add_pgSz: Callable[[], CT_PageSz]
     get_or_add_textDirection: Callable[[], "CT_TextDirection"]
+    get_or_add_pgNumType: Callable[[], "CT_PageNumber"]
     get_or_add_titlePg: Callable[[], CT_OnOff]
     get_or_add_type: Callable[[], CT_SectType]
     get_or_add_vAlign: Callable[[], "CT_VerticalJc"]
@@ -259,6 +289,7 @@ class CT_SectPr(BaseOxmlElement):
     _remove_footnotePr: Callable[[], None]
     _remove_endnotePr: Callable[[], None]
     _remove_lnNumType: Callable[[], None]
+    _remove_pgNumType: Callable[[], None]
     _remove_paperSrc: Callable[[], None]
     _remove_pgBorders: Callable[[], None]
     _remove_textDirection: Callable[[], None]
@@ -313,6 +344,9 @@ class CT_SectPr(BaseOxmlElement):
     )
     lnNumType: CT_LineNumber | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:lnNumType", successors=_tag_seq[8:]
+    )
+    pgNumType: "CT_PageNumber | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:pgNumType", successors=_tag_seq[9:]
     )
     cols: CT_Cols | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:cols", successors=_tag_seq[10:]

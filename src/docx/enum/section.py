@@ -77,6 +77,37 @@ class WD_LINE_NUMBERING_RESTART(BaseXmlEnum):
     """Line numbering restarts at the beginning of each page."""
 
 
+class WD_CHAPTER_SEPARATOR(BaseXmlEnum):
+    """Separator-glyph style between chapter number and page number.
+
+    Maps to the ``w:chapSep`` attribute of the ``w:pgNumType`` element.
+
+    Example::
+
+        from docx.enum.section import WD_CHAPTER_SEPARATOR
+
+        section = document.sections[0]
+        section.set_page_numbering(chapter_style=1, chapter_separator=WD_CHAPTER_SEPARATOR.EM_DASH)
+
+    .. versionadded:: 2026.05.3
+    """
+
+    HYPHEN = (0, "hyphen", "ASCII hyphen-minus separator.")
+    """ASCII hyphen-minus separator (U+002D)."""
+
+    PERIOD = (1, "period", "Period (full-stop) separator.")
+    """Period separator (U+002E)."""
+
+    COLON = (2, "colon", "Colon separator.")
+    """Colon separator (U+003A)."""
+
+    EM_DASH = (3, "emDash", "Em-dash separator.")
+    """Em-dash separator (U+2014)."""
+
+    EN_DASH = (4, "enDash", "En-dash separator.")
+    """En-dash separator (U+2013)."""
+
+
 class WD_DOC_GRID_TYPE(BaseXmlEnum):
     """Specifies the type of East Asian document character grid for a section.
 

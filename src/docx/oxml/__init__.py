@@ -322,6 +322,7 @@ from .section import (
     CT_HdrFtrRef,
     CT_LineNumber,
     CT_PageMar,
+    CT_PageNumber,
     CT_PageSz,
     CT_PaperSource,
     CT_PgBorders,
@@ -340,6 +341,7 @@ register_element_cls("w:lnNumType", CT_LineNumber)
 register_element_cls("w:paperSrc", CT_PaperSource)
 register_element_cls("w:pgBorders", CT_PgBorders)
 register_element_cls("w:pgMar", CT_PageMar)
+register_element_cls("w:pgNumType", CT_PageNumber)
 register_element_cls("w:pgSz", CT_PageSz)
 register_element_cls("w:sectPr", CT_SectPr)
 register_element_cls("w:type", CT_SectType)

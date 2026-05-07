@@ -1842,6 +1842,105 @@ class DescribeSection_line_numbering:
         return instance_mock(request, DocumentPart)
 
 
+class DescribeSection_page_numbering:
+    """Unit-test suite for `docx.section.Section.page_numbering` and related API."""
+
+    def it_returns_None_when_no_pgNumType(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        assert section.page_numbering is None
+
+    def it_provides_access_to_PageNumbering_when_present(self, document_part_: Mock):
+        from docx.enum.text import WD_NUMBER_FORMAT
+        from docx.section import PageNumbering
+
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:pgNumType{w:fmt=upperRoman,w:start=3}"),
+        )
+        section = Section(sectPr, document_part_)
+        numbering = section.page_numbering
+        assert isinstance(numbering, PageNumbering)
+        assert numbering.format == WD_NUMBER_FORMAT.UPPER_ROMAN
+        assert numbering.start == 3
+
+    def it_can_set_page_numbering_creating_pgNumType(self, document_part_: Mock):
+        from docx.enum.section import WD_CHAPTER_SEPARATOR
+        from docx.enum.text import WD_NUMBER_FORMAT
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        section.set_page_numbering(
+            fmt=WD_NUMBER_FORMAT.UPPER_ROMAN,
+            start=5,
+            chapter_style=1,
+            chapter_separator=WD_CHAPTER_SEPARATOR.EM_DASH,
+        )
+        assert sectPr.xml == xml(
+            "w:sectPr/w:pgNumType{w:fmt=upperRoman,w:start=5,"
+            "w:chapStyle=1,w:chapSep=emDash}"
+        )
+
+    def it_returns_a_PageNumbering_from_set_page_numbering(self, document_part_: Mock):
+        from docx.enum.text import WD_NUMBER_FORMAT
+        from docx.section import PageNumbering
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        numbering = section.set_page_numbering(fmt=WD_NUMBER_FORMAT.LOWER_ROMAN)
+        assert isinstance(numbering, PageNumbering)
+        assert numbering.format == WD_NUMBER_FORMAT.LOWER_ROMAN
+
+    def it_leaves_unchanged_attributes_alone_in_set_page_numbering(
+        self, document_part_: Mock
+    ):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:pgNumType{w:fmt=upperRoman,w:start=5}"),
+        )
+        section = Section(sectPr, document_part_)
+        section.set_page_numbering(start=7)
+        assert sectPr.xml == xml("w:sectPr/w:pgNumType{w:fmt=upperRoman,w:start=7}")
+
+    def it_can_remove_page_numbering(self, document_part_: Mock):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:pgNumType{w:start=1}"),
+        )
+        section = Section(sectPr, document_part_)
+        section.remove_page_numbering()
+        assert sectPr.xml == xml("w:sectPr")
+
+    def it_does_nothing_on_remove_when_no_pgNumType(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        section.remove_page_numbering()
+        assert sectPr.xml == xml("w:sectPr")
+
+    def it_round_trips_format_start_chapStyle_and_chapSep(self, document_part_: Mock):
+        from docx.enum.section import WD_CHAPTER_SEPARATOR
+        from docx.enum.text import WD_NUMBER_FORMAT
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        numbering = section.set_page_numbering(
+            fmt=WD_NUMBER_FORMAT.LOWER_LETTER,
+            start=12,
+            chapter_style=2,
+            chapter_separator=WD_CHAPTER_SEPARATOR.COLON,
+        )
+        assert numbering.format == WD_NUMBER_FORMAT.LOWER_LETTER
+        assert numbering.start == 12
+        assert numbering.chapter_style == 2
+        assert numbering.chapter_separator == WD_CHAPTER_SEPARATOR.COLON
+
+    # -- fixtures ---------------------------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)
+
+
 class DescribeSection_paper_source:
     """Unit-test suite for `Section.first_page_paper_source` / `other_pages_paper_source`."""
 
