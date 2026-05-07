@@ -1,4 +1,27 @@
-"""Objects that implement reading and writing OPC packages."""
+"""Objects that implement reading and writing OPC packages.
+
+:class:`OpcPackage` is the docx-local top-level package class. It is kept
+separate from the shared :class:`ooxml_opc.package.OpcPackage` because docx's
+loader dispatches through the docx-shape :class:`Unmarshaller` +
+:class:`~docx.opc.pkgreader.PackageReader` (from_file/iter_sparts/iter_srels)
+while the shared loader is :class:`~ooxml_opc.package._PackageLoader`
+(PackageReader Mapping lookups). Both converge on the same shared primitives:
+:class:`~docx.opc.part.PartFactory` (docx-shape subclass of the shared
+factory), :class:`~docx.opc.rel.Relationships` (docx-shape subclass of the
+shared collection), and :class:`~docx.opc.pkgwriter.PackageWriter` on save.
+
+Docx-specific save-time logic retained here:
+
+* ``_drop_unused_package_rels`` — prune library-authored THUMBNAIL rels.
+* ``_remap_clashing_cp_prefix`` — rebind the LibreOffice-mis-bound ``cp:``
+  core-properties prefix.
+* ``_validate_save_path`` — reject Windows-invalid filename characters.
+* ``recover=True`` / ``huge_tree=True`` open-time plumbing.
+
+.. versionchanged:: 2026.05.11
+   Uses the shared runtime's part/rel/oxml primitives under the hood; the
+   outward :class:`OpcPackage` API is unchanged.
+"""
 
 from __future__ import annotations
 

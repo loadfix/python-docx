@@ -1,11 +1,34 @@
 # pyright: reportImportCycles=false
 
-"""Open Packaging Convention (OPC) objects related to package parts."""
+"""Re-export of :mod:`ooxml_opc.part` with docx-shape arg-order adapters.
+
+The shared :class:`~ooxml_opc.part.Part` / :class:`~ooxml_opc.part.XmlPart` /
+:class:`~ooxml_opc.part.PartFactory` constructor shapes follow the pptx
+convention ``(partname, content_type, package, blob)``. docx historically
+passes ``(partname, content_type, blob, package)`` so every subclass under
+``docx.parts.*`` would break without an adapter layer.
+
+This shim subclasses the shared runtime classes and re-declares their
+``__init__`` / ``load`` / ``__new__`` signatures in docx shape. Where docx
+callers or test fixtures patch module-local names
+(``docx.opc.part.parse_xml``, ``docx.opc.part.serialize_part_xml``,
+``docx.opc.part.cls_method_fn``, ``docx.opc.part.Relationships``), the
+relevant calls go through those names so :func:`function_mock` and
+:func:`class_mock` continue to work unchanged.
+
+.. versionchanged:: 2026.05.11
+   Re-exported from :mod:`ooxml_opc.part`; docx-shape arg order preserved.
+"""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
 from collections.abc import Callable
+from typing import TYPE_CHECKING, cast
+
+from ooxml_opc.part import Part as _SharedPart
+from ooxml_opc.part import PartFactory as _SharedPartFactory
+from ooxml_opc.part import PartRelationshipCloner  # noqa: F401 -- re-export
+from ooxml_opc.part import XmlPart as _SharedXmlPart
 
 from docx.opc.oxml import serialize_part_xml
 from docx.opc.packuri import PackURI
@@ -18,20 +41,19 @@ if TYPE_CHECKING:
     from docx.oxml.xmlchemy import BaseOxmlElement
     from docx.package import Package
 
+__all__ = ["Part", "PartFactory", "PartRelationshipCloner", "XmlPart"]
 
-class Part:
-    """Base class for package parts.
 
-    Provides common properties and methods, but intended to be subclassed in client code
-    to implement specific part behaviors.
+class Part(_SharedPart):
+    """docx-shape wrapper around :class:`ooxml_opc.part.Part`.
+
+    docx constructor shape is ``(partname, content_type, blob=None, package=None)``.
+    The shared base uses ``(partname, content_type, package, blob=None)``. The
+    shim's :meth:`__init__` swaps the last two positional args before forwarding.
     """
 
-    #: Flag set to ``True`` by :class:`Unmarshaller` when the part was
-    #: parsed from the source package. Library-authored parts (created
-    #: on demand from a default template) leave this at its class-level
-    #: default ``False``. Used by save-time drop heuristics to distinguish
-    #: data that came from the user's package (and must be preserved) from
-    #: data python-docx wrote itself (safe to prune when unreferenced).
+    #: Flag set to ``True`` by the package loader when the part was parsed from
+    #: the source package. Library-authored parts leave this at ``False``.
     #:
     #: .. versionadded:: 2026.05.7
     _loaded_from_package: bool = False
@@ -43,222 +65,204 @@ class Part:
         blob: bytes | None = None,
         package: Package | None = None,
     ):
-        super().__init__()
-        self._partname = partname
-        self._content_type = content_type
-        self._blob = blob
-        self._package = package
+        # -- docx arg order → shared arg order --
+        super().__init__(partname, content_type, package, blob=blob)  # type: ignore[arg-type]
 
-    def after_unmarshal(self):
-        """Entry point for post-unmarshaling processing, for example to parse the part
-        XML.
+    def after_unmarshal(self) -> None:
+        """Post-unmarshal hook (override without forwarding to super)."""
+        return
 
-        May be overridden by subclasses without forwarding call to super.
-        """
-        # don't place any code here, just catch call if not overridden by
-        # subclass
-        pass
-
-    def before_marshal(self, reproducible: bool = False):
-        """Entry point for pre-serialization processing, for example to finalize part
-        naming if necessary.
-
-        ``reproducible`` is True when the caller has requested reproducible
-        save output (fixed timestamps, sorted member names). Subclasses that
-        mint random identifiers should honour this flag by using a
-        deterministic generator when True.
-
-        May be overridden by subclasses without forwarding call to super.
-        """
-        # don't place any code here, just catch call if not overridden by
-        # subclass
-        pass
+    def before_marshal(self, reproducible: bool = False) -> None:
+        """Pre-serialisation hook (override without forwarding to super)."""
+        return
 
     @property
     def blob(self) -> bytes:
-        """Contents of this package part as a sequence of bytes.
+        """Contents of this part as bytes.
 
-        May be text or binary. Intended to be overridden by subclasses. Default behavior
-        is to return load blob.
+        Overridden by :class:`XmlPart` — this implementation returns the
+        load-time blob (or ``b""`` when there is none).
         """
         return self._blob or b""
 
-    @property
-    def content_type(self):
-        """Content type of this part."""
-        return self._content_type
-
-    @content_type.setter
-    def content_type(self, value: str):
-        """Override the content type of this part.
-
-        Primarily used to switch a ``.dotx`` template's main-document part
-        to ``.docx`` when deriving a new document from a template.
-
-        .. versionadded:: 2026.05.0
-        """
-        self._content_type = value
-
-    def drop_rel(self, rId: str):
-        """Remove the relationship identified by `rId` if its reference count is less
-        than 2.
-
-        Relationships with a reference count of 0 are implicit relationships.
-        """
+    def drop_rel(self, rId: str) -> None:
+        """Remove the relationship `rId` if its reference count is < 2."""
         if self._rel_ref_count(rId) < 2:
             del self.rels[rId]
 
     @classmethod
-    def load(cls, partname: PackURI, content_type: str, blob: bytes, package: Package):
+    def load(
+        cls,
+        partname: PackURI,
+        content_type: str,
+        blob: bytes,
+        package: Package,
+    ) -> Part:
+        """Return a new instance of `cls`.
+
+        docx-shape ``(partname, content_type, blob, package)``. The shared
+        :meth:`ooxml_opc.part.Part.load` takes a ``(partname, content_type,
+        package, blob)`` tuple; the shim adapts the call.
+        """
         return cls(partname, content_type, blob, package)
 
-    def load_rel(self, reltype: str, target: Part | str, rId: str, is_external: bool = False):
-        """Return newly added |_Relationship| instance of `reltype`.
-
-        The new relationship relates the `target` part to this part with key `rId`.
-
-        Target mode is set to ``RTM.EXTERNAL`` if `is_external` is |True|. Intended for
-        use during load from a serialized package, where the rId is well-known. Other
-        methods exist for adding a new relationship to a part when manipulating a part.
-        """
+    def load_rel(
+        self,
+        reltype: str,
+        target: Part | str,
+        rId: str,
+        is_external: bool = False,
+    ):
+        """Mint a relationship with a caller-supplied `rId`."""
         return self.rels.add_relationship(reltype, target, rId, is_external)
 
     @property
-    def package(self):
-        """|OpcPackage| instance this part belongs to."""
-        return self._package
-
-    @property
-    def partname(self):
-        """|PackURI| instance holding partname of this part, e.g.
-        '/ppt/slides/slide1.xml'."""
+    def partname(self) -> PackURI:
+        """``PackURI`` identifying this part."""
         return self._partname
 
     @partname.setter
-    def partname(self, partname: str):
+    def partname(self, partname: PackURI) -> None:
         if not isinstance(partname, PackURI):
-            tmpl = "partname must be instance of PackURI, got '%s'"
-            raise TypeError(tmpl % type(partname).__name__)
+            raise TypeError(
+                f"partname must be instance of PackURI, got "
+                f"'{type(partname).__name__}'"
+            )
         self._partname = partname
 
     def part_related_by(self, reltype: str) -> Part:
-        """Return part to which this part has a relationship of `reltype`.
-
-        Raises |KeyError| if no such relationship is found and |ValueError| if more than
-        one such relationship is found. Provides ability to resolve implicitly related
-        part, such as Slide -> SlideLayout.
-        """
+        """Return the part this part has a `reltype` relationship to."""
         return self.rels.part_with_reltype(reltype)
 
-    def relate_to(self, target: Part | str, reltype: str, is_external: bool = False) -> str:
-        """Return rId key of relationship of `reltype` to `target`.
-
-        The returned `rId` is from an existing relationship if there is one, otherwise a
-        new relationship is created.
-        """
+    def relate_to(
+        self,
+        target: Part | str,
+        reltype: str,
+        is_external: bool = False,
+    ) -> str:
+        """Return the rId of a relationship of `reltype` to `target`."""
         if is_external:
             return self.rels.get_or_add_ext_rel(reltype, cast(str, target))
-        else:
-            rel = self.rels.get_or_add(reltype, cast(Part, target))
-            return rel.rId
+        rel = self.rels.get_or_add(reltype, cast(Part, target))
+        return rel.rId
 
     @property
-    def related_parts(self):
-        """Dictionary mapping related parts by rId, so child objects can resolve
-        explicit relationships present in the part XML, e.g. sldIdLst to a specific
-        |Slide| instance."""
+    def related_parts(self) -> dict[str, Part]:
+        """Dict mapping rIds to target parts for explicit internal rels."""
         return self.rels.related_parts
 
     @lazyproperty
-    def rels(self):
-        """|Relationships| instance holding the relationships for this part."""
-        # -- prevent breakage in `python-docx-template` by retaining legacy `._rels` attribute --
-        self._rels = Relationships(self._partname.baseURI)
-        return self._rels
+    def rels(self):  # type: ignore[override]
+        """:class:`Relationships` collection for this part.
+
+        Reference `Relationships` via the module-level name so tests that
+        patch ``docx.opc.part.Relationships`` via :func:`class_mock` see the
+        patched constructor.
+        """
+        return Relationships(self._partname.baseURI)
 
     def target_ref(self, rId: str) -> str:
-        """Return URL contained in target ref of relationship identified by `rId`."""
+        """Return the URL contained in the target ref of relationship `rId`."""
         rel = self.rels[rId]
         return rel.target_ref
 
     def _rel_ref_count(self, rId: str) -> int:
-        """Return the count of references in this part to the relationship identified by `rId`.
+        """Return the count of references in this part to rel `rId`.
 
-        Only an XML part can contain references, so this is 0 for `Part`.
+        Non-XML parts cannot contain references; the generic implementation
+        returns 0. :class:`XmlPart` overrides.
         """
         return 0
 
 
-class PartFactory:
-    """Provides a way for client code to specify a subclass of |Part| to be constructed
-    by |Unmarshaller| based on its content type and/or a custom callable.
+class PartFactory(_SharedPartFactory):
+    """docx-shape wrapper around :class:`ooxml_opc.part.PartFactory`.
 
-    Setting ``PartFactory.part_class_selector`` to a callable object will cause that
-    object to be called with the parameters ``content_type, reltype``, once for each
-    part in the package. If the callable returns an object, it is used as the class for
-    that part. If it returns |None|, part class selection falls back to the content type
-    map defined in ``PartFactory.part_type_for``. If no class is returned from either of
-    these, the class contained in ``PartFactory.default_part_type`` is used to construct
-    the part, which is by default ``opc.package.Part``.
+    docx constructor shape is
+    ``(partname, content_type, reltype, blob, package)``; the shared factory
+    uses ``(partname, content_type, package, blob, reltype=None)``.
+
+    Keeps class-level ``part_class_selector`` / ``part_type_for`` /
+    ``default_part_type`` for registration at import time.
     """
 
-    part_class_selector: Callable[[str, str], type[Part] | None] | None
-    part_type_for: dict[str, type[Part]] = {}
-    default_part_type = Part
+    part_class_selector: Callable[[str, str], type[Part] | None] | None = None  # type: ignore[assignment]
+    part_type_for: dict[str, type[Part]] = {}  # type: ignore[assignment]
+    default_part_type: type[Part] = Part  # type: ignore[assignment]
 
-    def __new__(
+    def __new__(  # type: ignore[override]
         cls,
         partname: PackURI,
         content_type: str,
         reltype: str,
         blob: bytes,
         package: Package,
-    ):
+    ) -> Part:
         PartClass: type[Part] | None = None
         if cls.part_class_selector is not None:
-            part_class_selector = cls_method_fn(cls, "part_class_selector")
-            PartClass = part_class_selector(content_type, reltype)
+            # -- Lookup ``cls_method_fn`` via the module namespace so tests can
+            # -- patch ``docx.opc.part.cls_method_fn``. --
+            selector = cls_method_fn(cls, "part_class_selector")
+            PartClass = selector(content_type, reltype)
         if PartClass is None:
             PartClass = cls._part_cls_for(content_type)
         return PartClass.load(partname, content_type, blob, package)
 
     @classmethod
-    def _part_cls_for(cls, content_type: str):
-        """Return the custom part class registered for `content_type`, or the default
-        part class if no custom class is registered for `content_type`."""
+    def _part_cls_for(cls, content_type: str) -> type[Part]:
+        """Return the Part subclass registered for `content_type`."""
         if content_type in cls.part_type_for:
             return cls.part_type_for[content_type]
         return cls.default_part_type
 
 
-class XmlPart(Part):
-    """Base class for package parts containing an XML payload, which is most of them.
+class XmlPart(_SharedXmlPart, Part):
+    """docx-shape wrapper around :class:`ooxml_opc.part.XmlPart`.
 
-    Provides additional methods to the |Part| base class that take care of parsing and
-    reserializing the XML payload and managing relationships to other parts.
+    docx constructor shape is
+    ``(partname, content_type, element, package)``; the shared base uses
+    ``(partname, content_type, package, element)``. The shim adapts.
     """
 
-    def __init__(
-        self, partname: PackURI, content_type: str, element: BaseOxmlElement, package: Package
+    def __init__(  # type: ignore[override]
+        self,
+        partname: PackURI,
+        content_type: str,
+        element: BaseOxmlElement,
+        package: Package,
     ):
-        super().__init__(partname, content_type, package=package)
+        # -- bypass both parents' __init__; wire up state directly so the
+        # -- (deliberately inconsistent) arg orders don't collide. --
+        self._partname = partname
+        self._content_type = content_type
+        self._blob = None
+        self._package = package
         self._element = element
 
     @property
-    def blob(self):
+    def blob(self) -> bytes:  # type: ignore[override]
+        """Re-serialise ``self._element`` to bytes on demand."""
         return serialize_part_xml(self._element)
 
     @property
-    def element(self):
+    def element(self) -> BaseOxmlElement:
         """The root XML element of this XML part."""
         return self._element
 
     @classmethod
-    def load(cls, partname: PackURI, content_type: str, blob: bytes, package: Package):
-        # -- `parse_xml()` may return ``None`` when invoked inside a recovery-mode
-        # -- context and lxml could not recover *anything* from `blob`. Fall back
-        # -- to a minimal stub so downstream code has a valid element to work
-        # -- with; warnings have already been collected by `parse_xml`. --
+    def load(  # type: ignore[override]
+        cls,
+        partname: PackURI,
+        content_type: str,
+        blob: bytes,
+        package: Package,
+    ) -> XmlPart:
+        """Return an :class:`XmlPart` with its blob parsed into an element tree.
+
+        ``parse_xml`` may return ``None`` under recovery mode when lxml
+        couldn't recover anything from `blob`; fall back to a minimal stub
+        element so downstream code always has a valid tree.
+        """
         element = cast("BaseOxmlElement | None", parse_xml(blob))
         if element is None:
             element = cls._recovery_stub_element(content_type)
@@ -284,20 +288,18 @@ class XmlPart(Part):
                 b'wordprocessingml/2006/main"><w:body/></w:document>'
             )
             return parse_xml(stub)
-        # -- Generic fallback: an empty element preserving namespace hints. --
         return parse_xml(b"<root/>")
 
     @property
-    def part(self):
-        """Part of the parent protocol, "children" of the document will not know the
-        part that contains them so must ask their parent object.
+    def part(self) -> XmlPart:
+        """Self-reference for the parent-protocol chain.
 
-        That chain of delegation ends here for child objects.
+        Children of an XML part ask their parent for the containing part;
+        delegation terminates here.
         """
         return self
 
     def _rel_ref_count(self, rId: str) -> int:
-        """Return the count of references in this part's XML to the relationship
-        identified by `rId`."""
+        """Count references in this part's XML to rel `rId`."""
         rIds = cast("list[str]", self._element.xpath("//@r:id"))
         return len([_rId for _rId in rIds if _rId == rId])
