@@ -65,6 +65,19 @@ dev = [
 ]
 
 [project.optional-dependencies]
+# Minimum runtime dependencies to execute the test suite. Kept narrow
+# on purpose — CI and external contributors get a fast install that
+# does NOT pull in Sphinx / tox / twine / ruff / pyright (those live
+# under ``[dependency-groups].dev`` for uv users).
+#
+#   pip install -e '.[test]'
+#
+test = [
+    "pytest>=8.4.0",
+    "behave>=1.2.6",
+    "pyparsing>=3.2.3",
+    "types-lxml-multi-subclass>=2025.3.30",
+]
 # Opt-in extra for running OOXML conformance checks against the
 # `loadfix/ooxml-reference-corpus` manifests. Kept out of the default
 # `dev` group so `pip install -e '.[dev]'` stays fast and portable for
