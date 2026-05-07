@@ -39,6 +39,11 @@ dependencies = [
     # yet on PyPI; pinned to the master branch until a PyPI release
     # lands, after which this becomes ``python-ooxml-docprops>=0.1.0``.
     "python-ooxml-docprops @ git+https://github.com/loadfix/python-ooxml-docprops@master",
+    # Shared legacy ECMA-376 comments (WordprocessingML + PresentationML)
+    # readers/writers. Not yet on PyPI; pinned to the master branch until a
+    # PyPI release lands, after which this becomes
+    # ``python-ooxml-comments>=0.1.0``.
+    "python-ooxml-comments @ git+https://github.com/loadfix/python-ooxml-comments@master",
     "typing-extensions>=4.9.0",
 ]
 description = "Create, read, and update Microsoft Word .docx files."
