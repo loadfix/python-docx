@@ -1087,3 +1087,64 @@ class DescribeSettings_docVars:
         assert settings.doc_vars.get("missing") is None
         assert settings.doc_vars.get("missing", "default") == "default"
         assert settings.doc_vars.items() == [("a", "1"), ("b", "2")]
+
+
+class DescribeSettings_docId:
+    """Unit-test suite for Word-extension doc-identifier accessors."""
+
+    def it_is_None_when_neither_docId_present(self):
+        settings = Settings(element("w:settings"))
+
+        assert settings.doc_id is None
+
+    def it_reads_and_writes_round_trip(self):
+        settings = Settings(element("w:settings"))
+
+        settings.doc_id = "AAAAAAAA-1111-1111-1111-111111111111"
+
+        assert settings.doc_id == "{AAAAAAAA-1111-1111-1111-111111111111}"
+
+    def it_accepts_preformatted_braced_guid_without_double_wrapping(self):
+        settings = Settings(element("w:settings"))
+
+        settings.doc_id = "{12345678-1234-1234-1234-123456789012}"
+
+        assert settings.doc_id == "{12345678-1234-1234-1234-123456789012}"
+
+    def it_removes_both_w14_and_w15_docIds_on_None(self):
+        settings = Settings(element("w:settings"))
+        settings.doc_id = "11111111-1111-1111-1111-111111111111"
+
+        settings.doc_id = None
+
+        assert settings.doc_id is None
+        assert settings._settings.w14_docId is None
+        assert settings._settings.w15_docId is None
+
+
+class DescribeSettings_chartTrackingRefBased:
+    """Unit-test suite for ``w15:chartTrackingRefBased`` accessor."""
+
+    def it_is_False_when_element_absent(self):
+        settings = Settings(element("w:settings"))
+
+        assert settings.chart_tracking_ref_based is False
+
+    def it_is_True_when_element_present(self):
+        settings = Settings(element("w:settings/w15:chartTrackingRefBased"))
+
+        assert settings.chart_tracking_ref_based is True
+
+    def it_adds_the_element_when_enabled(self):
+        settings = Settings(element("w:settings"))
+
+        settings.chart_tracking_ref_based = True
+
+        assert settings.chart_tracking_ref_based is True
+
+    def it_removes_the_element_when_disabled(self):
+        settings = Settings(element("w:settings/w15:chartTrackingRefBased"))
+
+        settings.chart_tracking_ref_based = False
+
+        assert settings.chart_tracking_ref_based is False

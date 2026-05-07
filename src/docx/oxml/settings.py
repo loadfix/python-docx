@@ -398,6 +398,25 @@ class CT_DocVars(BaseOxmlElement):
         return False
 
 
+class CT_DocId(BaseOxmlElement):
+    """`w15:docId` or `w14:docId` element, carrying a document-identifier GUID.
+
+    Word 2013+ stamps ``<w15:docId w15:val="{GUID}"/>`` inside ``settings.xml``
+    on every new document so its revision-tracking and "same document?"
+    heuristics have a stable identifier. ``w14:docId`` is the legacy 2010
+    sibling. Each namespace exposes its own ``@val`` attribute.
+
+    .. versionadded:: 2026.05.3
+    """
+
+    w15_val: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w15:val", ST_String
+    )
+    w14_val: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w14:val", ST_String
+    )
+
+
 class CT_Settings(BaseOxmlElement):
     """`w:settings` element, root element for the settings part."""
 
@@ -537,6 +556,11 @@ class CT_Settings(BaseOxmlElement):
         "w:doNotEmbedSmartTags",
         "w:decimalSymbol",
         "w:listSeparator",
+        # -- Microsoft extension children (appear at the tail in every
+        # -- Office-authored settings.xml, gated via mc:Ignorable) --
+        "w14:docId",
+        "w15:chartTrackingRefBased",
+        "w15:docId",
     )
     view: CT_View | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:view", successors=_tag_seq[2:]
@@ -597,6 +621,15 @@ class CT_Settings(BaseOxmlElement):
     )
     themeFontLang: "CT_Language | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:themeFontLang", successors=_tag_seq[85:]
+    )
+    w14_docId: "CT_DocId | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w14:docId", successors=_tag_seq[-2:]
+    )
+    chartTrackingRefBased: "BaseOxmlElement | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w15:chartTrackingRefBased", successors=_tag_seq[-1:]
+    )
+    w15_docId: "CT_DocId | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w15:docId", successors=()
     )
     del _tag_seq
 

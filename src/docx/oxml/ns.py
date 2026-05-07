@@ -60,8 +60,23 @@ nsmap = {
     "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
     "w10": "urn:schemas-microsoft-com:office:word",
     "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
+    # -- Microsoft-extension namespaces emitted by Word 2012+ on every
+    # -- default-authored document, gated via `mc:Ignorable`. Required for
+    # -- `qn()` lookups from proxy / element classes that touch docId,
+    # -- chartTrackingRefBased, commentsExtensible, symEx, and related
+    # -- extension children. The cross-format opc-extensions effort
+    # -- consolidates these into a shared registry; the local copy here
+    # -- keeps `qn()` working until that migration lands.
+    "w15": "http://schemas.microsoft.com/office/word/2012/wordml",
+    "w16": "http://schemas.microsoft.com/office/word/2018/wordml",
+    "w16cex": "http://schemas.microsoft.com/office/word/2018/wordml/cex",
     "w16cid": "http://schemas.microsoft.com/office/word/2016/wordml/cid",
+    "w16du": "http://schemas.microsoft.com/office/word/2023/wordml/word16du",
+    "w16sdtdh": "http://schemas.microsoft.com/office/word/2020/wordml/sdtdatahash",
+    "w16sdtfl": "http://schemas.microsoft.com/office/word/2024/wordml/sdtformatlock",
+    "w16se": "http://schemas.microsoft.com/office/word/2015/wordml/symex",
     "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+    "wp14": "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
     "wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
     "wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
     "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape",

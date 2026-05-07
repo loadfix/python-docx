@@ -689,6 +689,59 @@ class Settings(ElementProxy):
         """
         return DocVars(self._settings)
 
+    # -- Microsoft-extension document identifiers ------------------------
+
+    @property
+    def doc_id(self) -> str | None:
+        """The document's stable GUID identifier or |None| if not set.
+
+        Word 2013+ stamps ``<w15:docId w15:val="{GUID}"/>`` inside
+        ``settings.xml`` on every new document; it drives revision-
+        tracking and "same document?" heuristics across sessions.
+
+        Read/write. Assigning a GUID string (with or without
+        surrounding braces) creates or updates the element; assigning
+        |None| removes it. Reads prefer ``w15:docId`` over the legacy
+        ``w14:docId``.
+
+        .. versionadded:: 2026.05.3
+        """
+        w15 = self._settings.w15_docId
+        if w15 is not None and w15.w15_val is not None:
+            return w15.w15_val
+        w14 = self._settings.w14_docId
+        if w14 is not None and w14.w14_val is not None:
+            return w14.w14_val
+        return None
+
+    @doc_id.setter
+    def doc_id(self, value: str | None) -> None:
+        if value is None:
+            self._settings._remove_w15_docId()  # pyright: ignore[reportPrivateUsage]
+            self._settings._remove_w14_docId()  # pyright: ignore[reportPrivateUsage]
+            return
+        normalised = value if value.startswith("{") else "{%s}" % value
+        self._settings.get_or_add_w15_docId().w15_val = normalised
+
+    @property
+    def chart_tracking_ref_based(self) -> bool:
+        """True when ``<w15:chartTrackingRefBased/>`` is present in settings.
+
+        Word writes this flag on every new document to drive chart
+        reference-tracking; Word reads the absence of the element as
+        "disabled". Read/write.
+
+        .. versionadded:: 2026.05.3
+        """
+        return self._settings.chartTrackingRefBased is not None
+
+    @chart_tracking_ref_based.setter
+    def chart_tracking_ref_based(self, value: bool) -> None:
+        if value:
+            self._settings.get_or_add_chartTrackingRefBased()
+        else:
+            self._settings._remove_chartTrackingRefBased()  # pyright: ignore[reportPrivateUsage]
+
 
 # -- default algorithm metadata matching Word's rsaAES/SHA-1 password scheme --
 _DEFAULT_CRYPT_PROVIDER_TYPE = "rsaAES"

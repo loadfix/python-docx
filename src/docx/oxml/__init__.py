@@ -349,6 +349,7 @@ from .settings import (
     CT_CompatSetting,
     CT_DecimalNumberWithVal,
     CT_DefaultTabStop,
+    CT_DocId,
     CT_DocProtect,
     CT_DocVar,
     CT_DocVars,
@@ -397,6 +398,8 @@ register_element_cls("w:trackRevisions", CT_OnOff)
 register_element_cls("w:updateFields", CT_OnOff)
 register_element_cls("w:view", CT_View)
 register_element_cls("w:zoom", CT_Zoom)
+register_element_cls("w14:docId", CT_DocId)
+register_element_cls("w15:docId", CT_DocId)
 
 from .styles import (
     CT_DocDefaults,
