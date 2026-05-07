@@ -2,15 +2,40 @@
 
 """Simple-type classes, corresponding to ST_* schema items.
 
-These provide validation and format translation for values stored in XML element
-attributes. Naming generally corresponds to the simple type in the associated XML
-schema.
+The generic XSD primitive base classes live in the shared
+:mod:`ooxml_xmlchemy.simpletypes` package and are re-exported below so
+existing ``docx.oxml.simpletypes.*`` import paths keep working.  The
+WordprocessingML-specific concrete ``ST_*`` classes that depend on
+docx's ``Emu`` / ``Pt`` / ``Twips`` / ``RGBColor`` value objects stay
+local to docx.
 """
 
 from __future__ import annotations
 
 import datetime as dt
 from typing import TYPE_CHECKING, Any
+
+from ooxml_xmlchemy.simpletypes import (
+    BaseFloatType,
+    BaseIntType,
+    BaseSimpleType,
+    BaseStringEnumerationType,
+    BaseStringType,
+    XsdAnyUri,
+    XsdBoolean,
+    XsdDouble,
+    XsdId,
+    XsdInt,
+    XsdLong,
+    XsdString,
+    XsdStringEnumeration,
+    XsdToken,
+    XsdTokenEnumeration,
+    XsdUnsignedByte,
+    XsdUnsignedInt,
+    XsdUnsignedLong,
+    XsdUnsignedShort,
+)
 
 from docx.exceptions import InvalidXmlError
 from docx.shared import Emu, Pt, RGBColor, Twips
@@ -19,181 +44,50 @@ if TYPE_CHECKING:
     from docx.shared import Length
 
 
-class BaseSimpleType:
-    """Base class for simple-types."""
-
-    @classmethod
-    def from_xml(cls, xml_value: str) -> Any:
-        return cls.convert_from_xml(xml_value)
-
-    @classmethod
-    def to_xml(cls, value: Any) -> str:
-        cls.validate(value)
-        str_value = cls.convert_to_xml(value)
-        return str_value
-
-    @classmethod
-    def convert_from_xml(cls, str_value: str) -> Any:
-        return int(str_value)
-
-    @classmethod
-    def convert_to_xml(cls, value: Any) -> str: ...
-
-    @classmethod
-    def validate(cls, value: Any) -> None: ...
-
-    @classmethod
-    def validate_int(cls, value: object):
-        if not isinstance(value, int):
-            raise TypeError("value must be <type 'int'>, got %s" % type(value))
-
-    @classmethod
-    def validate_int_in_range(cls, value: int, min_inclusive: int, max_inclusive: int) -> None:
-        cls.validate_int(value)
-        if value < min_inclusive or value > max_inclusive:
-            raise ValueError(
-                "value must be in range %d to %d inclusive, got %d"
-                % (min_inclusive, max_inclusive, value)
-            )
-
-    @classmethod
-    def validate_string(cls, value: Any) -> str:
-        if not isinstance(value, str):
-            raise TypeError("value must be a string, got %s" % type(value))
-        return value
-
-
-class BaseIntType(BaseSimpleType):
-    @classmethod
-    def convert_from_xml(cls, str_value: str) -> int:
-        return int(str_value)
-
-    @classmethod
-    def convert_to_xml(cls, value: int) -> str:
-        return str(value)
-
-    @classmethod
-    def validate(cls, value: Any) -> None:
-        cls.validate_int(value)
-
-
-class BaseStringType(BaseSimpleType):
-    @classmethod
-    def convert_from_xml(cls, str_value: str) -> str:
-        return str_value
-
-    @classmethod
-    def convert_to_xml(cls, value: str) -> str:
-        return value
-
-    @classmethod
-    def validate(cls, value: str):
-        cls.validate_string(value)
-
-
-class BaseStringEnumerationType(BaseStringType):
-    _members: tuple[str, ...]
-
-    @classmethod
-    def validate(cls, value: Any) -> None:
-        cls.validate_string(value)
-        if value not in cls._members:
-            raise ValueError("must be one of %s, got '%s'" % (cls._members, value))
-
-
-class XsdAnyUri(BaseStringType):
-    """There's a regex in the spec this is supposed to meet...
-
-    but current assessment is that spending cycles on validating wouldn't be worth it
-    for the number of programming errors it would catch.
-    """
-
-
-class XsdBoolean(BaseSimpleType):
-    @classmethod
-    def convert_from_xml(cls, str_value: str) -> bool:
-        if str_value not in ("1", "0", "true", "false"):
-            raise InvalidXmlError(
-                "value must be one of '1', '0', 'true' or 'false', got '%s'" % str_value
-            )
-        return str_value in ("1", "true")
-
-    @classmethod
-    def convert_to_xml(cls, value: bool) -> str:
-        return {True: "1", False: "0"}[value]
-
-    @classmethod
-    def validate(cls, value: Any) -> None:
-        if value not in (True, False):
-            raise TypeError(
-                "only True or False (and possibly None) may be assigned, got '%s'" % value
-            )
-
-
-class XsdId(BaseStringType):
-    """String that must begin with a letter or underscore and cannot contain any colons.
-
-    Not fully validated because not used in external API.
-    """
-
-    pass
-
-
-class XsdInt(BaseIntType):
-    @classmethod
-    def validate(cls, value: Any) -> None:
-        cls.validate_int_in_range(value, -2147483648, 2147483647)
-
-
-class XsdLong(BaseIntType):
-    @classmethod
-    def validate(cls, value: Any) -> None:
-        cls.validate_int_in_range(value, -9223372036854775808, 9223372036854775807)
-
-
-class XsdString(BaseStringType):
-    pass
-
-
-class XsdStringEnumeration(BaseStringEnumerationType):
-    """Set of enumerated xsd:string values."""
-
-
-class XsdToken(BaseStringType):
-    """Xsd:string with whitespace collapsing, e.g. multiple spaces reduced to one,
-    leading and trailing space stripped."""
-
-    pass
-
-
-class XsdUnsignedInt(BaseIntType):
-    @classmethod
-    def validate(cls, value: Any) -> None:
-        cls.validate_int_in_range(value, 0, 4294967295)
-
-
-class XsdUnsignedLong(BaseIntType):
-    @classmethod
-    def validate(cls, value: Any) -> None:
-        cls.validate_int_in_range(value, 0, 18446744073709551615)
-
-
-class ST_EighthPointMeasure(BaseIntType):
-    """Measurement in eighths of a point, used for border widths (w:sz attribute)."""
-
-    @classmethod
-    def convert_from_xml(cls, str_value: str) -> int:
-        return int(str_value)
-
-    @classmethod
-    def convert_to_xml(cls, value: int) -> str:
-        return str(value)
-
-    @classmethod
-    def validate(cls, value: Any) -> None:
-        cls.validate_int(value)
-        if value < 0 or value > 255:
-            raise ValueError("value must be in range 0 to 255 inclusive, got %d" % value)
+__all__ = [
+    "BaseFloatType",
+    "BaseIntType",
+    "BaseSimpleType",
+    "BaseStringEnumerationType",
+    "BaseStringType",
+    "ST_BrClear",
+    "ST_BrType",
+    "ST_Coordinate",
+    "ST_CoordinateUnqualified",
+    "ST_DateTime",
+    "ST_DecimalNumber",
+    "ST_DrawingElementId",
+    "ST_EighthPointMeasure",
+    "ST_HexColor",
+    "ST_HexColorAuto",
+    "ST_HpsMeasure",
+    "ST_Merge",
+    "ST_OnOff",
+    "ST_PointMeasure",
+    "ST_PositiveCoordinate",
+    "ST_RelationshipId",
+    "ST_SignedTwipsMeasure",
+    "ST_String",
+    "ST_TblLayoutType",
+    "ST_TblWidth",
+    "ST_TwipsMeasure",
+    "ST_UniversalMeasure",
+    "ST_VerticalAlignRun",
+    "XsdAnyUri",
+    "XsdBoolean",
+    "XsdDouble",
+    "XsdId",
+    "XsdInt",
+    "XsdLong",
+    "XsdString",
+    "XsdStringEnumeration",
+    "XsdToken",
+    "XsdTokenEnumeration",
+    "XsdUnsignedByte",
+    "XsdUnsignedInt",
+    "XsdUnsignedLong",
+    "XsdUnsignedShort",
+]
 
 
 class ST_BrClear(XsdString):
@@ -216,7 +110,7 @@ class ST_BrType(XsdString):
 
 class ST_Coordinate(BaseIntType):
     @classmethod
-    def convert_from_xml(cls, str_value: str) -> Length:
+    def convert_from_xml(cls, str_value: str) -> "Length":
         if "i" in str_value or "m" in str_value or "p" in str_value:
             return ST_UniversalMeasure.convert_from_xml(str_value)
         return Emu(int(str_value))
@@ -233,14 +127,21 @@ class ST_CoordinateUnqualified(XsdLong):
 
 
 class ST_EighthPointMeasure(BaseIntType):
-    """Measurement in eighths of a point, e.g. sz="8" represents 1 point."""
+    """Measurement in eighths of a point, e.g. sz="8" represents 1 point.
+
+    Used for border widths (``w:sz`` attribute).  Prior to the
+    ``python-ooxml-xmlchemy`` adoption, two ``ST_EighthPointMeasure``
+    classes were defined in the same file — the second one (retained
+    here) transparently interoperates with :class:`docx.shared.Length`
+    values.  The earlier raw-integer definition has been removed.
+    """
 
     @classmethod
-    def convert_from_xml(cls, str_value: str) -> Length:
+    def convert_from_xml(cls, str_value: str) -> "Length":
         return Pt(int(str_value) / 8.0)
 
     @classmethod
-    def convert_to_xml(cls, value: int | Length) -> str:
+    def convert_to_xml(cls, value: "int | Length") -> str:
         emu = Emu(value)
         eighth_points = int(round(emu.pt * 8))
         return str(eighth_points)
@@ -250,11 +151,11 @@ class ST_PointMeasure(BaseIntType):
     """Measurement in whole points, e.g. space="4" represents 4 points."""
 
     @classmethod
-    def convert_from_xml(cls, str_value: str) -> Length:
+    def convert_from_xml(cls, str_value: str) -> "Length":
         return Pt(int(str_value))
 
     @classmethod
-    def convert_to_xml(cls, value: int | Length) -> str:
+    def convert_to_xml(cls, value: "int | Length") -> str:
         emu = Emu(value)
         points = int(round(emu.pt))
         return str(points)
@@ -324,7 +225,7 @@ class ST_HexColor(BaseStringType):
     @classmethod
     def convert_from_xml(  # pyright: ignore[reportIncompatibleMethodOverride]
         cls, str_value: str
-    ) -> RGBColor | str:
+    ) -> "RGBColor | str":
         if str_value == "auto":
             return ST_HexColorAuto.AUTO
         return RGBColor.from_string(str_value)
@@ -366,14 +267,14 @@ class ST_HpsMeasure(XsdUnsignedLong):
     """
 
     @classmethod
-    def convert_from_xml(cls, str_value: str) -> Length:
+    def convert_from_xml(cls, str_value: str) -> "Length":
         if "m" in str_value or "n" in str_value or "p" in str_value:
             return ST_UniversalMeasure.convert_from_xml(str_value)
         # -- tolerate decimal half-points (e.g. "23.5") --
         return Pt(float(str_value) / 2.0)
 
     @classmethod
-    def convert_to_xml(cls, value: int | Length) -> str:
+    def convert_to_xml(cls, value: "int | Length") -> str:
         emu = Emu(int(value))
         half_points = int(round(emu.pt * 2))
         return str(half_points)
@@ -401,7 +302,7 @@ class ST_OnOff(XsdBoolean):
 
 class ST_PositiveCoordinate(XsdLong):
     @classmethod
-    def convert_from_xml(cls, str_value: str) -> Length:
+    def convert_from_xml(cls, str_value: str) -> "Length":
         return Emu(int(str_value))
 
     @classmethod
@@ -415,13 +316,13 @@ class ST_RelationshipId(XsdString):
 
 class ST_SignedTwipsMeasure(XsdInt):
     @classmethod
-    def convert_from_xml(cls, str_value: str) -> Length:
+    def convert_from_xml(cls, str_value: str) -> "Length":
         if "i" in str_value or "m" in str_value or "p" in str_value:
             return ST_UniversalMeasure.convert_from_xml(str_value)
         return Twips(int(round(float(str_value))))
 
     @classmethod
-    def convert_to_xml(cls, value: int | Length) -> str:
+    def convert_to_xml(cls, value: "int | Length") -> str:
         emu = Emu(value)
         twips = emu.twips
         return str(twips)
@@ -461,14 +362,14 @@ class ST_TwipsMeasure(XsdUnsignedLong):
     """
 
     @classmethod
-    def convert_from_xml(cls, str_value: str) -> Length:
+    def convert_from_xml(cls, str_value: str) -> "Length":
         if "i" in str_value or "m" in str_value or "p" in str_value:
             return ST_UniversalMeasure.convert_from_xml(str_value)
         # -- tolerate decimal twips by rounding to the nearest whole twip --
         return Twips(int(round(float(str_value))))
 
     @classmethod
-    def convert_to_xml(cls, value: int | Length) -> str:
+    def convert_to_xml(cls, value: "int | Length") -> str:
         emu = Emu(int(value))
         twips = emu.twips
         return str(twips)

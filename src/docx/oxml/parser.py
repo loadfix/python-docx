@@ -8,8 +8,9 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Iterator, cast
 
 from lxml import etree
+from ooxml_xmlchemy import configure_namespace_registry
 
-from docx.oxml.ns import NamespacePrefixedTag, nsmap
+from docx.oxml.ns import NamespacePrefixedTag, nsmap, qn
 
 if TYPE_CHECKING:
     from docx.oxml.xmlchemy import BaseOxmlElement
@@ -195,3 +196,38 @@ def OxmlElement(
     if nsdecls is None:
         nsdecls = nsptag.nsmap
     return oxml_parser.makeelement(nsptag.clark_name, attrib=attrs, nsmap=nsdecls)
+
+
+# ---------------------------------------------------------------------------
+# NamespaceRegistry wiring for :mod:`ooxml_xmlchemy`.
+#
+# The shared descriptor DSL calls back into the registered adapter for
+# ``qn`` / ``nsmap`` / ``clark_to_nsptag`` / ``OxmlElement`` primitives
+# rather than importing per-library modules directly — keeping the
+# shared package library-agnostic.  Configured here at import time so
+# the registry is active before any ``CT_*`` element module is loaded.
+
+
+def _clark_to_nsptag(clark_name: str) -> str:
+    return str(NamespacePrefixedTag.from_clark_name(clark_name))
+
+
+class _DocxNamespaceRegistry:
+    """Adapter satisfying :class:`ooxml_xmlchemy.NamespaceRegistry`."""
+
+    nsmap = nsmap
+
+    @staticmethod
+    def qn(namespace_prefixed_tag: str) -> str:
+        return qn(namespace_prefixed_tag)
+
+    @staticmethod
+    def clark_to_nsptag(clark_name: str) -> str:
+        return _clark_to_nsptag(clark_name)
+
+    @staticmethod
+    def OxmlElement(nsptag_str: str, nsmap=None):  # type: ignore[no-untyped-def]
+        return OxmlElement(nsptag_str, nsdecls=nsmap)
+
+
+configure_namespace_registry(_DocxNamespaceRegistry())
