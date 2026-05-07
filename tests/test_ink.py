@@ -106,6 +106,41 @@ class DescribeInkAnnotation:
 
         assert annotation.stroke_count == expected_count
 
+    def it_surfaces_an_InkContent_via_ink_content_when_ooxml_ink_available(
+        self, fake_parent: t.ProvidesStoryPart
+    ):
+        pytest.importorskip("ooxml_ink")
+        from ooxml_ink.proxies import InkContent  # noqa: E402
+
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+        ink_part = _make_ink_part(blob=INK_XML_TWO_TRACES)
+        annotation = InkAnnotation(paragraph, ink_part)
+
+        content = annotation.ink_content
+        assert isinstance(content, InkContent)
+        assert content.stroke_count == 2
+        assert content.blob == INK_XML_TWO_TRACES
+
+    def it_returns_None_ink_content_on_empty_blob(
+        self, fake_parent: t.ProvidesStoryPart
+    ):
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+        ink_part = _make_ink_part(blob=b"")
+        annotation = InkAnnotation(paragraph, ink_part)
+        assert annotation.ink_content is None
+
+    def it_returns_None_ink_content_on_malformed_blob(
+        self, fake_parent: t.ProvidesStoryPart
+    ):
+        pytest.importorskip("ooxml_ink")
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, fake_parent)
+        ink_part = _make_ink_part(blob=b"<definitely-not-ink")
+        annotation = InkAnnotation(paragraph, ink_part)
+        assert annotation.ink_content is None
+
     # -- fixtures -----------------------------------------------------------------
 
     @pytest.fixture

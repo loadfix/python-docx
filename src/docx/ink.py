@@ -21,6 +21,10 @@ if TYPE_CHECKING:
     from docx.parts.ink import InkPart
     from docx.text.paragraph import Paragraph
 
+    # -- Optional shared-library type. ``ooxml_ink`` may not be importable at
+    # -- runtime; TYPE_CHECKING imports are only seen by type-checkers.
+    from ooxml_ink.proxies import InkContent
+
 
 class InkAnnotation:
     """Proxy for an ink annotation referenced from a paragraph.
@@ -83,3 +87,34 @@ class InkAnnotation:
             namespaces={"inkml": inkml_uri},
         )
         return len(traces)
+
+    @property
+    def ink_content(self) -> "InkContent | None":
+        """Shared-library :class:`ooxml_ink.InkContent` facade, or |None|.
+
+        Returns a fully-parsed :class:`~ooxml_ink.proxies.InkContent` when the
+        shared ``python-ooxml-ink`` package is importable and the underlying
+        ink bytes are well-formed. Returns |None| when the package is not
+        installed or the payload cannot be parsed.
+
+        Use this when you need richer structured access (traceGroups,
+        annotations, sample-point text) than the bare :attr:`stroke_count`.
+
+        .. versionadded:: 2026.05.11
+        """
+        blob = self._ink_part.blob
+        if not blob:
+            return None
+        try:
+            from ooxml_ink.oxml import parse_xml as ooxml_parse_xml
+            from ooxml_ink.oxml.inkml import CT_Ink
+            from ooxml_ink.proxies import InkContent
+        except ImportError:
+            return None
+        try:
+            ink_root = ooxml_parse_xml(blob)
+        except Exception:  # noqa: BLE001  — malformed bytes degrade to None
+            return None
+        if not isinstance(ink_root, CT_Ink):
+            return None
+        return InkContent(ink_root, blob=blob)
