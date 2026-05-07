@@ -20,6 +20,8 @@ comes from :mod:`ooxml_opc.shared`.
    outward docx :class:`PackageReader` API is unchanged.
 """
 
+from __future__ import annotations
+
 from docx.opc.constants import RELATIONSHIP_TARGET_MODE as RTM
 from docx.opc.exceptions import PackageNotFoundError
 from docx.opc.oxml import parse_xml
