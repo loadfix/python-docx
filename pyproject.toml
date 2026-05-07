@@ -34,6 +34,11 @@ dependencies = [
     # yet on PyPI; pinned to the master branch until a PyPI release
     # lands, after which this becomes ``python-ooxml-xmlchemy>=0.1.0``.
     "python-ooxml-xmlchemy @ git+https://github.com/loadfix/python-ooxml-xmlchemy@master",
+    # Shared docProps readers/writers (CoreProperties, CustomProperties,
+    # ExtendedProperties proxies plus their CT_* element classes). Not
+    # yet on PyPI; pinned to the master branch until a PyPI release
+    # lands, after which this becomes ``python-ooxml-docprops>=0.1.0``.
+    "python-ooxml-docprops @ git+https://github.com/loadfix/python-ooxml-docprops@master",
     "typing-extensions>=4.9.0",
 ]
 description = "Create, read, and update Microsoft Word .docx files."

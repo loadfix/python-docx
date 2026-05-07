@@ -1,480 +1,102 @@
-"""Custom element classes for core properties-related XML elements."""
+"""Re-export of :class:`ooxml_docprops.oxml.CT_CoreProperties`.
+
+Historically ``docx.oxml.coreprops`` defined ``CT_CoreProperties`` inline.
+As of 2026.05 the canonical implementation lives in the shared
+:mod:`ooxml_docprops.oxml` package; this module keeps the historical
+import path working for downstream consumers while preserving two
+docx-specific contracts on datetime serialisation:
+
+1. :meth:`_parse_W3CDTF_to_datetime` returns tz-aware UTC
+   (``tzinfo=datetime.timezone.utc``); the shared base returns naive UTC.
+2. :meth:`_set_element_datetime` converts tz-aware datetimes to UTC
+   before writing and writes a trailing ``Z`` (upstream#1542 fix).
+
+.. versionchanged:: 2026.05.0
+    Implementation relocated to ``python-ooxml-docprops``; docx-specific
+    datetime semantics preserved on the local subclass.
+"""
 
 from __future__ import annotations
 
 import datetime as dt
-import re
-from typing import TYPE_CHECKING, Any, cast
-from collections.abc import Callable
 
-from docx.oxml.ns import nsdecls, qn
-from docx.oxml.parser import parse_xml
-from docx.oxml.xmlchemy import BaseOxmlElement, ZeroOrOne
+# ---------------------------------------------------------------------------
+# Namespace-registry safety: importing ``ooxml_docprops.oxml`` reconfigures
+# the process-global ``ooxml_xmlchemy`` namespace registry to the shared
+# docprops one. Restore docx's registry before returning so subsequent
+# CT_* imports in ``docx.oxml.__init__`` resolve their descriptors against
+# the docx registry (which knows ``w:``, ``wp:``, ``m:``, ... prefixes).
+# ---------------------------------------------------------------------------
+from ooxml_docprops.oxml import (
+    CT_CoreProperties as _CT_CoreProperties_Base,
+    qn as _shared_qn,
+)
+from ooxml_xmlchemy import configure_namespace_registry as _configure
 
-if TYPE_CHECKING:
-    from lxml.etree import _Element as etree_Element  # pyright: ignore[reportPrivateUsage]
+from docx.oxml.parser import _DocxNamespaceRegistry as _DocxRegistry
 
 
-class CT_CoreProperties(BaseOxmlElement):
-    """`<cp:coreProperties>` element, the root element of the Core Properties part.
+class CT_CoreProperties(_CT_CoreProperties_Base):
+    """docx flavour of :class:`ooxml_docprops.oxml.CT_CoreProperties`.
 
-    Stored as `/docProps/core.xml`. Implements many of the Dublin Core document metadata
-    elements. String elements resolve to an empty string ("") if the element is not
-    present in the XML. String elements are limited in length to 255 unicode characters.
+    Preserves two docx-specific datetime contracts on top of the shared
+    base (see module docstring for the rationale).
     """
 
-    get_or_add_revision: Callable[[], etree_Element]
-
-    category = ZeroOrOne(
-        "cp:category",
-        successors=(
-            "cp:contentStatus",
-            "dcterms:created",
-            "dc:creator",
-            "dc:description",
-            "dc:identifier",
-            "cp:keywords",
-            "dc:language",
-            "cp:lastModifiedBy",
-            "cp:lastPrinted",
-            "dcterms:modified",
-            "cp:revision",
-            "dc:subject",
-            "dc:title",
-            "cp:version",
-        ),
-    )
-    contentStatus = ZeroOrOne(
-        "cp:contentStatus",
-        successors=(
-            "dcterms:created",
-            "dc:creator",
-            "dc:description",
-            "dc:identifier",
-            "cp:keywords",
-            "dc:language",
-            "cp:lastModifiedBy",
-            "cp:lastPrinted",
-            "dcterms:modified",
-            "cp:revision",
-            "dc:subject",
-            "dc:title",
-            "cp:version",
-        ),
-    )
-    created = ZeroOrOne(
-        "dcterms:created",
-        successors=(
-            "dc:creator",
-            "dc:description",
-            "dc:identifier",
-            "cp:keywords",
-            "dc:language",
-            "cp:lastModifiedBy",
-            "cp:lastPrinted",
-            "dcterms:modified",
-            "cp:revision",
-            "dc:subject",
-            "dc:title",
-            "cp:version",
-        ),
-    )
-    creator = ZeroOrOne(
-        "dc:creator",
-        successors=(
-            "dc:description",
-            "dc:identifier",
-            "cp:keywords",
-            "dc:language",
-            "cp:lastModifiedBy",
-            "cp:lastPrinted",
-            "dcterms:modified",
-            "cp:revision",
-            "dc:subject",
-            "dc:title",
-            "cp:version",
-        ),
-    )
-    description = ZeroOrOne(
-        "dc:description",
-        successors=(
-            "dc:identifier",
-            "cp:keywords",
-            "dc:language",
-            "cp:lastModifiedBy",
-            "cp:lastPrinted",
-            "dcterms:modified",
-            "cp:revision",
-            "dc:subject",
-            "dc:title",
-            "cp:version",
-        ),
-    )
-    identifier = ZeroOrOne(
-        "dc:identifier",
-        successors=(
-            "cp:keywords",
-            "dc:language",
-            "cp:lastModifiedBy",
-            "cp:lastPrinted",
-            "dcterms:modified",
-            "cp:revision",
-            "dc:subject",
-            "dc:title",
-            "cp:version",
-        ),
-    )
-    keywords = ZeroOrOne(
-        "cp:keywords",
-        successors=(
-            "dc:language",
-            "cp:lastModifiedBy",
-            "cp:lastPrinted",
-            "dcterms:modified",
-            "cp:revision",
-            "dc:subject",
-            "dc:title",
-            "cp:version",
-        ),
-    )
-    language = ZeroOrOne(
-        "dc:language",
-        successors=(
-            "cp:lastModifiedBy",
-            "cp:lastPrinted",
-            "dcterms:modified",
-            "cp:revision",
-            "dc:subject",
-            "dc:title",
-            "cp:version",
-        ),
-    )
-    lastModifiedBy = ZeroOrOne(
-        "cp:lastModifiedBy",
-        successors=(
-            "cp:lastPrinted",
-            "dcterms:modified",
-            "cp:revision",
-            "dc:subject",
-            "dc:title",
-            "cp:version",
-        ),
-    )
-    lastPrinted = ZeroOrOne(
-        "cp:lastPrinted",
-        successors=(
-            "dcterms:modified",
-            "cp:revision",
-            "dc:subject",
-            "dc:title",
-            "cp:version",
-        ),
-    )
-    modified = ZeroOrOne(
-        "dcterms:modified",
-        successors=(
-            "cp:revision",
-            "dc:subject",
-            "dc:title",
-            "cp:version",
-        ),
-    )
-    revision: etree_Element | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
-        "cp:revision",
-        successors=(
-            "dc:subject",
-            "dc:title",
-            "cp:version",
-        ),
-    )
-    subject = ZeroOrOne(
-        "dc:subject",
-        successors=(
-            "dc:title",
-            "cp:version",
-        ),
-    )
-    title = ZeroOrOne(
-        "dc:title",
-        successors=(
-            "cp:version",
-        ),
-    )
-    version = ZeroOrOne("cp:version", successors=())
-
-    _coreProperties_tmpl = "<cp:coreProperties %s/>\n" % nsdecls(
-        "cp", "dc", "dcmitype", "dcterms", "xsi"
-    )
-
     @classmethod
-    def new(cls) -> CT_CoreProperties:
-        """Return a new `<cp:coreProperties>` element."""
-        xml = cls._coreProperties_tmpl
-        coreProperties = cast(CT_CoreProperties, parse_xml(xml))
-        return coreProperties
+    def new(cls) -> "CT_CoreProperties":
+        """Return a new empty ``<cp:coreProperties>`` element (docx flavour).
 
-    @property
-    def author_text(self) -> str:
-        """The text in the `dc:creator` child element."""
-        return self._text_of_element("creator")
+        Routes parsing through ``docx.oxml.parse_xml`` so the returned
+        element is an instance of *this* (docx) subclass rather than the
+        shared base. The shared base's ``new()`` is a ``@staticmethod`` and
+        uses the shared parser, which would return a plain-base instance
+        without docx's datetime overrides.
+        """
+        from docx.oxml.parser import parse_xml as _docx_parse_xml
+        from typing import cast
 
-    @author_text.setter
-    def author_text(self, value: str):
-        self._set_element_text("creator", value)
-
-    @property
-    def category_text(self) -> str:
-        return self._text_of_element("category")
-
-    @category_text.setter
-    def category_text(self, value: str):
-        self._set_element_text("category", value)
-
-    @property
-    def comments_text(self) -> str:
-        return self._text_of_element("description")
-
-    @comments_text.setter
-    def comments_text(self, value: str):
-        self._set_element_text("description", value)
-
-    @property
-    def contentStatus_text(self) -> str:
-        return self._text_of_element("contentStatus")
-
-    @contentStatus_text.setter
-    def contentStatus_text(self, value: str):
-        self._set_element_text("contentStatus", value)
-
-    @property
-    def created_datetime(self) -> dt.datetime | None:
-        return self._datetime_of_element("created")
-
-    @created_datetime.setter
-    def created_datetime(self, value: dt.datetime):
-        self._set_element_datetime("created", value)
-
-    @property
-    def identifier_text(self) -> str:
-        return self._text_of_element("identifier")
-
-    @identifier_text.setter
-    def identifier_text(self, value: str):
-        self._set_element_text("identifier", value)
-
-    @property
-    def keywords_text(self) -> str:
-        return self._text_of_element("keywords")
-
-    @keywords_text.setter
-    def keywords_text(self, value: str):
-        self._set_element_text("keywords", value)
-
-    @property
-    def language_text(self) -> str:
-        return self._text_of_element("language")
-
-    @language_text.setter
-    def language_text(self, value: str):
-        self._set_element_text("language", value)
-
-    @property
-    def lastModifiedBy_text(self) -> str:
-        return self._text_of_element("lastModifiedBy")
-
-    @lastModifiedBy_text.setter
-    def lastModifiedBy_text(self, value: str):
-        self._set_element_text("lastModifiedBy", value)
-
-    @property
-    def lastPrinted_datetime(self) -> dt.datetime | None:
-        return self._datetime_of_element("lastPrinted")
-
-    @lastPrinted_datetime.setter
-    def lastPrinted_datetime(self, value: dt.datetime):
-        self._set_element_datetime("lastPrinted", value)
-
-    @property
-    def modified_datetime(self) -> dt.datetime | None:
-        return self._datetime_of_element("modified")
-
-    @modified_datetime.setter
-    def modified_datetime(self, value: dt.datetime):
-        self._set_element_datetime("modified", value)
-
-    @property
-    def revision_number(self) -> int:
-        """Integer value of revision property."""
-        revision = self.revision
-        if revision is None:
-            return 0
-        revision_str = str(revision.text)
-        try:
-            revision = int(revision_str)
-        except ValueError:
-            # non-integer revision strings also resolve to 0
-            revision = 0
-        # as do negative integers
-        if revision < 0:
-            revision = 0
-        return revision
-
-    @revision_number.setter
-    def revision_number(self, value: int):
-        """Set revision property to string value of integer `value`."""
-        if not isinstance(value, int) or value < 1:  # pyright: ignore[reportUnnecessaryIsInstance]
-            tmpl = "revision property requires positive int, got '%s'"
-            raise ValueError(tmpl % value)
-        revision = self.get_or_add_revision()
-        revision.text = str(value)
-
-    @property
-    def subject_text(self) -> str:
-        return self._text_of_element("subject")
-
-    @subject_text.setter
-    def subject_text(self, value: str):
-        self._set_element_text("subject", value)
-
-    @property
-    def title_text(self) -> str:
-        return self._text_of_element("title")
-
-    @title_text.setter
-    def title_text(self, value: str):
-        self._set_element_text("title", value)
-
-    @property
-    def version_text(self) -> str:
-        return self._text_of_element("version")
-
-    @version_text.setter
-    def version_text(self, value: str):
-        self._set_element_text("version", value)
-
-    def _datetime_of_element(self, property_name: str) -> dt.datetime | None:
-        element = getattr(self, property_name)
-        if element is None:
-            return None
-        datetime_str = element.text
-        try:
-            return self._parse_W3CDTF_to_datetime(datetime_str)
-        except ValueError:
-            # invalid datetime strings are ignored
-            return None
-
-    def _get_or_add(self, prop_name: str) -> BaseOxmlElement:
-        """Return element returned by "get_or_add_" method for `prop_name`."""
-        get_or_add_method_name = "get_or_add_%s" % prop_name
-        get_or_add_method = getattr(self, get_or_add_method_name)
-        element = get_or_add_method()
+        element = cast(
+            "CT_CoreProperties",
+            _docx_parse_xml(cls._coreProperties_tmpl),
+        )
         return element
 
     @classmethod
-    def _offset_dt(cls, dt_: dt.datetime, offset_str: str) -> dt.datetime:
-        """A |datetime| instance offset from `dt_` by timezone offset in `offset_str`.
-
-        `offset_str` is like `"-07:00"`.
-        """
-        match = cls._offset_pattern.match(offset_str)
-        if match is None:
-            raise ValueError("'%s' is not a valid offset string" % offset_str)
-        sign, hours_str, minutes_str = match.groups()
-        sign_factor = -1 if sign == "+" else 1
-        hours = int(hours_str) * sign_factor
-        minutes = int(minutes_str) * sign_factor
-        td = dt.timedelta(hours=hours, minutes=minutes)
-        return dt_ + td
-
-    _offset_pattern = re.compile(r"([+-])(\d\d):(\d\d)")
-
-    @classmethod
     def _parse_W3CDTF_to_datetime(cls, w3cdtf_str: str) -> dt.datetime:
-        # valid W3CDTF date cases:
-        # yyyy e.g. "2003"
-        # yyyy-mm e.g. "2003-12"
-        # yyyy-mm-dd e.g. "2003-12-31"
-        # UTC timezone e.g. "2003-12-31T10:14:55Z"
-        # numeric timezone e.g. "2003-12-31T10:14:55-08:00"
-        templates = (
-            "%Y-%m-%dT%H:%M:%S",
-            "%Y-%m-%d",
-            "%Y-%m",
-            "%Y",
-        )
-        # strptime isn't smart enough to parse literal timezone offsets like
-        # "-07:30", so we have to do it ourselves
-        parseable_part = w3cdtf_str[:19]
-        offset_str = w3cdtf_str[19:]
-        dt_ = None
-        for tmpl in templates:
-            try:
-                dt_ = dt.datetime.strptime(parseable_part, tmpl)
-            except ValueError:
-                continue
-        if dt_ is None:
-            tmpl = "could not parse W3CDTF datetime string '%s'"
-            raise ValueError(tmpl % w3cdtf_str)
-        if len(offset_str) == 6:
-            dt_ = cls._offset_dt(dt_, offset_str)
-        return dt_.replace(tzinfo=dt.timezone.utc)
+        """Parse W3CDTF text and return a ``tz-aware UTC`` :class:`datetime`.
+
+        The shared base returns the same instant with ``tzinfo=None``
+        (naive UTC). Tag the return value with ``timezone.utc`` so callers
+        that compare against aware constants (the docx test suite does)
+        continue to match.
+        """
+        value = super()._parse_W3CDTF_to_datetime(w3cdtf_str)
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=dt.timezone.utc)
+        return value
 
     def _set_element_datetime(self, prop_name: str, value: dt.datetime) -> None:
-        """Set date/time value of child element having `prop_name` to `value`.
+        """Serialise *value* as W3CDTF, converting tz-aware values to UTC.
 
-        The written form is W3CDTF, always serialised with a trailing ``Z`` (UTC).
-        The parse side (``_parse_W3CDTF_to_datetime``) always converts offsets to
-        UTC, so the write path must mirror that:
-
-        * ``value.tzinfo is None`` — assumed to be UTC already and serialised
-          directly (naive in, naive-UTC out). This matches the historical
-          contract and is documented as a requirement on the caller.
-        * ``value.tzinfo`` is UTC (or any zero-offset zone) — serialised
-          as-is.
-        * ``value.tzinfo`` is any other zone — converted via
-          ``astimezone(UTC)`` before formatting, so the written timestamp is
-          the actual UTC instant. Previously the offset was silently dropped
-          and the local wall-clock time was written with a ``Z`` suffix,
-          mislabelling the instant (upstream#1542).
+        Regression for upstream#1542: naive values are assumed to already
+        be UTC and serialised directly; aware values are normalised to UTC
+        before the trailing ``Z`` is written, so the on-disk instant is
+        honest (rather than mislabelling local wall-clock time as UTC).
         """
         if not isinstance(value, dt.datetime):  # pyright: ignore[reportUnnecessaryIsInstance]
-            tmpl = "property requires <type 'datetime.datetime'> object, got %s"
-            raise ValueError(tmpl % type(value))
-        # -- Normalise tz-aware values to UTC so the trailing ``Z`` is honest.
-        # -- Naive values are assumed to already be UTC (historical contract).
+            raise ValueError(
+                "property requires <type 'datetime.datetime'> object, got %s"
+                % type(value)
+            )
         if value.tzinfo is not None:
             value = value.astimezone(dt.timezone.utc)
         element = self._get_or_add(prop_name)
-        dt_str = value.strftime("%Y-%m-%dT%H:%M:%SZ")
-        element.text = dt_str
+        element.text = value.strftime("%Y-%m-%dT%H:%M:%SZ")
         if prop_name in ("created", "modified"):
-            # These two require an explicit "xsi:type="dcterms:W3CDTF""
-            # attribute. The first and last line are a hack required to add
-            # the xsi namespace to the root element rather than each child
-            # element in which it is referenced
-            self.set(qn("xsi:foo"), "bar")
-            element.set(qn("xsi:type"), "dcterms:W3CDTF")
-            del self.attrib[qn("xsi:foo")]
+            element.set(_shared_qn("xsi:type"), "dcterms:W3CDTF")
 
-    def _set_element_text(self, prop_name: str, value: Any) -> None:
-        """Set string value of `name` property to `value`."""
-        if not isinstance(value, str):
-            value = str(value)
 
-        if len(value) > 255:
-            tmpl = "exceeded 255 char limit for property, got:\n\n'%s'"
-            raise ValueError(tmpl % value)
-        element = self._get_or_add(prop_name)
-        element.text = value
+_configure(_DocxRegistry())
 
-    def _text_of_element(self, property_name: str) -> str:
-        """The text in the element matching `property_name`.
-
-        The empty string if the element is not present or contains no text.
-        """
-        element = getattr(self, property_name)
-        if element is None:
-            return ""
-        if element.text is None:
-            return ""
-        return element.text
+__all__ = ["CT_CoreProperties"]
