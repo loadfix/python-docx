@@ -1,19 +1,63 @@
 """Custom element classes for DrawingML chart-related elements.
 
-Only the minimum subset of the chartML (`c:`) vocabulary required by the
-read API (chart_type, title, categories, series name/values, legend) and
-the minimal create templates (bar, column, line, pie) is modeled here.
+Re-exports the CT_* chart element classes from the shared
+:mod:`ooxml_chart.oxml` package and adds docx-local thin subclasses
+where docx's historically narrow read API had different (None-returning)
+semantics or extra convenience properties than the shared pptx-anchored
+superset.
+
+.. versionchanged:: 2026.05.0
+   Superseded by re-exports from :mod:`ooxml_chart.oxml`.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+# ---------------------------------------------------------------------------
+# Namespace-registry safety: importing ``ooxml_chart.oxml`` appends the
+# shared chart registry to the process-global ``ooxml_xmlchemy`` composite
+# stack. The composite resolves lookups in reverse registration order
+# (most-recent first), so docx's registry would be shadowed — e.g.
+# ``OxmlElement("a:effectLst")`` would fall through to the shared chart
+# parser (which has an ``a:`` prefix but no ``effectLst`` class registered)
+# and return a generic ``lxml.etree._Element`` instead of
+# :class:`docx.oxml.shape.CT_EffectList`. Restore docx's registry at
+# module-import-completion below (see the same pattern in
+# ``pptx.oxml.extprops``).
+# ---------------------------------------------------------------------------
+from ooxml_chart.oxml.chart import CT_PlotArea as _SharedCT_PlotArea
+from ooxml_chart.oxml.plot import (
+    CT_AreaChart,
+    CT_BarChart as _SharedCT_BarChart,
+    CT_DoughnutChart,
+    CT_LineChart,
+    CT_PieChart,
+    CT_ScatterChart,
+)
+from ooxml_chart.oxml.series import CT_SeriesComposite
+from ooxml_xmlchemy import configure_namespace_registry as _configure
+
 from docx.oxml.ns import qn
+from docx.oxml.parser import _DocxNamespaceRegistry as _DocxRegistry
 from docx.oxml.xmlchemy import BaseOxmlElement
 
 if TYPE_CHECKING:
     pass
+
+
+__all__ = [
+    "CT_AreaChart",
+    "CT_BarChart",
+    "CT_Chart",
+    "CT_ChartSpace",
+    "CT_DoughnutChart",
+    "CT_LineChart",
+    "CT_PieChart",
+    "CT_PlotArea",
+    "CT_ScatterChart",
+    "CT_Ser",
+]
 
 
 def _numeric_values_from_ref_or_lit(parent: BaseOxmlElement) -> list[float]:
@@ -57,18 +101,29 @@ def _string_values_from_ref_or_lit(parent: BaseOxmlElement) -> list[str]:
 
 
 class CT_ChartSpace(BaseOxmlElement):
-    """`<c:chartSpace>` root element of a chart part."""
+    """`<c:chartSpace>` root element of a chart part.
+
+    docx-local subclass — the shared ``CT_ChartSpace`` declares ``c:chart``
+    as ``OneAndOnlyOne`` (raises on missing), whereas docx's read API
+    historically returned |None| for a chartSpace that lacks a chart
+    grandchild. This subclass restores the |None|-returning behaviour.
+    """
 
     @property
-    def chart(self) -> CT_Chart | None:
+    def chart(self) -> "CT_Chart | None":
         return cast("CT_Chart | None", self.find(qn("c:chart")))
 
 
 class CT_Chart(BaseOxmlElement):
-    """`<c:chart>` element, the chart proper inside a chartSpace."""
+    """`<c:chart>` element, the chart proper inside a chartSpace.
+
+    docx-local subclass — adds ``title_text`` and ``has_legend`` helpers
+    and overrides ``plotArea`` to return |None| (rather than raising) when
+    the ``c:plotArea`` grandchild is absent.
+    """
 
     @property
-    def plotArea(self) -> CT_PlotArea | None:
+    def plotArea(self) -> "CT_PlotArea | None":
         return cast("CT_PlotArea | None", self.find(qn("c:plotArea")))
 
     @property
@@ -89,8 +144,12 @@ class CT_Chart(BaseOxmlElement):
         return self.find(qn("c:legend")) is not None
 
 
-class CT_PlotArea(BaseOxmlElement):
-    """`<c:plotArea>` element, the container for chart-type-specific child(ren)."""
+class CT_PlotArea(_SharedCT_PlotArea):
+    """`<c:plotArea>` element, the container for chart-type-specific child(ren).
+
+    docx-local subclass — re-adds the ``chart_kind_element`` and
+    ``ser_lst`` convenience accessors the docx chart proxy relies on.
+    """
 
     @property
     def chart_kind_element(self) -> BaseOxmlElement | None:
@@ -109,55 +168,44 @@ class CT_PlotArea(BaseOxmlElement):
         return None
 
     @property
-    def ser_lst(self) -> list[CT_Ser]:
+    def ser_lst(self) -> "list[CT_Ser]":
         """All `c:ser` descendants of the plot area."""
         return cast("list[CT_Ser]", self.xpath(".//c:ser"))
 
 
-class CT_BarChart(BaseOxmlElement):
+class CT_BarChart(_SharedCT_BarChart):
     """`<c:barChart>` element.
 
-    Can represent either a vertical (column) or horizontal (bar) chart depending
-    on the value of `c:barDir/@val` ("col" → column, "bar" → bar).
+    docx-local subclass — exposes ``bar_dir`` and ``grouping`` as plain
+    strings (or |None|) rather than the shared superset's child-element
+    objects, matching docx's historical read API.
+
+    Can represent either a vertical (column) or horizontal (bar) chart
+    depending on the value of `c:barDir/@val` ("col" -> column, "bar" -> bar).
     """
 
     @property
-    def bar_dir(self) -> str | None:
+    def bar_dir(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         barDir = self.find(qn("c:barDir"))
         if barDir is None:
             return None
         return barDir.get("val")
 
     @property
-    def grouping(self) -> str | None:
+    def grouping(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         grp = self.find(qn("c:grouping"))
         if grp is None:
             return None
         return grp.get("val")
 
 
-class CT_LineChart(BaseOxmlElement):
-    """`<c:lineChart>` element."""
+class CT_Ser(CT_SeriesComposite):
+    """`<c:ser>` element, a chart series.
 
-
-class CT_PieChart(BaseOxmlElement):
-    """`<c:pieChart>` element."""
-
-
-class CT_DoughnutChart(BaseOxmlElement):
-    """`<c:doughnutChart>` element."""
-
-
-class CT_ScatterChart(BaseOxmlElement):
-    """`<c:scatterChart>` element."""
-
-
-class CT_AreaChart(BaseOxmlElement):
-    """`<c:areaChart>` element."""
-
-
-class CT_Ser(BaseOxmlElement):
-    """`<c:ser>` element, a chart series."""
+    docx-local subclass — the shared ``CT_SeriesComposite`` supplies the
+    authoring surface; docx adds the read-side helpers its ``ChartSeries``
+    proxy relies on.
+    """
 
     @property
     def tx_name(self) -> str | None:
@@ -196,3 +244,9 @@ class CT_Ser(BaseOxmlElement):
         if val is None:
             return []
         return _numeric_values_from_ref_or_lit(val)
+
+
+# -- restore docx's namespace registry as the most-recently-registered entry
+# -- so docx's ``a:`` / ``w:`` / ``r:`` lookups take precedence over the
+# -- shared chart package's ``a:``-prefix entries. --
+_configure(_DocxRegistry())
