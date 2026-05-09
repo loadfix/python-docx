@@ -21,6 +21,7 @@ from docx.oxml.xmlchemy import (
 if TYPE_CHECKING:
     from docx.oxml.endnotes import CT_EdnDocProps
     from docx.oxml.footnotes import CT_FtnDocProps
+    from docx.oxml.mail_merge import CT_DataSourceObject, CT_Odso
     from docx.oxml.shared import CT_OnOff
     from docx.shared import Length
 
@@ -83,6 +84,12 @@ class CT_MailMerge(BaseOxmlElement):
     query: "_CT_MMVal | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:query", successors=_tag_seq[5:]
     )
+    dataSource: "CT_DataSourceObject | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:dataSource", successors=_tag_seq[6:]
+    )
+    headerSource: "CT_DataSourceObject | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:headerSource", successors=_tag_seq[7:]
+    )
     doNotSuppressBlankLines: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:doNotSuppressBlankLines", successors=_tag_seq[8:]
     )
@@ -106,6 +113,9 @@ class CT_MailMerge(BaseOxmlElement):
     )
     checkErrors: "_CT_MMVal | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:checkErrors", successors=_tag_seq[15:]
+    )
+    odso: "CT_Odso | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:odso", successors=()
     )
 
     del _tag_seq

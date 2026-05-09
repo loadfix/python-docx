@@ -794,3 +794,51 @@ register_element_cls("v:fill", CT_VmlFill)
 register_element_cls("v:imagedata", CT_VmlImageData)
 register_element_cls("v:shape", CT_VmlShape)
 register_element_cls("v:textpath", CT_VmlTextpath)
+
+# ---------------------------------------------------------------------------
+# Mail-merge / ODSO (Office Data Source Object) elements
+
+from .mail_merge import (
+    CT_Base64Binary,
+    CT_DataSourceObject,
+    CT_MailMergeDataType,
+    CT_MailMergeDest,
+    CT_MailMergeDocType,
+    CT_MailMergeOdsoFMDFieldType,
+    CT_MailMergeSourceType,
+    CT_Odso,
+    CT_OdsoFieldMapData,
+    CT_OdsoRecipientData,
+    CT_RecipientData,
+    CT_TargetScreenSz,
+)
+
+# w:mailMerge/<val-wrapper> children — override the generic _CT_MMVal bindings
+# for the three spec-typed slots so the correct CT class lights up at parse time.
+register_element_cls("w:mainDocumentType", CT_MailMergeDocType)
+register_element_cls("w:dataType", CT_MailMergeDataType)
+register_element_cls("w:destination", CT_MailMergeDest)
+
+# ODSO substructure
+register_element_cls("w:odso", CT_Odso)
+register_element_cls("w:fieldMapData", CT_OdsoFieldMapData)
+register_element_cls("w:dataSource", CT_DataSourceObject)
+register_element_cls("w:headerSource", CT_DataSourceObject)
+register_element_cls("w:src", CT_DataSourceObject)
+
+# w:odso/w:type — reuse CT_MailMergeSourceType
+# (Note: w:odso/w:fieldMapData/w:type shares the `w:type` QName; lxml registers
+# a single class per QName. The source-type form is the one actually occurring
+# at document root; the FMD form is only reachable inside `w:fieldMapData` and
+# is parse-compatible because both carry a required `@w:val` string attribute.)
+
+# w:recipients top-level part
+register_element_cls("w:recipients", CT_OdsoRecipientData)
+register_element_cls("w:recipientData", CT_RecipientData)
+register_element_cls("w:uniqueTag", CT_Base64Binary)
+
+# w:targetScreenSz — settings-root child
+register_element_cls("w:targetScreenSz", CT_TargetScreenSz)
+
+# Silence unused-import warnings for CT classes exported for tests / consumers
+_ = (CT_MailMergeSourceType, CT_MailMergeOdsoFMDFieldType)
