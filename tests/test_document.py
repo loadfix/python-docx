@@ -644,7 +644,7 @@ class DescribeDocument:
         document.save("foobar.docx")
 
         document_part_.save.assert_called_once_with(
-            "foobar.docx", reproducible=False, password=None
+            "foobar.docx", reproducible=False, password=None, strict=None
         )
 
     def it_knows_when_the_document_has_macros(self, document_part_: Mock):

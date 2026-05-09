@@ -179,6 +179,35 @@ class OpcPackage:
     # -- the :attr:`recovery_warnings` property. --
     _recovery_warnings: list[str]
 
+    # -- ECMA-376 conformance class. False (Transitional) is the default
+    # -- for both authoring and load. :meth:`open` flips this to True
+    # -- when `strict=True` or when the Strict-namespace sniff in
+    # -- :class:`PackageReader` promotes the load path. :meth:`save`
+    # -- consults this flag to decide whether to re-emit Strict.
+    # -- .. versionadded:: 2026.05.11
+    _is_strict: bool = False
+
+    @property
+    def is_strict(self) -> bool:
+        """``True`` when this package was opened as ECMA-376 Strict.
+
+        A fresh authoring-path |OpcPackage| (``Package()`` with no file)
+        is Transitional by default. The flag may be assigned directly
+        (``pkg.is_strict = True``) to request Strict emission on the
+        next :meth:`save`. python-docx always translates Strict →
+        Transitional on open at the :class:`PackageReader` layer, so
+        the in-memory part graph carries Transitional URIs regardless;
+        the flag is surfaced so callers can introspect the source
+        conformance class and preserve it on round-trip.
+
+        .. versionadded:: 2026.05.11
+        """
+        return self._is_strict
+
+    @is_strict.setter
+    def is_strict(self, value: bool) -> None:
+        self._is_strict = bool(value)
+
     def after_unmarshal(self):
         """Entry point for any post-unmarshaling processing.
 
@@ -278,6 +307,7 @@ class OpcPackage:
         recover: bool = False,
         huge_tree: bool = False,
         password: str | None = None,
+        strict: bool = False,
     ) -> Self:
         """Return an |OpcPackage| instance loaded with the contents of `pkg_file`.
 
@@ -298,8 +328,21 @@ class OpcPackage:
         decrypted before loading. Decryption requires the optional
         ``python-ooxml-crypto`` dependency.
 
+        When `strict` is True, the loaded package is flagged as ECMA-376
+        Strict (:attr:`is_strict` returns ``True``). python-docx always
+        performs Strict → Transitional byte-level translation on open,
+        so the in-memory part tree uses Transitional URIs; the `strict`
+        flag is preserved for round-trip emission when
+        :meth:`save(strict=None)` re-emits the package. Even without
+        `strict=True`, packages that declare the Strict namespace family
+        (``purl.oclc.org/ooxml``) are auto-detected via the
+        :class:`_StrictTranslatingPkgReader` interposer in
+        :mod:`docx.opc.pkgreader`.
+
         .. versionchanged:: 2026.05.10
            Added ``password`` parameter.
+        .. versionchanged:: 2026.05.11
+           Added ``strict`` parameter.
         """
         from docx.oxml.parser import huge_tree_mode, recovery_mode
 
@@ -307,25 +350,35 @@ class OpcPackage:
             pkg_reader = PackageReader.from_file(pkg_file, password=password)
             package = cls()
             Unmarshaller.unmarshal(pkg_reader, package, PartFactory)
+            # -- propagate the auto-detected Strict flag from the reader
+            # -- so callers can introspect the source conformance class
+            # -- even when `strict=` was not passed explicitly. --
+            try:
+                package._is_strict = bool(getattr(pkg_reader, "is_strict", False))
+            except AttributeError:  # pragma: no cover - Mock spec_set only
+                pass
             return package
 
         if recover and huge_tree:
             with huge_tree_mode(), recovery_mode() as warnings:
                 package = _load()
             package._recovery_warnings = list(warnings)
-            return package
-
-        if recover:
+        elif recover:
             with recovery_mode() as warnings:
                 package = _load()
             package._recovery_warnings = list(warnings)
-            return package
-
-        if huge_tree:
+        elif huge_tree:
             with huge_tree_mode():
-                return _load()
+                package = _load()
+        else:
+            package = _load()
 
-        return _load()
+        if strict:
+            try:
+                package._is_strict = True
+            except AttributeError:  # pragma: no cover - Mock spec_set only
+                pass
+        return package
 
     @property
     def recovery_warnings(self) -> list[str]:
@@ -369,6 +422,7 @@ class OpcPackage:
         pkg_file: str | IO[bytes],
         reproducible: bool = False,
         password: str | None = None,
+        strict: bool | None = None,
     ):
         """Save this package to `pkg_file`.
 
@@ -391,13 +445,26 @@ class OpcPackage:
         stamp the inner (plaintext) zip members before the encryption wrapper
         is applied.
 
+        `strict` controls the ECMA-376 conformance class recorded on the
+        package. ``None`` (default) preserves :attr:`is_strict`;
+        ``True`` / ``False`` override it for this save call only. The
+        bytes written always use Transitional URIs — python-docx does
+        not currently perform Transitional → Strict byte-level
+        translation on emit. The flag survives on the package for
+        callers who round-trip it explicitly via
+        :class:`ooxml_opc.OpcPackage`.
+
         .. versionadded:: 2026.05.0
            The `reproducible` parameter.
         .. versionadded:: 2026.05.10
            The `password` parameter.
+        .. versionadded:: 2026.05.11
+           The `strict` parameter.
         """
         if isinstance(pkg_file, str):
             _validate_save_path(pkg_file)
+        if strict is not None:
+            self._is_strict = bool(strict)
         self._drop_unused_package_rels()
         for part in self.parts:
             part.before_marshal(reproducible=reproducible)

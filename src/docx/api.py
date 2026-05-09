@@ -38,6 +38,7 @@ def Document(
     huge_tree: bool = False,
     include_metadata: bool = True,
     password: str | None = None,
+    strict: bool = False,
 ) -> DocumentObject:
     """Return a |Document| object loaded from `docx`, where `docx` can be a path to a
     ``.docx`` file (a ``str`` or :class:`os.PathLike`) or a file-like object.
@@ -89,15 +90,25 @@ def Document(
        templates now load directly; Strict-OOXML packages are transparently
        translated to Transitional on open; Flat-OPC (``<pkg:package>``) input
        is auto-detected.
+    When `strict` is True, the package is flagged as ECMA-376 Strict
+    conformance so :meth:`Document.is_strict` returns ``True`` and
+    :meth:`Document.save(strict=None)` preserves the class. Strict
+    packages are always auto-detected and translated to Transitional
+    on open at the :class:`PackageReader` layer — ``strict=True`` is
+    an explicit opt-in for ambiguous sniffs.
+
     .. versionadded:: 2026.05.10
        The `password` parameter.
+    .. versionadded:: 2026.05.11
+       The `strict` parameter.
     """
     if docx is None:
         docx = _default_docx_stream()
     elif isinstance(docx, os.PathLike):
         docx = os.fspath(docx)
     package = Package.open(
-        docx, recover=recover, huge_tree=huge_tree, password=password
+        docx, recover=recover, huge_tree=huge_tree, password=password,
+        strict=strict,
     )
     document_part = cast("DocumentPart", package.main_document_part)
     if document_part.content_type not in _WORD_CONTENT_TYPES:
