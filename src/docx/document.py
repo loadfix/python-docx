@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from docx.accessibility import HeadingIssue
     from docx.alt_chunk import AltChunk
     from docx.attachments import Attachment
-    from docx.bibliography import Bibliography, Source
+    from docx.bibliography import Bibliography, Citation, Source
     from docx.bookmarks import Bookmark, Bookmarks
     from docx.chart import Chart, WD_CHART_TYPE
     from docx.comments import Comment, Comments
@@ -1165,6 +1165,44 @@ class Document(ElementProxy):
         .. versionadded:: 2026.05.7
         """
         return self._part.bibliography
+
+    @property
+    def citations(self) -> "list[Citation]":
+        """All ``CITATION`` fields found in the document body, in document order.
+
+        Walks every top-level body paragraph looking for ``w:instrText``
+        runs that begin with ``CITATION`` — whether the field is wrapped in
+        a ``<w:sdt>`` citation control (see
+        :meth:`Paragraph.add_citation_reference`) or emitted as a plain
+        complex field (see :meth:`Paragraph.add_citation`). Each hit is
+        surfaced as a :class:`docx.bibliography.Citation` proxy exposing
+        ``source_tag`` plus the ``\\p``/``\\f``/``\\s`` switch values
+        (``pages``, ``prefix``, ``suffix``).
+
+        .. versionadded:: 2026.05.10
+        """
+        from docx.bibliography import Citation, is_citation_instruction
+        from docx.fields import Field
+        from docx.oxml.ns import qn
+
+        result: "list[Citation]" = []
+        # -- first: fields at the top level of each paragraph --
+        for paragraph in self.paragraphs:
+            for field in paragraph.fields:
+                if is_citation_instruction(field.instruction):
+                    result.append(Citation(field))
+            # -- also walk fields wrapped in <w:sdt> citation controls
+            # -- that Paragraph.fields / iter_field_elements intentionally
+            # -- skip (their begin-run is a descendant, not a direct child). --
+            p_element = paragraph._p  # type: ignore[attr-defined]
+            for begin_run in p_element.xpath(
+                ".//w:sdt//w:r[w:fldChar[@w:fldCharType='begin']]"
+            ):
+                _ = qn  # keep the import used for lxml's qn caching
+                field = Field.for_complex(begin_run)
+                if is_citation_instruction(field.instruction):
+                    result.append(Citation(field))
+        return result
 
     @property
     def bookmarks(self) -> Bookmarks:

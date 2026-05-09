@@ -159,6 +159,13 @@ class CT_Source(BaseOxmlElement):
             return None
         return elm.text
 
+    def field(self, name: str) -> "str | None":
+        """Return the text of the ``<b:{name}>`` child element, or |None|."""
+        elm = self.find(qn(f"b:{name}"))
+        if elm is None:
+            return None
+        return elm.text
+
     @property
     def author(self) -> "str | None":
         """First author name (``Corporate`` or formatted ``First Last``), or |None|."""

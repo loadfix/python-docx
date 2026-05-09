@@ -14,11 +14,39 @@ rooted in :meth:`Document.add_citation`.
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Iterator
 
 if TYPE_CHECKING:
+    from docx.fields import Field
     from docx.oxml.bibliography import CT_Source, CT_Sources
     from docx.parts.bibliography import BibliographyPart
+
+
+# -- ECMA-376 Part 1 §22.6.2.21 source-type catalogue. These are the values
+# -- Word writes into <b:SourceType>. Unknown values are accepted on read
+# -- but rejected (with a helpful message) when supplied to add_source. --
+VALID_SOURCE_TYPES: "frozenset[str]" = frozenset(
+    {
+        "Book",
+        "BookSection",
+        "JournalArticle",
+        "ArticleInAPeriodical",
+        "ConferenceProceedings",
+        "Report",
+        "Misc",
+        "InternetSite",
+        "Film",
+        "SoundRecording",
+        "Performance",
+        "Art",
+        "DocumentFromInternetSite",
+        "ElectronicSource",
+        "Case",
+        "Patent",
+        "Interview",
+    }
+)
 
 
 class Source:
@@ -84,6 +112,33 @@ class Source:
         .. versionadded:: 2026.05.7
         """
         return self._element.source_type
+
+    @property
+    def publisher(self) -> "str | None":
+        """``<b:Publisher>`` text, or |None|.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._element.field("Publisher")
+
+    @property
+    def city(self) -> "str | None":
+        """``<b:City>`` text, or |None|.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._element.field("City")
+
+    def field(self, name: str) -> "str | None":
+        """Return the text of the ``<b:{name}>`` child element, or |None|.
+
+        Generic accessor for source fields not exposed as dedicated
+        properties — e.g. ``source.field("Medium")``, ``source.field("URL")``.
+        Names are matched exactly (Word uses PascalCase for every field).
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._element.field(name)
 
     def __repr__(self) -> str:
         return f"<Source tag={self.tag!r} title={self.title!r} year={self.year!r}>"
@@ -194,6 +249,11 @@ class Bibliography:
         """
         if self._sources.get_source_by_tag(tag) is not None:
             raise ValueError(f"bibliography already has a source with tag {tag!r}")
+        if source_type not in VALID_SOURCE_TYPES:
+            raise ValueError(
+                f"unknown source_type {source_type!r}; expected one of "
+                f"{sorted(VALID_SOURCE_TYPES)}"
+            )
         elm = self._sources.add_source_from_kwargs(
             tag,
             title=title,
@@ -203,3 +263,97 @@ class Bibliography:
             **extra,
         )
         return Source(elm)
+
+
+# -- CITATION field instruction parsing ----------------------------------
+
+# -- The CITATION instruction looks like:
+# --    CITATION smith2020 \p "45-48" \f "cf. " \s ", et al."
+# -- with optional \l <lcid>, \n (suppress author), \t (suppress title),
+# -- \m <tag> (combined multi-source) switches. We only surface the fields
+# -- the spec asks for: source_tag, pages, prefix, suffix. --
+_CITATION_INSTR_RX = re.compile(
+    r"^\s*CITATION\s+(?P<tag>\S+)(?P<rest>.*)$", re.DOTALL
+)
+
+
+def _parse_switch_value(rest: str, switch: str) -> "str | None":
+    """Extract the quoted or bare argument following ``\\<switch>`` in `rest`.
+
+    Returns |None| if the switch is not present. Handles both
+    ``\\p "45-48"`` and ``\\p 45-48`` spellings.
+    """
+    # -- look for \<switch> followed by whitespace --
+    pattern = re.compile(
+        rf"\\{re.escape(switch)}\s+(?:\"(?P<q>[^\"]*)\"|(?P<b>\S+))"
+    )
+    match = pattern.search(rest)
+    if match is None:
+        return None
+    return match.group("q") if match.group("q") is not None else match.group("b")
+
+
+class Citation:
+    """Proxy for a single ``CITATION`` field inside the document body.
+
+    Exposes the citation's source tag and the optional ``\\p``/``\\f``/``\\s``
+    switch values (pages, prefix, suffix) as read-only properties. The
+    underlying |Field| is available as :attr:`field` for callers that need
+    to mutate the rendered result or dig into the raw runs.
+
+    .. versionadded:: 2026.05.10
+    """
+
+    def __init__(self, field: "Field"):
+        self._field = field
+
+    @property
+    def field(self) -> "Field":
+        """The underlying |Field| proxy wrapping this CITATION.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._field
+
+    @property
+    def source_tag(self) -> str:
+        """The bibliography ``tag`` this citation refers to."""
+        match = _CITATION_INSTR_RX.match(self._field.instruction)
+        if match is None:
+            return ""
+        return match.group("tag")
+
+    @property
+    def pages(self) -> "str | None":
+        """Value of the ``\\p`` switch (page-range override), or |None|."""
+        return self._switch("p")
+
+    @property
+    def prefix(self) -> "str | None":
+        """Value of the ``\\f`` switch (citation prefix), or |None|."""
+        return self._switch("f")
+
+    @property
+    def suffix(self) -> "str | None":
+        """Value of the ``\\s`` switch (citation suffix), or |None|."""
+        return self._switch("s")
+
+    def _switch(self, name: str) -> "str | None":
+        match = _CITATION_INSTR_RX.match(self._field.instruction)
+        if match is None:
+            return None
+        return _parse_switch_value(match.group("rest"), name)
+
+    def __repr__(self) -> str:
+        return (
+            f"<Citation source_tag={self.source_tag!r} pages={self.pages!r}>"
+        )
+
+
+def is_citation_instruction(instruction: str) -> bool:
+    """Return ``True`` if `instruction` is a ``CITATION`` field instruction.
+
+    Leading whitespace and case-exact ``CITATION`` required, matching
+    Word's field-grammar convention.
+    """
+    return _CITATION_INSTR_RX.match(instruction) is not None

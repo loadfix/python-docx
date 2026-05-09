@@ -154,3 +154,147 @@ class DescribeDocument_add_citation:
 
         tags = [s.tag for s in doc.bibliography]
         assert tags == ["a", "b", "c"]
+
+
+class DescribeBibliography_source_types:
+    """Test suite for the ECMA-376 source-type catalogue."""
+
+    @pytest.mark.parametrize(
+        "source_type",
+        [
+            "Book",
+            "JournalArticle",
+            "ConferenceProceedings",
+            "Report",
+            "Misc",
+            "InternetSite",
+            "Film",
+            "SoundRecording",
+            "Performance",
+            "Art",
+            "DocumentFromInternetSite",
+            "ElectronicSource",
+            "Case",
+            "Patent",
+            "Interview",
+        ],
+    )
+    def it_accepts_each_ecma_source_type(self, source_type: str):
+        from docx.oxml.bibliography import new_sources_root
+
+        bib = Bibliography(new_sources_root())
+
+        src = bib.add_source(f"tag-{source_type}", source_type=source_type)
+
+        assert src.source_type == source_type
+
+    def it_rejects_an_unknown_source_type(self):
+        from docx.oxml.bibliography import new_sources_root
+
+        bib = Bibliography(new_sources_root())
+
+        with pytest.raises(ValueError, match="Scroll"):
+            bib.add_source("mytag", source_type="Scroll")
+
+
+class DescribeSource_extra_fields:
+    """Test suite for the additional Source read accessors."""
+
+    def it_exposes_publisher_and_city(self):
+        doc = Document()
+
+        src = doc.add_citation(
+            "smith2020",
+            title="A Book",
+            author="Smith, J.",
+            year=2020,
+            publisher="Acme Press",
+            city="London",
+        )
+
+        assert src.publisher == "Acme Press"
+        assert src.city == "London"
+        # -- generic accessor for arbitrary fields --
+        assert src.field("Title") == "A Book"
+        assert src.field("NoSuchField") is None
+
+
+class DescribeParagraph_add_citation:
+    """Test suite for Paragraph.add_citation (plain CITATION complex field)."""
+
+    def it_emits_a_complex_CITATION_field(self):
+        doc = Document()
+        doc.add_citation("smith2020", title="A Book", year=2020)
+        p = doc.add_paragraph("See ")
+
+        field = p.add_citation("smith2020")
+
+        assert field.is_complex
+        assert field.type == "CITATION"
+        assert "smith2020" in field.instruction
+
+    def it_encodes_pages_prefix_and_suffix_switches(self):
+        doc = Document()
+        doc.add_citation("smith2020", title="A Book", year=2020)
+        p = doc.add_paragraph()
+
+        field = p.add_citation(
+            "smith2020", pages="45-48", prefix="cf. ", suffix=", et al."
+        )
+
+        assert "\\p" in field.instruction
+        assert "45-48" in field.instruction
+        assert "\\f" in field.instruction
+        assert "cf. " in field.instruction
+        assert "\\s" in field.instruction
+        assert ", et al." in field.instruction
+
+    def it_survives_save_reload_and_appears_in_document_citations(self):
+        doc = Document()
+        doc.add_citation("einstein1905", title="Zur Elektrodynamik", year=1905)
+        p = doc.add_paragraph("See ")
+        p.add_citation("einstein1905", pages="891", prefix="e.g. ")
+
+        buf = io.BytesIO()
+        doc.save(buf)
+        buf.seek(0)
+        reloaded = Document(buf)
+
+        citations = reloaded.citations
+        assert len(citations) == 1
+        assert citations[0].source_tag == "einstein1905"
+        assert citations[0].pages == "891"
+        assert citations[0].prefix == "e.g. "
+        assert citations[0].suffix is None
+
+
+class DescribeDocument_citations:
+    """Test suite for Document.citations — walk every CITATION in the body."""
+
+    def it_returns_an_empty_list_when_no_citations_exist(self):
+        doc = Document()
+
+        assert doc.citations == []
+
+    def it_picks_up_sdt_wrapped_and_bare_citations(self):
+        doc = Document()
+        doc.add_citation("a", title="A")
+        doc.add_citation("b", title="B")
+
+        p1 = doc.add_paragraph("See ")
+        p1.add_citation_reference("a")
+        p2 = doc.add_paragraph("Also ")
+        p2.add_citation("b", pages="7")
+
+        citations = doc.citations
+        tags = sorted(c.source_tag for c in citations)
+        assert tags == ["a", "b"]
+        b_cite = next(c for c in citations if c.source_tag == "b")
+        assert b_cite.pages == "7"
+
+    def it_skips_non_citation_fields(self):
+        doc = Document()
+        p = doc.add_paragraph()
+        p.add_complex_field("PAGE")
+
+        assert doc.citations == []

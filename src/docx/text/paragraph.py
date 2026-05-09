@@ -428,6 +428,41 @@ class Paragraph(StoryChild):
         self._p.append(sdt)
         return ContentControl(cast("CT_Sdt", sdt))
 
+    def add_citation(
+        self,
+        source_tag: str,
+        pages: "str | None" = None,
+        prefix: "str | None" = None,
+        suffix: "str | None" = None,
+        result_text: "str | None" = None,
+    ) -> Field:
+        """Append a plain ``CITATION`` complex field to this paragraph.
+
+        Unlike :meth:`add_citation_reference` — which wraps the field in a
+        ``<w:sdt>`` citation content control — this method emits the bare
+        ``w:fldChar``/``w:instrText`` five-run sequence. The instruction is
+        ``CITATION <source_tag>`` with optional ``\\p <pages>``,
+        ``\\f <prefix>`` and ``\\s <suffix>`` switches per Word's field
+        grammar.
+
+        The field result falls back to ``(source_tag)`` when `result_text`
+        is not supplied. Returns a |Field| wrapping the begin-marker run.
+
+        .. versionadded:: 2026.05.10
+        """
+        # -- build the CITATION instruction with optional switches --
+        parts: list[str] = [f"CITATION {source_tag}"]
+        if pages is not None:
+            parts.append(f'\\p "{pages}"')
+        if prefix is not None:
+            parts.append(f'\\f "{prefix}"')
+        if suffix is not None:
+            parts.append(f'\\s "{suffix}"')
+        instr = " " + " ".join(parts) + " "
+
+        display = result_text if result_text is not None else f"({source_tag})"
+        return self.add_complex_field(instr, result_text=display)
+
     def add_page_break(self) -> Paragraph:
         """Append a page-break run to this paragraph and return self.
 

@@ -1427,6 +1427,10 @@ p = document.add_paragraph("As argued in ")
 p.add_citation_reference("smith2020")
 p.add_run(", ...")
 
+# Or insert a bare CITATION complex field with page / prefix / suffix switches.
+p2 = document.add_paragraph("Also ")
+p2.add_citation("einstein1905", pages="891-921", prefix="cf. ")
+
 # Read back.
 for source in document.bibliography:
     print(source.tag, source.author, source.year, source.title)
@@ -1434,16 +1438,24 @@ for source in document.bibliography:
 hit = document.bibliography.get_by_tag("smith2020")
 assert hit is not None and hit.year == "2020"
 
+# Walk every CITATION field in the body.
+for citation in document.citations:
+    print(citation.source_tag, citation.pages, citation.prefix, citation.suffix)
+
 document.save("out.docx")
 ```
 
 - `Document.bibliography` — Returns a |Bibliography| proxy; lazily creates the customXml part. `[Added in 2026.05.8]`
 - `Document.add_citation(tag, title=None, author=None, year=None, source_type="Book", **extra)` — Append a |Source| and return it. `[Added in 2026.05.8]`
+- `Document.citations` — Walk every `CITATION` field in the body (bare or SDT-wrapped) and return a list of |Citation| proxies. `[Added in 2026.05.10]`
 - `Paragraph.add_citation_reference(tag, result_text=None, locale_id=1033)` — Insert a `<w:sdt>` with a `CITATION` field referencing `tag`. `[Added in 2026.05.8]`
+- `Paragraph.add_citation(source_tag, pages=None, prefix=None, suffix=None, result_text=None)` — Insert a bare complex `CITATION` field with optional `\p` / `\f` / `\s` switches (for page-range, prefix, suffix overrides). Returns a |Field|. `[Added in 2026.05.10]`
 - `Bibliography.sources` — List of every |Source|. `[Added in 2026.05.8]`
+- `Bibliography.add_source(tag, source_type="Book", title=None, author=None, year=None, **extra)` — Append a |Source|, validating `source_type` against the ECMA-376 catalogue (`Book`, `JournalArticle`, `ConferenceProceedings`, `Report`, `Misc`, `InternetSite`, `Film`, `SoundRecording`, `Performance`, `Art`, `DocumentFromInternetSite`, `ElectronicSource`, `Case`, `Patent`, `Interview`, ...). `[Added in 2026.05.8, catalogue validation in 2026.05.10]`
 - `Bibliography.get_by_tag(tag)` — Lookup; returns |Source| or |None|. `[Added in 2026.05.8]`
 - `Bibliography.selected_style` / `.style_name` — APA / MLA / etc. style selector. `[Added in 2026.05.8]`
-- `Source.tag` / `.title` / `.author` / `.year` / `.source_type` / `.element`. `[Added in 2026.05.8]`
+- `Source.tag` / `.title` / `.author` / `.year` / `.source_type` / `.publisher` / `.city` / `.field(name)` / `.element`. `[Added in 2026.05.8; publisher/city/field() added in 2026.05.10]`
+- `Citation.source_tag` / `.pages` / `.prefix` / `.suffix` / `.field` — Read-only access to the switch values parsed from the CITATION instruction plus the underlying |Field|. `[Added in 2026.05.10]`
 
 ---
 
