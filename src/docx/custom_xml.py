@@ -17,6 +17,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from lxml import etree
+from ooxml_customxml import CT_DatastoreItem
+from ooxml_customxml import DS_NS as _DS_NS
+from ooxml_customxml.oxml import parse_xml as _parse_datastore_xml
 
 from docx.opc.constants import CONTENT_TYPE as CT
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
@@ -24,10 +27,6 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 if TYPE_CHECKING:
     from docx.opc.part import Part
     from docx.parts.custom_xml import CustomXmlPart as _CustomXmlDataPart
-
-
-# -- namespace for custom-XML datastore props --
-_DS_NS = "http://schemas.openxmlformats.org/officeDocument/2006/customXml"
 
 
 class CustomXmlPart:
@@ -94,10 +93,13 @@ class CustomXmlPart:
 
         .. versionadded:: 2026.05.0
         """
-        props_elm = self._itemProps_root()
-        if props_elm is None:
+        item = self._datastore_item()
+        if item is None:
             return None
-        return props_elm.get(f"{{{_DS_NS}}}itemID")
+        # -- read via the low-level lxml `.get()` rather than CT_DatastoreItem.itemID
+        # -- so a malformed part missing the required attribute returns None instead
+        # -- of raising InvalidXmlError. Matches the pre-adoption tolerance. --
+        return item.get(f"{{{_DS_NS}}}itemID")
 
     @property
     def schema_refs(self) -> list[str]:
@@ -110,15 +112,10 @@ class CustomXmlPart:
 
         .. versionadded:: 2026.05.0
         """
-        props_elm = self._itemProps_root()
-        if props_elm is None:
+        item = self._datastore_item()
+        if item is None:
             return []
-        refs: list[str] = []
-        for ref in props_elm.iter(f"{{{_DS_NS}}}schemaRef"):
-            uri = ref.get(f"{{{_DS_NS}}}uri")
-            if uri is not None:
-                refs.append(uri)
-        return refs
+        return item.schema_refs
 
     # -- internal helpers ----------------------------------------------------
 
@@ -129,8 +126,16 @@ class CustomXmlPart:
         except (KeyError, ValueError):
             return None
 
-    def _itemProps_root(self):
-        """Parsed root of the sibling properties part, or |None|."""
+    def _datastore_item(self) -> "CT_DatastoreItem | None":
+        """Parsed :class:`CT_DatastoreItem` root of the properties part, or |None|.
+
+        Delegates to the hardened :mod:`ooxml_customxml` parser so the
+        returned element has the full descriptor-backed surface (the
+        ``schemaRefs`` child proxy, the ``schema_refs`` URI list, etc.)
+        rather than a bare lxml element. Returns |None| when there is
+        no sibling properties part, when its blob is empty, when
+        parsing fails, or when the root is not a ``<ds:datastoreItem>``.
+        """
         props_part = self._itemProps_part()
         if props_part is None:
             return None
@@ -138,9 +143,12 @@ class CustomXmlPart:
         if not blob:
             return None
         try:
-            return etree.fromstring(blob)
+            root = _parse_datastore_xml(blob)
         except etree.XMLSyntaxError:
             return None
+        if not isinstance(root, CT_DatastoreItem):
+            return None
+        return root
 
 
 def iter_custom_xml_parts(document_part: "Part") -> list[CustomXmlPart]:
