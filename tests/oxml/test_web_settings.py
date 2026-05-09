@@ -131,3 +131,41 @@ class DescribeCT_WebSettings:
             ")"
         )
         assert web_settings.xml == expected
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:webSettings", False),
+            ("w:webSettings/w:relyOnVML", True),
+            ("w:webSettings/w:relyOnVML{w:val=0}", False),
+            ("w:webSettings/w:relyOnVML{w:val=true}", True),
+        ],
+    )
+    def it_can_get_the_relyOnVML_val(self, cxml: str, expected_value: bool):
+        web_settings = cast(CT_WebSettings, element(cxml))
+        assert web_settings.relyOnVML_val is expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            ("w:webSettings", True, "w:webSettings/w:relyOnVML"),
+            ("w:webSettings/w:relyOnVML", False, "w:webSettings"),
+            ("w:webSettings/w:relyOnVML{w:val=0}", True, "w:webSettings/w:relyOnVML"),
+            ("w:webSettings/w:relyOnVML", None, "w:webSettings"),
+        ],
+    )
+    def it_can_set_the_relyOnVML_val(
+        self, cxml: str, new_value: bool | None, expected_cxml: str
+    ):
+        web_settings = cast(CT_WebSettings, element(cxml))
+        web_settings.relyOnVML_val = new_value
+        assert web_settings.xml == xml(expected_cxml)
+
+    def it_exposes_a_frameset_child_when_present(self):
+        web_settings = cast(
+            CT_WebSettings,
+            element("w:webSettings/w:frameset/(w:frame,w:frame)"),
+        )
+        frameset = web_settings.frameset
+        assert frameset is not None
+        assert len(frameset.frame_lst) == 2

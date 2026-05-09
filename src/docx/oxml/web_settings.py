@@ -6,7 +6,12 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from docx.oxml.simpletypes import ST_OnOff, ST_String
-from docx.oxml.xmlchemy import BaseOxmlElement, OptionalAttribute, ZeroOrOne
+from docx.oxml.xmlchemy import (
+    BaseOxmlElement,
+    OptionalAttribute,
+    ZeroOrMore,
+    ZeroOrOne,
+)
 
 if TYPE_CHECKING:
     from docx.oxml.shared import CT_OnOff
@@ -39,17 +44,63 @@ class CT_OptimizeForBrowser(BaseOxmlElement):
     )
 
 
+class CT_Frameset(BaseOxmlElement):
+    """``<w:frameset>`` element within ``w:webSettings``.
+
+    The outer frameset of a framed HTML save. Contains an optional size
+    descriptor, a splitbar, a frame layout, a title, and any number of
+    nested ``<w:frameset>`` or ``<w:frame>`` children. This module
+    models only the attributes python-docx needs to round-trip and enumerate
+    the direct child ``<w:frame>`` entries.
+    """
+
+    frame_lst: list[CT_Frame]
+    frameset_lst: list[CT_Frameset]
+
+    frame = ZeroOrMore("w:frame")
+    frameset = ZeroOrMore("w:frameset")
+
+
+class CT_Frame(BaseOxmlElement):
+    """``<w:frame>`` element within ``w:frameset``.
+
+    Describes a single HTML frame (size, title, source, scrollbar
+    policy). Only the readable children needed for round-trip and
+    enumeration are modelled.
+    """
+
+    get_or_add_name: Callable[[], CT_Encoding]
+    _remove_name: Callable[[], None]
+    get_or_add_sourceFileName: Callable[[], BaseOxmlElement]
+    _remove_sourceFileName: Callable[[], None]
+
+    name: CT_Encoding | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:name",
+        successors=(
+            "w:title",
+            "w:longDesc",
+            "w:sourceFileName",
+            "w:marW",
+            "w:marH",
+            "w:scrollbar",
+            "w:noResizeAllowed",
+            "w:linkedToFile",
+        ),
+    )
+
+
 class CT_WebSettings(BaseOxmlElement):
     """``<w:webSettings>`` element, root of the web-settings part.
 
-    Holds document-level settings relating to saving as a web page. Only
-    the child elements exposed by the thin Python proxy are modelled here;
-    the ``w:frameset`` and ``w:divs`` children are structural and not
-    included because this project does not expose frameset/div semantics.
-    The remaining children are each optional and ST_OnOff flag wrappers
-    or the string-valued ``w:encoding``.
+    Holds document-level settings relating to saving as a web page. The
+    full ECMA-376 Part 1 §17.15.1.121 child sequence is modelled, although
+    the high-level proxy only surfaces a subset. Unmodelled children are
+    preserved bytewise on round-trip because lxml keeps unknown children
+    in element order.
     """
 
+    get_or_add_frameset: Callable[[], CT_Frameset]
+    _remove_frameset: Callable[[], None]
     get_or_add_encoding: Callable[[], CT_Encoding]
     _remove_encoding: Callable[[], None]
     get_or_add_optimizeForBrowser: Callable[[], CT_OptimizeForBrowser]
@@ -68,15 +119,18 @@ class CT_WebSettings(BaseOxmlElement):
         "w:optimizeForBrowser",
         "w:relyOnVML",
         "w:allowPNG",
+        "w:doNotRelyOnCSS",
         "w:doNotSaveAsSingleFile",
         "w:doNotOrganizeInFolder",
-        "w:doNotRelyOnCSS",
         "w:doNotUseLongFileNames",
         "w:pixelsPerInch",
         "w:targetScreenSz",
         "w:saveSmartTagsAsXml",
     )
 
+    frameset: CT_Frameset | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:frameset", successors=_tag_seq[1:]
+    )
     encoding: CT_Encoding | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:encoding", successors=_tag_seq[3:]
     )
@@ -90,7 +144,7 @@ class CT_WebSettings(BaseOxmlElement):
         "w:allowPNG", successors=_tag_seq[6:]
     )
     doNotSaveAsSingleFile: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
-        "w:doNotSaveAsSingleFile", successors=_tag_seq[7:]
+        "w:doNotSaveAsSingleFile", successors=_tag_seq[8:]
     )
     del _tag_seq
 
@@ -118,6 +172,21 @@ class CT_WebSettings(BaseOxmlElement):
             self._remove_optimizeForBrowser()
             return
         self.get_or_add_optimizeForBrowser().val = value
+
+    @property
+    def relyOnVML_val(self) -> bool:
+        """True when ``w:relyOnVML`` is present and not explicitly disabled."""
+        relyOnVML = self.relyOnVML
+        if relyOnVML is None:
+            return False
+        return relyOnVML.val
+
+    @relyOnVML_val.setter
+    def relyOnVML_val(self, value: bool | None):
+        if value is None or value is False:
+            self._remove_relyOnVML()
+            return
+        self.get_or_add_relyOnVML().val = value
 
     @property
     def allowPNG_val(self) -> bool:

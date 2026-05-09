@@ -642,13 +642,22 @@ from .text.paragraph import CT_P
 
 register_element_cls("w:p", CT_P)
 
-from .web_settings import CT_Encoding, CT_OptimizeForBrowser, CT_WebSettings
+from .web_settings import (
+    CT_Encoding,
+    CT_Frame,
+    CT_Frameset,
+    CT_OptimizeForBrowser,
+    CT_WebSettings,
+)
 
 register_element_cls("w:webSettings", CT_WebSettings)
 register_element_cls("w:encoding", CT_Encoding)
 register_element_cls("w:optimizeForBrowser", CT_OptimizeForBrowser)
+register_element_cls("w:frameset", CT_Frameset)
+register_element_cls("w:frame", CT_Frame)
 register_element_cls("w:relyOnVML", CT_OnOff)
 register_element_cls("w:allowPNG", CT_OnOff)
+register_element_cls("w:doNotRelyOnCSS", CT_OnOff)
 register_element_cls("w:doNotSaveAsSingleFile", CT_OnOff)
 
 from .theme import (

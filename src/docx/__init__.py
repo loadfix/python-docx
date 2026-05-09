@@ -35,6 +35,7 @@ from docx.parts.extended_properties import ExtendedPropertiesPart
 from docx.parts.document import DocumentPart
 from docx.parts.embedded_object import EmbeddedObjectPart
 from docx.parts.endnotes import EndnotesPart
+from docx.font_obfuscation import OBFUSCATED_FONT_CONTENT_TYPE
 from docx.parts.font_table import FontPart, FontTablePart
 from docx.parts.footnotes import FootnotesPart
 from docx.parts.glossary import GlossaryPart
@@ -84,6 +85,7 @@ PartFactory.part_type_for[CT.WML_ENDNOTES] = EndnotesPart
 PartFactory.part_type_for[CT.WML_FONT_TABLE] = FontTablePart
 PartFactory.part_type_for[CT.X_FONTDATA] = FontPart
 PartFactory.part_type_for[CT.X_FONT_TTF] = FontPart
+PartFactory.part_type_for[OBFUSCATED_FONT_CONTENT_TYPE] = FontPart
 PartFactory.part_type_for[CT.WML_FOOTER] = FooterPart
 PartFactory.part_type_for[CT.WML_FOOTNOTES] = FootnotesPart
 PartFactory.part_type_for[CT.WML_DOCUMENT_GLOSSARY] = GlossaryPart
@@ -124,6 +126,7 @@ del (
     HeaderPart,
     InkPart,
     NumberingPart,
+    OBFUSCATED_FONT_CONTENT_TYPE,
     PartFactory,
     SettingsPart,
     StylesPart,
