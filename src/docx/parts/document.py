@@ -409,8 +409,42 @@ class DocumentPart(StoryPart):
         they are derived deterministically from each paragraph's
         content, so repeated saves remain byte-identical.
 
+        When the document part was loaded from an on-disk package
+        (``_loaded_from_package=True``) the minting steps are
+        suppressed outright — Word itself does not retroactively stamp
+        rsid/paraId/textId attributes on paragraphs and runs it did
+        not author in the current editing session, and doing so on a
+        pure read+save round-trip silently changes user data and
+        breaks byte-identical fidelity. Any paragraphs python-docx
+        subsequently appends via its API inherit the underlying
+        element defaults (no rsid/paraId/textId), which are all
+        optional per ECMA-376 and accepted by Word.
+
         .. versionadded:: 2026.05.2
+        .. versionchanged:: 2026.05.11
+            Suppress rsid/paraId/textId minting on parts loaded from a
+            package — preserves byte-identical fidelity on read+save
+            round-trips of Office-authored files.
         """
+        # Fidelity gate: parts that were loaded from a package are
+        # preserved verbatim. Minting new rsid/paraId/textId attributes
+        # onto already-authored paragraphs and runs causes every
+        # ``Document(path).save(out)`` to drift by several attributes
+        # and force a new ``<w:rsid>`` entry into ``word/settings.xml``
+        # — user-data-mutating behaviour for a nominally read-only
+        # round-trip. The ``reproducible`` branch below still runs its
+        # paraId/textId deterministic minting pass because those are
+        # content-derived tokens that remain byte-stable across
+        # identical inputs.
+        loaded_from_package = getattr(self, "_loaded_from_package", False)
+        if loaded_from_package and not reproducible:
+            # Still want to keep settings/<w:rsids> consistent with
+            # whatever rsids the loaded document already references,
+            # but we do not introduce new session-scoped tokens.
+            _mirror_run_formatting_to_paragraph_mark(self.element)
+            self._drop_unused_optional_parts(self.element)
+            return
+
         mint = _DeterministicMinter() if reproducible else _RandomMinter()
         rsid_root = mint.rsid_root()
         rsids_seen: set[str] = set()

@@ -93,8 +93,17 @@ class DescribeReproducibleSave_rsidR_preservation:
 
         assert out1.read_bytes() == out2.read_bytes()
 
-    def it_still_mints_rsidR_in_non_reproducible_mode(self, tmp_path):
-        # Empty document — every paragraph/run gets a minted rsidR.
+    def it_does_not_mint_rsidR_on_loaded_from_package_in_non_reproducible_mode(
+        self, tmp_path
+    ):
+        # Starting from the bundled template (a loaded-from-package
+        # part) and adding content must not retroactively stamp
+        # rsidR on paragraphs/runs that lack one. Word itself never
+        # retroactively stamps rsid attributes on content authored by
+        # another session on plain open+save — mirroring that
+        # behaviour is what preserves byte-identical fidelity for
+        # ``Document(path).save(out)`` round-trips of
+        # Microsoft-Word-authored files.
         doc = Document()
         p = doc.add_paragraph("hello")
         p.add_run("world")
@@ -102,9 +111,11 @@ class DescribeReproducibleSave_rsidR_preservation:
         out = tmp_path / "out.docx"
         doc.save(str(out))
 
-        # Non-reproducible mode mints rsidR on runs that lack it. A
-        # document with two runs should gain run-level rsidR entries.
-        assert _r_rsidR_count(out) >= 2
+        # Non-reproducible save on a loaded-from-package part must
+        # leave rsidR churn out of the newly-emitted runs. The runs
+        # in question were added via the API and had no rsidR set;
+        # the fidelity policy preserves that.
+        assert _r_rsidR_count(out) == 0
 
 
 class DescribeDefaultTemplateNamespaces:
