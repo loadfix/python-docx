@@ -447,6 +447,41 @@ class Run(StoryChild):
         return bool(self._r.lastRenderedPageBreaks)
 
     @property
+    def parent_field(self):
+        """The complex |Field| this run participates in, or |None|.
+
+        Walks siblings backward from this run looking for a ``w:r`` that
+        contains a ``w:fldChar[@w:fldCharType='begin']`` marker *without*
+        encountering an ``end`` marker first. When found, the returned
+        |Field| wraps that begin-run. Returns |None| when this run sits
+        outside any complex field. Simple-form (``w:fldSimple``) fields
+        surface only through the containing paragraph's :attr:`fields`
+        collection — a run inside a ``w:fldSimple`` does not have a
+        ``parent_field`` because simple fields carry their instruction as
+        an attribute rather than enclosing runs.
+
+        .. versionadded:: 2026.05.10
+        """
+        from docx.fields import Field
+        from docx.oxml.ns import qn
+
+        sibling = self._r.getprevious()
+        while sibling is not None:
+            if sibling.tag == qn("w:r"):
+                for child in sibling:
+                    if child.tag != qn("w:fldChar"):
+                        continue
+                    ft = child.get(qn("w:fldCharType"))
+                    if ft == "end":
+                        # -- a preceding end marker means this run is after
+                        #    the field, not inside it. --
+                        return None
+                    if ft == "begin":
+                        return Field.for_complex(sibling)
+            sibling = sibling.getprevious()
+        return None
+
+    @property
     def font(self) -> Font:
         """The |Font| object providing access to the character formatting properties for
         this run, such as font name and size."""

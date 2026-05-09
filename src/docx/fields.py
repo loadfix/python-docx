@@ -50,11 +50,16 @@ class WD_FIELD_TYPE:
     DATE = "DATE"
     TIME = "TIME"
     AUTHOR = "AUTHOR"
+    TITLE = "TITLE"
+    FILENAME = "FILENAME"
     REF = "REF"
     TOC = "TOC"
     SEQ = "SEQ"
     HYPERLINK = "HYPERLINK"
     PAGEREF = "PAGEREF"
+    MERGEFIELD = "MERGEFIELD"
+    STYLEREF = "STYLEREF"
+    NUMBEREDHEADERS = "NUMBEREDHEADERS"
 
 
 class Field:
@@ -130,6 +135,17 @@ class Field:
         return instr.split()[0]
 
     @property
+    def field_type(self) -> str:
+        """Alias for :attr:`type`. The first token of the instruction.
+
+        Provided for readability — ``field.type`` is ambiguous in code that also
+        deals with Python types. Both spellings return the same value.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.type
+
+    @property
     def result_text(self) -> str:
         """The rendered result text for this field.
 
@@ -144,6 +160,14 @@ class Field:
         if self._kind == "simple":
             return self._read_simple_result()
         return self._read_complex_result()
+
+    @property
+    def result(self) -> str:
+        """Alias for :attr:`result_text`. The rendered result of the field.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.result_text
 
     # -- internals ---------------------------------------------------------
 
@@ -451,6 +475,112 @@ class Field:
 
 
 # -- module-level helpers -------------------------------------------------
+
+
+class ParsedFieldInstruction:
+    """Structured view of a parsed field instruction.
+
+    Produced by :func:`parse_field_instruction`. Carries the field-type name,
+    the positional arguments (quoted strings unquoted, nested ``{...}``
+    groups preserved verbatim), and the formatting switches — a mapping from
+    switch token (without the leading backslash, uppercased) to its argument,
+    or to the empty string when the switch takes no argument. Switches that
+    take an argument per ECMA-376 § 17.16 are: ``\\*`` (general format),
+    ``\\@`` (date/time picture), ``\\#`` (numeric picture), and ``\\f``
+    (font). All other switches are flag-only.
+
+    .. versionadded:: 2026.05.10
+    """
+
+    __slots__ = ("name", "args", "switches")
+
+    def __init__(
+        self,
+        name: str,
+        args: "list[str]",
+        switches: "dict[str, str]",
+    ):
+        self.name = name
+        self.args = args
+        self.switches = switches
+
+    def __eq__(self, other: object) -> bool:  # pragma: no cover - trivial
+        if not isinstance(other, ParsedFieldInstruction):
+            return NotImplemented
+        return (
+            self.name == other.name
+            and self.args == other.args
+            and self.switches == other.switches
+        )
+
+    def __repr__(self) -> str:  # pragma: no cover - trivial
+        return (
+            f"ParsedFieldInstruction(name={self.name!r}, "
+            f"args={self.args!r}, switches={self.switches!r})"
+        )
+
+
+# -- switches that take an argument, per ECMA-376 § 17.16.4 --
+_ARG_TAKING_SWITCHES = frozenset({"*", "@", "#", "f"})
+
+
+def parse_field_instruction(instruction: str) -> ParsedFieldInstruction:
+    """Parse a field instruction string into (name, args, switches).
+
+    ``"MERGEFIELD FirstName \\* MERGEFORMAT"`` →
+    ``ParsedFieldInstruction(name="MERGEFIELD", args=["FirstName"],
+    switches={"*": "MERGEFORMAT"})``.
+
+    The instruction is tokenised honouring double-quoted runs (``"a b c"``
+    becomes a single ``a b c`` argument) and brace-delimited nested-field
+    groups (``{MERGEFIELD foo}`` is kept as a single atomic token). Switches
+    are distinguished by a leading backslash. Switches in the set
+    ``\\*``, ``\\@``, ``\\#``, ``\\f`` consume the next token as their
+    argument; all other switches are recorded as flag-only (``switches[key]``
+    is the empty string).
+
+    Returns an empty :class:`ParsedFieldInstruction` (``name=""``, no args,
+    no switches) when the instruction is empty or whitespace-only. Does not
+    raise for malformed input: unknown switch tokens are recorded verbatim.
+
+    .. versionadded:: 2026.05.10
+    """
+    stripped = instruction.strip()
+    if not stripped:
+        return ParsedFieldInstruction(name="", args=[], switches={})
+
+    tokens = _tokenize_field_args(stripped)
+    if not tokens:
+        return ParsedFieldInstruction(name="", args=[], switches={})
+
+    name = tokens[0]
+    args: list[str] = []
+    switches: dict[str, str] = {}
+
+    i = 1
+    while i < len(tokens):
+        token = tokens[i]
+        if token.startswith("\\") and len(token) >= 2:
+            # -- strip leading backslash and uppercase the letter switches so
+            #    the common ones (`\*`, `\@`, `\#`, `\f`, `\h`, `\p`, `\l`)
+            #    are case-insensitive on the value side. Single-char switches
+            #    are left as-is (case-insensitive for ASCII letters). --
+            raw_key = token[1:]
+            key = raw_key.upper() if raw_key.isalpha() else raw_key
+            # -- is this switch argument-taking? use the lowercase form so
+            #    `\*` / `\@` / `\#` / `\f` match regardless of case. --
+            tag = raw_key.lower() if raw_key.isalpha() else raw_key
+            if tag in _ARG_TAKING_SWITCHES and i + 1 < len(tokens):
+                switches[key] = tokens[i + 1]
+                i += 2
+                continue
+            switches[key] = ""
+            i += 1
+            continue
+        args.append(token)
+        i += 1
+
+    return ParsedFieldInstruction(name=name, args=args, switches=switches)
 
 
 def _parse_ref_bookmark_name(instruction: str) -> str | None:

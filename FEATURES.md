@@ -1031,12 +1031,17 @@ document.save("out.docx")
 
 - `Paragraph.add_simple_field(instr, text=None)` — Append a `w:fldSimple`. `[Added in 2026.05.0]`
 - `Paragraph.add_complex_field(instr, result_text=None)` — Append `begin`/`separate`/`end`. `[Added in 2026.05.0]`
+- `Paragraph.add_field(instruction, cached_result=None)` — Ergonomic R3-9 shim over `add_complex_field`; emits the five-run `fldChar` sequence with `instrText` and an optional cached result. `[Added in 2026.05.10]`
 - `Paragraph.fields` — Mixed list of simple and complex fields. `[Added in 2026.05.0]`
+- `Document.fields` — All fields in the body (simple + complex) in document order. `[Added in 2026.05.10]`
+- `Run.parent_field` — The enclosing complex |Field| when this run sits between a `begin` and `end` marker, else `None`. `[Added in 2026.05.10]`
 - `Field.instruction` / `Field.type` / `Field.result_text` / `Field.is_complex` / `Field.is_dirty` / `Field.mark_dirty()` / `Field.update_result_text(new_text)` / `Field.resolve(document)`. `[Added in 2026.05.0]`
+- `Field.field_type` (alias for `type`) / `Field.result` (alias for `result_text`). `[Added in 2026.05.10]`
+- `parse_field_instruction(text)` → `ParsedFieldInstruction(name, args, switches)` — Tokeniser for field-code strings. Supports quoted args, `{nested}` field groups, and the ECMA-376 argument-taking switches `\*`, `\@`, `\#`, `\f`. `[Added in 2026.05.10]`
 - `Field.evaluate(context)` — Evaluate `IF` (with nested `{MERGEFIELD}`), `MERGEFIELD`, `HYPERLINK`, `= <expr>` arithmetic formula, and `PAGE` / `NUMPAGES` / `DATE` / `TIME` placeholders against a caller-supplied mapping. `[Added in 2026.05.8]`
 - `Document.resolve_cross_references()` — Walk the body, resolve `REF`/`PAGEREF`/`DOCPROPERTY`/core-property fields, return count updated. `[Added in 2026.05.0]`
 - `Document.evaluate_fields(context)` — Batch-apply `Field.evaluate` across every field in the body; writes the evaluated text back in place and returns the number of fields updated. `[Added in 2026.05.8]`
-- Field type detection: `docx.fields.WD_FIELD_TYPE` constants. `[Added in 2026.05.0]`
+- Field type detection: `docx.fields.WD_FIELD_TYPE` constants. Covers `PAGE`, `NUMPAGES`, `DATE`, `TIME`, `AUTHOR`, `TITLE`, `FILENAME`, `REF`, `TOC`, `SEQ`, `HYPERLINK`, `PAGEREF`, `MERGEFIELD`, `STYLEREF`, `NUMBEREDHEADERS`. `[Added in 2026.05.0, extended in 2026.05.10]`
 
 ```python
 # data-driven field evaluation (mail-merge-style)
