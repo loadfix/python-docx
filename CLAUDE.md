@@ -232,6 +232,38 @@ the same writer under test and so don't exercise the `reader →
 writer` fidelity path this harness enforces (the existing
 `test_reproducible_save.py` covers writer-writer determinism).
 
+#### Spec-validity companion (`test_validate.py`)
+
+`tests/conformance/test_validate.py` is an orthogonal lane to the
+byte-round-trip harness. For each fixture, it pipes python-docx's
+save output through
+[`loadfix/ooxml-validate`](https://github.com/loadfix/ooxml-validate)
+— a Python wrapper around the Microsoft Open XML SDK validator — and
+asserts the issue list is empty. This catches a class of bug the
+byte-equality contract cannot: output that is *spec-invalid* but that
+Microsoft Word still opens (Word is famously lenient about its own
+schema).
+
+```bash
+# Install ooxml-validate + its .NET 8+ runtime dep
+pip install -e '.[conformance]'
+sudo apt-get install -y dotnet-runtime-8.0  # or brew install --cask dotnet
+
+# Run just the validator lane
+pytest -m conformance tests/conformance/test_validate.py -v
+```
+
+The lane skips cleanly when `ooxml-validate` is not installed (default
+`[dev]` extras) or when the `dotnet` executable is missing. Fixtures
+the reader refused are skipped (nothing to validate). Fixtures whose
+byte-round-trip *fails* are still validated — spec-validity is
+independent of fidelity.
+
+Non-goal: this harness does not fix validator findings. When a fixture
+fails, file a ticket; do not relax the assertion to mask a real
+emission bug. See `tests/conformance/test_validate.py` module docstring
+for the full contract.
+
 ## What NOT to do
 
 - Don't amend or force-push to `master`, and never force-push to an upstream remote under any circumstance.
