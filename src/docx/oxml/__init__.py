@@ -696,15 +696,42 @@ register_element_cls("dgm:relIds", CT_RelIds)
 
 from .chart import (
     CT_AreaChart,
+    CT_BandFmt,
+    CT_BandFmts,
+    CT_Bar3DChart,
     CT_BarChart,
     CT_Chart,
     CT_ChartSpace,
+    CT_DepthPercent,
     CT_DoughnutChart,
+    CT_HPercent,
+    CT_HeaderFooter,
+    CT_Line3DChart,
     CT_LineChart,
+    CT_MultiLvlStrData,
+    CT_MultiLvlStrRef,
+    CT_PageMargins,
+    CT_PageSetup,
+    CT_Perspective,
     CT_PieChart,
+    CT_PivotFmt,
+    CT_PivotFmts,
+    CT_PivotSource,
     CT_PlotArea,
+    CT_PrintSettings,
+    CT_RelId,
+    CT_RotX,
+    CT_RotY,
     CT_ScatterChart,
     CT_Ser,
+    CT_Shape,
+    CT_Surface,
+    CT_Surface3DChart,
+    CT_SurfaceChart,
+    CT_Thickness,
+    CT_UpDownBar,
+    CT_UpDownBars,
+    CT_View3D,
 )
 
 register_element_cls("c:chartSpace", CT_ChartSpace)
@@ -717,6 +744,45 @@ register_element_cls("c:doughnutChart", CT_DoughnutChart)
 register_element_cls("c:scatterChart", CT_ScatterChart)
 register_element_cls("c:areaChart", CT_AreaChart)
 register_element_cls("c:ser", CT_Ser)
+
+# -- chart 0.2.0 additions: 3D view + dedicated 3D/surface chart kinds +
+# -- indicators + pivot-chart + print-settings + multi-level axis. All
+# -- plain re-exports from ``ooxml_chart.oxml.*`` (no docx-local subclass
+# -- overrides needed) — registering them in docx's own element-class
+# -- lookup so the docx-side parser / ``OxmlElement`` factory resolves
+# -- these tags to their typed CT_* classes rather than plain
+# -- ``lxml.etree._Element`` (matching the 0.1.0 behaviour for the
+# -- classic chart kinds above).
+register_element_cls("c:view3D", CT_View3D)
+register_element_cls("c:rotX", CT_RotX)
+register_element_cls("c:rotY", CT_RotY)
+register_element_cls("c:perspective", CT_Perspective)
+register_element_cls("c:hPercent", CT_HPercent)
+register_element_cls("c:depthPercent", CT_DepthPercent)
+register_element_cls("c:floor", CT_Surface)
+register_element_cls("c:sideWall", CT_Surface)
+register_element_cls("c:backWall", CT_Surface)
+register_element_cls("c:thickness", CT_Thickness)
+register_element_cls("c:bar3DChart", CT_Bar3DChart)
+register_element_cls("c:line3DChart", CT_Line3DChart)
+register_element_cls("c:surfaceChart", CT_SurfaceChart)
+register_element_cls("c:surface3DChart", CT_Surface3DChart)
+register_element_cls("c:shape", CT_Shape)
+register_element_cls("c:bandFmt", CT_BandFmt)
+register_element_cls("c:bandFmts", CT_BandFmts)
+register_element_cls("c:upDownBars", CT_UpDownBars)
+register_element_cls("c:upBars", CT_UpDownBar)
+register_element_cls("c:downBars", CT_UpDownBar)
+register_element_cls("c:pivotSource", CT_PivotSource)
+register_element_cls("c:pivotFmts", CT_PivotFmts)
+register_element_cls("c:pivotFmt", CT_PivotFmt)
+register_element_cls("c:printSettings", CT_PrintSettings)
+register_element_cls("c:headerFooter", CT_HeaderFooter)
+register_element_cls("c:pageMargins", CT_PageMargins)
+register_element_cls("c:pageSetup", CT_PageSetup)
+register_element_cls("c:multiLvlStrRef", CT_MultiLvlStrRef)
+register_element_cls("c:multiLvlStrCache", CT_MultiLvlStrData)
+register_element_cls("c:userShapes", CT_RelId)
 
 # ---------------------------------------------------------------------------
 # VML watermark-related elements
