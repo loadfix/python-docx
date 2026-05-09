@@ -534,6 +534,38 @@ class Table(StoryChild):
         tblPr._add_tblDescription().val = value  # pyright: ignore[reportPrivateUsage]
 
     @property
+    def accessibility_title(self) -> str | None:
+        """Alias for :attr:`alt_text` — the table's accessibility title.
+
+        Maps to ``w:tblPr/w:tblCaption/@w:val``. Provided so callers writing
+        accessibility-checking code can use a name that parallels the
+        accessibility vocabulary exposed by Word and by WCAG tooling.
+
+        .. versionadded:: 2026.05.0
+        """
+        return self.alt_text
+
+    @accessibility_title.setter
+    def accessibility_title(self, value: str | None):
+        self.alt_text = value
+
+    @property
+    def accessibility_summary(self) -> str | None:
+        """Alias for :attr:`alt_description` — the table's long a11y summary.
+
+        Maps to ``w:tblPr/w:tblDescription/@w:val``. Provided for parity with
+        :attr:`accessibility_title` so callers can set both with matching
+        vocabulary.
+
+        .. versionadded:: 2026.05.0
+        """
+        return self.alt_description
+
+    @accessibility_summary.setter
+    def accessibility_summary(self, value: str | None):
+        self.alt_description = value
+
+    @property
     def indent(self) -> Length | None:
         """The left-indent of this table as an EMU |Length|, or |None|.
 

@@ -5,6 +5,7 @@ A shape is a visual object that appears on the drawing layer of a document.
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from docx.enum.shape import (
@@ -33,6 +34,55 @@ if TYPE_CHECKING:
     from docx.parts.image import ImagePart
     from docx.parts.story import StoryPart
     from docx.shared import Length
+
+
+# -- Accessibility role prefix handling for ``wp:docPr/@descr``.
+# Roles are encoded as a bracketed prefix at the start of ``@descr``,
+# e.g. ``"[figure] Chart of Q3 revenue"``. See
+# :attr:`InlineShape.a11y_role` and :attr:`InlineShape.alt_text`. --
+_A11Y_ROLES = frozenset({"figure", "decorative", "logo"})
+_A11Y_ROLE_RE = re.compile(r"^\[(figure|decorative|logo)\]\s?(.*)$", re.DOTALL)
+
+
+def _role_from_descr(descr: str | None) -> str | None:
+    """Return the role encoded in `descr` as a bracketed prefix, or |None|."""
+    if descr is None:
+        return None
+    match = _A11Y_ROLE_RE.match(descr)
+    if match is None:
+        return None
+    return match.group(1)
+
+
+def _alt_text_from_descr(descr: str | None) -> str | None:
+    """Return `descr` with any leading role prefix stripped, or |None|.
+
+    When `descr` is just a role prefix (e.g. ``"[decorative]"``) the returned
+    alt text is an empty string, not |None| — we still consider the descr
+    attribute to be present.
+    """
+    if descr is None:
+        return None
+    match = _A11Y_ROLE_RE.match(descr)
+    if match is None:
+        return descr
+    return match.group(2)
+
+
+def _format_descr(role: str | None, alt: str | None) -> str | None:
+    """Combine `role` and `alt` into a ``@descr`` attribute value, or |None|.
+
+    Returns |None| when both `role` and `alt` are |None| — this lets the
+    caller remove the attribute entirely. An empty ``alt`` with a role still
+    produces a bracketed-prefix-only string like ``"[decorative]"``.
+    """
+    if role is None and alt is None:
+        return None
+    if role is None:
+        return alt
+    if not alt:
+        return f"[{role}]"
+    return f"[{role}] {alt}"
 
 
 def _pic_from_graphicData(graphicData) -> CT_Picture | None:
@@ -712,13 +762,55 @@ class InlineShape:
         Maps to ``wp:inline/wp:docPr/@descr``. Returns |None| when the attribute
         is not present. Assigning |None| removes the attribute.
 
+        When the underlying ``@descr`` carries an :attr:`a11y_role` prefix in the
+        form ``"[role] actual alt text"`` the prefix is transparently stripped
+        from the returned value. Similarly, assigning a new value preserves any
+        existing role prefix.
+
+        As a convenience for legacy Word readers, assigning a non-|None| value
+        also writes the same text to ``@title`` when ``@title`` is currently
+        absent. An existing ``@title`` is never overwritten, and assigning
+        |None| does not touch ``@title``.
+
         .. versionadded:: 2026.05.0
         """
-        return self._inline.docPr.descr
+        return _alt_text_from_descr(self._inline.docPr.descr)
 
     @alt_text.setter
     def alt_text(self, value: str | None):
-        self._inline.docPr.descr = value
+        docPr = self._inline.docPr
+        role = _role_from_descr(docPr.descr)
+        docPr.descr = _format_descr(role, value)
+        if value is not None and docPr.title is None:
+            docPr.title = value
+
+    @property
+    def a11y_role(self) -> str | None:
+        """Accessibility role hint for this inline shape.
+
+        One of ``"figure"``, ``"decorative"``, ``"logo"``, or |None| when no
+        role prefix is present. The role is encoded as a bracketed prefix on
+        ``wp:docPr/@descr`` — e.g. ``"[figure] Chart of Q3 revenue"``. The
+        :attr:`alt_text` getter/setter strip and re-apply this prefix
+        transparently.
+
+        Assigning |None| removes the prefix while preserving the rest of the
+        description. Assigning an unrecognised role raises |ValueError|.
+
+        .. versionadded:: 2026.05.0
+        """
+        return _role_from_descr(self._inline.docPr.descr)
+
+    @a11y_role.setter
+    def a11y_role(self, value: str | None):
+        if value is not None and value not in _A11Y_ROLES:
+            raise ValueError(
+                f"a11y_role must be one of {sorted(_A11Y_ROLES)} or None, "
+                f"got {value!r}"
+            )
+        docPr = self._inline.docPr
+        alt = _alt_text_from_descr(docPr.descr)
+        docPr.descr = _format_descr(value, alt)
 
     @property
     def _pic(self) -> CT_Picture | None:

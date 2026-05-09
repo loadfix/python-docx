@@ -2316,6 +2316,38 @@ class Document(ElementProxy):
 
         return validate_heading_structure(self.paragraphs)
 
+    def check_alt_text(self):
+        """Return a list of ``(shape_or_table, issue_type)`` a11y issues.
+
+        Flags two classes of problem:
+
+        * ``"missing_alt_text"`` — an :class:`~docx.shape.InlineShape` whose
+          ``wp:docPr/@descr`` is absent or empty, and which is *not* marked as
+          ``decorative`` via :attr:`~docx.shape.InlineShape.a11y_role`. Purely
+          decorative images are deliberately exempt: screen readers should
+          skip them.
+        * ``"missing_summary"`` — a :class:`~docx.table.Table` with no
+          :attr:`~docx.table.Table.accessibility_summary`
+          (``w:tblPr/w:tblDescription``).
+
+        Results are returned in document order: all inline shapes first,
+        then tables. Returns an empty list when no issues are found.
+
+        .. versionadded:: 2026.05.0
+        """
+        issues: list[tuple[object, str]] = []
+        for shape in self.inline_shapes:
+            if shape.a11y_role == "decorative":
+                continue
+            alt = shape.alt_text
+            if alt is None or not alt.strip():
+                issues.append((shape, "missing_alt_text"))
+        for table in self.tables:
+            summary = table.accessibility_summary
+            if summary is None or not summary.strip():
+                issues.append((table, "missing_summary"))
+        return issues
+
     @property
     def settings(self) -> Settings:
         """A |Settings| object providing access to the document-level settings."""
