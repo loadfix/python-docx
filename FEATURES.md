@@ -1644,20 +1644,34 @@ document.add_alt_chunk(
     content_type="text/html",
 )
 
+# RTF altChunk with matchSrc so Word preserves the RTF's source formatting
+document.add_alt_chunk(
+    rtf_bytes,
+    content_type="application/rtf",
+    match_src=True,
+)
+
 for ole in document.embedded_objects:
     print(ole.prog_id, len(ole.blob))
 
 for chunk in document.alt_chunks:
-    print(chunk.content_type, len(chunk.blob))
+    print(chunk.content_type, len(chunk.blob), "match_src=", chunk.match_src)
 
 document.save("out.docx")
 ```
 
+Supported altChunk payload content-types (anything else is accepted but
+stored verbatim): `text/html`, `application/xhtml+xml`, `application/rtf`
+/ `text/rtf`, `text/plain`, `application/msword`, `message/rfc822`
+(MHTML) / `multipart/related`, and a WordprocessingML document fragment
+(`application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml`).
+
 - `Run.add_ole_object(ole_path_or_stream, prog_id, icon_path_or_stream=None)` — Embed an OLE payload inline. `[Added in 2026.05.0]`
 - `Document.embedded_objects` / `Paragraph.embedded_objects` — Collections of `EmbeddedObject`. `[Added in 2026.05.0]`
 - `EmbeddedObject.blob` / `.embedded_partname` / `.prog_id` / `.r_id` / `.type` / `.paragraph`. `[Added in 2026.05.0]`
-- `Document.add_alt_chunk(content, content_type="text/html")` — Append a `w:altChunk`. `[Added in 2026.05.0]`
+- `Document.add_alt_chunk(content, content_type="text/html", match_src=None)` — Append a `w:altChunk`; pass `match_src=True` to write a `w:altChunkPr/w:matchSrc` child. `[Added in 2026.05.0]`
 - `Document.alt_chunks` — List of `AltChunk` proxies. `[Added in 2026.05.0]`
+- `AltChunk.rId` / `.part` / `.content_type` / `.content` / `.match_src` (get/set). `[Added in 2026.05.0]`
 - `Document.attachments` — List of `Attachment` (same underlying `altChunk` elements, read-oriented). `[Added in 2026.05.0]`
 - `Attachment.r_id` / `.content_type` / `.blob` / `.partname`. `[Added in 2026.05.0]`
 

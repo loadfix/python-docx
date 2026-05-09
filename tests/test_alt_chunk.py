@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from docx import Document
 from docx.alt_chunk import AltChunk
 from docx.document import Document as DocumentCls
@@ -62,6 +64,56 @@ class DescribeDocumentAddAltChunk:
 
         assert alt_chunk.content_type == "application/rtf"
 
+    def it_omits_altChunkPr_when_match_src_is_not_requested(self):
+        document: DocumentCls = Document()
+
+        alt_chunk = document.add_alt_chunk("<p>hi</p>")
+
+        # -- no w:altChunkPr child when match_src is left None --
+        assert alt_chunk._element.altChunkPr is None
+        assert alt_chunk.match_src is None
+
+    def it_writes_altChunkPr_matchSrc_when_match_src_true(self):
+        document: DocumentCls = Document()
+
+        alt_chunk = document.add_alt_chunk("<p>hi</p>", match_src=True)
+
+        pr = alt_chunk._element.altChunkPr
+        assert pr is not None
+        assert pr.matchSrc is not None
+        assert pr.matchSrc.val is True
+        assert alt_chunk.match_src is True
+
+    def it_writes_matchSrc_off_when_match_src_false(self):
+        document: DocumentCls = Document()
+
+        alt_chunk = document.add_alt_chunk("<p>hi</p>", match_src=False)
+
+        pr = alt_chunk._element.altChunkPr
+        assert pr is not None
+        assert pr.matchSrc is not None
+        assert pr.matchSrc.val is False
+        assert alt_chunk.match_src is False
+
+
+class DescribeAltChunkMatchSrcSetter:
+    """Unit-test suite for the `AltChunk.match_src` setter."""
+
+    def it_can_toggle_match_src_on_and_off(self):
+        document: DocumentCls = Document()
+        alt_chunk = document.add_alt_chunk("<p>hi</p>")
+
+        alt_chunk.match_src = True
+        assert alt_chunk.match_src is True
+
+        alt_chunk.match_src = False
+        assert alt_chunk.match_src is False
+
+        alt_chunk.match_src = None
+        assert alt_chunk.match_src is None
+        # -- wrapper altChunkPr is removed when it becomes empty --
+        assert alt_chunk._element.altChunkPr is None
+
 
 class DescribeDocumentAltChunks:
     """Unit-test suite for `Document.alt_chunks`."""
@@ -96,6 +148,51 @@ class DescribeDocumentAltChunks:
         assert chunks[0].content_type == "text/html"
         assert chunks[0].content == b"<p>hello</p>"
 
+    @pytest.mark.parametrize(
+        ("content_type", "payload"),
+        [
+            ("text/html", b"<p>html</p>"),
+            ("application/xhtml+xml", b"<p xmlns='http://www.w3.org/1999/xhtml'/>"),
+            ("application/rtf", b"{\\rtf1 rtf}"),
+            ("text/plain", "plain café".encode("utf-8")),
+            ("message/rfc822", b"From: a@b\r\n\r\nmhtml"),
+            (
+                "application/vnd.openxmlformats-officedocument."
+                "wordprocessingml.document.main+xml",
+                b"<?xml version='1.0'?><w:document xmlns:w='http://schemas.open"
+                b"xmlformats.org/wordprocessingml/2006/main'><w:body/></w:document>",
+            ),
+        ],
+    )
+    def it_round_trips_every_supported_content_type(
+        self, content_type, payload, tmp_path
+    ):
+        document: DocumentCls = Document()
+        document.add_alt_chunk(payload, content_type=content_type)
+        path = tmp_path / "chunk.docx"
+        document.save(str(path))
+
+        reopened: DocumentCls = Document(str(path))
+
+        chunks = reopened.alt_chunks
+        assert len(chunks) == 1
+        assert chunks[0].content_type == content_type
+        assert chunks[0].content == payload
+
+    def it_round_trips_altChunkPr_matchSrc(self, tmp_path):
+        document: DocumentCls = Document()
+        document.add_alt_chunk(
+            "<p>x</p>", content_type="text/html", match_src=True
+        )
+        path = tmp_path / "matchsrc.docx"
+        document.save(str(path))
+
+        reopened: DocumentCls = Document(str(path))
+
+        chunks = reopened.alt_chunks
+        assert len(chunks) == 1
+        assert chunks[0].match_src is True
+
 
 class DescribeAltChunkPart:
     """Unit-test suite for `docx.parts.alt_chunk.AltChunkPart`."""
@@ -107,6 +204,15 @@ class DescribeAltChunkPart:
         assert _ext_for_content_type("application/xhtml+xml") == ".xhtml"
         assert _ext_for_content_type("text/plain") == ".txt"
         assert _ext_for_content_type("application/msword") == ".doc"
+        assert _ext_for_content_type("message/rfc822") == ".mht"
+        assert _ext_for_content_type("multipart/related") == ".mht"
+        assert (
+            _ext_for_content_type(
+                "application/vnd.openxmlformats-officedocument."
+                "wordprocessingml.document.main+xml"
+            )
+            == ".docx"
+        )
         assert _ext_for_content_type("weird/thing") == ".bin"
 
     def it_can_be_loaded_from_blob(self):

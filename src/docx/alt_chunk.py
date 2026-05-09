@@ -93,6 +93,22 @@ class AltChunk:
             return b""
         return part.blob
 
+    @property
+    def match_src(self) -> bool | None:
+        """Value of the ``w:altChunkPr/w:matchSrc`` child, or |None|.
+
+        Word interprets this flag as "try to match the source formatting of
+        the imported payload" (see ECMA-376 §17.17.2.3). Returns |None| when
+        the ``w:altChunk`` carries no ``w:altChunkPr/w:matchSrc`` child.
+
+        .. versionadded:: 2026.05.0
+        """
+        return self._element.match_src
+
+    @match_src.setter
+    def match_src(self, value: bool | None) -> None:
+        self._element.match_src = value
+
 
 def iter_alt_chunks(document_part: DocumentPart) -> list[AltChunk]:
     """Return a list of |AltChunk| proxies for each ``w:altChunk`` in the body.
@@ -111,6 +127,7 @@ def add_alt_chunk_to_document(
     document_part: DocumentPart,
     content: bytes | str,
     content_type: str = "text/html",
+    match_src: bool | None = None,
 ) -> AltChunk:
     """Append a new ``w:altChunk`` to the document body and return a proxy.
 
@@ -122,6 +139,8 @@ def add_alt_chunk_to_document(
     `content` may be :class:`bytes` or :class:`str` (strings are encoded
     as UTF-8). `content_type` is the MIME type Word uses to dispatch the
     payload through the right import filter (``text/html`` by default).
+    Pass `match_src=True` to write a ``w:altChunkPr/w:matchSrc`` child
+    requesting Word match the source formatting of the imported payload.
 
     .. versionadded:: 2026.05.0
     """
@@ -138,4 +157,6 @@ def add_alt_chunk_to_document(
     rId = document_part.relate_to(part, RT.A_F_CHUNK)
     body = document_part.element.body  # type: ignore[attr-defined]
     element = body.add_altChunk(rId)
+    if match_src is not None:
+        element.match_src = match_src
     return AltChunk(element, document_part)

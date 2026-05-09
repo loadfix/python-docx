@@ -16,6 +16,7 @@ from docx.oxml.xmlchemy import (
 )
 
 if TYPE_CHECKING:
+    from docx.oxml.shared import CT_OnOff
     from docx.oxml.table import CT_Tbl
     from docx.oxml.text.paragraph import CT_P
     from docx.shared import RGBColor
@@ -63,6 +64,22 @@ class CT_Document(BaseOxmlElement):
         return self.xpath(xpath)
 
 
+class CT_AltChunkPr(BaseOxmlElement):
+    """`w:altChunkPr` element, properties of a `w:altChunk` import reference.
+
+    Optional child of `w:altChunk`. Currently carries a single boolean child
+    `w:matchSrc` that requests Word attempt to match the character formatting
+    of the source payload when importing (see ECMA-376 §17.17.2.3).
+    """
+
+    get_or_add_matchSrc: Callable[[], "CT_OnOff"]
+    _remove_matchSrc: Callable[[], None]
+
+    matchSrc: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:matchSrc", successors=()
+    )
+
+
 class CT_AltChunk(BaseOxmlElement):
     """`w:altChunk` element, an "alternate chunk" import reference.
 
@@ -71,11 +88,52 @@ class CT_AltChunk(BaseOxmlElement):
     for the ``w:altChunk`` element at render time. Relationships carry the
     ``aFChunk`` reltype and the target part's content-type declares the
     payload format (e.g. ``text/html``). See ECMA-376 §17.17.
+
+    May optionally carry a child ``w:altChunkPr`` element with import options
+    (currently only ``w:matchSrc``).
     """
 
+    get_or_add_altChunkPr: Callable[[], CT_AltChunkPr]
+    _remove_altChunkPr: Callable[[], None]
+
+    altChunkPr: CT_AltChunkPr | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:altChunkPr", successors=()
+    )
     rId: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "r:id", ST_String
     )
+
+    @property
+    def match_src(self) -> bool | None:
+        """Resolved value of ``w:altChunkPr/w:matchSrc/@w:val``.
+
+        |None| when no ``w:altChunkPr`` or ``w:matchSrc`` child is present.
+        Otherwise the boolean value of the ``w:val`` attribute (default
+        ``True`` when the attribute is absent on a bare ``<w:matchSrc/>``).
+        """
+        pr = self.altChunkPr
+        if pr is None:
+            return None
+        match = pr.matchSrc
+        if match is None:
+            return None
+        return bool(match.val)
+
+    @match_src.setter
+    def match_src(self, value: bool | None) -> None:
+        if value is None:
+            # -- drop both the child and the wrapper when the wrapper is empty --
+            pr = self.altChunkPr
+            if pr is None:
+                return
+            pr._remove_matchSrc()
+            # -- if altChunkPr is now empty, drop it too --
+            if len(pr) == 0:
+                self._remove_altChunkPr()
+            return
+        pr = self.get_or_add_altChunkPr()
+        match = pr.get_or_add_matchSrc()
+        match.val = bool(value)
 
 
 class CT_Body(BaseOxmlElement):
