@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
+import secrets
 import warnings
 from typing import TYPE_CHECKING, Iterator, cast
 
@@ -452,19 +453,31 @@ class Settings(ElementProxy):
         return rsids.rsidRoot_val
 
     @property
-    def rsids(self) -> list[str]:
-        """The document's revision-save IDs (``w:rsids/w:rsid/@w:val`` values).
+    def rsids(self) -> "RsidList":
+        """The document's revision-save IDs (``w:rsids`` table).
 
-        Read-only. Returns a list of 8-character hex strings in document order.
-        An empty list is returned when no ``w:rsids`` element is present, or
-        when it has no ``w:rsid`` children.
+        Returns an :class:`RsidList` proxy — a live, list-like view over
+        every ``w:rsids/w:rsid/@w:val`` value in document order. The proxy
+        also exposes the first-save root rsid via :attr:`RsidList.root`
+        (``w:rsidRoot/@w:val``) and the complete id set via
+        :attr:`RsidList.ids`, and can mint a new editing-session id via
+        :meth:`RsidList.new_session`.
+
+        The return value compares equal to the list of id strings, so code
+        written against the pre-2026.05.12 signature (``settings.rsids ==
+        ['00A1B2C3', ...]``) keeps working.
+
+        An empty ``RsidList`` is returned when no ``w:rsids`` element is
+        present, or when it has no ``w:rsid`` children. Any mutation via
+        :meth:`~RsidList.new_session` or :meth:`~RsidList.add` materialises
+        the ``w:rsids`` container on demand.
 
         .. versionadded:: 2026.05.0
+        .. versionchanged:: 2026.05.12
+            Returns :class:`RsidList` (``list[str]`` subclass) instead of a
+            plain list — gains ``.root`` / ``.ids`` / ``.new_session()``.
         """
-        rsids = self._settings.rsids
-        if rsids is None:
-            return []
-        return rsids.rsid_vals
+        return RsidList(self._settings)
 
     def add_rsids(self, rsid_root: str, extra: "set[str] | None" = None) -> None:
         """Record ``rsid_root`` in the settings' ``<w:rsids>`` table.
@@ -1632,6 +1645,101 @@ class DocVars:
         if container is None:
             return []
         return [(dv.name, dv.val) for dv in container.docVar_lst]
+
+
+class RsidList(list):  # type: ignore[type-arg]
+    """Live, list-like view over ``w:settings/w:rsids``.
+
+    Obtained via :attr:`Settings.rsids`. Subclasses :class:`list` so that
+    ``settings.rsids == ['00A1B2C3', ...]`` comparisons keep working while
+    exposing rsid-specific helpers:
+
+    - :attr:`root` — value of ``w:rsidRoot/@w:val`` (first-save rsid), or
+      |None| when no ``w:rsidRoot`` is present.
+    - :attr:`ids` — the complete ``set`` of rsids (``w:rsid`` values plus
+      the root, when present). Constant-time containment checks.
+    - :meth:`new_session` — mint a fresh 8-hex-digit rsid, add it to the
+      ``w:rsids`` table, and return it. Matches Word's per-edit-session
+      behaviour; the caller then uses the returned rsid to tag changed
+      paragraphs/runs via :meth:`docx.document.Document.tag_revisions`.
+
+    The list contents are snapshotted at construction time — mutating the
+    underlying XML after the proxy was retrieved does not refresh the
+    list. Call ``document.settings.rsids`` again to see newer rsids.
+
+    .. versionadded:: 2026.05.12
+    """
+
+    def __init__(self, settings: "CT_Settings"):
+        rsids_elm = settings.rsids
+        super().__init__(rsids_elm.rsid_vals if rsids_elm is not None else [])
+        self._settings = settings
+
+    @property
+    def root(self) -> str | None:
+        """The first-save rsid (``w:rsidRoot/@w:val``) or |None| when absent."""
+        rsids_elm = self._settings.rsids
+        if rsids_elm is None:
+            return None
+        return rsids_elm.rsidRoot_val
+
+    @property
+    def ids(self) -> set[str]:
+        """Every rsid referenced by this document as a :class:`set`.
+
+        Includes ``w:rsidRoot/@w:val`` (when present) plus each
+        ``w:rsid/@w:val``. Intended for constant-time containment checks
+        ("has this rsid been seen before?").
+        """
+        rsids_elm = self._settings.rsids
+        if rsids_elm is None:
+            return set()
+        values = set(rsids_elm.rsid_vals)
+        root = rsids_elm.rsidRoot_val
+        if root is not None:
+            values.add(root)
+        return values
+
+    def add(self, rsid: str) -> None:
+        """Append ``rsid`` to ``w:rsids`` when not already present.
+
+        Creates the ``w:rsids`` container on demand. A no-op when
+        ``rsid`` is already recorded. Does not touch ``w:rsidRoot``.
+        """
+        rsids_elm = self._settings.get_or_add_rsids()
+        if rsid in set(rsids_elm.rsid_vals):
+            return
+        new_rsid = rsids_elm.add_rsid()
+        new_rsid.val = rsid
+        # keep the in-memory list snapshot consistent with the XML
+        super().append(rsid)
+
+    def new_session(self) -> str:
+        """Mint and register a fresh editing-session rsid, returning it.
+
+        Generates a random 8-character uppercase-hex string (Word's
+        ``ST_LongHexNumber`` shape — Word in practice prefixes its rsids
+        with ``00`` so the values fit in a signed 32-bit integer, and
+        this implementation follows the same convention). The value is
+        added to ``w:rsids`` so the returned token is immediately
+        referenceable from any ``w:rsidR`` / ``w:rsidP`` / ``w:rsidRPr``
+        attribute on downstream paragraphs, runs, or section properties.
+
+        The first ``new_session()`` call on a document whose
+        ``w:rsidRoot`` is not yet set also populates it — this matches
+        Word's first-save behaviour where the initial editing-session
+        rsid becomes the document's root rsid.
+        """
+        token = "00" + secrets.token_hex(3).upper()
+        rsids_elm = self._settings.get_or_add_rsids()
+        if rsids_elm.rsidRoot is None:
+            rsidRoot = rsids_elm.get_or_add_rsidRoot()
+            rsidRoot.val = token
+        if token not in set(rsids_elm.rsid_vals):
+            new_rsid = rsids_elm.add_rsid()
+            new_rsid.val = token
+            super().append(token)
+        return token
 
 
 class MailMerge:

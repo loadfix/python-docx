@@ -192,6 +192,98 @@ class DescribeDocument:
         prstGeoms = reopened.element.body.xpath(".//a:prstGeom/@prst")
         assert "ellipse" in prstGeoms
 
+    # -- Document.tag_revisions() -----------------------------------------
+
+    def it_can_tag_every_paragraph_and_run_with_a_supplied_rsid(self):
+        from docx import Document as OpenDocument
+        from docx.oxml.ns import qn
+
+        document = OpenDocument()
+        document.add_paragraph("first").add_run(" + second run")
+        document.add_paragraph("second")
+
+        rsid = document.tag_revisions(rsid="00ABCDEF")
+
+        assert rsid == "00ABCDEF"
+        for p in document.element.body.iter(qn("w:p")):
+            assert p.get(qn("w:rsidR")) == "00ABCDEF"
+            assert p.get(qn("w:rsidRDefault")) == "00ABCDEF"
+            for r in p.iter(qn("w:r")):
+                assert r.get(qn("w:rsidR")) == "00ABCDEF"
+        # -- rsid is registered in the settings table
+        assert "00ABCDEF" in document.settings.rsids.ids
+
+    def it_mints_a_new_session_rsid_when_none_is_supplied(self):
+        from docx import Document as OpenDocument
+        from docx.oxml.ns import qn
+
+        document = OpenDocument()
+        document.add_paragraph("hello")
+
+        rsid = document.tag_revisions()
+
+        assert isinstance(rsid, str)
+        assert len(rsid) == 8
+        # -- 8-hex-digit shape
+        int(rsid, 16)
+        assert rsid in document.settings.rsids.ids
+        for p in document.element.body.iter(qn("w:p")):
+            assert p.get(qn("w:rsidR")) == rsid
+
+    def it_tags_sectPr_and_pPr_with_rsid_attrs(self):
+        from docx import Document as OpenDocument
+        from docx.oxml.ns import qn
+
+        document = OpenDocument()
+        p = document.add_paragraph("styled", style="Heading 1")  # forces a pPr
+        p.add_run("bold").bold = True                           # forces an rPr
+
+        rsid = document.tag_revisions(rsid="00DEADBE")
+
+        body = document.element.body
+        # -- paragraph's pPr should carry w:rsidP
+        pPr = body.find(qn("w:p") + "/" + qn("w:pPr"))
+        # fall back to first pPr element anywhere in the body
+        if pPr is None:
+            pPr_list = body.findall(".//" + qn("w:pPr"))
+            pPr = pPr_list[0] if pPr_list else None
+        assert pPr is not None
+        assert pPr.get(qn("w:rsidP")) == rsid
+        # -- run's rPr should carry w:rsidRPr
+        rPrs = body.findall(".//" + qn("w:r") + "/" + qn("w:rPr"))
+        assert any(rPr.get(qn("w:rsidRPr")) == rsid for rPr in rPrs)
+        # -- trailing sectPr should carry w:rsidR and w:rsidSect
+        sectPr = body.find(qn("w:sectPr"))
+        assert sectPr is not None
+        assert sectPr.get(qn("w:rsidR")) == rsid
+        assert sectPr.get(qn("w:rsidSect")) == rsid
+
+    def it_round_trips_tagged_revisions_through_save_and_reopen(self):
+        import io
+
+        from docx import Document as OpenDocument
+        from docx.oxml.ns import qn
+
+        document = OpenDocument()
+        document.add_paragraph("round-trip me")
+        rsid = document.tag_revisions(rsid="00FACADE")
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        reopened = OpenDocument(buf)
+
+        assert rsid in reopened.settings.rsids.ids
+        # -- every paragraph in the reopened body should still carry the
+        # -- rsid we stamped before saving (before_marshal must not have
+        # -- clobbered it with a fresh session token)
+        stamped = [
+            p.get(qn("w:rsidR")) == rsid
+            for p in reopened.element.body.iter(qn("w:p"))
+        ]
+        assert stamped, "expected at least one paragraph in the reopened body"
+        assert all(stamped), "expected every paragraph to keep its tagged rsid"
+
     # -- Document.protect() / Document.unprotect() -------------------------
 
     def it_can_protect_a_document_read_only(self):
