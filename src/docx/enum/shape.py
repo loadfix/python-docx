@@ -82,6 +82,35 @@ class WD_WRAP_TYPE(enum.Enum):
     IN_FRONT = "inFront"
 
 
+class WD_WRAP_MODE(enum.Enum):
+    """Text-wrap mode for a drawing, covering the full ``wp:anchor`` + inline range.
+
+    Unlike :class:`WD_WRAP_TYPE` (which distinguishes BEHIND / IN_FRONT as two
+    flavours of `wp:wrapNone`), ``WD_WRAP_MODE`` collapses both into ``NONE``
+    and adds ``INLINE`` for `<wp:inline>` drawings that don't carry a wrap
+    element at all. The enum is the preferred surface for new code reading
+    both inline and floating drawings through a single proxy.
+
+    Mapping to `wp:anchor` children:
+
+    - ``INLINE`` — drawing wrapped in `<wp:inline>` (no `wp:anchor`).
+    - ``SQUARE`` — `<wp:wrapSquare>`.
+    - ``TIGHT`` — `<wp:wrapTight>` (may carry a `wp:wrapPolygon`).
+    - ``THROUGH`` — `<wp:wrapThrough>` (may carry a `wp:wrapPolygon`).
+    - ``TOP_AND_BOTTOM`` — `<wp:wrapTopAndBottom>`.
+    - ``NONE`` — `<wp:wrapNone>` (behind-or-in-front of text).
+
+    .. versionadded:: 2026.05.0
+    """
+
+    INLINE = "inline"
+    SQUARE = "square"
+    TIGHT = "tight"
+    THROUGH = "through"
+    TOP_AND_BOTTOM = "topAndBottom"
+    NONE = "none"
+
+
 class WD_SHAPE(enum.Enum):
     """Preset shape type for a DrawingML ``wps:wsp`` shape.
 

@@ -111,19 +111,93 @@ class CT_WrapSquare(BaseOxmlElement):
     )
 
 
+class CT_WrapPolygonPoint(BaseOxmlElement):
+    """Shared element class for ``<wp:start>`` and ``<wp:lineTo>`` polygon points.
+
+    Each point carries a pair of ``ST_Coordinate`` attributes (``x``, ``y``)
+    expressed in EMU. Used inside :class:`CT_WrapPolygon` on wrap-tight and
+    wrap-through anchors.
+
+    .. versionadded:: 2026.05.0
+    """
+
+    x: int = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "x", ST_Coordinate
+    )
+    y: int = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
+        "y", ST_Coordinate
+    )
+
+
+class CT_WrapPolygon(BaseOxmlElement):
+    """`<wp:wrapPolygon>` element, the polygon outline used for tight/through wrap.
+
+    Contains exactly one ``<wp:start>`` followed by two-or-more ``<wp:lineTo>``
+    elements. The ``@edited`` attribute records whether the user has edited
+    the auto-generated polygon (ECMA-376 Part 1 §20.4.2.16).
+
+    .. versionadded:: 2026.05.0
+    """
+
+    start: CT_WrapPolygonPoint = OneAndOnlyOne(  # pyright: ignore[reportAssignmentType]
+        "wp:start"
+    )
+    edited: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "edited", XsdBoolean
+    )
+
+    @property
+    def line_tos(self) -> list[CT_WrapPolygonPoint]:
+        """The list of ``wp:lineTo`` children in document order."""
+        return list(self.findall(qn("wp:lineTo")))
+
+    def clear_line_tos(self) -> None:
+        """Remove every ``wp:lineTo`` child, leaving the ``wp:start`` intact."""
+        for line_to in self.line_tos:
+            self.remove(line_to)
+
+    def add_line_to(self, x: int, y: int) -> CT_WrapPolygonPoint:
+        """Append a new ``wp:lineTo`` child at coordinates ``(x, y)`` and return it."""
+        from docx.oxml.parser import OxmlElement
+
+        line_to = cast(CT_WrapPolygonPoint, OxmlElement("wp:lineTo"))
+        line_to.x = int(x)
+        line_to.y = int(y)
+        self.append(line_to)
+        return line_to
+
+
 class CT_WrapTight(BaseOxmlElement):
     """`<wp:wrapTight>` element, tight text-wrap around a floating image."""
 
+    wrapPolygon: CT_WrapPolygon | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "wp:wrapPolygon", successors=()
+    )
     wrapText: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "wrapText", XsdString, default="bothSides"
+    )
+    distL: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "distL", ST_PositiveCoordinate
+    )
+    distR: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "distR", ST_PositiveCoordinate
     )
 
 
 class CT_WrapThrough(BaseOxmlElement):
     """`<wp:wrapThrough>` element, through text-wrap around a floating image."""
 
+    wrapPolygon: CT_WrapPolygon | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "wp:wrapPolygon", successors=()
+    )
     wrapText: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "wrapText", XsdString, default="bothSides"
+    )
+    distL: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "distL", ST_PositiveCoordinate
+    )
+    distR: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "distR", ST_PositiveCoordinate
     )
 
 

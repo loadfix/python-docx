@@ -7,7 +7,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from docx.enum.shape import WD_ANCHOR_H, WD_ANCHOR_V, WD_INLINE_SHAPE, WD_WRAP_TYPE
+from docx.enum.shape import (
+    WD_ANCHOR_H,
+    WD_ANCHOR_V,
+    WD_INLINE_SHAPE,
+    WD_WRAP_MODE,
+    WD_WRAP_TYPE,
+)
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml.ns import nsmap, qn
 from docx.shared import Emu, Parented, RGBColor
@@ -689,6 +695,17 @@ class InlineShape:
         self._inline.graphic.graphicData.pic.spPr.cx = cx
 
     @property
+    def wrap_mode(self) -> WD_WRAP_MODE:
+        """Always :attr:`WD_WRAP_MODE.INLINE` for an inline shape.
+
+        Parallels :attr:`FloatingImage.wrap_mode` so callers can inspect
+        wrap-mode on either proxy through a single attribute.
+
+        .. versionadded:: 2026.05.0
+        """
+        return WD_WRAP_MODE.INLINE
+
+    @property
     def alt_text(self) -> str | None:
         """Alternative text (accessibility description) for this inline shape.
 
@@ -1016,6 +1033,232 @@ class FloatingImage:
     .. versionadded:: 2026.05.0
     """
         return WD_WRAP_TYPE(self._anchor.wrap_type)
+
+    @property
+    def wrap_mode(self) -> WD_WRAP_MODE:
+        """The text-wrap mode of this drawing as a |WD_WRAP_MODE| member.
+
+        Maps the present wrap element to one of ``SQUARE`` / ``TIGHT`` /
+        ``THROUGH`` / ``TOP_AND_BOTTOM`` / ``NONE``. For floating drawings
+        this is never ``INLINE`` (that value is only used by
+        :attr:`InlineShape.wrap_mode`).
+
+        Assigning a :class:`WD_WRAP_MODE` member (other than ``INLINE``)
+        swaps the wrap element in place. Assigning ``NONE`` preserves any
+        existing ``behindDoc`` flag; setting ``behind_doc = True`` after
+        switching to ``NONE`` places the drawing behind the text.
+
+        .. versionadded:: 2026.05.0
+        """
+        anchor = self._anchor
+        if anchor.find(qn("wp:wrapSquare")) is not None:
+            return WD_WRAP_MODE.SQUARE
+        if anchor.find(qn("wp:wrapTight")) is not None:
+            return WD_WRAP_MODE.TIGHT
+        if anchor.find(qn("wp:wrapThrough")) is not None:
+            return WD_WRAP_MODE.THROUGH
+        if anchor.find(qn("wp:wrapTopAndBottom")) is not None:
+            return WD_WRAP_MODE.TOP_AND_BOTTOM
+        if anchor.find(qn("wp:wrapNone")) is not None:
+            return WD_WRAP_MODE.NONE
+        # -- schema requires exactly one wrap child; default to SQUARE --
+        return WD_WRAP_MODE.SQUARE
+
+    @wrap_mode.setter
+    def wrap_mode(self, value: WD_WRAP_MODE):
+        if value == WD_WRAP_MODE.INLINE:
+            raise ValueError(
+                "wrap_mode=INLINE is not valid on a floating drawing; "
+                "re-create the drawing inline via Paragraph.add_picture()"
+            )
+        # -- remove any existing wrap child, preserving behindDoc setting --
+        anchor = self._anchor
+        preserve_behind = bool(anchor.behindDoc)
+        for tag in (
+            "wp:wrapNone",
+            "wp:wrapSquare",
+            "wp:wrapTight",
+            "wp:wrapThrough",
+            "wp:wrapTopAndBottom",
+        ):
+            existing = anchor.find(qn(tag))
+            if existing is not None:
+                anchor.remove(existing)
+
+        if value == WD_WRAP_MODE.SQUARE:
+            anchor._add_wrapSquare()
+            anchor.behindDoc = False
+        elif value == WD_WRAP_MODE.TIGHT:
+            anchor._add_wrapTight()
+            anchor.behindDoc = False
+        elif value == WD_WRAP_MODE.THROUGH:
+            anchor._add_wrapThrough()
+            anchor.behindDoc = False
+        elif value == WD_WRAP_MODE.TOP_AND_BOTTOM:
+            anchor._add_wrapTopAndBottom()
+            anchor.behindDoc = False
+        elif value == WD_WRAP_MODE.NONE:
+            anchor._add_wrapNone()
+            # -- preserve behindDoc so callers who set BEHIND keep that state
+            #    (legacy WD_WRAP_TYPE.BEHIND/.IN_FRONT semantics). --
+            anchor.behindDoc = preserve_behind
+
+    # -- anchor flag attributes -----------------------------------------------
+
+    @property
+    def z_order(self) -> int:
+        """The ``wp:anchor/@relativeHeight`` stacking order (higher = in front).
+
+        Maps to ``ST_DrawingElementId`` (an unsigned 32-bit integer) and
+        controls z-order when multiple anchored drawings overlap.
+
+        .. versionadded:: 2026.05.0
+        """
+        return int(self._anchor.relativeHeight)
+
+    @z_order.setter
+    def z_order(self, value: int):
+        self._anchor.relativeHeight = int(value)
+
+    @property
+    def locked(self) -> bool:
+        """Whether the drawing's anchor is locked against user drag in Word.
+
+        Maps to ``wp:anchor/@locked``.
+
+        .. versionadded:: 2026.05.0
+        """
+        return bool(self._anchor.locked)
+
+    @locked.setter
+    def locked(self, value: bool):
+        self._anchor.locked = bool(value)
+
+    @property
+    def layout_in_cell(self) -> bool:
+        """Whether the drawing lays out inside its containing table cell.
+
+        Maps to ``wp:anchor/@layoutInCell``. Applies only when the anchor
+        lives inside a table cell; ignored otherwise.
+
+        .. versionadded:: 2026.05.0
+        """
+        return bool(self._anchor.layoutInCell)
+
+    @layout_in_cell.setter
+    def layout_in_cell(self, value: bool):
+        self._anchor.layoutInCell = bool(value)
+
+    @property
+    def allow_overlap(self) -> bool:
+        """Whether this drawing may overlap other drawings on the same page.
+
+        Maps to ``wp:anchor/@allowOverlap``. When ``False``, Word repositions
+        the drawing to avoid collisions with earlier anchors on the page.
+
+        .. versionadded:: 2026.05.0
+        """
+        return bool(self._anchor.allowOverlap)
+
+    @allow_overlap.setter
+    def allow_overlap(self, value: bool):
+        self._anchor.allowOverlap = bool(value)
+
+    @property
+    def behind_doc(self) -> bool:
+        """Whether the drawing sits behind the document text (``wp:wrapNone`` only).
+
+        Maps to ``wp:anchor/@behindDoc``. Meaningful only when
+        :attr:`wrap_mode` is ``NONE`` (i.e. when a ``wp:wrapNone`` child is
+        present). Setting ``True`` places the drawing behind the text; setting
+        ``False`` places it in front. For wrap modes other than ``NONE``,
+        the attribute is always ``False`` on well-formed XML.
+
+        .. versionadded:: 2026.05.0
+        """
+        return bool(self._anchor.behindDoc)
+
+    @behind_doc.setter
+    def behind_doc(self, value: bool):
+        self._anchor.behindDoc = bool(value)
+
+    # -- wrap polygon (tight / through) ---------------------------------------
+
+    @property
+    def wrap_polygon(self) -> list[tuple[int, int]] | None:
+        """The tight/through wrap polygon as an ordered list of ``(x, y)`` EMU points.
+
+        Returns a list whose first entry is the ``wp:start`` point and whose
+        subsequent entries come from the ``wp:lineTo`` children, or |None|
+        when no polygon is present. Only tight (``wp:wrapTight``) and through
+        (``wp:wrapThrough``) wraps carry a polygon; other wrap modes always
+        return |None|.
+
+        Assigning a list of ``(x, y)`` pairs (minimum three points) replaces
+        the polygon. When the current wrap mode is neither ``TIGHT`` nor
+        ``THROUGH``, the mode is first switched to ``TIGHT``. Assigning
+        |None| removes any existing ``wp:wrapPolygon`` child.
+
+        Coordinates are ``ST_Coordinate`` values in EMU; the callers that
+        want percent-of-extent coordinates must scale themselves.
+
+        .. versionadded:: 2026.05.0
+        """
+        wrap = self._wrap_polygon_parent()
+        if wrap is None:
+            return None
+        poly = wrap.wrapPolygon
+        if poly is None:
+            return None
+        points: list[tuple[int, int]] = [(int(poly.start.x), int(poly.start.y))]
+        points.extend((int(pt.x), int(pt.y)) for pt in poly.line_tos)
+        return points
+
+    @wrap_polygon.setter
+    def wrap_polygon(self, points: list[tuple[int, int]] | None):
+        if points is None:
+            wrap = self._wrap_polygon_parent()
+            if wrap is None:
+                return
+            if wrap.wrapPolygon is not None:
+                wrap._remove_wrapPolygon()
+            return
+
+        if len(points) < 3:
+            raise ValueError(
+                "wrap_polygon requires at least three (x, y) points; "
+                "got %d" % len(points)
+            )
+
+        # -- ensure the anchor is in a polygon-carrying wrap mode --
+        mode = self.wrap_mode
+        if mode not in (WD_WRAP_MODE.TIGHT, WD_WRAP_MODE.THROUGH):
+            self.wrap_mode = WD_WRAP_MODE.TIGHT
+
+        wrap = self._wrap_polygon_parent()
+        assert wrap is not None  # -- guaranteed by the mode switch above --
+
+        # -- replace any existing polygon --
+        if wrap.wrapPolygon is not None:
+            wrap._remove_wrapPolygon()
+        poly = wrap._add_wrapPolygon()
+        poly.edited = False
+        # -- wp:start is OneAndOnlyOne; it must be populated before lineTos --
+        from docx.oxml.parser import OxmlElement
+
+        start = OxmlElement("wp:start")
+        start.set("x", str(int(points[0][0])))
+        start.set("y", str(int(points[0][1])))
+        poly.append(start)
+        for x, y in points[1:]:
+            poly.add_line_to(x, y)
+
+    def _wrap_polygon_parent(self):
+        """Return the ``wp:wrapTight``/``wp:wrapThrough`` child, or |None|."""
+        wrap = self._anchor.find(qn("wp:wrapTight"))
+        if wrap is not None:
+            return wrap
+        return self._anchor.find(qn("wp:wrapThrough"))
 
     @property
     def alt_text(self) -> str | None:

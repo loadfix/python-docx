@@ -44,6 +44,8 @@ from docx.oxml.shape import (
     CT_SolidColorFill,
     CT_Transform2D,
     CT_WrapNone,
+    CT_WrapPolygon,
+    CT_WrapPolygonPoint,
     CT_WrapSquare,
     CT_WrapThrough,
     CT_WrapTight,
@@ -99,7 +101,10 @@ register_element_cls("wp:inline", CT_Inline)
 register_element_cls("wp:posOffset", CT_PosOffset)
 register_element_cls("wp:positionH", CT_PositionH)
 register_element_cls("wp:positionV", CT_PositionV)
+register_element_cls("wp:lineTo", CT_WrapPolygonPoint)
+register_element_cls("wp:start", CT_WrapPolygonPoint)
 register_element_cls("wp:wrapNone", CT_WrapNone)
+register_element_cls("wp:wrapPolygon", CT_WrapPolygon)
 register_element_cls("wp:wrapSquare", CT_WrapSquare)
 register_element_cls("wp:wrapThrough", CT_WrapThrough)
 register_element_cls("wp:wrapTight", CT_WrapTight)

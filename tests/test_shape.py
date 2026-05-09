@@ -13,6 +13,7 @@ from docx.enum.shape import (
     WD_ANCHOR_H,
     WD_ANCHOR_V,
     WD_INLINE_SHAPE,
+    WD_WRAP_MODE,
     WD_WRAP_TYPE,
 )
 from docx.oxml.document import CT_Body
@@ -495,6 +496,195 @@ class DescribeFloatingImage:
 
         floating.lock_aspect_ratio = True
         assert floating.lock_aspect_ratio is True
+
+    # -- z_order / locked / layout_in_cell / allow_overlap / behind_doc --------
+
+    def it_round_trips_the_z_order(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+
+        # -- default from template XML is 0 --
+        assert floating.z_order == 0
+
+        floating.z_order = 251658240
+        assert floating.z_order == 251658240
+        assert anchor.relativeHeight == 251658240
+
+    def it_round_trips_the_locked_flag(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+
+        assert floating.locked is False
+        floating.locked = True
+        assert floating.locked is True
+        assert anchor.locked is True
+
+    def it_round_trips_the_layout_in_cell_flag(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+
+        # -- default in template XML is True --
+        assert floating.layout_in_cell is True
+        floating.layout_in_cell = False
+        assert floating.layout_in_cell is False
+        assert anchor.layoutInCell is False
+
+    def it_round_trips_the_allow_overlap_flag(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+
+        # -- default in template XML is True --
+        assert floating.allow_overlap is True
+        floating.allow_overlap = False
+        assert floating.allow_overlap is False
+        assert anchor.allowOverlap is False
+
+    def it_round_trips_the_behind_doc_flag(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+
+        assert floating.behind_doc is False
+        floating.behind_doc = True
+        assert floating.behind_doc is True
+        assert anchor.behindDoc is True
+
+    # -- wrap_mode ------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        ("mode", "expected_child_tag"),
+        [
+            (WD_WRAP_MODE.SQUARE, "wp:wrapSquare"),
+            (WD_WRAP_MODE.TIGHT, "wp:wrapTight"),
+            (WD_WRAP_MODE.THROUGH, "wp:wrapThrough"),
+            (WD_WRAP_MODE.TOP_AND_BOTTOM, "wp:wrapTopAndBottom"),
+            (WD_WRAP_MODE.NONE, "wp:wrapNone"),
+        ],
+    )
+    def it_switches_wrap_mode_and_reads_it_back(
+        self, mode: WD_WRAP_MODE, expected_child_tag: str
+    ):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+
+        floating.wrap_mode = mode
+
+        assert floating.wrap_mode == mode
+        assert anchor.find(qn(expected_child_tag)) is not None
+        # -- exactly one wrap element is present --
+        wrap_tags = (
+            "wp:wrapNone",
+            "wp:wrapSquare",
+            "wp:wrapTight",
+            "wp:wrapThrough",
+            "wp:wrapTopAndBottom",
+        )
+        wrap_count = sum(
+            1 for t in wrap_tags if anchor.find(qn(t)) is not None
+        )
+        assert wrap_count == 1
+
+    def it_rejects_INLINE_for_wrap_mode_on_a_floating_image(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+
+        with pytest.raises(ValueError):
+            floating.wrap_mode = WD_WRAP_MODE.INLINE
+
+    def it_preserves_behind_doc_when_switching_to_NONE(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+        floating.behind_doc = True
+
+        # -- switching to NONE should keep behindDoc; callers flip it for
+        #    the in-front variant explicitly. --
+        floating.wrap_mode = WD_WRAP_MODE.NONE
+        assert floating.behind_doc is True
+
+    # -- wrap_polygon ---------------------------------------------------------
+
+    def it_returns_None_for_wrap_polygon_when_absent(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 100, 100)
+        floating = FloatingImage(anchor)
+
+        # -- default SQUARE wrap has no polygon --
+        assert floating.wrap_polygon is None
+
+        floating.wrap_mode = WD_WRAP_MODE.TIGHT
+        # -- fresh TIGHT wrap without a polygon returns None --
+        assert floating.wrap_polygon is None
+
+    def it_sets_and_reads_the_wrap_polygon_on_tight_wrap(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 1000, 2000)
+        floating = FloatingImage(anchor)
+        floating.wrap_mode = WD_WRAP_MODE.TIGHT
+
+        points = [(0, 0), (1000, 0), (1000, 2000), (0, 2000), (0, 0)]
+        floating.wrap_polygon = points
+
+        assert floating.wrap_polygon == points
+        wrap_tight = anchor.find(qn("wp:wrapTight"))
+        assert wrap_tight is not None
+        poly = wrap_tight.find(qn("wp:wrapPolygon"))
+        assert poly is not None
+        start = poly.find(qn("wp:start"))
+        assert start is not None
+        assert start.get("x") == "0"
+        assert start.get("y") == "0"
+        line_tos = poly.findall(qn("wp:lineTo"))
+        assert len(line_tos) == 4
+
+    def it_sets_the_wrap_polygon_on_through_wrap(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 1000, 2000)
+        floating = FloatingImage(anchor)
+        floating.wrap_mode = WD_WRAP_MODE.THROUGH
+
+        points = [(10, 20), (900, 20), (900, 1800), (10, 1800), (10, 20)]
+        floating.wrap_polygon = points
+
+        assert floating.wrap_polygon == points
+        # -- polygon lives under wrapThrough, not wrapTight --
+        assert anchor.find(qn("wp:wrapThrough") + "/" + qn("wp:wrapPolygon")) is not None
+
+    def it_auto_switches_to_tight_when_assigning_polygon_from_square(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 1000, 2000)
+        floating = FloatingImage(anchor)
+        assert floating.wrap_mode == WD_WRAP_MODE.SQUARE
+
+        floating.wrap_polygon = [(0, 0), (1000, 0), (500, 1000)]
+
+        assert floating.wrap_mode == WD_WRAP_MODE.TIGHT
+        assert floating.wrap_polygon == [(0, 0), (1000, 0), (500, 1000)]
+
+    def it_removes_the_polygon_when_assigned_None(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 1000, 2000)
+        floating = FloatingImage(anchor)
+        floating.wrap_mode = WD_WRAP_MODE.TIGHT
+        floating.wrap_polygon = [(0, 0), (1, 0), (0, 1)]
+
+        floating.wrap_polygon = None
+
+        assert floating.wrap_polygon is None
+        wrap_tight = anchor.find(qn("wp:wrapTight"))
+        assert wrap_tight is not None
+        # -- wp:wrapTight remains (wrap mode unchanged), but the polygon is gone --
+        assert wrap_tight.find(qn("wp:wrapPolygon")) is None
+
+    def it_rejects_wrap_polygons_with_fewer_than_three_points(self):
+        anchor = CT_Anchor.new_pic_anchor(1, "rId1", "f.png", 1000, 2000)
+        floating = FloatingImage(anchor)
+
+        with pytest.raises(ValueError):
+            floating.wrap_polygon = [(0, 0), (100, 100)]
+
+
+class DescribeInlineShapeWrapMode:
+    """Unit-test suite for `InlineShape.wrap_mode` (always INLINE)."""
+
+    def it_reports_INLINE_for_an_inline_shape(self):
+        inline = CT_Inline.new_pic_inline(1, "rId1", "f.png", 1000, 2000)
+        shape = InlineShape(inline)
+
+        assert shape.wrap_mode == WD_WRAP_MODE.INLINE
 
 
 # -- helpers for image-effect tests ----------------------------------------------------
