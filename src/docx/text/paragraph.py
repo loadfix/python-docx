@@ -29,6 +29,7 @@ from docx.text.run import Run
 
 if TYPE_CHECKING:
     import docx.types as t
+    from ooxml_math import MathExpr
     from docx.bookmarks import Bookmark
     from docx.content_controls import ContentControl, ContentControlType
     from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
@@ -554,20 +555,32 @@ class Paragraph(StoryChild):
         return FormField(begin_run)
 
     def add_equation(
-        self, omml_xml: str | bytes, display_mode: bool = False
+        self,
+        omml_xml: str | bytes | MathExpr,
+        display_mode: bool = False,
     ) -> Equation:
         """Append an OMML equation to this paragraph and return the |Equation|.
 
-        `omml_xml` is an OMML XML string (or bytes) whose root element is
-        either ``m:oMath`` or ``m:oMathPara``. Namespace declarations for the
-        ``m`` prefix must be present on the root. When `display_mode` is
-        |True| and the root is a bare ``m:oMath``, it is wrapped in
-        ``m:oMathPara`` to render in display mode.
+        `omml_xml` accepts three shapes:
 
-        Raises :class:`ValueError` when the root element is neither
-        ``m:oMath`` nor ``m:oMathPara``.
+        * An OMML XML ``str`` / ``bytes`` whose root element is either
+          ``m:oMath`` or ``m:oMathPara``. Namespace declarations for the
+          ``m`` prefix must be present on the root.
+        * A :class:`~docx.math.MathExpr` proxy built with the
+          :mod:`docx.math` / :mod:`ooxml_math` layer (``Fraction``,
+          ``Sum``, ``Matrix``, …). Raw operators are wrapped in
+          ``<m:oMath>`` automatically.
+
+        When `display_mode` is |True| and the root is bare ``m:oMath``, it
+        is wrapped in ``m:oMathPara`` to render in display mode.
+
+        Raises :class:`ValueError` when an XML string's root element is
+        neither ``m:oMath`` nor ``m:oMathPara``.
 
         .. versionadded:: 2026.05.0
+        .. versionchanged:: 2026.05.12
+           Accepts a :class:`~docx.math.MathExpr` proxy in addition to
+           an XML string.
         """
         from docx.equations import Equation, _make_equation_element
 

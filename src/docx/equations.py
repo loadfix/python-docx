@@ -7,7 +7,9 @@ best-effort plain-text rendering and the display-mode flag.
 The module also exposes a tiny set of *builder* functions that return OMML XML
 strings for common idioms — fractions, sub/superscripts, radicals, identifiers.
 These are convenience helpers; callers who want fuller fidelity should hand-
-author OMML and pass it to :meth:`Equation.from_omml_xml`.
+author OMML and pass it to :meth:`Equation.from_omml_xml`, or build the
+expression with the :mod:`docx.math` proxy layer (``Fraction``, ``Sum``,
+``Matrix``, …) re-exported from :mod:`ooxml_math`.
 
 LaTeX/MathML import/export is intentionally out of scope (see GitHub issue
 #113). The OMML XML string remains the authoritative exchange format here.
@@ -15,10 +17,13 @@ LaTeX/MathML import/export is intentionally out of scope (see GitHub issue
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from copy import deepcopy
+from typing import TYPE_CHECKING, Union
 from xml.sax.saxutils import escape as _xml_escape
 
 from lxml import etree
+
+from ooxml_math import MathExpr
 
 from docx.oxml.math import CT_OMath, CT_OMathPara
 from docx.oxml.ns import nsmap, qn
@@ -300,21 +305,49 @@ def build_radical(expr_text: str, degree_text: str | None = None) -> str:
 
 
 def _make_equation_element(
-    omml_xml: str | bytes, display_mode: bool = False
+    omml_xml: Union[str, bytes, MathExpr], display_mode: bool = False
 ) -> BaseOxmlElement:
-    """Parse `omml_xml` and return an element ready to append to a paragraph.
+    """Return an element ready to append to a paragraph.
 
-    When `display_mode` is |True| and the parsed root is bare ``m:oMath``,
-    it is wrapped in ``m:oMathPara``. When the root is already ``m:oMathPara``,
+    `omml_xml` accepts three shapes:
+
+    * A ``str`` / ``bytes`` OMML fragment parsed as XML.
+    * A :class:`ooxml_math.MathExpr` proxy — the underlying element is
+      taken verbatim (wrapped in ``<m:oMath>`` when the proxy is not
+      already an :class:`ooxml_math.oMath`).
+
+    When `display_mode` is |True| and the root is bare ``m:oMath``, it is
+    wrapped in ``m:oMathPara``. When the root is already ``m:oMathPara``,
     it is returned unchanged regardless of `display_mode`.
+
+    .. versionchanged:: 2026.05.12
+       Accepts a :class:`ooxml_math.MathExpr` in addition to an XML string.
     """
-    if isinstance(omml_xml, str):
-        omml_xml = omml_xml.encode("utf-8")
-    element = parse_xml(omml_xml)
-    if element.tag not in (_M_OMATH, _M_OMATH_PARA):
-        raise ValueError(
-            "OMML root must be m:oMath or m:oMathPara; got %r" % element.tag
-        )
+    if isinstance(omml_xml, MathExpr):
+        source = omml_xml._element  # pyright: ignore[reportPrivateUsage]
+        # -- round-trip through parse_xml so the element is attached to
+        # -- docx's own parser (picks up the CT_* registrations) and
+        # -- detached from any previous parent. --
+        element = parse_xml(etree.tostring(source, encoding="utf-8"))
+        if element.tag == _M_OMATH:
+            pass  # already an oMath root
+        elif element.tag == _M_OMATH_PARA:
+            pass  # already a display-mode wrapper
+        else:
+            # -- wrap the raw operator (e.g. <m:f>, <m:rad>) in <m:oMath> --
+            wrapper = parse_xml(
+                ('<m:oMath xmlns:m="%s"/>' % _M_NS).encode("utf-8")
+            )
+            wrapper.append(deepcopy(element))
+            element = wrapper
+    else:
+        if isinstance(omml_xml, str):
+            omml_xml = omml_xml.encode("utf-8")
+        element = parse_xml(omml_xml)
+        if element.tag not in (_M_OMATH, _M_OMATH_PARA):
+            raise ValueError(
+                "OMML root must be m:oMath or m:oMathPara; got %r" % element.tag
+            )
     if display_mode and element.tag == _M_OMATH:
         # -- build a wrapper <m:oMathPara> with empty <m:oMathParaPr> --
         wrapper_xml = (
