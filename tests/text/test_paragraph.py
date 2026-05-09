@@ -1040,6 +1040,33 @@ class DescribeParagraph:
         assert changes[1].name == "m1"  # type: ignore[attr-defined]
         assert changes[2].name == "m1"  # type: ignore[attr-defined]
 
+    def it_exposes_revisions_as_typed_proxies(self):
+        from docx.tracked_changes import Deletion, Insertion, Move
+
+        paragraph = Paragraph(
+            element(
+                "w:p/("
+                'w:ins{w:id=1,w:author=A}/w:r/w:t"i",'
+                'w:del{w:id=2,w:author=B}/w:r/w:delText"d",'
+                'w:moveFrom{w:id=3,w:author=C,w:name=m1}/w:r/w:delText"mf",'
+                'w:moveTo{w:id=4,w:author=D,w:name=m1}/w:r/w:t"mt"'
+                ")"
+            ),
+            None,
+        )
+
+        revs = paragraph.revisions
+
+        assert len(revs) == 4
+        assert isinstance(revs[0], Insertion)
+        assert isinstance(revs[1], Deletion)
+        assert isinstance(revs[2], Move)
+        assert isinstance(revs[3], Move)
+
+    def it_returns_empty_revisions_list_when_no_changes(self):
+        paragraph = Paragraph(cast(CT_P, element('w:p/w:r/w:t"plain"')), None)
+        assert paragraph.revisions == []
+
     def it_exposes_its_formatting_change_when_pPrChange_present(self):
         p = cast(
             CT_P,

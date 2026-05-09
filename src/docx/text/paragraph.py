@@ -1554,15 +1554,24 @@ class Paragraph(StoryChild):
 
         .. versionadded:: 2026.05.0
         """
-        from docx.oxml.tracked_changes import CT_MoveFrom, CT_MoveTo
+        from docx.tracked_changes import _wrap_revision
 
-        result: list[TrackedChange] = []
-        for tc in self._p.tracked_change_elements:
-            if isinstance(tc, (CT_MoveFrom, CT_MoveTo)):
-                result.append(MoveRevision(tc))
-            else:
-                result.append(TrackedChange(tc))
-        return result
+        return [_wrap_revision(tc) for tc in self._p.tracked_change_elements]
+
+    @property
+    def revisions(self) -> list[TrackedChange]:
+        """Typed run-level revisions in this paragraph, in document order.
+
+        Returns proxies wrapping the paragraph's `w:ins`, `w:del`, `w:moveFrom`,
+        and `w:moveTo` children. Insertions are :class:`Insertion`, deletions
+        are :class:`Deletion`, and both halves of a move are :class:`Move`.
+
+        This is the preferred name — :attr:`tracked_changes` is the original
+        spelling and is retained for back-compatibility.
+
+        .. versionadded:: 2026.05.11
+        """
+        return self.tracked_changes
 
     def revision_marks_text(
         self,

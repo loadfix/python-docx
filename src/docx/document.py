@@ -1154,6 +1154,56 @@ class Document(ElementProxy):
 
         return _resolve_all_changes(self._element.body, accept=False)
 
+    def accept_revisions(self) -> int:
+        """Alias of :meth:`accept_all_changes`.
+
+        Matches the ECMA-376 "revision" vocabulary used by
+        :attr:`Document.revisions`, :attr:`Paragraph.revisions`, and
+        :attr:`Run.revisions`. Returns the number of change elements resolved.
+
+        .. versionadded:: 2026.05.11
+        """
+        return self.accept_all_changes()
+
+    def reject_revisions(self) -> int:
+        """Alias of :meth:`reject_all_changes`.
+
+        Matches the ECMA-376 "revision" vocabulary used by
+        :attr:`Document.revisions`, :attr:`Paragraph.revisions`, and
+        :attr:`Run.revisions`. Returns the number of change elements resolved.
+
+        .. versionadded:: 2026.05.11
+        """
+        return self.reject_all_changes()
+
+    @property
+    def revisions(self) -> "list":
+        """All run-level revisions in the document body, in document order.
+
+        Returns a list of :class:`~docx.tracked_changes.Insertion`,
+        :class:`~docx.tracked_changes.Deletion`, and
+        :class:`~docx.tracked_changes.Move` proxies wrapping the body's
+        `w:ins`, `w:del`, `w:moveFrom`, and `w:moveTo` descendants. Formatting
+        revisions (`w:rPrChange`, `w:pPrChange`, `w:sectPrChange`,
+        `w:tcPrChange`, `w:trPrChange`, `w:tblPrChange`) and cell markers
+        (`w:cellIns`, `w:cellDel`) are excluded — those are exposed through
+        per-type proxies (:attr:`Run.formatting_change`, etc.).
+
+        Nested revisions (e.g. a `w:ins` inside an existing `w:del`) are
+        included and appear after their enclosing ancestor in the list.
+
+        .. versionadded:: 2026.05.11
+        """
+        from docx.tracked_changes import TrackedChange, _wrap_revision
+
+        body = self._element.body
+        result: list[TrackedChange] = []
+        for elm in body.xpath(
+            ".//w:ins | .//w:del | .//w:moveFrom | .//w:moveTo"
+        ):
+            result.append(_wrap_revision(elm))
+        return result
+
     @property
     def footnote_properties(self) -> FootnoteProperties | None:
         """Document-level |FootnoteProperties| or |None| if not configured.

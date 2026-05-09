@@ -189,6 +189,86 @@ class DescribeRun:
         run = Run(cast(CT_R, element("w:r/w:rPr/w:b")), paragraph_)
         assert run.formatting_change is None
 
+    def it_exposes_revisions_including_wrapping_ins(self, paragraph_: Mock):
+        from docx.tracked_changes import Insertion
+
+        p = element(
+            'w:p/w:ins{w:id=1,w:author=Alice}/w:r/w:t"added"'
+        )
+        r = cast(CT_R, p.xpath(".//w:r")[0])
+        run = Run(r, paragraph_)
+
+        revs = run.revisions
+
+        assert len(revs) == 1
+        assert isinstance(revs[0], Insertion)
+        assert revs[0].author == "Alice"
+
+    def it_exposes_revisions_including_wrapping_del(self, paragraph_: Mock):
+        from docx.tracked_changes import Deletion
+
+        p = element(
+            'w:p/w:del{w:id=2,w:author=Bob}/w:r/w:delText"removed"'
+        )
+        r = cast(CT_R, p.xpath(".//w:r")[0])
+        run = Run(r, paragraph_)
+
+        revs = run.revisions
+
+        assert len(revs) == 1
+        assert isinstance(revs[0], Deletion)
+
+    def it_exposes_revisions_including_wrapping_move(self, paragraph_: Mock):
+        from docx.tracked_changes import Move
+
+        p = element(
+            'w:p/w:moveTo{w:id=3,w:author=Carol,w:name=m1}/w:r/w:t"moved"'
+        )
+        r = cast(CT_R, p.xpath(".//w:r")[0])
+        run = Run(r, paragraph_)
+
+        revs = run.revisions
+
+        assert len(revs) == 1
+        assert isinstance(revs[0], Move)
+        assert revs[0].type == "move_to"
+
+    def it_includes_formatting_change_in_revisions(self, paragraph_: Mock):
+        from docx.tracked_changes import FormattingChange
+
+        r = cast(
+            CT_R,
+            element(
+                "w:r/w:rPr/(w:b,w:rPrChange{w:id=1,w:author=Alice}/w:rPr/w:i)"
+            ),
+        )
+        run = Run(r, paragraph_)
+
+        revs = run.revisions
+
+        assert len(revs) == 1
+        assert isinstance(revs[0], FormattingChange)
+
+    def it_returns_empty_revisions_when_plain_run(self, paragraph_: Mock):
+        run = Run(cast(CT_R, element('w:r/w:t"plain"')), paragraph_)
+        assert run.revisions == []
+
+    def it_lists_wrapping_ins_then_formatting_change(self, paragraph_: Mock):
+        from docx.tracked_changes import FormattingChange, Insertion
+
+        p = element(
+            "w:p/w:ins{w:id=1,w:author=Alice}/"
+            "w:r/w:rPr/(w:b,w:rPrChange{w:id=2,w:author=Bob}/w:rPr/w:i)"
+        )
+        r = cast(CT_R, p.xpath(".//w:r")[0])
+        run = Run(r, paragraph_)
+
+        revs = run.revisions
+
+        assert len(revs) == 2
+        assert isinstance(revs[0], Insertion)
+        assert isinstance(revs[1], FormattingChange)
+
     def it_can_mark_a_comment_reference_range(self, paragraph_: Mock):
         p = cast(CT_P, element('w:p/w:r/w:t"referenced text"'))
         run = last_run = Run(p.r_lst[0], paragraph_)

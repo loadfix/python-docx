@@ -22,10 +22,15 @@ from docx.oxml.tracked_changes import (
     CT_TrPrChange,
 )
 from docx.tracked_changes import (
+    Deletion,
     FormattingChange,
+    Insertion,
+    Move,
     MoveRevision,
+    Revision,
     TrackedChange,
     _render_paragraph_marks,
+    _wrap_revision,
 )
 
 from .unitutil.cxml import element
@@ -415,3 +420,60 @@ class DescribeMoveRevision:
         MoveRevision(mt).reject()
         assert p.xpath("./w:moveTo") == []
         assert [t.text for t in p.xpath("./w:r/w:t")] == ["before "]
+
+
+class DescribeTypedRevisionSubclasses:
+    """Unit-test suite for the typed revision proxies.
+
+    Covers :class:`Revision`, :class:`Insertion`, :class:`Deletion`,
+    :class:`Move`, and the :func:`_wrap_revision` factory. Also verifies
+    back-compatibility of the ``MoveRevision`` alias.
+    """
+
+    def it_aliases_Revision_to_TrackedChange(self):
+        assert Revision is TrackedChange
+
+    def it_aliases_MoveRevision_to_Move(self):
+        assert MoveRevision is Move
+
+    def it_makes_Insertion_a_subclass_of_Revision(self):
+        assert issubclass(Insertion, Revision)
+
+    def it_makes_Deletion_a_subclass_of_Revision(self):
+        assert issubclass(Deletion, Revision)
+
+    def it_makes_Move_a_subclass_of_Revision(self):
+        assert issubclass(Move, Revision)
+
+    def it_wraps_w_ins_as_Insertion(self):
+        ins = cast(CT_Ins, element("w:ins{w:id=1,w:author=A}"))
+        rev = _wrap_revision(ins)
+        assert isinstance(rev, Insertion)
+        assert rev.type == "insertion"
+
+    def it_wraps_w_del_as_Deletion(self):
+        del_ = cast(CT_Del, element("w:del{w:id=2,w:author=B}"))
+        rev = _wrap_revision(del_)
+        assert isinstance(rev, Deletion)
+        assert rev.type == "deletion"
+
+    def it_wraps_w_moveFrom_as_Move(self):
+        mf = cast(CT_MoveFrom, element("w:moveFrom{w:id=1,w:author=A,w:name=m1}"))
+        rev = _wrap_revision(mf)
+        assert isinstance(rev, Move)
+        assert rev.type == "move_from"
+
+    def it_wraps_w_moveTo_as_Move(self):
+        mt = cast(CT_MoveTo, element("w:moveTo{w:id=2,w:author=B,w:name=m1}"))
+        rev = _wrap_revision(mt)
+        assert isinstance(rev, Move)
+        assert rev.type == "move_to"
+
+    def it_preserves_author_and_date_on_typed_subclasses(self):
+        ins = cast(
+            CT_Ins,
+            element("w:ins{w:id=1,w:author=Alice,w:date=2023-10-01T12:00:00Z}"),
+        )
+        rev = _wrap_revision(ins)
+        assert rev.author == "Alice"
+        assert rev.date == dt.datetime(2023, 10, 1, 12, 0, 0, tzinfo=dt.timezone.utc)

@@ -580,6 +580,48 @@ class Run(StoryChild):
         return FormattingChange(rPrChange)
 
     @property
+    def revisions(self) -> list:
+        """Revisions whose wrapper element contains this run, plus its formatting change.
+
+        Iterates ancestor elements up to (but not including) the enclosing
+        `w:p`, wrapping each `w:ins`, `w:del`, `w:moveFrom`, and `w:moveTo`
+        found in the typed proxy (:class:`Insertion`, :class:`Deletion`, or
+        :class:`Move`). If the run has a `w:rPrChange` inside its `w:rPr`, a
+        :class:`FormattingChange` is appended.
+
+        Order: outermost ancestor first, then each nested wrapper, then the
+        run-local :class:`FormattingChange`. Returns an empty list when the
+        run is not wrapped in a revision and has no `w:rPrChange`.
+
+        .. versionadded:: 2026.05.11
+        """
+        from docx.oxml.ns import qn
+        from docx.tracked_changes import _wrap_revision
+
+        result: list = []
+        ins_tag = qn("w:ins")
+        del_tag = qn("w:del")
+        move_from_tag = qn("w:moveFrom")
+        move_to_tag = qn("w:moveTo")
+        p_tag = qn("w:p")
+        track_tags = {ins_tag, del_tag, move_from_tag, move_to_tag}
+
+        ancestors = []
+        node = self._r.getparent()
+        while node is not None and node.tag != p_tag:
+            if node.tag in track_tags:
+                ancestors.append(node)
+            node = node.getparent()
+        # outermost first
+        for elm in reversed(ancestors):
+            result.append(_wrap_revision(elm))
+
+        fc = self.formatting_change
+        if fc is not None:
+            result.append(fc)
+        return result
+
+    @property
     def rsid(self) -> str | None:
         """The run's revision-save ID (``w:r/@w:rsidR``) or |None|.
 
