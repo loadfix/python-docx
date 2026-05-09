@@ -1762,6 +1762,47 @@ class Document(ElementProxy):
                 result.append(sa)
         return result
 
+    def to_html(
+        self,
+        include_styles: bool = True,
+        embed_images: bool = True,
+    ) -> str:
+        """Return an HTML5 rendering of this document as a string.
+
+        A minimal, preview-grade exporter. Maps the main structural
+        elements (paragraphs, runs, hyperlinks, tables, inline
+        pictures, headings, lists) to equivalent HTML5 constructs with
+        inline CSS for alignment, margins, borders, and colour.
+
+        When ``include_styles`` is |True| (the default) a single
+        ``<style>`` block carrying coarse CSS rules derived from this
+        document's style definitions (``font-family``, ``font-size``,
+        ``color``, margin) is emitted in ``<head>``. Pass |False| for
+        a style-free document.
+
+        When ``embed_images`` is |True| (the default) inline pictures
+        are emitted with ``data:<content-type>;base64,…`` ``<img
+        src>`` URLs, producing a self-contained HTML string. When
+        |False|, pictures use ``cid:{rId}`` placeholders so a MIME
+        assembler (email, MHTML, etc.) can attach the parts
+        separately.
+
+        Text content is HTML-escaped at every text node (including
+        hyperlink URLs) to guard against XSS from document content.
+
+        Not round-trippable: there is no HTML→docx import path. For
+        fidelity beyond simple structure — fields, shapes, text
+        boxes, anchored pictures, and equations — this exporter
+        emits an ``<!-- unsupported: … -->`` comment and continues.
+
+        .. versionadded:: 2026.05.10
+        """
+        from docx.html_export import document_to_html
+
+        return document_to_html(
+            self, include_styles=include_styles, embed_images=embed_images
+        )
+
     @property
     def inline_shapes(self):
         """The |InlineShapes| collection for this document.
