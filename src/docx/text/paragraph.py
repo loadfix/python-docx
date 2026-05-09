@@ -452,6 +452,30 @@ class Paragraph(StoryChild):
         begin_run = self._p.add_complex_field(instr, result_text)
         return Field.for_complex(begin_run)
 
+    def add_field(
+        self, instruction: str, cached_result: str | None = None
+    ) -> Field:
+        """Append a complex-form field and return a |Field| proxy.
+
+        Emits the five-run ``w:fldChar`` sequence (``begin``, ``instrText``,
+        ``separate``, optional result run, ``end``) so the field works
+        uniformly for single-token types (``PAGE``, ``DATE``) and types that
+        require arguments (``MERGEFIELD name``, ``REF bookmark``,
+        ``HYPERLINK "url"``, ``TOC \\o "1-3"``).
+
+        `instruction` is the raw field code — exactly what Word stores in the
+        ``w:instrText`` element, e.g. ``'MERGEFIELD FirstName \\* MERGEFORMAT'``.
+        Leading/trailing whitespace is preserved so consumers that accept
+        either ``"PAGE"`` or ``" PAGE "`` work. `cached_result` is the most
+        recently rendered result; when present it is inserted as a plain
+        ``<w:r><w:t>`` run between ``separate`` and ``end`` so Word displays
+        the value without a field update. When |None|, no result run is
+        emitted — Word shows the raw field code until the first update.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.add_complex_field(instruction, cached_result)
+
     def add_text_form_field(
         self,
         name: str,

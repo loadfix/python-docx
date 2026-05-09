@@ -31,6 +31,11 @@ class DescribeWD_FIELD_TYPE:
             ("SEQ", "SEQ"),
             ("HYPERLINK", "HYPERLINK"),
             ("PAGEREF", "PAGEREF"),
+            ("MERGEFIELD", "MERGEFIELD"),
+            ("FILENAME", "FILENAME"),
+            ("TITLE", "TITLE"),
+            ("STYLEREF", "STYLEREF"),
+            ("NUMBEREDHEADERS", "NUMBEREDHEADERS"),
         ],
     )
     def it_exposes_common_field_types_as_string_constants(self, name: str, value: str):
@@ -887,3 +892,279 @@ class DescribeDocument_evaluate_fields:
         count = doc.evaluate_fields()
         # -- PAGE with cached "7" stays "7" --
         assert count == 0
+
+
+class DescribeParseFieldInstruction:
+    """Unit-test suite for `docx.fields.parse_field_instruction`."""
+
+    def it_parses_a_bare_field_name(self):
+        from docx.fields import parse_field_instruction
+
+        parsed = parse_field_instruction("PAGE")
+        assert parsed.name == "PAGE"
+        assert parsed.args == []
+        assert parsed.switches == {}
+
+    def it_parses_mergefield_with_format_switch(self):
+        from docx.fields import parse_field_instruction
+
+        parsed = parse_field_instruction("MERGEFIELD FirstName \\* MERGEFORMAT")
+        assert parsed.name == "MERGEFIELD"
+        assert parsed.args == ["FirstName"]
+        assert parsed.switches == {"*": "MERGEFORMAT"}
+
+    def it_unquotes_string_literal_arguments(self):
+        from docx.fields import parse_field_instruction
+
+        parsed = parse_field_instruction('HYPERLINK "https://example.com"')
+        assert parsed.name == "HYPERLINK"
+        assert parsed.args == ["https://example.com"]
+
+    def it_records_flag_switches_with_empty_string(self):
+        from docx.fields import parse_field_instruction
+
+        parsed = parse_field_instruction("REF heading1 \\h \\p")
+        assert parsed.name == "REF"
+        assert parsed.args == ["heading1"]
+        assert parsed.switches == {"H": "", "P": ""}
+
+    def it_keeps_argument_taking_switch_arguments(self):
+        from docx.fields import parse_field_instruction
+
+        parsed = parse_field_instruction('TIME \\@ "h:mm AM/PM"')
+        assert parsed.name == "TIME"
+        assert parsed.switches == {"@": "h:mm AM/PM"}
+
+    def it_handles_multiple_positional_arguments(self):
+        from docx.fields import parse_field_instruction
+
+        parsed = parse_field_instruction("STYLEREF \"Heading 1\" \\n")
+        assert parsed.name == "STYLEREF"
+        assert parsed.args == ["Heading 1"]
+        assert parsed.switches == {"N": ""}
+
+    def it_returns_empty_for_empty_instruction(self):
+        from docx.fields import parse_field_instruction
+
+        parsed = parse_field_instruction("")
+        assert parsed.name == ""
+        assert parsed.args == []
+        assert parsed.switches == {}
+
+    def it_tolerates_leading_and_trailing_whitespace(self):
+        from docx.fields import parse_field_instruction
+
+        parsed = parse_field_instruction("  PAGE  ")
+        assert parsed.name == "PAGE"
+
+    def it_handles_toc_with_quoted_level_range(self):
+        from docx.fields import parse_field_instruction
+
+        parsed = parse_field_instruction('TOC \\o "1-3" \\h \\z \\u')
+        assert parsed.name == "TOC"
+        assert parsed.switches == {"O": "", "H": "", "Z": "", "U": ""}
+        # -- `\o "1-3"` is a flag switch + separate positional quoted string
+        #    per our parser's rule; callers can resolve semantically if
+        #    needed. "1-3" ends up in args.
+        assert "1-3" in parsed.args
+
+    def it_preserves_nested_field_group_tokens(self):
+        from docx.fields import parse_field_instruction
+
+        parsed = parse_field_instruction('IF {MERGEFIELD x} = "a" "yes" "no"')
+        assert parsed.name == "IF"
+        # -- the nested {MERGEFIELD x} group is kept as one atomic arg --
+        assert "{MERGEFIELD x}" in parsed.args
+        assert "yes" in parsed.args
+        assert "no" in parsed.args
+
+
+class DescribeField_R3_9_Aliases:
+    """`Field.result` and `Field.field_type` R3-9 aliases."""
+
+    def it_exposes_result_as_alias_for_result_text(self):
+        fldSimple = cast(
+            CT_FldSimple,
+            element('w:fldSimple{w:instr=PAGE}/w:r/w:t"7"'),
+        )
+        field = Field.for_simple(fldSimple)
+        assert field.result == "7"
+        assert field.result == field.result_text
+
+    def it_exposes_field_type_as_alias_for_type(self):
+        fldSimple = cast(
+            CT_FldSimple,
+            element('w:fldSimple{w:instr=MERGEFIELD}'),
+        )
+        field = Field.for_simple(fldSimple)
+        assert field.field_type == "MERGEFIELD"
+        assert field.field_type == field.type
+
+
+class DescribeParagraph_add_field:
+    """`paragraph.add_field(instruction, cached_result=None)` complex-field emitter."""
+
+    def it_emits_a_complex_field_sequence(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        field = para.add_field("MERGEFIELD FirstName")
+        assert field.is_complex is True
+        # -- begin/separate/end markers present --
+        begin = p.xpath(".//w:fldChar[@w:fldCharType='begin']")
+        separate = p.xpath(".//w:fldChar[@w:fldCharType='separate']")
+        end = p.xpath(".//w:fldChar[@w:fldCharType='end']")
+        assert len(begin) == 1
+        assert len(separate) == 1
+        assert len(end) == 1
+        # -- instrText between begin and separate carries the instruction --
+        instrText = p.xpath(".//w:instrText")
+        assert len(instrText) == 1
+        assert instrText[0].text == "MERGEFIELD FirstName"
+
+    def it_writes_the_cached_result_when_provided(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        field = para.add_field("AUTHOR", cached_result="Jane Doe")
+        assert field.result_text == "Jane Doe"
+
+    def it_omits_result_run_when_cached_result_is_None(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        para.add_field("PAGE")
+        # -- exactly three runs: begin, instrText, separate, end (no result) --
+        runs = p.xpath("./w:r")
+        assert len(runs) == 4
+
+    def it_returns_a_Field_with_correct_type_and_instruction(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        field = para.add_field("MERGEFIELD FirstName \\* MERGEFORMAT")
+        assert field.field_type == "MERGEFIELD"
+        assert field.instruction == "MERGEFIELD FirstName \\* MERGEFORMAT"
+
+
+class DescribeDocument_fields:
+    """`document.fields` collection accessor (R3-9)."""
+
+    def it_walks_body_paragraphs(self):
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        doc_elm = cast(
+            CT_Document,
+            element("w:document/w:body/(w:p,w:p)"),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+        for paragraph in doc.paragraphs:
+            paragraph.add_field("PAGE", cached_result="1")
+
+        fields = doc.fields
+        assert len(fields) == 2
+        assert all(f.field_type == "PAGE" for f in fields)
+
+    def it_includes_simple_and_complex_fields(self):
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        doc_elm = cast(
+            CT_Document,
+            element("w:document/w:body/(w:p,w:p)"),
+        )
+        doc = Document(doc_elm, None)  # type: ignore[arg-type]
+        paragraphs = list(doc.paragraphs)
+        paragraphs[0].add_simple_field("DATE", "2026-05-09")
+        paragraphs[1].add_field("TIME", "10:00")
+
+        fields = doc.fields
+        assert len(fields) == 2
+        assert fields[0].is_complex is False
+        assert fields[1].is_complex is True
+
+
+class DescribeRun_parent_field:
+    """`run.parent_field` lookup (R3-9)."""
+
+    def it_returns_None_for_a_plain_run(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        r = para.add_run("plain text")
+        assert r.parent_field is None
+
+    def it_finds_the_enclosing_complex_field_for_interior_runs(self):
+        from docx.text.paragraph import Paragraph
+        from docx.text.run import Run
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        para.add_field("MERGEFIELD FirstName", cached_result="Jane")
+
+        # -- find the result-text run (the one between separate and end) --
+        r_elements = p.xpath("./w:r")
+        # -- runs: begin, instrText, separate, result, end --
+        result_run_el = r_elements[3]
+        run = Run(cast(CT_R, result_run_el), para)
+        field = run.parent_field
+        assert field is not None
+        assert field.field_type == "MERGEFIELD"
+        assert field.instruction == "MERGEFIELD FirstName"
+
+    def it_returns_None_for_a_run_after_the_end_marker(self):
+        from docx.text.paragraph import Paragraph
+        from docx.text.run import Run
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        para.add_field("PAGE", cached_result="1")
+        # -- a run appended *after* the end marker is outside the field --
+        trailing = para.add_run("after")
+        assert trailing.parent_field is None
+
+    def it_returns_None_for_a_run_before_the_begin_marker(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        leading = para.add_run("before")
+        para.add_field("PAGE")
+        assert leading.parent_field is None
+
+
+class DescribeField_RoundTrip:
+    """End-to-end create -> serialise -> parse round-trip for complex fields."""
+
+    def it_round_trips_a_mergefield(self):
+        from docx.text.paragraph import Paragraph
+        from lxml import etree
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        para.add_field("MERGEFIELD LastName \\* MERGEFORMAT", cached_result="Smith")
+
+        # -- serialise and re-parse --
+        xml = etree.tostring(p, pretty_print=False).decode()
+        reparsed = etree.fromstring(xml.encode())
+
+        instrText = reparsed.xpath(
+            ".//*[local-name()='instrText']"
+        )
+        assert len(instrText) == 1
+        assert instrText[0].text == "MERGEFIELD LastName \\* MERGEFORMAT"
+        # -- three fldChar markers preserved --
+        markers = reparsed.xpath(
+            ".//*[local-name()='fldChar']"
+        )
+        kinds = [
+            m.get(qn("w:fldCharType"))
+            for m in markers
+        ]
+        assert kinds == ["begin", "separate", "end"]

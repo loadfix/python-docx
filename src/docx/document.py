@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from docx.embedded_objects import EmbeddedObject
     from docx.endnotes import Endnotes, EndnoteProperties
     from docx.equations import Equation
+    from docx.fields import Field
     from docx.font_table import FontTable
     from docx.footnotes import FootnoteProperties, Footnotes
     from docx.form_fields import FormField
@@ -1050,6 +1051,25 @@ class Document(ElementProxy):
         result: list[FormField] = []
         for paragraph in self.paragraphs:
             result.extend(paragraph.form_fields)
+        return result
+
+    @property
+    def fields(self) -> "list[Field]":
+        """All fields found in the document body, in document order.
+
+        Includes both simple (``w:fldSimple``) and complex (``w:fldChar``)
+        fields. Walks top-level body paragraphs only — fields nested inside
+        table cells, headers, footers, footnotes, or endnotes are not
+        included; callers can access those via the ``fields`` property on
+        the enclosing paragraph.
+
+        .. versionadded:: 2026.05.10
+        """
+        from docx.fields import Field  # noqa: F401 (re-exported in type hint)
+
+        result: "list[Field]" = []
+        for paragraph in self.paragraphs:
+            result.extend(paragraph.fields)
         return result
 
     @property
