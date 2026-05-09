@@ -507,6 +507,12 @@ class CT_Settings(BaseOxmlElement):
     _remove_themeFontLang: Callable[[], None]
     get_or_add_docVars: Callable[[], CT_DocVars]
     _remove_docVars: Callable[[], None]
+    get_or_add_removePersonalInformation: Callable[[], CT_OnOff]
+    _remove_removePersonalInformation: Callable[[], None]
+    get_or_add_removeDateAndTime: Callable[[], CT_OnOff]
+    _remove_removeDateAndTime: Callable[[], None]
+    get_or_add_charactersWithNumbersWidth: Callable[[], CT_OnOff]
+    _remove_charactersWithNumbersWidth: Callable[[], None]
 
     _tag_seq = (
         "w:writeProtection",
@@ -607,6 +613,7 @@ class CT_Settings(BaseOxmlElement):
         "w:doNotEmbedSmartTags",
         "w:decimalSymbol",
         "w:listSeparator",
+        "w:charactersWithNumbersWidth",
         # -- Microsoft extension children (appear at the tail in every
         # -- Office-authored settings.xml, gated via mc:Ignorable) --
         "w14:docId",
@@ -621,6 +628,12 @@ class CT_Settings(BaseOxmlElement):
     )
     zoom: CT_Zoom | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:zoom", successors=_tag_seq[3:]
+    )
+    removePersonalInformation: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:removePersonalInformation", successors=_tag_seq[4:]
+    )
+    removeDateAndTime: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:removeDateAndTime", successors=_tag_seq[5:]
     )
     hideSpellingErrors: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:hideSpellingErrors", successors=_tag_seq[20:]
@@ -675,6 +688,9 @@ class CT_Settings(BaseOxmlElement):
     )
     themeFontLang: "CT_Language | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:themeFontLang", successors=_tag_seq[85:]
+    )
+    charactersWithNumbersWidth: "CT_OnOff | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:charactersWithNumbersWidth", successors=_tag_seq[-3:]
     )
     w14_docId: "CT_DocId | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w14:docId", successors=_tag_seq[-2:]
@@ -805,6 +821,51 @@ class CT_Settings(BaseOxmlElement):
     @documentProtection_enforcement.setter
     def documentProtection_enforcement(self, value: bool):
         self.get_or_add_documentProtection().enforcement = bool(value)
+
+    @property
+    def removePersonalInformation_val(self) -> bool:
+        """True if `w:removePersonalInformation` is present and enabled."""
+        el = self.removePersonalInformation
+        if el is None:
+            return False
+        return el.val
+
+    @removePersonalInformation_val.setter
+    def removePersonalInformation_val(self, value: bool | None):
+        if value is None or value is False:
+            self._remove_removePersonalInformation()
+            return
+        self.get_or_add_removePersonalInformation().val = value
+
+    @property
+    def removeDateAndTime_val(self) -> bool:
+        """True if `w:removeDateAndTime` is present and enabled."""
+        el = self.removeDateAndTime
+        if el is None:
+            return False
+        return el.val
+
+    @removeDateAndTime_val.setter
+    def removeDateAndTime_val(self, value: bool | None):
+        if value is None or value is False:
+            self._remove_removeDateAndTime()
+            return
+        self.get_or_add_removeDateAndTime().val = value
+
+    @property
+    def charactersWithNumbersWidth_val(self) -> bool:
+        """True if `w:charactersWithNumbersWidth` is present and enabled."""
+        el = self.charactersWithNumbersWidth
+        if el is None:
+            return False
+        return el.val
+
+    @charactersWithNumbersWidth_val.setter
+    def charactersWithNumbersWidth_val(self, value: bool | None):
+        if value is None or value is False:
+            self._remove_charactersWithNumbersWidth()
+            return
+        self.get_or_add_charactersWithNumbersWidth().val = value
 
     @property
     def compatibilityMode(self) -> int | None:

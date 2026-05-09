@@ -1724,6 +1724,9 @@ document.save("out.docx")
 - `Settings.footnote_properties` / `Settings.endnote_properties` / `Settings.add_*` / `Settings.remove_*` — Document-level note properties. `[Added in 2026.05.0]`
 - `Settings.document_protection` / `Settings.enable_protection(mode, password=None)` / `Settings.disable_protection()` — See [Permissions](#permissions-and-protection). `[Added in 2026.05.0]`
 - `Settings.write_protection` / `Settings.enable_write_protection(recommended=False, password=None)` / `Settings.disable_write_protection()` — Password-to-modify (`w:writeProtection`). `[Added in 2026.05.10]`
+- `Settings.remove_personal_information` / `Settings.remove_date_and_time` — Privacy-toggle pair (`w:removePersonalInformation` / `w:removeDateAndTime`). Strip author names and timestamps from comments and revisions when Word saves the document. `[Added in 2026.05.10]` (R5-21)
+- `Settings.characters_with_numbers_width` — `w:charactersWithNumbersWidth` toggle used by some East-Asian layouts. `[Added in 2026.05.10]` (R5-21)
+- `CompatSettings.find(name, uri=None)` / `.set(name, uri, val)` / `.as_dict()` — URI-aware read/write over `w:compatSetting` entries (the bare `proxy[name]` form only matches by name). `[Added in 2026.05.10]` (R5-21)
 - `CompatSettings` / `CompatFlags` / `DocVars` — Dict-like subtype helpers. `[Added in 2026.05.0]`
 - Enums: `WD_VIEW`, `WD_PROTECTION`, `WD_MAIL_MERGE_TYPE` (aka `WD_MAIL_MERGE_DOCUMENT_TYPE`), `WD_MAIL_MERGE_DESTINATION`, `WD_MAIL_MERGE_DATA_TYPE`, `WD_ODSO_TYPE`.
 

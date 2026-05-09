@@ -408,7 +408,10 @@ class Settings(ElementProxy):
     def track_revisions(self) -> bool:
         """True when revision tracking is enabled for this document.
 
-        Read/write.
+        Read/write. Maps to ``w:trackRevisions`` — the session-level flag
+        that records every edit as a tracked change. Distinct from
+        ``w:trackChanges`` (a per-run marker on existing changes); this is
+        the global toggle for *new* edits.
 
         .. versionadded:: 2026.05.0
         """
@@ -417,6 +420,54 @@ class Settings(ElementProxy):
     @track_revisions.setter
     def track_revisions(self, value: bool):
         self._settings.trackRevisions_val = value
+
+    @property
+    def remove_personal_information(self) -> bool:
+        """True when Word should strip author/reviewer personal info on save.
+
+        Backed by the ``w:removePersonalInformation`` element. Read/write.
+        When |True|, Word removes user names from comments, revision
+        tracking, and properties when the document is saved.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._settings.removePersonalInformation_val
+
+    @remove_personal_information.setter
+    def remove_personal_information(self, value: bool) -> None:
+        self._settings.removePersonalInformation_val = bool(value)
+
+    @property
+    def remove_date_and_time(self) -> bool:
+        """True when Word should strip revision/comment timestamps on save.
+
+        Backed by the ``w:removeDateAndTime`` element. Read/write. Pairs
+        with :attr:`remove_personal_information` to produce an anonymised
+        document.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._settings.removeDateAndTime_val
+
+    @remove_date_and_time.setter
+    def remove_date_and_time(self, value: bool) -> None:
+        self._settings.removeDateAndTime_val = bool(value)
+
+    @property
+    def characters_with_numbers_width(self) -> bool:
+        """True when ``w:charactersWithNumbersWidth`` toggle is set.
+
+        Some East-Asian layouts use this flag to indicate that each CJK
+        character should occupy the width of a digit rather than its
+        native glyph width. Read/write.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._settings.charactersWithNumbersWidth_val
+
+    @characters_with_numbers_width.setter
+    def characters_with_numbers_width(self, value: bool) -> None:
+        self._settings.charactersWithNumbersWidth_val = bool(value)
 
     @property
     def update_fields_on_open(self) -> bool:
@@ -1446,6 +1497,69 @@ class CompatSettings:
             return default
         val = compat.get_compat_setting(name)
         return default if val is None else val
+
+    def find(self, name: str, uri: str | None = None) -> str | None:
+        """Return the ``@w:val`` of the compatSetting matching `name` (and optional `uri`).
+
+        Distinct from :meth:`get`: returns |None| on miss (no default), and
+        narrows the match by `uri` when supplied. Multiple compatSettings
+        can share a name if they carry different URIs (e.g. a vendor's
+        custom namespace), so callers round-tripping third-party flags
+        should prefer this over the bare :meth:`__getitem__`.
+
+        .. versionadded:: 2026.05.10
+        """
+        compat = self._compat_or_none()
+        if compat is None:
+            return None
+        for setting in compat.compatSetting_lst:
+            if setting.name != name:
+                continue
+            if uri is not None and setting.uri != uri:
+                continue
+            return setting.val
+        return None
+
+    def set(
+        self,
+        name: str,
+        uri: str,
+        val: str,
+    ) -> None:
+        """Create or update the compatSetting identified by ``(name, uri)``.
+
+        When a compatSetting with matching ``@w:name`` and ``@w:uri`` already
+        exists, its ``@w:val`` is updated in place. Otherwise a new
+        ``w:compatSetting`` element is appended.
+
+        Distinct from ``proxy[name] = val``: that form only matches by name
+        and preserves the existing ``@w:uri``, which is appropriate for the
+        common ``http://schemas.microsoft.com/office/word`` URI but not for
+        third-party flags that share a name across namespaces.
+
+        .. versionadded:: 2026.05.10
+        """
+        compat = self._compat_or_add()
+        for setting in compat.compatSetting_lst:
+            if setting.name == name and setting.uri == uri:
+                setting.val = str(val)
+                return
+        compat._add_compatSetting(name=name, uri=uri, val=str(val))  # pyright: ignore[reportPrivateUsage]
+
+    def as_dict(self) -> dict[str, str]:
+        """Return a plain ``{name: val}`` dict snapshot of every compatSetting.
+
+        When two compatSettings share a name but differ by URI, later
+        entries overwrite earlier ones. Callers needing URI fidelity
+        should iterate ``compatSetting_lst`` on the underlying element
+        directly.
+
+        .. versionadded:: 2026.05.10
+        """
+        compat = self._compat_or_none()
+        if compat is None:
+            return {}
+        return {s.name: s.val for s in compat.compatSetting_lst}
 
     def remove(self, name: str) -> None:
         """Remove the compatSetting named `name`, raising |KeyError| if absent.

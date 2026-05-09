@@ -1387,3 +1387,263 @@ class DescribeSettings_chartTrackingRefBased:
         settings.chart_tracking_ref_based = False
 
         assert settings.chart_tracking_ref_based is False
+
+
+class DescribeSettings_privacyFlags:
+    """Unit-test suite for ``w:removePersonalInformation`` / ``w:removeDateAndTime``."""
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:settings", False),
+            ("w:settings/w:removePersonalInformation", True),
+            ("w:settings/w:removePersonalInformation{w:val=0}", False),
+            ("w:settings/w:removePersonalInformation{w:val=1}", True),
+        ],
+    )
+    def it_reads_remove_personal_information(self, cxml: str, expected_value: bool):
+        assert Settings(element(cxml)).remove_personal_information is expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            ("w:settings", True, "w:settings/w:removePersonalInformation"),
+            ("w:settings/w:removePersonalInformation", False, "w:settings"),
+            (
+                "w:settings/w:view{w:val=web}",
+                True,
+                "w:settings/(w:view{w:val=web},w:removePersonalInformation)",
+            ),
+        ],
+    )
+    def it_writes_remove_personal_information(
+        self, cxml: str, new_value: bool, expected_cxml: str
+    ):
+        settings = Settings(element(cxml))
+
+        settings.remove_personal_information = new_value
+
+        assert settings._settings.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:settings", False),
+            ("w:settings/w:removeDateAndTime", True),
+            ("w:settings/w:removeDateAndTime{w:val=0}", False),
+            ("w:settings/w:removeDateAndTime{w:val=1}", True),
+        ],
+    )
+    def it_reads_remove_date_and_time(self, cxml: str, expected_value: bool):
+        assert Settings(element(cxml)).remove_date_and_time is expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            ("w:settings", True, "w:settings/w:removeDateAndTime"),
+            ("w:settings/w:removeDateAndTime", False, "w:settings"),
+        ],
+    )
+    def it_writes_remove_date_and_time(
+        self, cxml: str, new_value: bool, expected_cxml: str
+    ):
+        settings = Settings(element(cxml))
+
+        settings.remove_date_and_time = new_value
+
+        assert settings._settings.xml == xml(expected_cxml)
+
+    def it_orders_privacy_flags_correctly_in_sequence(self):
+        settings = Settings(element("w:settings/w:zoom{w:percent=100}"))
+
+        settings.remove_date_and_time = True
+        settings.remove_personal_information = True
+
+        # -- w:removePersonalInformation precedes w:removeDateAndTime per schema --
+        assert settings._settings.xml == xml(
+            "w:settings/("
+            "w:zoom{w:percent=100},"
+            "w:removePersonalInformation,"
+            "w:removeDateAndTime)"
+        )
+
+
+class DescribeSettings_charactersWithNumbersWidth:
+    """Unit-test suite for ``w:charactersWithNumbersWidth`` accessor."""
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:settings", False),
+            ("w:settings/w:charactersWithNumbersWidth", True),
+            ("w:settings/w:charactersWithNumbersWidth{w:val=0}", False),
+            ("w:settings/w:charactersWithNumbersWidth{w:val=1}", True),
+        ],
+    )
+    def it_reads_the_flag(self, cxml: str, expected_value: bool):
+        assert Settings(element(cxml)).characters_with_numbers_width is expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            ("w:settings", True, "w:settings/w:charactersWithNumbersWidth"),
+            ("w:settings/w:charactersWithNumbersWidth", False, "w:settings"),
+        ],
+    )
+    def it_writes_the_flag(self, cxml: str, new_value: bool, expected_cxml: str):
+        settings = Settings(element(cxml))
+
+        settings.characters_with_numbers_width = new_value
+
+        assert settings._settings.xml == xml(expected_cxml)
+
+
+class DescribeCompatSettings_findAndSet:
+    """Unit-test suite for ``CompatSettings.find`` / ``.set`` / ``.as_dict`` (R5-21)."""
+
+    def it_find_returns_None_when_compat_missing(self):
+        settings = Settings(element("w:settings"))
+
+        assert settings.compat_settings.find("anything") is None
+
+    def it_find_matches_by_name_alone_when_uri_omitted(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/w:compatSetting"
+                "{w:name=compatibilityMode,w:uri=http://schemas.microsoft.com/office/word,w:val=15}"
+            )
+        )
+
+        assert settings.compat_settings.find("compatibilityMode") == "15"
+
+    def it_find_narrows_by_uri_when_supplied(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/("
+                "w:compatSetting{w:name=flag,w:uri=http://vendor/a,w:val=1},"
+                "w:compatSetting{w:name=flag,w:uri=http://vendor/b,w:val=2})"
+            )
+        )
+
+        assert settings.compat_settings.find("flag", "http://vendor/a") == "1"
+        assert settings.compat_settings.find("flag", "http://vendor/b") == "2"
+        assert settings.compat_settings.find("flag", "http://missing") is None
+
+    def it_set_creates_w_compat_and_new_entry(self):
+        settings = Settings(element("w:settings"))
+
+        settings.compat_settings.set(
+            "compatibilityMode", "http://schemas.microsoft.com/office/word", "15"
+        )
+
+        assert settings.compat_settings["compatibilityMode"] == "15"
+        assert settings._settings.xml == xml(
+            "w:settings/w:compat/w:compatSetting"
+            "{w:name=compatibilityMode,"
+            "w:uri=http://schemas.microsoft.com/office/word,w:val=15}"
+        )
+
+    def it_set_updates_in_place_when_name_and_uri_match(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/w:compatSetting"
+                "{w:name=flag,w:uri=http://vendor,w:val=old}"
+            )
+        )
+
+        settings.compat_settings.set("flag", "http://vendor", "new")
+
+        assert settings.compat_settings.find("flag", "http://vendor") == "new"
+        assert len(settings.compat_settings) == 1
+
+    def it_set_appends_new_when_uri_differs(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/w:compatSetting"
+                "{w:name=flag,w:uri=http://vendor/a,w:val=1}"
+            )
+        )
+
+        settings.compat_settings.set("flag", "http://vendor/b", "2")
+
+        assert settings.compat_settings.find("flag", "http://vendor/a") == "1"
+        assert settings.compat_settings.find("flag", "http://vendor/b") == "2"
+        assert len(settings.compat_settings) == 2
+
+    def it_set_coerces_value_to_str(self):
+        settings = Settings(element("w:settings"))
+
+        settings.compat_settings.set("n", "http://x", 42)  # type: ignore[arg-type]
+
+        assert settings.compat_settings["n"] == "42"
+
+    def it_as_dict_is_empty_when_compat_missing(self):
+        settings = Settings(element("w:settings"))
+
+        assert settings.compat_settings.as_dict() == {}
+
+    def it_as_dict_returns_name_to_val_snapshot(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/("
+                "w:compatSetting{w:name=a,w:uri=http://x,w:val=1},"
+                "w:compatSetting{w:name=b,w:uri=http://x,w:val=2})"
+            )
+        )
+
+        result = settings.compat_settings.as_dict()
+
+        assert result == {"a": "1", "b": "2"}
+
+    def it_as_dict_snapshot_is_independent_of_later_mutations(self):
+        settings = Settings(
+            element(
+                "w:settings/w:compat/w:compatSetting"
+                "{w:name=a,w:uri=http://x,w:val=1}"
+            )
+        )
+
+        snapshot = settings.compat_settings.as_dict()
+        settings.compat_settings["a"] = "99"
+
+        assert snapshot == {"a": "1"}
+
+
+class DescribeSettings_R521_roundtrip:
+    """Integration-style round-trip test covering every R5-21 knob at once."""
+
+    def it_round_trips_every_extra_via_the_settings_proxy(self):
+        from docx.shared import Twips
+
+        settings = Settings(element("w:settings"))
+
+        settings.default_tab_stop = Twips(720)
+        settings.characters_with_numbers_width = True
+        settings.track_revisions = True
+        settings.remove_personal_information = True
+        settings.remove_date_and_time = True
+        settings.compat_settings.set(
+            "compatibilityMode", "http://schemas.microsoft.com/office/word", "15"
+        )
+        settings.doc_vars["GreetingName"] = "World"
+
+        # -- reads survive a fresh proxy wrapping the same element --
+        roundtrip = Settings(settings._settings)
+        assert roundtrip.default_tab_stop == Twips(720)
+        assert roundtrip.characters_with_numbers_width is True
+        assert roundtrip.track_revisions is True
+        assert roundtrip.remove_personal_information is True
+        assert roundtrip.remove_date_and_time is True
+        assert roundtrip.compat_settings.find("compatibilityMode") == "15"
+        assert roundtrip.doc_vars["GreetingName"] == "World"
+
+        # -- clearing each one gets back to an empty w:settings element --
+        roundtrip.default_tab_stop = None
+        roundtrip.characters_with_numbers_width = False
+        roundtrip.track_revisions = False
+        roundtrip.remove_personal_information = False
+        roundtrip.remove_date_and_time = False
+        del roundtrip.compat_settings["compatibilityMode"]
+        del roundtrip.doc_vars["GreetingName"]
+
+        assert roundtrip._settings.xml == xml("w:settings")
