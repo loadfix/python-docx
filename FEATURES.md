@@ -825,14 +825,31 @@ section.orientation = WD_ORIENTATION.PORTRAIT
 section.left_margin = Inches(1)
 section.right_margin = Inches(1)
 
-# two-column layout with a divider
-section.set_columns(count=2, equal_width=True, space=Inches(0.5))
+# two-column layout with a divider line
+section.set_columns(
+    count=2,
+    widths=[Inches(3), Inches(3)],
+    space=Inches(0.5),
+    separator=True,
+)
+
+# group every pgMar attribute on a single proxy
+section.page_margins.gutter = Inches(0.25)
+section.page_margins.header = Inches(0.5)
+
+# page size with the paper-size code for round-tripping
+section.page_size.width = Inches(8.5)
+section.page_size.height = Inches(11)
+section.page_size.code = 1  # Windows DEVMODE.dmPaperSize code for "Letter"
 
 # page border
 section.set_page_border("top", style="single", width=Pt(1))
 
 # line numbering from 1, every 5 lines
 section.set_line_numbering(count_by=5, start=1, distance=Inches(0.2))
+
+# right-to-left binding (gutter on the right)
+section.rtl_gutter = True
 
 # append a new section that breaks to a new page
 document.add_section(WD_SECTION_START.NEW_PAGE)
@@ -843,14 +860,17 @@ document.save("out.docx")
 - `Document.sections` — `Sections` sequence. `pop(index=-1)` is `[Added in 2026.05.0]`.
 - `Document.add_section(start_type=WD_SECTION.NEW_PAGE)` — Append a new section.
 - `Section.start_type` / `Section.orientation` / `Section.page_height` / `Section.page_width` / `Section.left_margin` / `Section.right_margin` / `Section.top_margin` / `Section.bottom_margin` / `Section.header_distance` / `Section.footer_distance` / `Section.gutter` — Page metrics.
+- `Section.page_margins` — Grouped proxy exposing every `w:pgMar` attribute (`top`/`right`/`bottom`/`left`/`header`/`footer`/`gutter`) as a |Length|. `[Added in 2026.05.10]`
+- `Section.page_size` — Grouped proxy for `w:pgSz` exposing `width`/`height`/`orientation`/`code` (`w:code` = Windows printer paper-size code). `[Added in 2026.05.10]`
 - `Section.vertical_alignment` — Vertical alignment of text on the page (`WD_VERTICAL_ALIGNMENT.TOP` / `.CENTER` / `.BOTH` / `.BOTTOM`); maps to `w:sectPr/w:vAlign` (ECMA-376 17.6.22). `[Added in 2026.05.6]`
-- `Section.columns` / `Section.set_columns(count, equal_width=True, space=None, widths=None)` — Multi-column layout. `set_columns` is `[Added in 2026.05.0]`.
+- `Section.columns` / `Section.set_columns(count, equal_width=None, space=None, widths=None, separator=None)` — Multi-column layout. `widths=` (per-column `Length` sequence) and `separator=` (draw a vertical divider line, `w:cols/@w:sep`) are `[Added in 2026.05.10]`.
 - `Section.page_borders` / `Section.set_page_border(side, ...)` / `Section.remove_page_borders()` — Page-level borders. `[Added in 2026.05.0]`
 - `Section.line_numbering` / `Section.set_line_numbering(...)` / `Section.remove_line_numbering()` — `[Added in 2026.05.0]`
+- `Section.page_numbering` / `Section.set_page_numbering(...)` / `Section.remove_page_numbering()` — `w:pgNumType` with `fmt`/`start`/`chapter_style`/`chapter_separator`. `[Added in 2026.05.3]`. Alias `Section.page_number_format` is `[Added in 2026.05.10]`.
 - `Section.first_page_paper_source` / `Section.other_pages_paper_source` — Paper-source bin ids. `[Added in 2026.05.0]`
-- `Section.document_grid` / `Section.set_document_grid(...)` / `Section.remove_document_grid()` — East-Asian grid controls. `[Added in 2026.05.0]`
-- `Section.text_direction` / `Section.right_to_left` — `[Added in 2026.05.0]`
-- `Section.different_first_page_header_footer` / `Section.different_odd_and_even_pages_header_footer` — Toggle variant headers/footers.
+- `Section.document_grid` / `Section.doc_grid` / `Section.set_document_grid(...)` / `Section.remove_document_grid()` — East-Asian grid controls. `[Added in 2026.05.0]`; `doc_grid` alias `[Added in 2026.05.10]`.
+- `Section.text_direction` / `Section.right_to_left` / `Section.rtl_gutter` — `[Added in 2026.05.0]`; `rtl_gutter` (maps to `w:sectPr/w:rtlGutter`, places the gutter on the right for RTL binding) `[Added in 2026.05.10]`.
+- `Section.different_first_page_header_footer` / `Section.different_odd_and_even_pages_header_footer` — Toggle variant headers/footers (`w:titlePg`, settings `w:evenAndOddHeaders`).
 - `Section.first_page_header` / `Section.first_page_footer` / `Section.even_page_header` / `Section.even_page_footer` / `Section.header` / `Section.footer` — Header/footer access.
 - `Section.footnote_properties` / `Section.add_footnote_properties()` / `Section.remove_footnote_properties()` / `Section.endnote_properties` / `Section.add_endnote_properties()` / `Section.remove_endnote_properties()` — Section-level overrides. `[Added in 2026.05.0]`
 - `Section.add_text_watermark(text, ...)` / `Section.add_image_watermark(image, ...)` / `Section.remove_watermark()` / `Section.watermark` — Watermark per section. `[Added in 2026.05.0]`
@@ -858,9 +878,9 @@ document.save("out.docx")
 - `Section.delete()` — Remove this section break. `[Added in 2026.05.0]`
 - `Section.iter_inner_content()` / `Section.paragraphs` / `Section.tables` — Content iteration.
 - `Section.formatting_change` — `FormattingChange` for `w:sectPrChange`. `[Added in 2026.05.0]`
-- `SectionColumns` / `Column` — Column collection; `count`, `equal_width`, `space`, per-column `width` / `space`. `[Added in 2026.05.0]`
-- `PageBorders`, `PageBorder`, `LineNumbering`, `DocumentGrid` — Helper proxies. `[Added in 2026.05.0]`
-- Enums: `WD_SECTION`, `WD_SECTION_START`, `WD_ORIENTATION`, `WD_VERTICAL_ALIGNMENT`, `WD_BORDER_DISPLAY`, `WD_BORDER_OFFSET_FROM`, `WD_LINE_NUMBERING_RESTART`, `WD_DOC_GRID_TYPE`, `WD_HEADER_FOOTER_INDEX`.
+- `SectionColumns` / `Column` — Column collection; `count`, `equal_width`, `space`, `separator`, `set_widths(widths)`, per-column `width` / `space`. `separator` and `set_widths` are `[Added in 2026.05.10]`; remainder `[Added in 2026.05.0]`.
+- `PageMargins`, `PageSize`, `PageBorders`, `PageBorder`, `LineNumbering`, `PageNumbering`, `DocumentGrid` — Helper proxies. `PageMargins` / `PageSize` are `[Added in 2026.05.10]`; `PageNumbering` is `[Added in 2026.05.3]`; remainder `[Added in 2026.05.0]`.
+- Enums: `WD_SECTION`, `WD_SECTION_START`, `WD_ORIENTATION`, `WD_VERTICAL_ALIGNMENT`, `WD_BORDER_DISPLAY`, `WD_BORDER_OFFSET_FROM`, `WD_LINE_NUMBERING_RESTART`, `WD_CHAPTER_SEPARATOR`, `WD_DOC_GRID_TYPE`, `WD_HEADER_FOOTER_INDEX`.
 
 ---
 
