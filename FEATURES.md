@@ -801,9 +801,12 @@ p.add_equation(expr)
 
 - `docx.math.MathExpr` — Abstract base for every proxy.
 - Leaves: `Var`, `Lit`, `Text`, `Raw`.
-- Operator tree: `Fraction`, `Radical`, `Sub`, `Sup`, `SubSup`, `Pre`, `Sum`, `Product`, `Integral`, `Nary`, `Limit`, `FuncApply`, `Delimiter`, `Matrix`, `Accent`.
+- Operator tree: `Fraction`, `Radical`, `Sub`, `Sup`, `SubSup`, `Pre`, `Sum`, `Product`, `Integral`, `Nary`, `Limit`, `FuncApply`, `Delimiter`, `Matrix`, `Accent`, `Bar`, `Box`, `BorderBox`, `Phantom`, `GroupChar`, `EqArray`. `[Bar / Box / BorderBox / Phantom / GroupChar / EqArray added in 2026.05.10 on ooxml-math 0.4.0]`
 - Root container: `oMath`.
 - Parse dispatch: `from_element(element)` — returns the matching proxy for any OMML element.
+- `Paragraph.math_expressions` — Generator yielding a `MathExpr` for each `<m:oMath>` / `<m:oMathPara>` in the paragraph. `[Added in 2026.05.10]`
+- `Document.iter_math_expressions()` — Document-wide walk yielding a `MathExpr` for each body equation. `[Added in 2026.05.10]`
+- `Paragraph.add_math(expr)` — Insert a math block before the first run (or append when no runs exist). Returns a `MathExpr` proxy around the inserted element. `[Added in 2026.05.10]`
 
 ---
 

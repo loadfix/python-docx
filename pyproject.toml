@@ -46,7 +46,11 @@ dependencies = [
     "python-ooxml-comments @ git+https://github.com/loadfix/python-ooxml-comments@master",
     # Shared Office Math Markup Language (``m:``) readers/writers. Not
     # yet on PyPI; pinned to the master branch until a PyPI release
-    # lands, after which this becomes ``python-ooxml-math>=0.1.0``.
+    # lands, after which this becomes ``python-ooxml-math>=0.4.0``.
+    # Requires 0.4.0 for the deferred ``Bar`` / ``Box`` / ``BorderBox``
+    # / ``Phantom`` / ``GroupChar`` / ``EqArray`` proxies surfaced by
+    # ``Paragraph.math_expressions`` / ``Document.iter_math_expressions``
+    # / ``Paragraph.add_math``.
     "python-ooxml-math @ git+https://github.com/loadfix/python-ooxml-math@master",
     # Shared DrawingML classic-chart (``c:chartSpace``) readers/writers.
     # Provides the full authoring surface (``CT_ChartSpace``, ``CT_Chart``,

@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from docx.form_fields import FormField
     from docx.glossary import Glossary
     from docx.ink import InkAnnotation
+    from ooxml_math import MathExpr
     from docx.oxml.content_controls import CT_Sdt
     from docx.oxml.document import CT_Body, CT_Document
     from docx.oxml.table import CT_Tbl
@@ -1273,6 +1274,33 @@ class Document(ElementProxy):
         ):
             result.append(Equation(el))
         return result
+
+    def iter_math_expressions(self) -> "Iterator[MathExpr]":
+        """Yield a :class:`~docx.math.MathExpr` proxy for every OMML expression in the body.
+
+        Document-wide walk that dispatches each ``m:oMathPara`` /
+        ``m:oMath`` (not already inside an ``m:oMathPara``) through
+        :func:`ooxml_math.from_element`, so callers receive the richest
+        typed proxy known to ``ooxml_math`` 0.4.0 — including the deferred
+        :class:`~docx.math.Bar`, :class:`~docx.math.Box`,
+        :class:`~docx.math.BorderBox`, :class:`~docx.math.Phantom`,
+        :class:`~docx.math.GroupChar` and :class:`~docx.math.EqArray`
+        wrappers — falling back to :class:`~docx.math.Raw` for any
+        unrecognised tag.
+
+        Equations inside headers, footers, footnotes, endnotes, or comments
+        are not included; those stories are accessible via the corresponding
+        container objects.
+
+        .. versionadded:: 2026.05.10
+        """
+        from ooxml_math import from_element as _from_element
+
+        body = self._element.body
+        for el in body.xpath(
+            ".//m:oMathPara | .//m:oMath[not(ancestor::m:oMathPara)]"
+        ):
+            yield _from_element(el)
 
     @property
     def form_fields(self) -> list[FormField]:
