@@ -945,7 +945,10 @@ document.save("out.docx")
 
 Bookmarks span one or more runs (or an entire paragraph) and carry a unique
 name used by cross-references (`REF`, `PAGEREF`). Adding, reading, renaming,
-and deleting are all supported. `[Added in 2026.05.0]`.
+and deleting are all supported, and the collection models the whole
+ECMA-376 range-marker family (`w:bookmarkStart`/`End`, `w:moveFromRangeStart`/
+`End`, `w:moveToRangeStart`/`End`, `w:commentRangeStart`/`End`) for unique-ID
+allocation. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -955,27 +958,43 @@ p = document.add_paragraph()
 r1 = p.add_run("Chapter 1")
 r2 = p.add_run(" begins here.")
 
-# whole-paragraph bookmark
+# whole-paragraph bookmark via Paragraph.add_bookmark
 p.add_bookmark("chapter-1")
 
-# cross-paragraph via Document.add_bookmark (first + last run)
+# multi-run (or cross-paragraph) via Document.add_bookmark (first + last run)
 p2 = document.add_paragraph()
 first = p2.add_run("Start")
 p2.add_run(" middle ")
 last = p2.add_run("end")
 document.add_bookmark([first, last], name="span")
 
-bm = document.bookmarks.get("chapter-1")
-bm.name = "ch-1"   # rename
-print(len(document.bookmarks), list(document.bookmarks))
+# dict-like add() accepts runs or paragraphs for start / end
+document.bookmarks.add("whole", p, p2)
+
+# inspect
+bm = document.bookmarks["chapter-1"]
+print(bm.text)                   # plain text between start and end markers
+print(bm.start_paragraph.text)   # first paragraph overlapped
+print(bm.end_paragraph.text)     # last paragraph overlapped
+print([p.text for p in bm.paragraphs])  # every overlapped paragraph
+
+bm.name = "ch-1"                 # rename
+document.bookmarks.remove("span")  # delete by name
+print(document.bookmarks.next_id())  # next free @w:id across all range markers
 
 document.save("out.docx")
 ```
 
 - `Paragraph.add_bookmark(name, start_run=None, end_run=None)` — Add a bookmark. `[Added in 2026.05.0]`
 - `Document.add_bookmark(runs, name)` — Multi-run / cross-paragraph bookmark. `[Added in 2026.05.0]`
-- `Document.bookmarks` — `Bookmarks` collection (`get(name)`, iteration, `name in`, `len()`). `[Added in 2026.05.0]`
+- `Document.bookmarks` — `Bookmarks` collection. `[Added in 2026.05.0]`
+- `Bookmarks.get(name)` / `Bookmarks[name]` / `name in Bookmarks` / `iter(Bookmarks)` / `len(Bookmarks)`. `[Added in 2026.05.0]`
+- `Bookmarks.add(name, start, end=None)` — `start` / `end` may be `Run` or `Paragraph`; `end` defaults to `start`. `[Added in 2026.05.0]`
+- `Bookmarks.remove(name)` — Raises `KeyError` if the name is unknown. `[Added in 2026.05.0]`
+- `Bookmarks.next_id()` — Next unused `@w:id` across every range-marker element (`w:bookmarkStart`/`End`, `w:moveFromRangeStart`/`End`, `w:moveToRangeStart`/`End`, `w:commentRangeStart`/`End`). `[Added in 2026.05.0]`
 - `Bookmark.name` (read/write) / `Bookmark.bookmark_id` / `Bookmark.delete()`. `[Added in 2026.05.0]`
+- `Bookmark.start_paragraph` / `Bookmark.end_paragraph` / `Bookmark.paragraphs` — `Paragraph` objects overlapped by the bookmark (or `None` / `[]` for an orphan). `[Added in 2026.05.0]`
+- `Bookmark.text` — Concatenated text of every `w:t` between the start and end markers. `[Added in 2026.05.0]`
 
 ---
 

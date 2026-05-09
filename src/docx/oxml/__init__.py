@@ -141,10 +141,17 @@ register_element_cls("w:titlePg", CT_OnOff)
 # ---------------------------------------------------------------------------
 # other custom element class mappings
 
-from .bookmarks import CT_BookmarkEnd, CT_BookmarkStart
+from .bookmarks import CT_BookmarkEnd, CT_BookmarkStart, CT_MarkupRange, CT_MoveBookmark
 
 register_element_cls("w:bookmarkEnd", CT_BookmarkEnd)
 register_element_cls("w:bookmarkStart", CT_BookmarkStart)
+# -- ECMA-376 move-range and comment-range markers share the CT_MarkupRange /
+#    CT_MoveBookmark shape; register them with typed element classes so
+#    @w:id / @w:name / @w:author / @w:date are accessible as attributes. --
+register_element_cls("w:moveFromRangeStart", CT_MoveBookmark)
+register_element_cls("w:moveFromRangeEnd", CT_MarkupRange)
+register_element_cls("w:moveToRangeStart", CT_MoveBookmark)
+register_element_cls("w:moveToRangeEnd", CT_MarkupRange)
 
 from .comments import CT_Comments, CT_Comment
 
@@ -718,8 +725,8 @@ register_element_cls("w:wordWrap", CT_OnOff)
 from docx.oxml.xmlchemy import BaseOxmlElement as _Base
 
 register_element_cls("w:annotationRef", _Base)
-register_element_cls("w:commentRangeEnd", _Base)
-register_element_cls("w:commentRangeStart", _Base)
+register_element_cls("w:commentRangeEnd", CT_MarkupRange)
+register_element_cls("w:commentRangeStart", CT_MarkupRange)
 register_element_cls("w:commentReference", _Base)
 register_element_cls("w:contentPart", _Base)
 register_element_cls("w:footnoteRef", _Base)
