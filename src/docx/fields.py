@@ -57,6 +57,8 @@ class WD_FIELD_TYPE:
     SEQ = "SEQ"
     HYPERLINK = "HYPERLINK"
     PAGEREF = "PAGEREF"
+    NOTEREF = "NOTEREF"
+    SEQREF = "SEQREF"
     MERGEFIELD = "MERGEFIELD"
     STYLEREF = "STYLEREF"
     NUMBEREDHEADERS = "NUMBEREDHEADERS"
@@ -370,6 +372,19 @@ class Field:
             if child.get(qn("w:fldCharType")) == "begin":
                 child.set(qn("w:dirty"), "true")
                 return
+
+    @property
+    def as_cross_reference(self) -> "CrossReference | None":
+        """Return a :class:`CrossReference` view of this field, or |None|.
+
+        Returns |None| when :attr:`type` is not one of ``REF``, ``PAGEREF``,
+        ``NOTEREF``, ``SEQREF``, ``STYLEREF``. The returned object shares
+        the same underlying XML element, so writes (e.g.
+        :meth:`update_result_text`) propagate back to the document.
+
+        .. versionadded:: 2026.05.10
+        """
+        return _wrap_as_cross_reference(self)
 
     @property
     def is_dirty(self) -> bool:
@@ -1022,3 +1037,177 @@ def _evaluate_formula(
     if isinstance(value, float) and value.is_integer():
         value = int(value)
     return str(value)
+
+
+# -- cross-references ----------------------------------------------------
+
+
+_CROSS_REFERENCE_TYPES = frozenset(
+    {"REF", "PAGEREF", "NOTEREF", "SEQREF", "STYLEREF"}
+)
+
+
+def build_cross_reference_instruction(
+    ref_type: str,
+    target_name: str,
+    insert_as_hyperlink: bool = False,
+    insert_paragraph_number: bool = False,
+    insert_relative_position: bool = False,
+    extra_switches: "list[str] | None" = None,
+) -> str:
+    """Return the field-code string for a cross-reference field.
+
+    Builds the instruction shape used by Word for cross-reference complex
+    fields:
+
+    ``<REF_TYPE> <target_name> [\\h] [\\r] [\\p] [extra switches...]``
+
+    The `target_name` is emitted verbatim if it is a well-formed bookmark
+    name (letters, digits, underscore only); otherwise it is wrapped in
+    double quotes so names with spaces round-trip cleanly. The caller may
+    pass `extra_switches` as a list of raw switch tokens (e.g. ``["\\n"]``
+    or ``["\\* MERGEFORMAT"]``) which are appended verbatim.
+
+    .. versionadded:: 2026.05.10
+    """
+    ref_type = ref_type.strip().upper()
+    if not ref_type:
+        raise ValueError("ref_type must be a non-empty string")
+    if not target_name:
+        raise ValueError("target_name must be a non-empty string")
+
+    # -- bookmark names in WordprocessingML may contain letters, digits, and
+    #    underscore; anything else (spaces, punctuation) needs quoting --
+    safe = all(ch.isalnum() or ch == "_" for ch in target_name)
+    name_token = target_name if safe else f'"{target_name}"'
+
+    parts: list[str] = [ref_type, name_token]
+    if insert_as_hyperlink:
+        parts.append("\\h")
+    if insert_paragraph_number:
+        parts.append("\\r")
+    if insert_relative_position:
+        parts.append("\\p")
+    if extra_switches:
+        parts.extend(extra_switches)
+    return " ".join(parts)
+
+
+class CrossReference(Field):
+    """A :class:`Field` specialised for REF-family cross-reference fields.
+
+    Returned by :meth:`Paragraph.add_cross_reference`. Also produced by
+    :attr:`Field.as_cross_reference` for any existing |Field| whose type is
+    one of ``REF``, ``PAGEREF``, ``NOTEREF``, ``SEQREF``, ``STYLEREF``.
+
+    Exposes typed accessors for the cross-reference-specific pieces of the
+    instruction — the reference type (e.g. ``PAGEREF``), the target name
+    (typically a bookmark but may be a sequence identifier for ``SEQREF``
+    or a style name for ``STYLEREF``), and the three ``\\h`` / ``\\r`` /
+    ``\\p`` switches.
+
+    Use :attr:`target_bookmark` with an owning :class:`Document` to resolve
+    the named target to a |Bookmark| proxy (returns |None| when no matching
+    bookmark exists — useful to detect broken cross-references).
+
+    .. versionadded:: 2026.05.10
+    """
+
+    @property
+    def ref_type(self) -> str:
+        """The cross-reference type — ``"REF"``, ``"PAGEREF"``, etc.
+
+        Alias for :attr:`type` with a domain-specific name. Always upper-case
+        because field-type tokens are case-insensitive on input but canonical
+        upper on output.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.type.upper()
+
+    @property
+    def target_name(self) -> str:
+        """The referenced target name — typically a bookmark name.
+
+        For ``REF``, ``PAGEREF``, ``NOTEREF`` this is the bookmark name
+        (the ``w:bookmarkStart/@w:name`` value a writer would match against).
+        For ``SEQREF`` it is the sequence identifier. For ``STYLEREF`` it is
+        the style name. Returns the empty string when the instruction has
+        no target argument.
+
+        .. versionadded:: 2026.05.10
+        """
+        name = _parse_ref_bookmark_name(self.instruction)
+        return "" if name is None else name
+
+    @property
+    def insert_as_hyperlink(self) -> bool:
+        """``True`` when the instruction carries the ``\\h`` switch.
+
+        When set, Word renders the rendered result as a clickable link back
+        to the referenced bookmark. Most authoring tools emit ``\\h`` for
+        every cross-reference by default.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._has_switch("h")
+
+    @property
+    def insert_paragraph_number(self) -> bool:
+        """``True`` when the instruction carries the ``\\r`` switch.
+
+        Requests the paragraph number of the referenced bookmark's paragraph
+        (relative to the outline). Applicable to ``REF`` only in practice.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._has_switch("r")
+
+    @property
+    def insert_relative_position(self) -> bool:
+        """``True`` when the instruction carries the ``\\p`` switch.
+
+        Requests the relative position ("above" / "below") of the target.
+        Applicable to ``REF`` only in practice.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._has_switch("p")
+
+    def target_bookmark(self, document: "Document") -> "object | None":
+        """Return the |Bookmark| proxy for the cross-reference's target.
+
+        Looks up :attr:`target_name` in ``document.bookmarks`` and returns
+        the matching |Bookmark|, or |None| when no bookmark with that name
+        exists (broken cross-reference). Intended for ``REF``, ``PAGEREF``,
+        and ``NOTEREF`` field types; for ``SEQREF`` and ``STYLEREF`` the
+        "target" is a sequence / style and no |Bookmark| will be found.
+
+        .. versionadded:: 2026.05.10
+        """
+        name = self.target_name
+        if not name:
+            return None
+        return document.bookmarks.get(name)
+
+    # -- internals ---------------------------------------------------------
+
+    def _has_switch(self, letter: str) -> bool:
+        """Return ``True`` if the instruction contains a ``\\<letter>`` switch.
+
+        Letter comparison is case-insensitive (``\\h`` and ``\\H`` match).
+        """
+        parsed = parse_field_instruction(self.instruction)
+        key = letter.upper()
+        return key in parsed.switches
+
+
+def _wrap_as_cross_reference(field: "Field") -> "CrossReference | None":
+    """Return a :class:`CrossReference` view of `field`, or |None|.
+
+    Returns |None| when `field` is not a cross-reference type. The returned
+    object shares the same underlying element — mutations propagate.
+    """
+    if field.type.upper() not in _CROSS_REFERENCE_TYPES:
+        return None
+    return CrossReference(field._kind, field._element)  # pyright: ignore[reportPrivateUsage]

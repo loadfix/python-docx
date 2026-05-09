@@ -1085,8 +1085,11 @@ Simple (`w:fldSimple`) and complex (`w:fldChar`) fields can be added,
 enumerated, and resolved. `REF` and `PAGEREF` are resolved against real
 bookmarks (`PAGEREF` returns `?` because python-docx has no layout engine);
 `DOCPROPERTY`, `AUTHOR`, `TITLE`, `SUBJECT`, `KEYWORDS`, `COMMENTS`,
-`LASTSAVEDBY` are resolved from core properties.
-`[Added in 2026.05.0]`.
+`LASTSAVEDBY` are resolved from core properties. A typed
+`Paragraph.add_cross_reference(ref_type, target_name, ...)` helper covers
+`REF`, `PAGEREF`, `NOTEREF`, `SEQREF`, and `STYLEREF` with `\h` / `\r` /
+`\p` switches and returns a `CrossReference` proxy that resolves the
+target back to a `Bookmark`. `[Added in 2026.05.0]`.
 
 ```python
 from docx import Document
@@ -1113,6 +1116,9 @@ document.save("out.docx")
 - `Paragraph.add_simple_field(instr, text=None)` — Append a `w:fldSimple`. `[Added in 2026.05.0]`
 - `Paragraph.add_complex_field(instr, result_text=None)` — Append `begin`/`separate`/`end`. `[Added in 2026.05.0]`
 - `Paragraph.add_field(instruction, cached_result=None)` — Ergonomic R3-9 shim over `add_complex_field`; emits the five-run `fldChar` sequence with `instrText` and an optional cached result. `[Added in 2026.05.10]`
+- `Paragraph.add_cross_reference(ref_type, target_name, insert_as_hyperlink=False, insert_paragraph_number=False, insert_relative_position=False, cached_result=None)` — Typed builder for `REF`, `PAGEREF`, `NOTEREF`, `SEQREF`, `STYLEREF` complex fields. Builds the instruction string, quoting names with spaces, and emits the `\h` / `\r` / `\p` switches when requested. Returns a `CrossReference`. `[Added in 2026.05.10]`
+- `CrossReference` (subclass of `Field`) — proxy for REF-family fields exposing `ref_type`, `target_name`, `insert_as_hyperlink`, `insert_paragraph_number`, `insert_relative_position`, and `target_bookmark(document) -> Bookmark | None`. Obtainable from any `Field` via `Field.as_cross_reference`. `[Added in 2026.05.10]`
+- `build_cross_reference_instruction(ref_type, target_name, insert_as_hyperlink=False, insert_paragraph_number=False, insert_relative_position=False, extra_switches=None)` — Standalone helper returning the field-code string (e.g. `'REF heading1 \\h \\r'`). Quotes names that contain characters outside `[A-Za-z0-9_]`. `[Added in 2026.05.10]`
 - `Paragraph.fields` — Mixed list of simple and complex fields. `[Added in 2026.05.0]`
 - `Document.fields` — All fields in the body (simple + complex) in document order. `[Added in 2026.05.10]`
 - `Run.parent_field` — The enclosing complex |Field| when this run sits between a `begin` and `end` marker, else `None`. `[Added in 2026.05.10]`
@@ -1122,7 +1128,7 @@ document.save("out.docx")
 - `Field.evaluate(context)` — Evaluate `IF` (with nested `{MERGEFIELD}`), `MERGEFIELD`, `HYPERLINK`, `= <expr>` arithmetic formula, and `PAGE` / `NUMPAGES` / `DATE` / `TIME` placeholders against a caller-supplied mapping. `[Added in 2026.05.8]`
 - `Document.resolve_cross_references()` — Walk the body, resolve `REF`/`PAGEREF`/`DOCPROPERTY`/core-property fields, return count updated. `[Added in 2026.05.0]`
 - `Document.evaluate_fields(context)` — Batch-apply `Field.evaluate` across every field in the body; writes the evaluated text back in place and returns the number of fields updated. `[Added in 2026.05.8]`
-- Field type detection: `docx.fields.WD_FIELD_TYPE` constants. Covers `PAGE`, `NUMPAGES`, `DATE`, `TIME`, `AUTHOR`, `TITLE`, `FILENAME`, `REF`, `TOC`, `SEQ`, `HYPERLINK`, `PAGEREF`, `MERGEFIELD`, `STYLEREF`, `NUMBEREDHEADERS`. `[Added in 2026.05.0, extended in 2026.05.10]`
+- Field type detection: `docx.fields.WD_FIELD_TYPE` constants. Covers `PAGE`, `NUMPAGES`, `DATE`, `TIME`, `AUTHOR`, `TITLE`, `FILENAME`, `REF`, `TOC`, `SEQ`, `HYPERLINK`, `PAGEREF`, `NOTEREF`, `SEQREF`, `MERGEFIELD`, `STYLEREF`, `NUMBEREDHEADERS`. `[Added in 2026.05.0, extended in 2026.05.10]`
 
 ```python
 # data-driven field evaluation (mail-merge-style)
@@ -1132,6 +1138,28 @@ p.add_simple_field('IF {MERGEFIELD status} = "active" "Active" "Archived"', "?")
 
 n = document.evaluate_fields({"status": "active"})
 print(f"{n} field(s) updated")  # → "Active"
+```
+
+```python
+# programmatic REF / PAGEREF / NOTEREF cross-references
+document = Document()
+heading = document.add_heading("Introduction", level=1)
+heading.add_bookmark("intro")
+
+p = document.add_paragraph("See ")
+xref = p.add_cross_reference(
+    "REF", "intro", insert_as_hyperlink=True, cached_result="Introduction"
+)
+p.add_run(" on page ")
+p.add_cross_reference(
+    "PAGEREF", "intro", insert_as_hyperlink=True, cached_result="1"
+)
+
+# inspect the cross-reference
+assert xref.ref_type == "REF"
+assert xref.target_name == "intro"
+assert xref.insert_as_hyperlink is True
+assert xref.target_bookmark(document).name == "intro"
 ```
 
 ---

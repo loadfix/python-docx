@@ -1168,3 +1168,308 @@ class DescribeField_RoundTrip:
             for m in markers
         ]
         assert kinds == ["begin", "separate", "end"]
+
+
+class DescribeBuildCrossReferenceInstruction:
+    """`build_cross_reference_instruction()` field-code builder."""
+
+    def it_builds_a_minimal_REF_instruction(self):
+        from docx.fields import build_cross_reference_instruction
+
+        assert build_cross_reference_instruction("REF", "heading1") == "REF heading1"
+
+    def it_appends_the_hyperlink_switch(self):
+        from docx.fields import build_cross_reference_instruction
+
+        assert (
+            build_cross_reference_instruction(
+                "REF", "heading1", insert_as_hyperlink=True
+            )
+            == "REF heading1 \\h"
+        )
+
+    def it_appends_paragraph_number_and_relative_position_switches(self):
+        from docx.fields import build_cross_reference_instruction
+
+        instr = build_cross_reference_instruction(
+            "REF",
+            "heading1",
+            insert_as_hyperlink=True,
+            insert_paragraph_number=True,
+            insert_relative_position=True,
+        )
+        assert instr == "REF heading1 \\h \\r \\p"
+
+    def it_quotes_target_names_containing_spaces(self):
+        from docx.fields import build_cross_reference_instruction
+
+        assert (
+            build_cross_reference_instruction("PAGEREF", "my bookmark")
+            == 'PAGEREF "my bookmark"'
+        )
+
+    def it_uppercases_the_ref_type(self):
+        from docx.fields import build_cross_reference_instruction
+
+        assert (
+            build_cross_reference_instruction("pageref", "Ref1")
+            == "PAGEREF Ref1"
+        )
+
+    @pytest.mark.parametrize(
+        "ref_type",
+        ["REF", "PAGEREF", "NOTEREF", "SEQREF", "STYLEREF"],
+    )
+    def it_accepts_every_cross_reference_type(self, ref_type: str):
+        from docx.fields import build_cross_reference_instruction
+
+        instr = build_cross_reference_instruction(ref_type, "Tgt")
+        assert instr.startswith(f"{ref_type} ")
+
+    def it_raises_on_empty_ref_type(self):
+        from docx.fields import build_cross_reference_instruction
+
+        with pytest.raises(ValueError):
+            build_cross_reference_instruction("", "Ref1")
+
+    def it_raises_on_empty_target_name(self):
+        from docx.fields import build_cross_reference_instruction
+
+        with pytest.raises(ValueError):
+            build_cross_reference_instruction("REF", "")
+
+    def it_appends_extra_raw_switches(self):
+        from docx.fields import build_cross_reference_instruction
+
+        instr = build_cross_reference_instruction(
+            "REF",
+            "Ref1",
+            insert_as_hyperlink=True,
+            extra_switches=["\\n"],
+        )
+        assert instr == "REF Ref1 \\h \\n"
+
+
+class DescribeParagraph_add_cross_reference:
+    """`paragraph.add_cross_reference()` cross-reference emitter."""
+
+    def it_emits_a_REF_field_with_hyperlink_switch(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        xref = para.add_cross_reference(
+            "REF", "Ref1", insert_as_hyperlink=True, cached_result="Chapter 1"
+        )
+        assert xref.ref_type == "REF"
+        assert xref.target_name == "Ref1"
+        assert xref.insert_as_hyperlink is True
+        assert xref.insert_paragraph_number is False
+        assert xref.insert_relative_position is False
+        assert xref.result_text == "Chapter 1"
+
+    def it_emits_a_PAGEREF_field(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        xref = para.add_cross_reference(
+            "PAGEREF", "Ref1", insert_as_hyperlink=True, cached_result="42"
+        )
+        assert xref.ref_type == "PAGEREF"
+        assert xref.result_text == "42"
+        assert xref.instruction == "PAGEREF Ref1 \\h"
+
+    def it_emits_a_NOTEREF_field(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        xref = para.add_cross_reference(
+            "NOTEREF", "footnote_Ref1", cached_result="1"
+        )
+        assert xref.ref_type == "NOTEREF"
+        assert xref.target_name == "footnote_Ref1"
+        assert xref.result_text == "1"
+
+    def it_emits_all_three_ref_switches(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        xref = para.add_cross_reference(
+            "REF",
+            "Ref1",
+            insert_as_hyperlink=True,
+            insert_paragraph_number=True,
+            insert_relative_position=True,
+        )
+        assert xref.insert_as_hyperlink is True
+        assert xref.insert_paragraph_number is True
+        assert xref.insert_relative_position is True
+        assert xref.instruction == "REF Ref1 \\h \\r \\p"
+
+    def it_returns_a_CrossReference_subclass_of_Field(self):
+        from docx.fields import CrossReference, Field
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        xref = para.add_cross_reference("REF", "Ref1")
+        assert isinstance(xref, CrossReference)
+        assert isinstance(xref, Field)
+        assert xref.is_complex is True
+
+    def it_omits_result_run_when_cached_result_is_None(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        para.add_cross_reference("REF", "Ref1")
+        # -- four runs: begin, instrText, separate, end (no result) --
+        runs = p.xpath("./w:r")
+        assert len(runs) == 4
+
+
+class DescribeCrossReference:
+    """`CrossReference` proxy behaviours."""
+
+    def _doc_with_bookmark(self, name: str, text: str):
+        from docx.document import Document
+        from docx.oxml.document import CT_Document
+
+        doc_elm = cast(
+            CT_Document,
+            element(
+                f"w:document/w:body/w:p/("
+                f"w:bookmarkStart{{w:id=0,w:name={name}}}"
+                f",w:r/w:t\"{text}\""
+                f",w:bookmarkEnd{{w:id=0}}"
+                f")"
+            ),
+        )
+        return Document(doc_elm, None)  # type: ignore[arg-type]
+
+    def it_returns_empty_target_name_for_bare_instruction(self):
+        from docx.fields import CrossReference
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), "REF")
+        xref = CrossReference("simple", fldSimple)
+        assert xref.target_name == ""
+
+    def it_parses_switches_case_insensitively(self):
+        from docx.fields import CrossReference
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), "REF Ref1 \\H")
+        xref = CrossReference("simple", fldSimple)
+        assert xref.insert_as_hyperlink is True
+
+    def it_resolves_target_bookmark_to_a_Bookmark_proxy(self):
+        from docx.bookmarks import Bookmark
+
+        doc = self._doc_with_bookmark("Ref1", "Chapter 1")
+        # -- add a cross-reference field pointing at the same bookmark --
+        paragraph = list(doc.paragraphs)[0]
+        xref = paragraph.add_cross_reference("REF", "Ref1", insert_as_hyperlink=True)
+
+        bm = xref.target_bookmark(doc)
+        assert bm is not None
+        assert isinstance(bm, Bookmark)
+        assert bm.name == "Ref1"
+
+    def it_returns_None_target_bookmark_when_missing(self):
+        doc = self._doc_with_bookmark("OtherRef", "x")
+        paragraph = list(doc.paragraphs)[0]
+        xref = paragraph.add_cross_reference("REF", "MissingRef")
+
+        assert xref.target_bookmark(doc) is None
+
+    def it_resolves_REF_to_bookmark_text_via_inherited_resolve(self):
+        doc = self._doc_with_bookmark("Ref1", "Chapter 1")
+        paragraph = list(doc.paragraphs)[0]
+        xref = paragraph.add_cross_reference(
+            "REF", "Ref1", insert_as_hyperlink=True, cached_result="stale"
+        )
+
+        assert xref.resolve(doc) == "Chapter 1"
+
+    def it_round_trips_via_serialize_and_reparse(self):
+        from docx.fields import CrossReference
+        from docx.oxml.parser import parse_xml
+        from docx.text.paragraph import Paragraph
+        from lxml import etree
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        para.add_cross_reference(
+            "PAGEREF",
+            "heading1",
+            insert_as_hyperlink=True,
+            cached_result="7",
+        )
+
+        # -- serialise with no pretty-print (pretty-print inserts whitespace
+        #    between runs which the complex-field walker would emit into the
+        #    result text) and reparse via the docx oxml parser so CT_P / CT_R
+        #    classes are re-registered and sibling iteration works. --
+        xml = etree.tostring(p, pretty_print=False).decode()
+        reparsed = cast(CT_P, parse_xml(xml))
+        begin_run = reparsed.xpath(
+            ".//w:fldChar[@w:fldCharType='begin']/parent::w:r"
+        )[0]
+        xref = CrossReference("complex", begin_run)
+        assert xref.ref_type == "PAGEREF"
+        assert xref.target_name == "heading1"
+        assert xref.insert_as_hyperlink is True
+        assert xref.result_text == "7"
+
+
+class DescribeField_as_cross_reference:
+    """`Field.as_cross_reference` upcast accessor."""
+
+    def it_returns_a_CrossReference_for_REF_fields(self):
+        from docx.fields import CrossReference, Field
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), "REF Ref1 \\h")
+        field = Field.for_simple(fldSimple)
+
+        xref = field.as_cross_reference
+        assert isinstance(xref, CrossReference)
+        assert xref.ref_type == "REF"
+
+    @pytest.mark.parametrize(
+        "ref_type",
+        ["REF", "PAGEREF", "NOTEREF", "SEQREF", "STYLEREF"],
+    )
+    def it_returns_a_CrossReference_for_every_xref_type(self, ref_type: str):
+        from docx.fields import Field
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), f"{ref_type} Tgt")
+        field = Field.for_simple(fldSimple)
+
+        xref = field.as_cross_reference
+        assert xref is not None
+        assert xref.ref_type == ref_type
+
+    def it_returns_None_for_non_cross_reference_fields(self):
+        from docx.fields import Field
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), "PAGE")
+        field = Field.for_simple(fldSimple)
+
+        assert field.as_cross_reference is None

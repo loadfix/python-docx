@@ -11,7 +11,7 @@ from docx.enum.section import WD_SECTION_START
 from docx.enum.shape import WD_ANCHOR_H, WD_ANCHOR_V, WD_SHAPE, WD_WRAP_TYPE
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
-from docx.fields import Field
+from docx.fields import CrossReference, Field, build_cross_reference_instruction
 from docx.form_fields import FormField
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml.drawing import CT_Drawing
@@ -476,6 +476,49 @@ class Paragraph(StoryChild):
         .. versionadded:: 2026.05.10
         """
         return self.add_complex_field(instruction, cached_result)
+
+    def add_cross_reference(
+        self,
+        ref_type: str,
+        target_name: str,
+        insert_as_hyperlink: bool = False,
+        insert_paragraph_number: bool = False,
+        insert_relative_position: bool = False,
+        cached_result: str | None = None,
+    ) -> CrossReference:
+        """Append a cross-reference complex field to this paragraph.
+
+        `ref_type` is one of ``REF``, ``PAGEREF``, ``NOTEREF``, ``SEQREF``,
+        ``STYLEREF`` (case-insensitive). `target_name` is the bookmark name
+        (or sequence/style identifier for the ``SEQREF``/``STYLEREF``
+        variants). The three boolean switches add the corresponding
+        formatting flags to the emitted instruction:
+
+        * `insert_as_hyperlink` → ``\\h`` (the rendered text links back to
+          the referenced bookmark)
+        * `insert_paragraph_number` → ``\\r`` (inserts the target paragraph's
+          number — ``REF`` only)
+        * `insert_relative_position` → ``\\p`` (inserts the relative
+          position "above" / "below" — ``REF`` only)
+
+        `cached_result` is the rendered text to insert between the
+        ``separate`` and ``end`` markers. When |None| (the default) no
+        result run is emitted — Word will compute a fresh value on open.
+
+        Returns a |CrossReference| proxy sharing the underlying element.
+
+        .. versionadded:: 2026.05.10
+        """
+        instruction = build_cross_reference_instruction(
+            ref_type,
+            target_name,
+            insert_as_hyperlink=insert_as_hyperlink,
+            insert_paragraph_number=insert_paragraph_number,
+            insert_relative_position=insert_relative_position,
+        )
+        field = self.add_complex_field(instruction, cached_result)
+        # -- return a CrossReference view of the same element --
+        return CrossReference(field._kind, field._element)  # pyright: ignore[reportPrivateUsage]
 
     def add_text_form_field(
         self,
