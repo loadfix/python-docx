@@ -2001,8 +2001,12 @@ document.save("with-glossary.docx")
 
 ## Digital signatures
 
-Digital signatures are detected and enumerated; no verification is
-performed. `[Added in 2026.05.0]`.
+Digital signatures are detected and enumerated; no cryptographic
+verification is performed. python-docx can also emit **unsigned**
+signature-line placeholders via
+`Document.add_signature_line(...)` — useful for authoring a document
+that still needs to be signed in Word or by a separate signing tool
+(e.g. `ooxml_signatures.Signer` from `python-ooxml-signatures` 0.2+).
 
 ```python
 from docx import Document
@@ -2011,10 +2015,24 @@ document = Document("signed.docx")
 if document.is_signed:
     for sig in document.signatures:
         print(sig.partname, sig.signer, sig.signed_at)
+
+# Authoring — append an unsigned placeholder that round-trips
+# through save/reload. Downstream tools fill in the real
+# <SignatureValue> to make the signature cryptographically valid.
+document = Document()
+document.add_signature_line(
+    "CN=Alice Example, O=Acme",
+    signer_title="Chief Example Officer",
+    email="alice@acme.test",
+)
+document.save("unsigned-placeholder.docx")
 ```
 
 - `Document.is_signed` — `True` when `_xmlsignatures/*` parts exist. `[Added in 2026.05.0]`
 - `Document.signatures` — List of `SignatureInfo`. `[Added in 2026.05.0]`
+- `Document.add_signature_line(signer_name, signer_title=None, email=None)` —
+  Attach an unsigned signature-line placeholder part. Returns the
+  `SignatureInfo` for the new part. `[Added in 2026.05.10]`
 - `SignatureInfo.partname` / `.blob` / `.signer` / `.signed_at`. `[Added in 2026.05.0]`
 
 ---

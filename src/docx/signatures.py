@@ -20,12 +20,20 @@ is picked up opportunistically: when that package is importable,
 which supports Microsoft's ``mdssi:SignatureTime`` + ``mdssi:SignatureComments``
 extensions alongside XAdES. When the shared package is not installed, the
 legacy inline parser continues to handle the common happy path unchanged.
+
+Placeholder authoring (:func:`build_signature_line_placeholder_xml`) emits a
+minimal XML-DSig ``<Signature>`` element suitable for standing in as an
+unsigned signature-line placeholder. It does **not** produce a
+cryptographically valid signature — callers who need real signing should
+use :class:`ooxml_signatures.Signer` (0.2+). The placeholder parses
+cleanly through :class:`ooxml_signatures.Signature` so `Document.signatures`
+surfaces the signer identity on round-trip.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from docx.oxml.parser import parse_xml
 
@@ -220,3 +228,91 @@ def _parse_iso_datetime(text: str) -> datetime | None:
         except ValueError:
             return None
     return None
+
+
+# ---------------------------------------------------------------------------
+# Signature-line placeholder authoring (R3-4, `python-ooxml-signatures` 0.2
+# adoption). Scope is deliberately narrow: emit a minimal XML-DSig
+# ``<Signature>`` shell so ``Document.add_signature_line(...)`` can attach a
+# signature-placeholder part that round-trips through save + reload.
+#
+# TODO(ds-prefix): if `python-ooxml-signatures` ever globally registers
+# ``ds:`` as an XMLDSig prefix it will collide with docx/customxml's use of
+# ``ds:`` for ``http://schemas.openxmlformats.org/officeDocument/2006/customXml``.
+# We rely on explicit nsmap at parse/emit time rather than the prefix
+# registry to avoid the clash. See R9n-4.
+# ---------------------------------------------------------------------------
+
+
+_NS_XMLDSIG = "http://www.w3.org/2000/09/xmldsig#"
+_NS_MDSSI = (
+    "http://schemas.openxmlformats.org/package/2006/digital-signature"
+)
+
+
+def build_signature_line_placeholder_xml(
+    signer_name: str,
+    signer_title: Optional[str] = None,
+    email: Optional[str] = None,
+) -> bytes:
+    """Return XML bytes for an unsigned ``sigN.xml`` placeholder part.
+
+    The returned document is a valid W3C XML-DSig ``<Signature>`` shell
+    that *declares* the signer but carries no ``<SignatureValue>`` digest
+    — i.e. it is **not** a cryptographically valid signature. Office
+    treats such placeholders as "unsigned signature lines" when opened.
+
+    The placeholder:
+
+    - puts *signer_name* into ``<KeyInfo>/<X509Data>/<X509SubjectName>``
+      so :attr:`ooxml_signatures.Signature.signer` surfaces it;
+    - if *signer_title* and/or *email* are supplied, encodes both
+      into an ``mdssi:SignatureComments`` element under a standard
+      ``<Object>/<SignatureProperties>`` so
+      :attr:`ooxml_signatures.Signature.comments` round-trips them.
+
+    .. versionadded:: 2026.05.10
+    """
+    from lxml import etree  # local import — lxml is already a runtime dep
+
+    nsmap = {None: _NS_XMLDSIG, "mdssi": _NS_MDSSI}
+    sig_id = "idPackageSignature_Placeholder"
+    root = etree.Element(
+        f"{{{_NS_XMLDSIG}}}Signature", nsmap=nsmap, attrib={"Id": sig_id}
+    )
+    etree.SubElement(root, f"{{{_NS_XMLDSIG}}}SignedInfo")
+    # SignatureValue left empty — the placeholder is unsigned.
+    etree.SubElement(root, f"{{{_NS_XMLDSIG}}}SignatureValue")
+    key_info = etree.SubElement(root, f"{{{_NS_XMLDSIG}}}KeyInfo")
+    x509_data = etree.SubElement(key_info, f"{{{_NS_XMLDSIG}}}X509Data")
+    etree.SubElement(
+        x509_data, f"{{{_NS_XMLDSIG}}}X509SubjectName"
+    ).text = signer_name
+
+    comment_bits: list[str] = []
+    if signer_title:
+        comment_bits.append("title=" + signer_title)
+    if email:
+        comment_bits.append("email=" + email)
+    if comment_bits:
+        obj = etree.SubElement(root, f"{{{_NS_XMLDSIG}}}Object")
+        sig_props = etree.SubElement(
+            obj, f"{{{_NS_XMLDSIG}}}SignatureProperties"
+        )
+        sig_prop = etree.SubElement(
+            sig_props,
+            f"{{{_NS_XMLDSIG}}}SignatureProperty",
+            attrib={"Id": "idSignatureComments", "Target": "#" + sig_id},
+        )
+        comments_el = etree.SubElement(
+            sig_prop, f"{{{_NS_MDSSI}}}SignatureComments"
+        )
+        # mdssi:SignatureComments/mdssi:Value — the shape
+        # `ooxml_signatures` reads.
+        etree.SubElement(comments_el, f"{{{_NS_MDSSI}}}Value").text = "; ".join(
+            comment_bits
+        )
+
+    return etree.tostring(
+        root, xml_declaration=True, encoding="UTF-8", standalone=True
+    )
