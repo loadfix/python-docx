@@ -316,3 +316,144 @@ class DescribeGlossaryFiltering:
         assert glossary.categories == []
         assert glossary.galleries == []
         assert glossary.by_category(category_name="General") == []
+
+
+# -- a sample with types/behaviors for the new accessors --
+_BLOCK_WITH_TYPES_AND_BEHAVIORS = (
+    "w:docPart/w:docPartPr/("
+    "w:name{w:val=TypedBlock},"
+    "w:types/(w:type{w:val=autoTxt},w:type{w:val=toolbar}),"
+    "w:behaviors/(w:behavior{w:val=content},w:behavior{w:val=p})"
+    ")"
+)
+
+
+class DescribeBuildingBlockTypeAndBehaviors:
+    """Unit-test suite for the type/uuid/behaviors accessors on `BuildingBlock`."""
+
+    def it_exposes_its_types(self):
+        block = BuildingBlock(
+            cast(CT_DocPart, element(_BLOCK_WITH_TYPES_AND_BEHAVIORS))
+        )
+        assert block.types == ["autoTxt", "toolbar"]
+
+    def it_returns_first_type_as_type_property(self):
+        block = BuildingBlock(
+            cast(CT_DocPart, element(_BLOCK_WITH_TYPES_AND_BEHAVIORS))
+        )
+        assert block.type == "autoTxt"
+
+    def it_returns_None_for_type_when_absent(self):
+        block = BuildingBlock(cast(CT_DocPart, element("w:docPart")))
+        assert block.type is None
+        assert block.types == []
+
+    def it_exposes_its_behaviors(self):
+        block = BuildingBlock(
+            cast(CT_DocPart, element(_BLOCK_WITH_TYPES_AND_BEHAVIORS))
+        )
+        assert block.behaviors == ["content", "p"]
+
+    def it_returns_empty_behaviors_when_absent(self):
+        block = BuildingBlock(cast(CT_DocPart, element("w:docPart")))
+        assert block.behaviors == []
+
+    def it_aliases_guid_as_uuid(self):
+        block = BuildingBlock(cast(CT_DocPart, element(_SAMPLE_BLOCK)))
+        assert block.uuid == block.guid == "abc-123-def"
+
+    def it_aliases_paragraphs_as_content_paragraphs(self):
+        block = BuildingBlock(cast(CT_DocPart, element(_SAMPLE_BLOCK)))
+        assert block.content_paragraphs == block.paragraphs
+
+
+class DescribeGlossaryWrite:
+    """Unit-test suite for mutating methods on `Glossary`."""
+
+    def it_can_add_a_building_block_with_string_content(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element("w:glossaryDocument")))
+        bb = glossary.add_building_block(
+            "Snippet", category="Custom", content="Hello, glossary!"
+        )
+        assert isinstance(bb, BuildingBlock)
+        assert bb.name == "Snippet"
+        assert bb.category.category_name == "Custom"
+        assert bb.category.gallery == "quickParts"  # enum default
+        assert bb.guid is not None
+        assert bb.guid.startswith("{") and bb.guid.endswith("}")
+        assert [p.text for p in bb.paragraphs] == ["Hello, glossary!"]
+        assert len(glossary) == 1
+
+    def it_assigns_fresh_guids_to_each_block(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element("w:glossaryDocument")))
+        a = glossary.add_building_block("A", content="x")
+        b = glossary.add_building_block("B", content="y")
+        assert a.guid != b.guid
+
+    def it_accepts_a_raw_gallery_string(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element("w:glossaryDocument")))
+        bb = glossary.add_building_block("CP", gallery="coverPg", content="Cover")
+        assert bb.category.gallery == "coverPg"
+        assert bb.category.gallery_value is WD_BUILDING_BLOCK_GALLERY.COVER_PAGES
+
+    def it_accepts_a_gallery_enum(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element("w:glossaryDocument")))
+        bb = glossary.add_building_block(
+            "Hdr", gallery=WD_BUILDING_BLOCK_GALLERY.HEADERS, content="H"
+        )
+        assert bb.category.gallery == "hdrs"
+
+    def it_accepts_None_content_for_an_empty_body(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element("w:glossaryDocument")))
+        bb = glossary.add_building_block("Empty", content=None)
+        assert bb.paragraphs == []
+
+    def it_can_remove_a_building_block_by_name(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element("w:glossaryDocument")))
+        glossary.add_building_block("Keep", content="a")
+        glossary.add_building_block("Drop", content="b")
+        assert glossary.remove_building_block("Drop") is True
+        assert [bb.name for bb in glossary] == ["Keep"]
+
+    def it_returns_False_when_removing_an_unknown_name(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element("w:glossaryDocument")))
+        glossary.add_building_block("Only", content="x")
+        assert glossary.remove_building_block("Missing") is False
+        assert len(glossary) == 1
+
+    def it_returns_False_when_glossary_has_no_docParts(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element("w:glossaryDocument")))
+        assert glossary.remove_building_block("Anything") is False
+
+    def it_round_trips_a_building_block_through_save_and_reload(self, tmp_path):
+        from docx import Document
+
+        doc = Document()
+        g = doc.ensure_glossary()
+        g.add_building_block(
+            "Round",
+            category="MyCat",
+            gallery=WD_BUILDING_BLOCK_GALLERY.QUICK_PARTS,
+            content="Persisted",
+        )
+        out = tmp_path / "round.docx"
+        doc.save(str(out))
+        doc2 = Document(str(out))
+        g2 = doc2.glossary
+        assert g2 is not None
+        assert len(g2) == 1
+        bb = g2["Round"]
+        assert bb.category.category_name == "MyCat"
+        assert bb.category.gallery == "quickParts"
+        assert [p.text for p in bb.paragraphs] == ["Persisted"]
+
+    def it_lazy_creates_the_glossary_part_on_ensure_glossary(self):
+        from docx import Document
+
+        doc = Document()
+        assert doc.glossary is None
+        g = doc.ensure_glossary()
+        assert g is not None
+        # -- a subsequent read-only access now sees the same glossary --
+        assert doc.glossary is not None
+        assert len(doc.glossary) == 0

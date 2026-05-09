@@ -1,31 +1,44 @@
 """|GlossaryPart| providing access to the ``word/glossary/document.xml`` part.
 
 The glossary-document part carries the AutoText / Quick Parts / cover-page
-building blocks that ship with a document. It is Word-authored and
-python-docx does not create one on demand; the proxy exposed via
-:attr:`docx.document.Document.glossary` is intentionally read-only at this
-pass.
+building blocks that ship with a document. As of 2026.05.10 python-docx
+can also create a fresh, empty glossary part on demand — see
+:meth:`GlossaryPart.default` and :attr:`docx.document.Document.glossary`.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+from typing_extensions import Self
+
 from docx.glossary import Glossary
+from docx.opc.constants import CONTENT_TYPE as CT
+from docx.opc.packuri import PackURI
 from docx.opc.part import XmlPart
+from docx.oxml.parser import parse_xml
 
 if TYPE_CHECKING:
-    from docx.opc.packuri import PackURI
     from docx.oxml.glossary import CT_GlossaryDocument
     from docx.package import Package
 
 
-class GlossaryPart(XmlPart):
-    """Read-only proxy for the ``word/glossary/document.xml`` part.
+_DEFAULT_GLOSSARY_XML = (
+    b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+    b'<w:glossaryDocument '
+    b'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+    b'<w:docParts/>'
+    b'</w:glossaryDocument>\n'
+)
 
-    Creation of a default (empty) glossary part is out of scope for this
-    pass: :attr:`docx.document.Document.glossary` returns |None| for
-    documents that do not already relate a glossary document part.
+
+class GlossaryPart(XmlPart):
+    """Proxy for the ``word/glossary/document.xml`` part.
+
+    :attr:`docx.document.Document.glossary` returns a |Glossary| proxy for
+    this part; when the document has no ``glossaryDocument`` relationship,
+    the document lazily creates a fresh, empty part on first access via
+    :meth:`default`.
     """
 
     def __init__(
@@ -47,3 +60,20 @@ class GlossaryPart(XmlPart):
     def glossary_element(self) -> CT_GlossaryDocument:
         """The ``w:glossaryDocument`` root element for this part."""
         return cast("CT_GlossaryDocument", self._element)
+
+    @classmethod
+    def default(cls, package: Package) -> Self:
+        """A newly created, empty glossary document part.
+
+        Used by :attr:`docx.document.Document.glossary` when the document
+        has no existing ``glossaryDocument`` relationship and the caller
+        requests write access. The part starts with an empty
+        ``w:docParts`` container so new building blocks can be appended
+        without further bookkeeping.
+
+        .. versionadded:: 2026.05.10
+        """
+        partname = PackURI("/word/glossary/document.xml")
+        content_type = CT.WML_DOCUMENT_GLOSSARY
+        element = cast("CT_GlossaryDocument", parse_xml(_DEFAULT_GLOSSARY_XML))
+        return cls(partname, content_type, element, package)

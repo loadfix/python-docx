@@ -48,6 +48,15 @@ class DescribeGlossaryPart:
 
         assert glossary_part.glossary_element is glossary_elm
 
+    def it_provides_a_default_empty_glossary_part(self, package_: Mock):
+        part = GlossaryPart.default(package_)
+        assert isinstance(part, GlossaryPart)
+        assert part.partname == PackURI("/word/glossary/document.xml")
+        assert part.content_type == CT.WML_DOCUMENT_GLOSSARY
+        # -- the root has an empty w:docParts container ready to append to --
+        assert part.glossary_element.docParts is not None
+        assert len(part.glossary_element.docPart_lst) == 0
+
     # -- fixtures ------------------------------------------------------------
 
     @pytest.fixture

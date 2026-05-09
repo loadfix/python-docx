@@ -8,9 +8,11 @@ from typing import cast
 
 from docx.oxml.glossary import (
     CT_DocPart,
+    CT_DocPartBehaviors,
     CT_DocPartBody,
     CT_DocPartCategory,
     CT_DocPartPr,
+    CT_DocPartTypes,
     CT_DocParts,
     CT_GlossaryDocument,
 )
@@ -161,3 +163,98 @@ class DescribeCT_DocPartBody:
         body = cast(CT_DocPartBody, element("w:docPartBody/(w:p,w:tbl,w:p)"))
         tags = [el.tag.rsplit("}", 1)[-1] for el in body.inner_content_elements]
         assert tags == ["p", "tbl", "p"]
+
+
+class DescribeCT_DocPartTypes:
+    """Unit-test suite for `docx.oxml.glossary.CT_DocPartTypes`."""
+
+    def it_reads_each_w_type_val_attribute(self):
+        types = cast(
+            CT_DocPartTypes,
+            element("w:types/(w:type{w:val=autoTxt},w:type{w:val=toolbar})"),
+        )
+        assert types.values == ["autoTxt", "toolbar"]
+
+    def it_returns_an_empty_list_when_no_children(self):
+        types = cast(CT_DocPartTypes, element("w:types"))
+        assert types.values == []
+
+    def it_can_append_a_w_type_child(self):
+        types = cast(CT_DocPartTypes, element("w:types"))
+        types.add_type("autoTxt")
+        assert types.values == ["autoTxt"]
+
+
+class DescribeCT_DocPartBehaviors:
+    """Unit-test suite for `docx.oxml.glossary.CT_DocPartBehaviors`."""
+
+    def it_reads_each_w_behavior_val_attribute(self):
+        behaviors = cast(
+            CT_DocPartBehaviors,
+            element("w:behaviors/(w:behavior{w:val=content},w:behavior{w:val=p})"),
+        )
+        assert behaviors.values == ["content", "p"]
+
+    def it_returns_an_empty_list_when_no_children(self):
+        behaviors = cast(CT_DocPartBehaviors, element("w:behaviors"))
+        assert behaviors.values == []
+
+    def it_can_append_a_w_behavior_child(self):
+        behaviors = cast(CT_DocPartBehaviors, element("w:behaviors"))
+        behaviors.add_behavior("content")
+        assert behaviors.values == ["content"]
+
+
+class DescribeCT_DocPartPrWriteHelpers:
+    """Unit-test suite for mutating helpers on `CT_DocPartPr`."""
+
+    def it_creates_a_w_name_child_with_the_given_val(self):
+        pr = cast(CT_DocPartPr, element("w:docPartPr"))
+        pr.set_name("Foo")
+        assert pr.name_val == "Foo"
+
+    def it_updates_an_existing_w_name_val(self):
+        pr = cast(CT_DocPartPr, element("w:docPartPr/w:name{w:val=Old}"))
+        pr.set_name("New")
+        assert pr.name_val == "New"
+
+    def it_creates_a_w_description_child(self):
+        pr = cast(CT_DocPartPr, element("w:docPartPr"))
+        pr.set_description("A block")
+        assert pr.description_val == "A block"
+
+    def it_creates_a_w_guid_child(self):
+        pr = cast(CT_DocPartPr, element("w:docPartPr"))
+        pr.set_guid("{abc}")
+        assert pr.guid_val == "{abc}"
+
+    def it_inserts_children_in_schema_order(self):
+        pr = cast(CT_DocPartPr, element("w:docPartPr"))
+        # -- deliberately out-of-order calls --
+        pr.set_guid("{x}")
+        pr.set_name("N")
+        pr.set_description("D")
+        tags = [c.tag.rsplit("}", 1)[-1] for c in pr]
+        assert tags == ["name", "description", "guid"]
+
+
+class DescribeCT_DocPartCategoryWriteHelpers:
+    """Unit-test suite for mutating helpers on `CT_DocPartCategory`."""
+
+    def it_sets_the_category_name(self):
+        cat = cast(CT_DocPartCategory, element("w:category"))
+        cat.set_name("General")
+        assert cat.name_val == "General"
+
+    def it_sets_the_gallery_val(self):
+        cat = cast(CT_DocPartCategory, element("w:category"))
+        cat.set_gallery("quickParts")
+        assert cat.gallery is not None and cat.gallery.val == "quickParts"
+
+    def it_preserves_schema_order_name_before_gallery(self):
+        cat = cast(CT_DocPartCategory, element("w:category"))
+        # -- set gallery first, then name — name must come before gallery --
+        cat.set_gallery("quickParts")
+        cat.set_name("General")
+        tags = [c.tag.rsplit("}", 1)[-1] for c in cat]
+        assert tags == ["name", "gallery"]

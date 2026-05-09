@@ -262,10 +262,14 @@ register_element_cls("w:endnotePr", CT_EdnDocProps)
 
 from .glossary import (
     CT_DocPart,
+    CT_DocPartBehavior,
+    CT_DocPartBehaviors,
     CT_DocPartBody,
     CT_DocPartCategory,
     CT_DocPartGallery,
     CT_DocPartPr,
+    CT_DocPartType,
+    CT_DocPartTypes,
     CT_DocParts,
     CT_GlossaryDocument,
 )
@@ -277,6 +281,15 @@ register_element_cls("w:docPartPr", CT_DocPartPr)
 register_element_cls("w:category", CT_DocPartCategory)
 register_element_cls("w:gallery", CT_DocPartGallery)
 register_element_cls("w:glossaryDocument", CT_GlossaryDocument)
+# -- ``w:type`` and ``w:behavior`` (the per-entry children) are not --
+# -- registered globally: ``w:type`` is already bound to ``CT_SectType`` --
+# -- via :mod:`docx.oxml.section`. Access the inner ``w:val`` attribute --
+# -- via the ``values`` property on CT_DocPartTypes / CT_DocPartBehaviors --
+# -- which reads the attribute directly rather than relying on a typed --
+# -- child class. The wrapper elements ``w:types`` and ``w:behaviors`` --
+# -- are docPart-specific and safe to bind. --
+register_element_cls("w:behaviors", CT_DocPartBehaviors)
+register_element_cls("w:types", CT_DocPartTypes)
 
 from .fields import CT_FldChar, CT_FldSimple, CT_InstrText
 

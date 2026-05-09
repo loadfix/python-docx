@@ -2110,15 +2110,30 @@ class Document(ElementProxy):
         """A |Glossary| proxy, or |None| when no ``glossaryDocument`` part is related.
 
         The glossary-document part carries the AutoText / Quick Parts /
-        cover-page building blocks. It is owned by Word, so python-docx
-        exposes it read-only. Returns |None| when the document has no
+        cover-page building blocks. Returns |None| when the document has no
         ``glossaryDocument`` relationship — which is the case for
         documents created via :func:`docx.Document` with the default
-        template.
+        template. To create a fresh glossary on demand and gain write
+        access (`add_building_block` / `remove_building_block`), call
+        :meth:`ensure_glossary` instead.
 
         .. versionadded:: 2026.05.0
         """
         return self._part.glossary
+
+    def ensure_glossary(self) -> Glossary:
+        """A writable |Glossary|, lazily creating the glossary part if needed.
+
+        Returns the existing :class:`~docx.glossary.Glossary` when the
+        document already has a ``glossaryDocument`` relationship. Otherwise
+        a fresh, empty :class:`~docx.parts.glossary.GlossaryPart` is
+        created, related to the document under the ``glossaryDocument``
+        relationship type, and wrapped as a |Glossary|. Subsequent
+        ``document.glossary`` accesses return the same proxy.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._part.ensure_glossary()
 
     @property
     def theme(self) -> Theme | None:
