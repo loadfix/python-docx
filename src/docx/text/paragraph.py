@@ -521,6 +521,41 @@ class Paragraph(StoryChild):
         # -- return a CrossReference view of the same element --
         return CrossReference(field._kind, field._element)  # pyright: ignore[reportPrivateUsage]
 
+    def add_form_field(
+        self,
+        kind,
+        name: str,
+        **kwargs,
+    ) -> FormField:
+        """Append a legacy form field of `kind` and return its typed proxy.
+
+        `kind` selects the form-field flavour and accepts either a
+        :class:`~docx.form_fields.WD_FORM_FIELD_TYPE` member or one of the
+        shorthand strings ``"text"`` / ``"checkbox"`` / ``"dropdown"`` (the
+        ``FORMTEXT`` / ``FORMCHECKBOX`` / ``FORMDROPDOWN`` spellings are also
+        accepted, case-insensitively). `name` becomes the form field's
+        ``w:name/@w:val``.
+
+        Type-specific keyword arguments:
+
+        * ``TEXT``: ``default: str = ""``, ``maxlength: int | None = None``,
+          ``type_: str = "regular"``, ``format: str = ""``.
+        * ``CHECKBOX``: ``checked: bool = False``, ``size_auto: bool = True``,
+          ``size: int | None = None`` (half-points; forces ``w:size``).
+        * ``DROPDOWN``: ``options: list[str]`` (required),
+          ``default_index: int = 0``.
+
+        Returns a typed :class:`~docx.form_fields.FormField` subclass
+        (:class:`TextInputField`, :class:`CheckBoxField`, or
+        :class:`DropDownListField`).
+
+        .. versionadded:: 2026.05.10
+        """
+        from docx.form_fields import _append_form_field_of_kind
+
+        begin_run = _append_form_field_of_kind(self._p, kind, name, **kwargs)
+        return FormField.proxy_for(cast(CT_R, begin_run))
+
     def add_text_form_field(
         self,
         name: str,
@@ -830,7 +865,8 @@ class Paragraph(StoryChild):
             "./w:r[w:fldChar[@w:fldCharType='begin' and w:ffData]]"
         )
         for r in begin_runs:
-            result.append(FormField(cast(CT_R, r)))
+            # -- dispatch to typed subclass so callers can pattern-match --
+            result.append(FormField.proxy_for(cast(CT_R, r)))
         return result
 
     @property

@@ -87,9 +87,24 @@ class DescribeCT_FFTextInput:
 
     def it_returns_None_for_missing_children(self):
         ti = cast(CT_FFTextInput, element("w:textInput"))
+        assert ti.type is None
         assert ti.default is None
         assert ti.maxLength is None
         assert ti.format is None
+
+    def it_exposes_its_type_child(self):
+        ti = cast(
+            CT_FFTextInput,
+            element(
+                "w:textInput/("
+                "w:type{w:val=number}"
+                ",w:default{w:val=0}"
+                ",w:maxLength{w:val=10}"
+                ",w:format{w:val=0.00}"
+                ")"
+            ),
+        )
+        assert ti.type.get(qn("w:val")) == "number"
 
 
 class DescribeCT_FFCheckBox:
@@ -102,6 +117,24 @@ class DescribeCT_FFCheckBox:
         )
         assert cb.default.get(qn("w:val")) == "1"
         assert cb.checked.get(qn("w:val")) == "0"
+
+    def it_exposes_sizeAuto(self):
+        cb = cast(
+            CT_FFCheckBox,
+            element("w:checkBox/(w:sizeAuto{w:val=1},w:default{w:val=0})"),
+        )
+        assert cb.sizeAuto is not None
+        assert cb.sizeAuto.get(qn("w:val")) == "1"
+        assert cb.size is None
+
+    def it_exposes_explicit_size(self):
+        cb = cast(
+            CT_FFCheckBox,
+            element("w:checkBox/(w:size{w:val=32},w:default{w:val=0})"),
+        )
+        assert cb.size is not None
+        assert cb.size.get(qn("w:val")) == "32"
+        assert cb.sizeAuto is None
 
 
 class DescribeCT_FFDDList:

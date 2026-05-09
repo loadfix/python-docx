@@ -1416,15 +1416,19 @@ for ff in document.form_fields:
 document.save("out.docx")
 ```
 
+- `Paragraph.add_form_field(kind, name, **kwargs)` — Unified dispatcher; `kind` is a `WD_FORM_FIELD_TYPE` or one of `"text"` / `"checkbox"` / `"dropdown"`. Returns the appropriate typed subclass. `[Added in 2026.05.10]`
 - `Paragraph.add_text_form_field(name, default="", maxlength=None)` — Add a `FORMTEXT`. `[Added in 2026.05.0]`
 - `Paragraph.add_checkbox_form_field(name, checked=False)` — Add a `FORMCHECKBOX`. `[Added in 2026.05.0]`
 - `Paragraph.add_dropdown_form_field(name, options, default_index=0)` — Add a `FORMDROPDOWN`. `[Added in 2026.05.0]`
 - `Document.form_fields` / `Paragraph.form_fields` — Collections. `[Added in 2026.05.0]`
-- `FormField.type` / `.name` / `.help_text` / `.status_text` / `.enabled` / `.calc_on_exit` / `.value` — Unified read. `[Added in 2026.05.0]`
+- `FormField.type` / `.name` / `.help_text` / `.status_text` / `.enabled` / `.calc_on_exit` / `.value` / `.current_value` — Unified read. `.current_value` alias added in `2026.05.10`. `[Added in 2026.05.0]`
 - `FormField.text_input` / `FormField.checkbox` / `FormField.dropdown` — Typed views. `[Added in 2026.05.0]`
-- `TextInputFormField.default` / `.max_length` / `.format`. `[Added in 2026.05.0]`
-- `CheckboxFormField.default` / `.checked`. `[Added in 2026.05.0]`
+- `FormField.proxy_for(begin_run)` — classmethod returning a typed `TextInputField` / `CheckBoxField` / `DropDownListField`. `[Added in 2026.05.10]`
+- `FormField.to_sdt()` — Replace the legacy form field in place with an equivalent `w:sdt` (`w:text` / `w14:checkbox` / `w:dropDownList`). Maps `w:name` → `w:tag`, `w:helpText` → `w:alias`. `[Added in 2026.05.10]`
+- `TextInputFormField.default` / `.max_length` / `.format` / `.type`. `.type` (one of `"regular"`, `"number"`, `"date"`, `"currentTime"`, `"currentDate"`, `"calculated"`) added in `2026.05.10`. `[Added in 2026.05.0]`
+- `CheckboxFormField.default` / `.checked` / `.size_auto` / `.size`. `.size_auto` / `.size` (half-points) added in `2026.05.10`. `[Added in 2026.05.0]`
 - `DropdownFormField.options` / `.default_index` / `.result_index`. `[Added in 2026.05.0]`
+- Typed subclasses: `TextInputField`, `CheckBoxField`, `DropDownListField`. `[Added in 2026.05.10]`
 - Enum: `WD_FORM_FIELD_TYPE`. `[Added in 2026.05.0]`
 
 ---

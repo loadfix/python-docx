@@ -38,8 +38,14 @@ if TYPE_CHECKING:
 
 
 class CT_FFTextInput(BaseOxmlElement):
-    """``<w:textInput>`` inside ``w:ffData``, holding text-input metadata."""
+    """``<w:textInput>`` inside ``w:ffData``, holding text-input metadata.
 
+    Per the XSD the child order is ``type?, default?, maxLength?, format?``.
+    """
+
+    type: BaseOxmlElement | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:type", successors=("w:default", "w:maxLength", "w:format")
+    )
     default: BaseOxmlElement | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:default", successors=("w:maxLength", "w:format")
     )
@@ -50,6 +56,7 @@ class CT_FFTextInput(BaseOxmlElement):
         "w:format", successors=()
     )
 
+    get_or_add_type: Callable[[], BaseOxmlElement]
     get_or_add_default: Callable[[], BaseOxmlElement]
     get_or_add_maxLength: Callable[[], BaseOxmlElement]
     get_or_add_format: Callable[[], BaseOxmlElement]
@@ -58,11 +65,18 @@ class CT_FFTextInput(BaseOxmlElement):
 class CT_FFCheckBox(BaseOxmlElement):
     """``<w:checkBox>`` inside ``w:ffData``, holding checkbox metadata.
 
-    Note: the schema also allows a ``w:sizeAuto`` / ``w:size`` pair preceding
-    ``w:default``/``w:checked``. python-docx does not currently model those;
-    they pass through untouched when reading an existing document.
+    Per the XSD the child order is ``(size | sizeAuto)?, default?, checked?``.
+    Either ``w:size`` (an explicit half-point measure) or ``w:sizeAuto``
+    (matches surrounding text) may appear — never both. When neither is
+    authored, Word treats the checkbox as auto-sized.
     """
 
+    size: BaseOxmlElement | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:size", successors=("w:sizeAuto", "w:default", "w:checked")
+    )
+    sizeAuto: BaseOxmlElement | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:sizeAuto", successors=("w:default", "w:checked")
+    )
     default: BaseOxmlElement | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:default", successors=("w:checked",)
     )
@@ -70,6 +84,8 @@ class CT_FFCheckBox(BaseOxmlElement):
         "w:checked", successors=()
     )
 
+    get_or_add_size: Callable[[], BaseOxmlElement]
+    get_or_add_sizeAuto: Callable[[], BaseOxmlElement]
     get_or_add_default: Callable[[], BaseOxmlElement]
     get_or_add_checked: Callable[[], BaseOxmlElement]
 
