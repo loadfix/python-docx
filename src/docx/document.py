@@ -388,6 +388,92 @@ class Document(ElementProxy):
             style_elm = resolved._element
         return style_elm.next_val
 
+    def tag_revisions(self, rsid: "str | None" = None) -> str:
+        """Stamp every paragraph, run, and section in the body with ``rsid``.
+
+        Mirrors what Microsoft Word does automatically when it saves a
+        document: tags every element that changed in the current editing
+        session with a session-wide revision-save ID so later diff/merge
+        tools can correlate edits back to their originating session.
+
+        When ``rsid`` is |None| a fresh random 8-character-hex token is
+        minted via :meth:`RsidList.new_session` and used. Otherwise the
+        caller-supplied token is used verbatim and added to the
+        ``w:rsids`` table if not already present. The chosen token is
+        returned so the caller can record it.
+
+        Attributes written:
+
+        - ``w:p`` — ``w:rsidR`` (run-properties insertion rsid) and
+          ``w:rsidRDefault`` (default rsid for newly inserted runs).
+        - ``w:pPr`` — ``w:rsidP`` (paragraph-mark insertion rsid) and,
+          when a ``w:rPr`` child is present, ``w:rsidRPr`` on it.
+        - ``w:r`` — ``w:rsidR`` and, when a ``w:rPr`` child is present,
+          ``w:rsidRPr`` on it.
+        - ``w:sectPr`` — ``w:rsidR``, ``w:rsidSect`` and, when a
+          ``w:rPr`` child is present, ``w:rsidRPr`` on it.
+
+        Existing rsid attributes are overwritten so every tagged element
+        reflects the same editing session. Revision-save IDs are
+        cosmetic metadata (Word does not let users disable them) and
+        this method does not interact with the tracked-changes machinery
+        (``w:ins`` / ``w:del``).
+
+        Returns the rsid token that was stamped on the document.
+
+        .. versionadded:: 2026.05.12
+        """
+        from docx.oxml.ns import qn
+
+        if rsid is None:
+            rsid = self.settings.rsids.new_session()
+        else:
+            self.settings.rsids.add(rsid)
+
+        rsidR = qn("w:rsidR")
+        rsidRDefault = qn("w:rsidRDefault")
+        rsidP = qn("w:rsidP")
+        rsidRPr = qn("w:rsidRPr")
+        rsidSect = qn("w:rsidSect")
+        w_pPr = qn("w:pPr")
+        w_rPr = qn("w:rPr")
+        w_sectPr = qn("w:sectPr")
+
+        body = self._element.body
+        for p in body.iter(qn("w:p")):
+            p.set(rsidR, rsid)
+            p.set(rsidRDefault, rsid)
+            pPr = p.find(w_pPr)
+            if pPr is not None:
+                pPr.set(rsidP, rsid)
+                pPr_rPr = pPr.find(w_rPr)
+                if pPr_rPr is not None:
+                    pPr_rPr.set(rsidRPr, rsid)
+                sectPr = pPr.find(w_sectPr)
+                if sectPr is not None:
+                    sectPr.set(rsidR, rsid)
+                    sectPr.set(rsidSect, rsid)
+                    sectPr_rPr = sectPr.find(w_rPr)
+                    if sectPr_rPr is not None:
+                        sectPr_rPr.set(rsidRPr, rsid)
+            for r in p.iter(qn("w:r")):
+                r.set(rsidR, rsid)
+                r_rPr = r.find(w_rPr)
+                if r_rPr is not None:
+                    r_rPr.set(rsidRPr, rsid)
+
+        # Also the trailing body-level ``w:sectPr`` (sits after the last
+        # ``w:p`` in the body, outside any paragraph) — every section in
+        # the doc should carry the current session's rsid.
+        for sectPr in body.findall(w_sectPr):
+            sectPr.set(rsidR, rsid)
+            sectPr.set(rsidSect, rsid)
+            sectPr_rPr = sectPr.find(w_rPr)
+            if sectPr_rPr is not None:
+                sectPr_rPr.set(rsidRPr, rsid)
+
+        return rsid
+
     def tracked_changes(
         self, author: str, date: "dt.datetime | None" = None
     ) -> "_TrackedChangesCtx":

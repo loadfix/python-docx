@@ -21,6 +21,7 @@ from docx.settings import (
     CompatFlags,
     CompatSettings,
     DocumentProtection,
+    RsidList,
     Settings,
     WriteProtection,
 )
@@ -432,6 +433,79 @@ class DescribeSettings_Rsids:
         self, cxml: str, expected_value: list[str]
     ):
         assert Settings(element(cxml)).rsids == expected_value
+
+
+class DescribeRsidList:
+    """Unit-test suite for the `docx.settings.RsidList` proxy."""
+
+    def it_is_a_list_subclass_for_backward_compat(self):
+        rsids = Settings(element("w:settings")).rsids
+        assert isinstance(rsids, RsidList)
+        assert isinstance(rsids, list)
+        assert rsids == []
+
+    def it_exposes_root_as_None_when_absent(self):
+        rsids = Settings(element("w:settings/w:rsids")).rsids
+        assert rsids.root is None
+
+    def it_exposes_root_from_rsidRoot(self):
+        rsids = Settings(
+            element("w:settings/w:rsids/w:rsidRoot{w:val=00CAFE00}")
+        ).rsids
+        assert rsids.root == "00CAFE00"
+
+    def it_returns_empty_ids_set_when_no_rsids(self):
+        rsids = Settings(element("w:settings")).rsids
+        assert rsids.ids == set()
+
+    def it_returns_ids_as_set_of_root_and_children(self):
+        rsids = Settings(
+            element(
+                "w:settings/w:rsids/("
+                "w:rsidRoot{w:val=00CAFE00},"
+                "w:rsid{w:val=001234AB},"
+                "w:rsid{w:val=00567890})"
+            )
+        ).rsids
+        assert rsids.ids == {"00CAFE00", "001234AB", "00567890"}
+
+    def it_ids_is_a_set_and_supports_constant_time_membership(self):
+        rsids = Settings(
+            element("w:settings/w:rsids/w:rsid{w:val=001234AB}")
+        ).rsids
+        ids = rsids.ids
+        assert isinstance(ids, set)
+        assert "001234AB" in ids
+        assert "deadbeef" not in ids
+
+    def it_can_add_a_new_session_rsid(self):
+        settings = Settings(element("w:settings"))
+        token = settings.rsids.new_session()
+
+        assert isinstance(token, str)
+        assert len(token) == 8
+        # -- materialised ``w:rsids`` with root + rsid on first call
+        fresh = settings.rsids
+        assert fresh.root == token
+        assert token in fresh.ids
+        assert token in fresh
+
+    def it_new_session_mints_unique_tokens(self):
+        settings = Settings(element("w:settings"))
+        a = settings.rsids.new_session()
+        b = settings.rsids.new_session()
+        assert a != b
+        # -- root is fixed to the first-ever session, second call only appends
+        assert settings.rsids.root == a
+        assert {a, b}.issubset(settings.rsids.ids)
+
+    def it_can_add_a_caller_supplied_rsid(self):
+        settings = Settings(element("w:settings"))
+        settings.rsids.add("00ABCDEF")
+        assert "00ABCDEF" in settings.rsids.ids
+        # -- idempotent: calling again does not duplicate
+        settings.rsids.add("00ABCDEF")
+        assert settings.rsids.count("00ABCDEF") == 1
 
 
 class DescribeCompatSettings:

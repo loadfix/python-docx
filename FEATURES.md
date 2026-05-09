@@ -1240,7 +1240,44 @@ document.save("out.docx")
 - `TrackedChange.author` / `.date` / `.text` / `.type` / `.accept()` / `.reject()`. `[Added in 2026.05.0]`
 - `MoveRevision.name` / `MoveRevision.peer` — Move source ↔ destination pairing. `[Added in 2026.05.0]` (now an alias of `Move`. `[Added in 2026.05.11]`)
 - `FormattingChange.author` / `.date` / `.old_properties` — `w:rPrChange` / `w:pPrChange` / `w:sectPrChange` reader. `[Added in 2026.05.0]`
-- `Settings.track_revisions` / `Settings.rsid_root` / `Settings.rsids` — Revision-ID plumbing. `[Added in 2026.05.0]`
+- `Settings.track_revisions` / `Settings.rsid_root` / `Settings.rsids` — Revision-ID plumbing. `[Added in 2026.05.0]` ([`RsidList`](#revision-save-ids-rsids) proxy is `[Added in 2026.05.12]`)
+
+### Revision-save IDs (rsids)
+
+Word stamps every paragraph, run, and section that changed in an editing
+session with a session-wide 8-hex-digit "revision-save ID" (`w:rsidR`,
+`w:rsidP`, `w:rsidRPr`, `w:rsidSect`, `w:rsidRDefault`). The complete set
+is recorded in `w:settings/w:rsids`, with the first-ever id promoted to
+`w:rsidRoot`. Rsids are separate from tracked changes (`w:ins`/`w:del`)
+— Word always writes them and doesn't expose a toggle.
+
+`Settings.rsids` returns a live `RsidList` (a `list[str]` subclass for
+backward-compat) that also exposes `.root`, `.ids`, and a
+`.new_session()` minter; `Document.tag_revisions()` stamps every
+paragraph, run, `w:pPr`, nested `w:rPr`, and `w:sectPr` in the body with
+a given (or freshly minted) rsid. This is the authoring counterpart of
+the existing read accessors. `[Added in 2026.05.12]`
+
+```python
+from docx import Document
+
+document = Document("draft.docx")
+
+# inspect the document's recorded rsids
+print("root rsid:", document.settings.rsids.root)
+print("all rsids:", document.settings.rsids.ids)
+print("legacy list view:", list(document.settings.rsids))
+
+# mint an rsid for this editing session and tag every edit site with it
+rsid = document.tag_revisions()          # or: tag_revisions(rsid="00ABCDEF")
+assert rsid in document.settings.rsids.ids
+
+document.save("draft.docx")
+```
+
+- `Settings.rsids` — `RsidList` proxy. `[Added in 2026.05.0]`, richer API `[Added in 2026.05.12]`
+- `RsidList.root` / `RsidList.ids` / `RsidList.new_session()` / `RsidList.add(rsid)` — Read-and-mint rsid helpers over `w:rsids`. `[Added in 2026.05.12]`
+- `Document.tag_revisions(rsid=None)` — Stamp every paragraph/run/pPr/rPr/sectPr in the body with an editing-session rsid. `[Added in 2026.05.12]`
 
 ---
 
