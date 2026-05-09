@@ -68,6 +68,7 @@ __all__ = [
     "ST_HexColorAuto",
     "ST_HpsMeasure",
     "ST_Merge",
+    "ST_Lock",
     "ST_OnOff",
     "ST_PointMeasure",
     "ST_PositiveCoordinate",
@@ -396,6 +397,26 @@ class ST_VerticalAlignRun(XsdStringEnumeration):
     SUBSCRIPT = "subscript"
 
     _members = (BASELINE, SUPERSCRIPT, SUBSCRIPT)
+
+
+class ST_Lock(XsdStringEnumeration):
+    """Valid values for ``w:lock/@w:val`` on an SDT.
+
+    Per ECMA-376 §17.5.2.20 the attribute governs the write-protection level
+    applied to the enclosing structured document tag:
+
+    * ``unlocked`` — no protection (the schema default).
+    * ``sdtContentLocked`` — users cannot edit the content.
+    * ``sdtLocked`` — users cannot delete the SDT container.
+    * ``contentLocked`` — content **and** container are both locked.
+    """
+
+    UNLOCKED = "unlocked"
+    SDT_CONTENT_LOCKED = "sdtContentLocked"
+    SDT_LOCKED = "sdtLocked"
+    CONTENT_LOCKED = "contentLocked"
+
+    _members = (UNLOCKED, SDT_CONTENT_LOCKED, SDT_LOCKED, CONTENT_LOCKED)
 
 
 class ST_SdtDateMappingType(XsdStringEnumeration):

@@ -29,6 +29,7 @@ from collections.abc import Callable
 from docx.oxml.ns import qn
 from docx.oxml.parser import OxmlElement
 from docx.oxml.simpletypes import (
+    ST_Lock,
     ST_OnOff,
     ST_SdtDateMappingType,
     ST_String,
@@ -159,23 +160,38 @@ class CT_Sdt(BaseOxmlElement):
             checkbox.append(checked_elm)
         checked_elm.set(qn("w14:val"), "1" if value else "0")
 
+    # -- lock -----------------------------------------------------------------
+
+    @property
+    def lock_val(self) -> str | None:
+        """Value of `w:sdtPr/w:lock/@w:val`, or |None| when no lock is set.
+
+        Returns one of the :class:`ST_Lock` strings (``"unlocked"``,
+        ``"sdtContentLocked"``, ``"sdtLocked"``, ``"contentLocked"``) or
+        |None| when the enclosing SDT carries no ``<w:lock>`` child.
+        """
+        sdtPr = self.sdtPr
+        if sdtPr is None:
+            return None
+        return sdtPr.lock_val
+
+    @lock_val.setter
+    def lock_val(self, value: str | None) -> None:
+        if value is None and self.sdtPr is None:
+            return
+        sdtPr = self.get_or_add_sdtPr()
+        sdtPr.lock_val = value
+
     def set_type_marker(self, marker_tag: str) -> None:
         """Unconditionally set a type-marker child element on `sdtPr`.
 
         `marker_tag` is a namespace-prefixed tag name like 'w:text', 'w:comboBox',
-        'w:dropDownList', 'w:date', 'w:picture', or 'w14:checkbox'.
+        'w:dropDownList', 'w:date', 'w:picture', 'w14:checkbox', 'w:docPartObj',
+        'w:docPartList', or 'w15:repeatingSection'.
         """
         sdtPr = self.get_or_add_sdtPr()
         # -- remove any existing known type markers --
-        for mtag in (
-            "w:text",
-            "w:comboBox",
-            "w:dropDownList",
-            "w:date",
-            "w:picture",
-            "w14:checkbox",
-            "w:richText",
-        ):
+        for mtag in _ALL_TYPE_MARKER_TAGS:
             for existing in sdtPr.findall(qn(mtag)):
                 sdtPr.remove(existing)
         sdtPr.append(OxmlElement(marker_tag))
@@ -189,22 +205,64 @@ class CT_Sdt(BaseOxmlElement):
         sdtPr = self.sdtPr
         if sdtPr is None:
             return None
-        for mtag in (
-            "w14:checkbox",
-            "w:text",
-            "w:comboBox",
-            "w:dropDownList",
-            "w:date",
-            "w:picture",
-            "w:richText",
-        ):
+        for mtag in _ALL_TYPE_MARKER_TAGS:
             if sdtPr.find(qn(mtag)) is not None:
                 return mtag
         return None
 
 
+# -- all known SDT type-marker child tags, in detection preference order --
+#
+# Order matters: a richer marker (e.g. ``w14:checkbox``) wins over a less
+# specific sibling if a document contains both. Rich-text comes last because
+# it is the schema default and is often present as an explicit sentinel.
+_ALL_TYPE_MARKER_TAGS: tuple[str, ...] = (
+    "w14:checkbox",
+    "w:text",
+    "w:comboBox",
+    "w:dropDownList",
+    "w:date",
+    "w:picture",
+    "w15:repeatingSection",
+    "w:docPartObj",
+    "w:docPartList",
+    "w:richText",
+)
+
+
 class CT_SdtPr(BaseOxmlElement):
     """``<w:sdtPr>`` element - properties for a structured document tag."""
+
+    @property
+    def lock_val(self) -> str | None:
+        """Value of `w:lock/@w:val` child element, or |None| if not present.
+
+        Returns one of the :class:`ST_Lock` strings (``"unlocked"``,
+        ``"sdtContentLocked"``, ``"sdtLocked"``, ``"contentLocked"``) or
+        |None| when no ``<w:lock>`` child is present.
+        """
+        lock_elm = self.find(qn("w:lock"))
+        if lock_elm is None:
+            return None
+        return lock_elm.get(qn("w:val"))
+
+    @lock_val.setter
+    def lock_val(self, value: str | None) -> None:
+        lock_elm = self.find(qn("w:lock"))
+        if value is None:
+            if lock_elm is not None:
+                self.remove(lock_elm)
+            return
+        # -- validate against ST_Lock to surface typos early --
+        if value not in ST_Lock._members:  # pyright: ignore[reportPrivateUsage]
+            raise ValueError(
+                "w:lock/@w:val must be one of "
+                f"{ST_Lock._members}, got {value!r}"  # pyright: ignore[reportPrivateUsage]
+            )
+        if lock_elm is None:
+            lock_elm = OxmlElement("w:lock")
+            self.append(lock_elm)
+        lock_elm.set(qn("w:val"), value)
 
     @property
     def tag_val(self) -> str | None:
@@ -658,3 +716,18 @@ class CT_SdtRepeatedSectionItem(BaseOxmlElement):
 
     The element carries no attributes or children.
     """
+
+
+class CT_Lock(BaseOxmlElement):
+    """``<w:lock>`` element — SDT write-protection marker.
+
+    Per ECMA-376 §17.5.2.20 the child's single ``@w:val`` attribute selects
+    one of the :class:`ST_Lock` values (``unlocked``, ``sdtContentLocked``,
+    ``sdtLocked``, ``contentLocked``) and governs whether the user may edit
+    the SDT's contents and/or delete the control itself. Absent the
+    attribute, the schema default is ``unlocked``.
+    """
+
+    val: "str | None" = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:val", ST_Lock
+    )

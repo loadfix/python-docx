@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import cast
 
 from docx.oxml.content_controls import (
+    CT_Lock,
     CT_Sdt,
     CT_SdtComboBox,
     CT_SdtContent,
@@ -21,11 +22,14 @@ from docx.oxml.content_controls import (
     CT_SdtDropDownList,
     CT_SdtEndPr,
     CT_SdtListItem,
+    CT_SdtPr,
     CT_SdtRepeatedSection,
     CT_SdtRepeatedSectionItem,
     CT_SdtText,
 )
 from docx.oxml.ns import qn
+
+import pytest
 
 from ..unitutil.cxml import element
 
@@ -463,6 +467,84 @@ class DescribeCT_SdtRepeatedSection:
         rs = cast(CT_SdtRepeatedSection, element("w15:repeatingSection"))
         assert rs.sectionTitle is None
         assert rs.doNotAllowInsertDeleteSection is None
+
+
+class DescribeCT_Lock:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_Lock``."""
+
+    def it_is_registered_for_the_w_lock_tag(self):
+        lock = element("w:lock")
+        assert isinstance(lock, CT_Lock)
+
+    def it_reads_its_val_attribute(self):
+        lock = cast(CT_Lock, element("w:lock{w:val=sdtContentLocked}"))
+        assert lock.val == "sdtContentLocked"
+
+    def it_returns_None_when_val_is_absent(self):
+        lock = cast(CT_Lock, element("w:lock"))
+        assert lock.val is None
+
+
+class DescribeCT_SdtPr_lock_val:
+    """Unit-test suite for ``CT_SdtPr.lock_val``."""
+
+    def it_reads_the_lock_val(self):
+        sdtPr = cast(CT_SdtPr, element("w:sdtPr/w:lock{w:val=contentLocked}"))
+        assert sdtPr.lock_val == "contentLocked"
+
+    def it_returns_None_when_no_lock_child_present(self):
+        sdtPr = cast(CT_SdtPr, element("w:sdtPr"))
+        assert sdtPr.lock_val is None
+
+    def it_can_set_the_lock_val_creating_a_lock_child(self):
+        sdtPr = cast(CT_SdtPr, element("w:sdtPr"))
+        sdtPr.lock_val = "sdtLocked"
+        assert sdtPr.lock_val == "sdtLocked"
+        assert sdtPr.find(qn("w:lock")) is not None
+
+    def it_can_remove_the_lock_by_assigning_None(self):
+        sdtPr = cast(CT_SdtPr, element("w:sdtPr/w:lock{w:val=unlocked}"))
+        sdtPr.lock_val = None
+        assert sdtPr.lock_val is None
+        assert sdtPr.find(qn("w:lock")) is None
+
+    def it_rejects_an_unknown_lock_val(self):
+        sdtPr = cast(CT_SdtPr, element("w:sdtPr"))
+        with pytest.raises(ValueError):
+            sdtPr.lock_val = "bogus"
+
+    def it_round_trips_via_CT_Sdt_lock_val(self):
+        sdt = cast(CT_Sdt, element("w:sdt"))
+        sdt.lock_val = "sdtContentLocked"
+        assert sdt.lock_val == "sdtContentLocked"
+        sdt.lock_val = None
+        assert sdt.lock_val is None
+
+
+class DescribeCT_Sdt_type_markers_extended:
+    """Unit-test suite for extended type-marker support on ``CT_Sdt``."""
+
+    def it_detects_w_docPartObj_as_a_type_marker(self):
+        sdt = cast(CT_Sdt, element("w:sdt/w:sdtPr/w:docPartObj"))
+        assert sdt.type_marker_tag() == "w:docPartObj"
+
+    def it_detects_w_docPartList_as_a_type_marker(self):
+        sdt = cast(CT_Sdt, element("w:sdt/w:sdtPr/w:docPartList"))
+        assert sdt.type_marker_tag() == "w:docPartList"
+
+    def it_detects_w15_repeatingSection_as_a_type_marker(self):
+        sdt = cast(CT_Sdt, element("w:sdt/w:sdtPr/w15:repeatingSection"))
+        assert sdt.type_marker_tag() == "w15:repeatingSection"
+
+    def it_can_set_a_w15_repeatingSection_marker(self):
+        sdt = cast(CT_Sdt, element("w:sdt"))
+        sdt.set_type_marker("w15:repeatingSection")
+        assert sdt.type_marker_tag() == "w15:repeatingSection"
+
+    def it_can_set_a_w_docPartObj_marker(self):
+        sdt = cast(CT_Sdt, element("w:sdt"))
+        sdt.set_type_marker("w:docPartObj")
+        assert sdt.type_marker_tag() == "w:docPartObj"
 
 
 class DescribeCT_SdtRepeatedSectionItem:
