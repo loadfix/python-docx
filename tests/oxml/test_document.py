@@ -19,6 +19,26 @@ class DescribeCT_Body:
         body = cast(CT_Body, element("w:body/(w:tbl, w:p,w:p)"))
         assert [type(e) for e in body.inner_content_elements] == [CT_Tbl, CT_P, CT_P]
 
+    def it_returns_a_CT_P_from_add_p(self):
+        """Round-12 regression: ``add_p()`` must return a ``CT_P`` instance.
+
+        Before the xmlchemy module-path-fallback fix, if ``python-pptx``'s
+        namespace registry happened to be the most-recent sub-registry in
+        the composite when ``CT_Body.add_p()`` ran, the ``w:p`` construction
+        routed through pptx's ``element_class_lookup`` (which has no
+        ``CT_P`` binding) and returned a bare ``lxml._Element``. Downstream
+        ``Paragraph.add_r()`` then crashed. The cross-process import-order
+        regression lives in ``tests/test_api.py`` where it can control
+        import order via subprocess.
+        """
+        body = cast(CT_Body, element("w:body"))
+        new_p = body.add_p()
+
+        assert type(new_p).__name__ == "CT_P"
+        assert isinstance(new_p, CT_P)
+        # -- must have the CT_P behaviours docx code relies on --
+        assert hasattr(new_p, "add_r")
+
 
 class DescribeCT_Background:
     """Unit-test suite for `docx.oxml.document.CT_Background`."""

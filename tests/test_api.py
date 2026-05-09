@@ -1,5 +1,6 @@
 """Test suite for the docx.api module."""
 
+import importlib.util
 import io
 import zipfile
 from pathlib import Path
@@ -448,4 +449,82 @@ class DescribePasswordRoundTrip:
         with pytest.raises(ValueError, match="mutually exclusive"):
             document.save(str(out_path), flat_opc=True, password="hunter2")
 
+
+class Describe_docx_pptx_import_order:
+    """Round-12 regression: cross-package import order must not corrupt dispatch.
+
+    Before the round-12 xmlchemy fix, importing ``pptx`` before ``docx`` would
+    stack pptx's namespace registry into the ``ooxml_xmlchemy`` composite.
+    Because the composite iterates sub-registries in reverse order, pptx's
+    ``OxmlElement`` factory silently won for ``w:p`` lookups, producing a bare
+    ``lxml._Element`` from pptx's ``element_class_lookup`` (which has no
+    ``CT_P`` binding). ``Document.add_paragraph`` then crashed with
+    ``AttributeError: 'lxml.etree._Element' object has no attribute 'add_r'``.
+
+    The fix adds a module-path fallback to ``_cls_registry`` so ``CT_Body``
+    (in ``docx.oxml.document``) routes through the docx registry regardless
+    of how many sibling parent libraries are co-loaded.
+    """
+
+    def it_works_with_pptx_imported_before_docx(self):
+        """Run in a clean subprocess so import order is controllable.
+
+        Asserting import order inside the already-loaded pytest process is
+        meaningless (both libraries are imported at collection time). The
+        subprocess snapshots a realistic end-user scenario.
+        """
+        import subprocess
+        import sys
+        import textwrap
+
+        # -- gate without importing pptx into the parent pytest process;
+        # -- importing pptx here would stack its registry globally and
+        # -- leak into sibling tests (only the subprocess must load pptx)
+        if importlib.util.find_spec("pptx") is None:
+            pytest.skip("python-pptx not installed")
+
+        script = textwrap.dedent(
+            """
+            import pptx  # stack pptx registry first
+            import docx
+            d = docx.Document()
+            p = d.add_paragraph("x")
+            assert type(p).__name__ == "Paragraph"
+            assert p.text == "x"
+            """
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script], capture_output=True, text=True
+        )
+        assert result.returncode == 0, (
+            f"subprocess failed:\nstdout={result.stdout}\nstderr={result.stderr}"
+        )
+
+    def it_works_with_docx_imported_before_pptx(self):
+        import subprocess
+        import sys
+        import textwrap
+
+        # -- gate without importing pptx into the parent pytest process;
+        # -- importing pptx here would stack its registry globally and
+        # -- leak into sibling tests (only the subprocess must load pptx)
+        if importlib.util.find_spec("pptx") is None:
+            pytest.skip("python-pptx not installed")
+
+        script = textwrap.dedent(
+            """
+            import docx  # stack docx registry first
+            import pptx
+            d = docx.Document()
+            p = d.add_paragraph("x")
+            assert type(p).__name__ == "Paragraph"
+            assert p.text == "x"
+            """
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script], capture_output=True, text=True
+        )
+        assert result.returncode == 0, (
+            f"subprocess failed:\nstdout={result.stdout}\nstderr={result.stderr}"
+        )
 
