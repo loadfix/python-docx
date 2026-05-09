@@ -26,21 +26,31 @@ Public names (all re-exported verbatim from :mod:`ooxml_math`):
   :class:`Sup`, :class:`SubSup`, :class:`Pre`, :class:`Sum`,
   :class:`Product`, :class:`Integral`, :class:`Nary`, :class:`Limit`,
   :class:`FuncApply`, :class:`Delimiter`, :class:`Matrix`,
-  :class:`Accent`.
+  :class:`Accent`, :class:`Bar`, :class:`Box`, :class:`BorderBox`,
+  :class:`Phantom`, :class:`GroupChar`, :class:`EqArray`.
 - Root container: :class:`oMath`.
 - Parse dispatch: :func:`from_element`.
 
 .. versionadded:: 2026.05.12
+.. versionchanged:: 2026.05.10
+   Added the six deferred 0.4.0 proxies :class:`Bar`, :class:`Box`,
+   :class:`BorderBox`, :class:`Phantom`, :class:`GroupChar` and
+   :class:`EqArray` (tracked by ``python-ooxml-math`` 0.4.0).
 """
 
 from __future__ import annotations
 
 from ooxml_math import (
     Accent,
+    Bar,
+    BorderBox,
+    Box,
     Delimiter,
     ElementProxy,
+    EqArray,
     Fraction,
     FuncApply,
+    GroupChar,
     Integral,
     Limit,
     Lit,
@@ -48,6 +58,7 @@ from ooxml_math import (
     MathExprLike,
     Matrix,
     Nary,
+    Phantom,
     Pre,
     Product,
     Radical,
@@ -74,13 +85,19 @@ __all__ = [
     "Var",
     # -- operator-tree proxies -----------------------------------------
     "Accent",
+    "Bar",
+    "BorderBox",
+    "Box",
     "Delimiter",
+    "EqArray",
     "Fraction",
     "FuncApply",
+    "GroupChar",
     "Integral",
     "Limit",
     "Matrix",
     "Nary",
+    "Phantom",
     "Pre",
     "Product",
     "Radical",

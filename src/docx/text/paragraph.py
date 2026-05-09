@@ -826,6 +826,57 @@ class Paragraph(StoryChild):
             result.append(Equation(cast("CT_OMath | CT_OMathPara", el)))
         return result
 
+    @property
+    def math_expressions(self) -> Iterator[MathExpr]:
+        """Yield an :class:`~docx.math.MathExpr` proxy for each OMML expression here.
+
+        Walks the paragraph for every ``m:oMathPara`` and every loose
+        ``m:oMath`` not already enclosed in one, in document order. For each
+        matched element the :func:`ooxml_math.from_element` dispatch returns
+        the richest proxy it knows — :class:`~docx.math.oMath`,
+        :class:`~docx.math.Fraction`, :class:`~docx.math.Matrix`,
+        :class:`~docx.math.Bar`, :class:`~docx.math.Box` and the rest of the
+        0.4.0 operator tree — falling back to :class:`~docx.math.Raw` for
+        any unrecognised tag.
+
+        .. versionadded:: 2026.05.10
+        """
+        from ooxml_math import from_element as _from_element
+
+        for el in self._p.xpath(
+            ".//m:oMathPara | .//m:oMath[not(ancestor::m:oMathPara)]"
+        ):
+            yield _from_element(el)
+
+    def add_math(self, expr: MathExpr) -> MathExpr:
+        """Insert an OMML block before the first run, or append when none exist.
+
+        `expr` is a :class:`~docx.math.MathExpr` proxy (typically an
+        :class:`~docx.math.oMath` root or any operator-tree node — bare
+        operators are auto-wrapped in ``<m:oMath>``). The block is inserted
+        as a child of this paragraph **before** the first ``w:r`` run so it
+        typesets at the start of the paragraph; when the paragraph has no
+        runs yet it is simply appended.
+
+        Returns a fresh :class:`~docx.math.MathExpr` proxy around the
+        newly-inserted element (reparented to the docx parser, so
+        descriptor lookups continue to work).
+
+        .. versionadded:: 2026.05.10
+        """
+        from ooxml_math import from_element as _from_element
+
+        from docx.equations import _make_equation_element
+
+        element = _make_equation_element(expr, display_mode=False)
+        runs = self._p.xpath("./w:r")
+        if runs:
+            first_run = runs[0]
+            first_run.addprevious(element)
+        else:
+            self._p.append(element)
+        return _from_element(element)
+
     def add_shape(
         self,
         shape_type,
