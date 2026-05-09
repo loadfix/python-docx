@@ -8,6 +8,23 @@ superset.
 
 .. versionchanged:: 2026.05.0
    Superseded by re-exports from :mod:`ooxml_chart.oxml`.
+
+.. versionchanged:: 2026.05.0
+   Re-exports the 0.2.0 additions from the shared package:
+   ``CT_RelId``, 3D view (``CT_View3D``, ``CT_RotX``, ``CT_RotY``,
+   ``CT_Perspective``, ``CT_HPercent``, ``CT_DepthPercent``,
+   ``CT_Surface``, ``CT_Thickness``), 3D / surface chart kinds
+   (``CT_Bar3DChart``, ``CT_Line3DChart``, ``CT_SurfaceChart``,
+   ``CT_Surface3DChart``, ``CT_Shape``, ``CT_BandFmt``, ``CT_BandFmts``),
+   indicators (``CT_UpDownBar``, ``CT_UpDownBars``), pivot-chart
+   (``CT_PivotSource``, ``CT_PivotFmts``, ``CT_PivotFmt``),
+   print-settings (``CT_PrintSettings``, ``CT_HeaderFooter``,
+   ``CT_PageMargins``, ``CT_PageSetup``), and multi-level
+   categorical-axis (``CT_MultiLvlStrRef``, ``CT_MultiLvlStrData``)
+   classes. No docx-local subclass overrides are required — all new
+   attribute types are plain ST_* or XsdBoolean/XsdDouble scalars;
+   no ``XL_*`` enum semantics to preserve because docx has no
+   chart-enum surface.
 """
 
 from __future__ import annotations
@@ -27,6 +44,19 @@ from typing import TYPE_CHECKING, cast
 # ``pptx.oxml.extprops``).
 # ---------------------------------------------------------------------------
 from ooxml_chart.oxml.chart import CT_PlotArea as _SharedCT_PlotArea
+from ooxml_chart.oxml.chart import CT_RelId
+from ooxml_chart.oxml.chart3d import (
+    CT_BandFmt,
+    CT_BandFmts,
+    CT_Bar3DChart,
+    CT_Line3DChart,
+    CT_Shape,
+    CT_Surface3DChart,
+    CT_SurfaceChart,
+)
+from ooxml_chart.oxml.indicators import CT_UpDownBar, CT_UpDownBars
+from ooxml_chart.oxml.multilvl import CT_MultiLvlStrData, CT_MultiLvlStrRef
+from ooxml_chart.oxml.pivot import CT_PivotFmt, CT_PivotFmts, CT_PivotSource
 from ooxml_chart.oxml.plot import (
     CT_AreaChart,
     CT_BarChart as _SharedCT_BarChart,
@@ -35,7 +65,23 @@ from ooxml_chart.oxml.plot import (
     CT_PieChart,
     CT_ScatterChart,
 )
+from ooxml_chart.oxml.printsettings import (
+    CT_HeaderFooter,
+    CT_PageMargins,
+    CT_PageSetup,
+    CT_PrintSettings,
+)
 from ooxml_chart.oxml.series import CT_SeriesComposite
+from ooxml_chart.oxml.view3d import (
+    CT_DepthPercent,
+    CT_HPercent,
+    CT_Perspective,
+    CT_RotX,
+    CT_RotY,
+    CT_Surface,
+    CT_Thickness,
+    CT_View3D,
+)
 from ooxml_xmlchemy import configure_namespace_registry as _configure
 
 from docx.oxml.ns import qn
@@ -48,15 +94,42 @@ if TYPE_CHECKING:
 
 __all__ = [
     "CT_AreaChart",
+    "CT_BandFmt",
+    "CT_BandFmts",
+    "CT_Bar3DChart",
     "CT_BarChart",
     "CT_Chart",
     "CT_ChartSpace",
+    "CT_DepthPercent",
     "CT_DoughnutChart",
+    "CT_HPercent",
+    "CT_HeaderFooter",
+    "CT_Line3DChart",
     "CT_LineChart",
+    "CT_MultiLvlStrData",
+    "CT_MultiLvlStrRef",
+    "CT_PageMargins",
+    "CT_PageSetup",
+    "CT_Perspective",
     "CT_PieChart",
+    "CT_PivotFmt",
+    "CT_PivotFmts",
+    "CT_PivotSource",
     "CT_PlotArea",
+    "CT_PrintSettings",
+    "CT_RelId",
+    "CT_RotX",
+    "CT_RotY",
     "CT_ScatterChart",
     "CT_Ser",
+    "CT_Shape",
+    "CT_Surface",
+    "CT_Surface3DChart",
+    "CT_SurfaceChart",
+    "CT_Thickness",
+    "CT_UpDownBar",
+    "CT_UpDownBars",
+    "CT_View3D",
 ]
 
 
