@@ -79,6 +79,9 @@ class CT_Cols(BaseOxmlElement):
     equalWidth: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:equalWidth", ST_OnOff
     )
+    sep: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:sep", ST_OnOff
+    )
 
 
 class CT_HdrFtr(BaseOxmlElement):
@@ -247,6 +250,9 @@ class CT_PageSz(BaseOxmlElement):
     orient: WD_ORIENTATION = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:orient", WD_ORIENTATION, default=WD_ORIENTATION.PORTRAIT
     )
+    code: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:code", ST_DecimalNumber
+    )
 
 
 class CT_PaperSource(BaseOxmlElement):
@@ -275,6 +281,7 @@ class CT_SectPr(BaseOxmlElement):
     get_or_add_pgBorders: Callable[[], CT_PgBorders]
     get_or_add_pgMar: Callable[[], CT_PageMar]
     get_or_add_pgSz: Callable[[], CT_PageSz]
+    get_or_add_rtlGutter: Callable[[], CT_OnOff]
     get_or_add_textDirection: Callable[[], "CT_TextDirection"]
     get_or_add_pgNumType: Callable[[], "CT_PageNumber"]
     get_or_add_titlePg: Callable[[], CT_OnOff]
@@ -292,6 +299,7 @@ class CT_SectPr(BaseOxmlElement):
     _remove_pgNumType: Callable[[], None]
     _remove_paperSrc: Callable[[], None]
     _remove_pgBorders: Callable[[], None]
+    _remove_rtlGutter: Callable[[], None]
     _remove_textDirection: Callable[[], None]
     _remove_titlePg: Callable[[], None]
     _remove_type: Callable[[], None]
@@ -362,6 +370,9 @@ class CT_SectPr(BaseOxmlElement):
     )
     bidi: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:bidi", successors=_tag_seq[16:]
+    )
+    rtlGutter: CT_OnOff | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:rtlGutter", successors=_tag_seq[17:]
     )
     docGrid: CT_DocGrid | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:docGrid", successors=_tag_seq[18:]
@@ -674,6 +685,21 @@ class CT_SectPr(BaseOxmlElement):
             self._remove_bidi()
         else:
             self.get_or_add_bidi().val = True
+
+    @property
+    def rtlGutter_val(self) -> bool:
+        """Value of `w:rtlGutter/@val` or |False| if `./w:rtlGutter` is not present."""
+        rtlGutter = self.rtlGutter
+        if rtlGutter is None:
+            return False
+        return rtlGutter.val
+
+    @rtlGutter_val.setter
+    def rtlGutter_val(self, value: bool | None):
+        if value in [None, False]:
+            self._remove_rtlGutter()
+        else:
+            self.get_or_add_rtlGutter().val = True
 
     @property
     def text_direction(self) -> "WD_TEXT_DIRECTION | None":

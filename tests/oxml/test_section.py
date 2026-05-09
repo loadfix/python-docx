@@ -682,6 +682,106 @@ class DescribeCT_SectPr_bidi:
         assert sectPr.xml == expected
 
 
+class DescribeCT_SectPr_rtlGutter:
+    """Unit-test suite for `CT_SectPr.rtlGutter_val`."""
+
+    def it_returns_False_when_no_rtlGutter_child(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        assert sectPr.rtlGutter_val is False
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "expected_value"),
+        [
+            ("w:sectPr/w:rtlGutter", True),
+            ("w:sectPr/w:rtlGutter{w:val=1}", True),
+            ("w:sectPr/w:rtlGutter{w:val=true}", True),
+            ("w:sectPr/w:rtlGutter{w:val=0}", False),
+            ("w:sectPr/w:rtlGutter{w:val=false}", False),
+        ],
+    )
+    def it_knows_its_rtlGutter_val(self, sectPr_cxml: str, expected_value: bool):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        assert sectPr.rtlGutter_val is expected_value
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "value", "expected_cxml"),
+        [
+            ("w:sectPr", True, "w:sectPr/w:rtlGutter"),
+            ("w:sectPr/w:rtlGutter", False, "w:sectPr"),
+            ("w:sectPr/w:rtlGutter", None, "w:sectPr"),
+            ("w:sectPr/w:rtlGutter{w:val=off}", True, "w:sectPr/w:rtlGutter"),
+            ("w:sectPr", False, "w:sectPr"),
+        ],
+    )
+    def it_can_change_its_rtlGutter_val(
+        self, sectPr_cxml: str, value: bool | None, expected_cxml: str
+    ):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        sectPr.rtlGutter_val = value
+        assert sectPr.xml == xml(expected_cxml)
+
+    def it_inserts_rtlGutter_after_bidi_and_before_docGrid(self):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/(w:pgSz,w:pgMar,w:cols,w:bidi,w:docGrid)"),
+        )
+        sectPr.get_or_add_rtlGutter()
+        expected = xml(
+            "w:sectPr/(w:pgSz,w:pgMar,w:cols,w:bidi,w:rtlGutter,w:docGrid)"
+        )
+        assert sectPr.xml == expected
+
+
+class DescribeCT_Cols_sep:
+    """Unit-test suite for the `w:sep` attribute on `CT_Cols`."""
+
+    @pytest.mark.parametrize(
+        ("cols_cxml", "expected_sep"),
+        [
+            ("w:cols", None),
+            ("w:cols{w:sep=1}", True),
+            ("w:cols{w:sep=0}", False),
+            ("w:cols{w:sep=true}", True),
+            ("w:cols{w:sep=false}", False),
+        ],
+    )
+    def it_reads_the_sep_attribute(self, cols_cxml, expected_sep):
+        cols = cast(CT_Cols, element(cols_cxml))
+        assert cols.sep is expected_sep
+
+    def it_writes_the_sep_attribute(self):
+        cols = cast(CT_Cols, element("w:cols"))
+        cols.sep = True
+        assert cols.sep is True
+        cols.sep = None
+        assert cols.sep is None
+
+
+class DescribeCT_PageSz_code:
+    """Unit-test suite for the `w:code` attribute on `CT_PageSz`."""
+
+    def it_returns_None_when_code_is_absent(self):
+        from docx.oxml.section import CT_PageSz
+
+        pgSz = cast(CT_PageSz, element("w:pgSz"))
+        assert pgSz.code is None
+
+    def it_reads_the_code_attribute(self):
+        from docx.oxml.section import CT_PageSz
+
+        pgSz = cast(CT_PageSz, element("w:pgSz{w:code=9}"))
+        assert pgSz.code == 9
+
+    def it_writes_the_code_attribute(self):
+        from docx.oxml.section import CT_PageSz
+
+        pgSz = cast(CT_PageSz, element("w:pgSz"))
+        pgSz.code = 1
+        assert pgSz.code == 1
+        pgSz.code = None
+        assert pgSz.code is None
+
+
 class DescribeCT_HdrFtr:
     """Unit-test suite for selected units of `docx.oxml.section.CT_HdrFtr`."""
 

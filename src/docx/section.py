@@ -11,7 +11,7 @@ from docx.oxml.ns import nsdecls, qn
 from docx.oxml.parser import parse_xml
 from docx.oxml.text.paragraph import CT_P
 from docx.parts.hdrftr import FooterPart, HeaderPart
-from docx.shared import Pt, RGBColor
+from docx.shared import Length, Pt, RGBColor
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 from docx.watermark import Watermark
@@ -45,7 +45,6 @@ if TYPE_CHECKING:
     from docx.oxml.watermark import CT_VmlShape
     from docx.parts.document import DocumentPart
     from docx.parts.story import StoryPart
-    from docx.shared import Length
 
 
 __all__ = [
@@ -54,7 +53,9 @@ __all__ = [
     "LineNumbering",
     "PageBorder",
     "PageBorders",
+    "PageMargins",
     "PageNumbering",
+    "PageSize",
     "Section",
     "SectionColumns",
     "Sections",
@@ -89,13 +90,21 @@ class Section:
         count: int,
         space: "Length | None" = None,
         equal_width: bool | None = None,
+        widths: "Sequence[Length] | None" = None,
+        separator: bool | None = None,
     ) -> SectionColumns:
         """Set column layout for this section in one call.
 
         `count` is written to ``w:cols/@w:num``. When `space` is supplied it
         is written to ``w:cols/@w:space``; when |None| the attribute is left
         unchanged. `equal_width` maps to ``w:cols/@w:equalWidth`` the same
-        way. Returns the |SectionColumns| proxy for the resulting element.
+        way. `separator` toggles the ``w:cols/@w:sep`` attribute controlling
+        whether a vertical separator line is drawn between columns.
+
+        When `widths` is supplied it must be a sequence of |Length| values of
+        length `count`; one ``w:col`` child is written per width. Supplying
+        `widths` implicitly sets `equal_width` to |False| unless the caller
+        has overridden it.
 
         Mirrors the ``set_page_border`` / ``set_line_numbering`` /
         ``set_document_grid`` convenience pattern — equivalent to::
@@ -103,6 +112,7 @@ class Section:
             section.columns.count = count
             section.columns.space = space
             section.columns.equal_width = equal_width
+            section.columns.separator = separator
 
         .. versionadded:: 2026.05.0
         """
@@ -112,6 +122,17 @@ class Section:
             columns.space = space
         if equal_width is not None:
             columns.equal_width = equal_width
+        elif widths is not None:
+            columns.equal_width = False
+        if separator is not None:
+            columns.separator = separator
+        if widths is not None:
+            if len(widths) != count:
+                raise ValueError(
+                    "widths must have exactly `count` entries; got %d widths for "
+                    "count=%d" % (len(widths), count)
+                )
+            columns.set_widths(widths)
         return columns
 
     @property
@@ -490,6 +511,30 @@ class Section:
         self._sectPr.vertical_alignment = value
 
     @property
+    def page_margins(self) -> PageMargins:
+        """|PageMargins| proxy grouping every ``w:pgMar`` attribute in one object.
+
+        Read/write per-attribute access to ``top``, ``right``, ``bottom``,
+        ``left``, ``header``, ``footer``, and ``gutter``. The flat accessors
+        (``top_margin``, ``left_margin``, etc.) remain and are unchanged.
+
+        .. versionadded:: 2026.05.10
+        """
+        return PageMargins(self._sectPr)
+
+    @property
+    def page_size(self) -> PageSize:
+        """|PageSize| proxy exposing width, height, orientation, and paper-size code.
+
+        The flat accessors (``page_width``, ``page_height``, ``orientation``)
+        remain and are unchanged. This proxy additionally exposes the
+        ``w:pgSz/@w:code`` paper-size code.
+
+        .. versionadded:: 2026.05.10
+        """
+        return PageSize(self._sectPr)
+
+    @property
     def page_height(self) -> Length | None:
         """Total page height used for this section.
 
@@ -794,6 +839,31 @@ class Section:
         self._sectPr._remove_docGrid()  # pyright: ignore[reportPrivateUsage]
 
     @property
+    def doc_grid(self) -> DocumentGrid | None:
+        """Alias for :attr:`document_grid`.
+
+        Matches the MS Word / ECMA-376 element name (``w:docGrid``) more
+        literally. Returns the same |DocumentGrid| proxy (or |None|) as
+        :attr:`document_grid`.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.document_grid
+
+    @property
+    def page_number_format(self) -> "PageNumbering | None":
+        """Alias for :attr:`page_numbering`.
+
+        The ``w:pgNumType`` element is Word's page-number *format* metadata
+        (decimal / roman / letter / ..., starting value, chapter style,
+        separator). Provided alongside :attr:`page_numbering` so callers
+        grep-ing for "format" find it.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.page_numbering
+
+    @property
     def right_margin(self) -> Length | None:
         """|Length| object representing the right margin for all pages in this section
         in English Metric Units."""
@@ -821,6 +891,24 @@ class Section:
     @right_to_left.setter
     def right_to_left(self, value: bool | None):
         self._sectPr.bidi_val = value
+
+    @property
+    def rtl_gutter(self) -> bool:
+        """Read/write. ``True`` when the gutter is placed on the right for RTL binding.
+
+        Reflects the presence of the ``w:rtlGutter`` child of this section's
+        ``w:sectPr``. Returns |False| when no ``w:rtlGutter`` element is present
+        or its ``w:val`` attribute evaluates to false. Assigning |True| inserts
+        a ``w:rtlGutter`` element; assigning |False| (or |None|) removes any
+        existing ``w:rtlGutter`` child.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._sectPr.rtlGutter_val
+
+    @rtl_gutter.setter
+    def rtl_gutter(self, value: bool | None):
+        self._sectPr.rtlGutter_val = value
 
     @property
     def text_direction(self) -> "WD_TEXT_DIRECTION | None":
@@ -1314,6 +1402,236 @@ class SectionColumns(Sequence[Column]):
     def space(self, value: Length | None):
         cols = self._sectPr.get_or_add_cols()
         cols.space = value
+
+    @property
+    def separator(self) -> bool:
+        """Read/write. ``True`` when a vertical separator line is drawn between columns.
+
+        Maps to the ``w:sep`` attribute of ``w:cols``. Defaults to |False| when
+        no ``w:cols`` element is present or the attribute is unset.
+
+        .. versionadded:: 2026.05.10
+        """
+        cols = self._sectPr.cols
+        if cols is None:
+            return False
+        return cols.sep if cols.sep is not None else False
+
+    @separator.setter
+    def separator(self, value: bool | None):
+        if value is None or value is False:
+            cols = self._sectPr.cols
+            if cols is not None:
+                cols.sep = None
+            return
+        self._sectPr.get_or_add_cols().sep = True
+
+    def set_widths(self, widths: "Sequence[Length]") -> None:
+        """Replace any existing ``w:col`` children with entries for `widths`.
+
+        Each entry in `widths` becomes a ``w:col`` child with ``@w:w`` set to
+        the corresponding length. Any existing ``w:col`` children are removed
+        first. No ``@w:space`` value is written on the new children; set
+        individual column spaces via indexed access if needed::
+
+            section.columns.set_widths([Inches(2), Inches(3)])
+            section.columns[0].space = Inches(0.25)
+
+        .. versionadded:: 2026.05.10
+        """
+        cols = self._sectPr.get_or_add_cols()
+        # -- remove any existing col children --
+        for existing in list(cols.col_lst):
+            cols.remove(existing)
+        for w in widths:
+            col = cols._add_col()  # pyright: ignore[reportAttributeAccessIssue]
+            col.w = w
+
+
+class PageMargins:
+    """Proxy for the ``<w:pgMar>`` child of a section's ``w:sectPr``.
+
+    Accessed via :attr:`Section.page_margins`. Groups the seven page-margin
+    attributes (``w:top``, ``w:right``, ``w:bottom``, ``w:left``, ``w:header``,
+    ``w:footer``, ``w:gutter``) behind a single proxy. Each attribute is
+    exposed as a read/write |Length| property; assigning |None| clears just
+    that attribute.
+
+    The existing flat accessors on |Section| (``top_margin``, ``left_margin``,
+    ``header_distance``, ``footer_distance``, ``gutter``, etc.) remain and
+    continue to be the canonical way to get or set a single margin. This
+    proxy is a convenience for code that wants to work with the margin block
+    as a unit (e.g. copying margins between sections).
+
+    .. versionadded:: 2026.05.10
+    """
+
+    def __init__(self, sectPr: "CT_SectPr"):
+        self._sectPr = sectPr
+
+    def _get_attr(self, attr_name: str) -> "Length | None":
+        pgMar = self._sectPr.pgMar
+        if pgMar is None:
+            return None
+        return getattr(pgMar, attr_name)
+
+    def _set_attr(self, attr_name: str, value: "int | Length | None") -> None:
+        if value is None:
+            pgMar = self._sectPr.pgMar
+            if pgMar is None:
+                return
+            setattr(pgMar, attr_name, None)
+            return
+        pgMar = self._sectPr.get_or_add_pgMar()
+        length_value = value if isinstance(value, Length) else Length(value)
+        setattr(pgMar, attr_name, length_value)
+
+    @property
+    def top(self) -> "Length | None":
+        """Read/write. Top margin as |Length|, or |None| if unset."""
+        return self._get_attr("top")
+
+    @top.setter
+    def top(self, value: "int | Length | None") -> None:
+        self._set_attr("top", value)
+
+    @property
+    def right(self) -> "Length | None":
+        """Read/write. Right margin as |Length|, or |None| if unset."""
+        return self._get_attr("right")
+
+    @right.setter
+    def right(self, value: "int | Length | None") -> None:
+        self._set_attr("right", value)
+
+    @property
+    def bottom(self) -> "Length | None":
+        """Read/write. Bottom margin as |Length|, or |None| if unset."""
+        return self._get_attr("bottom")
+
+    @bottom.setter
+    def bottom(self, value: "int | Length | None") -> None:
+        self._set_attr("bottom", value)
+
+    @property
+    def left(self) -> "Length | None":
+        """Read/write. Left margin as |Length|, or |None| if unset."""
+        return self._get_attr("left")
+
+    @left.setter
+    def left(self, value: "int | Length | None") -> None:
+        self._set_attr("left", value)
+
+    @property
+    def header(self) -> "Length | None":
+        """Read/write. Distance from top edge of page to top edge of header."""
+        return self._get_attr("header")
+
+    @header.setter
+    def header(self, value: "int | Length | None") -> None:
+        self._set_attr("header", value)
+
+    @property
+    def footer(self) -> "Length | None":
+        """Read/write. Distance from bottom edge of page to bottom edge of footer."""
+        return self._get_attr("footer")
+
+    @footer.setter
+    def footer(self, value: "int | Length | None") -> None:
+        self._set_attr("footer", value)
+
+    @property
+    def gutter(self) -> "Length | None":
+        """Read/write. Page gutter (extra binding margin)."""
+        return self._get_attr("gutter")
+
+    @gutter.setter
+    def gutter(self, value: "int | Length | None") -> None:
+        self._set_attr("gutter", value)
+
+
+class PageSize:
+    """Proxy for the ``<w:pgSz>`` child of a section's ``w:sectPr``.
+
+    Accessed via :attr:`Section.page_size`. Exposes ``width``, ``height``,
+    ``orientation`` (``WD_ORIENTATION``), and ``code`` (paper-size integer
+    code from the Windows printer API, e.g. 1 = Letter, 9 = A4, 11 = A5).
+
+    The existing flat accessors on |Section| (``page_width``, ``page_height``,
+    ``orientation``) remain and continue to be the canonical way to get or
+    set a single dimension. This proxy groups the related attributes so that
+    callers who need all of them (export/round-trip code, page-size pickers,
+    diagnostics) can address them from one object.
+
+    .. versionadded:: 2026.05.10
+    """
+
+    def __init__(self, sectPr: "CT_SectPr"):
+        self._sectPr = sectPr
+
+    @property
+    def width(self) -> "Length | None":
+        """Read/write. Page width as |Length|. |None| when ``w:pgSz`` or ``@w:w`` is
+        absent."""
+        pgSz = self._sectPr.pgSz
+        if pgSz is None:
+            return None
+        return pgSz.w
+
+    @width.setter
+    def width(self, value: "Length | None") -> None:
+        self._sectPr.get_or_add_pgSz().w = value
+
+    @property
+    def height(self) -> "Length | None":
+        """Read/write. Page height as |Length|. |None| when ``w:pgSz`` or ``@w:h`` is
+        absent."""
+        pgSz = self._sectPr.pgSz
+        if pgSz is None:
+            return None
+        return pgSz.h
+
+    @height.setter
+    def height(self, value: "Length | None") -> None:
+        self._sectPr.get_or_add_pgSz().h = value
+
+    @property
+    def orientation(self) -> "WD_ORIENTATION":
+        """Read/write. |WD_ORIENTATION| member for this section's page.
+
+        Returns :attr:`WD_ORIENTATION.PORTRAIT` when the ``w:pgSz`` child or
+        its ``w:orient`` attribute is absent. Assigning a different
+        orientation swaps ``w`` and ``h`` when both are present, matching the
+        behaviour of :attr:`Section.orientation`.
+        """
+        return self._sectPr.orientation
+
+    @orientation.setter
+    def orientation(self, value: "WD_ORIENTATION | None") -> None:
+        self._sectPr.orientation = value
+
+    @property
+    def code(self) -> int | None:
+        """Read/write. Paper-size integer code, mapping to ``w:pgSz/@w:code``.
+
+        The code values correspond to the Windows printing subsystem's
+        ``DEVMODE.dmPaperSize`` field (e.g. 1 = Letter, 5 = Legal, 9 = A4,
+        11 = A5). |None| when the attribute is absent.
+        """
+        pgSz = self._sectPr.pgSz
+        if pgSz is None:
+            return None
+        return pgSz.code
+
+    @code.setter
+    def code(self, value: int | None) -> None:
+        if value is None:
+            pgSz = self._sectPr.pgSz
+            if pgSz is None:
+                return
+            pgSz.code = None
+            return
+        self._sectPr.get_or_add_pgSz().code = value
 
 
 class PageBorder:

@@ -19,7 +19,17 @@ from docx.oxml.document import CT_Document
 from docx.oxml.section import CT_SectPr
 from docx.parts.document import DocumentPart
 from docx.parts.hdrftr import FooterPart, HeaderPart
-from docx.section import Column, Section, SectionColumns, Sections, _BaseHeaderFooter, _Footer, _Header
+from docx.section import (
+    Column,
+    PageMargins,
+    PageSize,
+    Section,
+    SectionColumns,
+    Sections,
+    _BaseHeaderFooter,
+    _Footer,
+    _Header,
+)
 from docx.shared import Inches, Length, RGBColor, Twips
 from docx.table import Table
 from docx.text.paragraph import Paragraph
@@ -2479,3 +2489,476 @@ class DescribeSection_copy_header_footer:
 
         # -- nothing was rewired --
         assert dst.header.is_linked_to_previous
+
+
+class DescribeSectionColumns_separator_and_widths:
+    """Unit-test suite for `SectionColumns.separator` and `.set_widths`."""
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "expected"),
+        [
+            ("w:sectPr", False),
+            ("w:sectPr/w:cols", False),
+            ("w:sectPr/w:cols{w:sep=1}", True),
+            ("w:sectPr/w:cols{w:sep=0}", False),
+        ],
+    )
+    def it_reads_separator(self, sectPr_cxml: str, expected: bool):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        columns = SectionColumns(sectPr)
+        assert columns.separator is expected
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "value", "expected_cxml"),
+        [
+            ("w:sectPr", True, "w:sectPr/w:cols{w:sep=1}"),
+            ("w:sectPr/w:cols{w:sep=1}", False, "w:sectPr/w:cols"),
+            ("w:sectPr/w:cols{w:sep=1}", None, "w:sectPr/w:cols"),
+            # setting False when no cols element doesn't create one
+            ("w:sectPr", False, "w:sectPr"),
+        ],
+    )
+    def it_writes_separator(
+        self, sectPr_cxml: str, value: bool | None, expected_cxml: str
+    ):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        columns = SectionColumns(sectPr)
+        columns.separator = value
+        assert sectPr.xml == xml(expected_cxml)
+
+    def it_can_set_per_column_widths(self):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        columns = SectionColumns(sectPr)
+        columns.set_widths([Twips(4320), Twips(2880), Twips(1440)])
+        assert len(columns) == 3
+        assert [c.width for c in columns] == [Twips(4320), Twips(2880), Twips(1440)]
+
+    def it_replaces_any_existing_col_children_when_set_widths(self):
+        sectPr = cast(
+            CT_SectPr,
+            element("w:sectPr/w:cols/(w:col{w:w=4320},w:col{w:w=4320},w:col{w:w=4320})"),
+        )
+        columns = SectionColumns(sectPr)
+        columns.set_widths([Twips(2000), Twips(3000)])
+        assert [c.width for c in columns] == [Twips(2000), Twips(3000)]
+
+
+class DescribeSection_set_columns_widths:
+    """Unit-test suite for the `widths=` kwarg on `Section.set_columns`."""
+
+    def it_writes_per_column_widths(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+
+        columns = section.set_columns(count=2, widths=[Twips(4000), Twips(5000)])
+
+        assert [c.width for c in columns] == [Twips(4000), Twips(5000)]
+        # widths implies equal_width=False
+        assert columns.equal_width is False
+
+    def it_honors_explicit_equal_width_over_widths_implication(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+
+        columns = section.set_columns(
+            count=2, widths=[Twips(4000), Twips(5000)], equal_width=True
+        )
+
+        assert columns.equal_width is True
+
+    def it_writes_separator_when_provided(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+
+        section.set_columns(count=2, separator=True)
+
+        assert section.columns.separator is True
+
+    def it_raises_when_widths_length_differs_from_count(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+
+        with pytest.raises(ValueError, match="widths must have exactly"):
+            section.set_columns(count=3, widths=[Twips(4000), Twips(5000)])
+
+    # -- fixtures-----------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)
+
+
+class DescribeSection_page_margins_proxy:
+    """Unit-test suite for `Section.page_margins`."""
+
+    def it_returns_a_PageMargins_proxy(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        assert isinstance(section.page_margins, PageMargins)
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "attr_name", "expected"),
+        [
+            ("w:sectPr", "top", None),
+            ("w:sectPr/w:pgMar{w:top=1440}", "top", Twips(1440)),
+            ("w:sectPr/w:pgMar{w:header=720}", "header", Twips(720)),
+            ("w:sectPr/w:pgMar{w:footer=720}", "footer", Twips(720)),
+            ("w:sectPr/w:pgMar{w:gutter=360}", "gutter", Twips(360)),
+            ("w:sectPr/w:pgMar{w:right=1440}", "right", Twips(1440)),
+            ("w:sectPr/w:pgMar{w:bottom=1440}", "bottom", Twips(1440)),
+            ("w:sectPr/w:pgMar{w:left=1440}", "left", Twips(1440)),
+        ],
+    )
+    def it_reads_each_attribute(
+        self, sectPr_cxml: str, attr_name: str, expected, document_part_: Mock
+    ):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        section = Section(sectPr, document_part_)
+        assert getattr(section.page_margins, attr_name) == expected
+
+    @pytest.mark.parametrize(
+        ("attr_name", "value", "expected_cxml"),
+        [
+            ("top", Inches(1), "w:sectPr/w:pgMar{w:top=1440}"),
+            ("header", Inches(0.5), "w:sectPr/w:pgMar{w:header=720}"),
+            ("footer", Inches(0.5), "w:sectPr/w:pgMar{w:footer=720}"),
+            ("gutter", Inches(0.25), "w:sectPr/w:pgMar{w:gutter=360}"),
+        ],
+    )
+    def it_writes_each_attribute(
+        self, attr_name: str, value, expected_cxml: str, document_part_: Mock
+    ):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+
+        setattr(section.page_margins, attr_name, value)
+
+        assert sectPr.xml == xml(expected_cxml)
+
+    def it_clears_an_attribute_when_set_to_None(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr/w:pgMar{w:top=1440,w:left=720}"))
+        section = Section(sectPr, document_part_)
+
+        section.page_margins.top = None
+
+        assert section.page_margins.top is None
+        # left still present
+        assert section.page_margins.left == Twips(720)
+
+    def it_is_a_noop_to_clear_when_no_pgMar_element(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+
+        section.page_margins.header = None
+
+        assert sectPr.xml == xml("w:sectPr")
+
+    def it_accepts_plain_int_and_coerces_to_Length(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+
+        # -- a bare int is interpreted as EMU, matching `Length(value)` semantics
+        # -- of the flat `Section.top_margin` setter. --
+        section.page_margins.top = 914400  # 1 inch in EMU
+
+        assert isinstance(section.page_margins.top, Length)
+        assert section.page_margins.top == Inches(1)
+
+    # -- fixtures-----------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)
+
+
+class DescribeSection_page_size_proxy:
+    """Unit-test suite for `Section.page_size`."""
+
+    def it_returns_a_PageSize_proxy(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        assert isinstance(section.page_size, PageSize)
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "attr", "expected"),
+        [
+            ("w:sectPr", "width", None),
+            ("w:sectPr", "height", None),
+            ("w:sectPr", "code", None),
+            ("w:sectPr/w:pgSz{w:w=12240}", "width", Twips(12240)),
+            ("w:sectPr/w:pgSz{w:h=15840}", "height", Twips(15840)),
+            ("w:sectPr/w:pgSz{w:code=9}", "code", 9),
+        ],
+    )
+    def it_reads_each_attribute(
+        self, sectPr_cxml: str, attr: str, expected, document_part_: Mock
+    ):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        section = Section(sectPr, document_part_)
+        assert getattr(section.page_size, attr) == expected
+
+    @pytest.mark.parametrize(
+        ("attr", "value", "expected_cxml"),
+        [
+            ("width", Inches(8.5), "w:sectPr/w:pgSz{w:w=12240}"),
+            ("height", Inches(11), "w:sectPr/w:pgSz{w:h=15840}"),
+            ("code", 1, "w:sectPr/w:pgSz{w:code=1}"),
+            ("code", 9, "w:sectPr/w:pgSz{w:code=9}"),
+        ],
+    )
+    def it_writes_each_attribute(
+        self, attr: str, value, expected_cxml: str, document_part_: Mock
+    ):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+
+        setattr(section.page_size, attr, value)
+
+        assert sectPr.xml == xml(expected_cxml)
+
+    def it_reads_default_portrait_orientation(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        assert section.page_size.orientation is WD_ORIENTATION.PORTRAIT
+
+    def it_writes_landscape_orientation(self, document_part_: Mock):
+        sectPr = cast(
+            CT_SectPr, element("w:sectPr/w:pgSz{w:w=12240,w:h=15840}")
+        )
+        section = Section(sectPr, document_part_)
+
+        section.page_size.orientation = WD_ORIENTATION.LANDSCAPE
+
+        # orientation setter swaps w and h
+        assert section.page_size.width == Twips(15840)
+        assert section.page_size.height == Twips(12240)
+        assert section.page_size.orientation is WD_ORIENTATION.LANDSCAPE
+
+    def it_clears_the_code_attribute_on_None(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr/w:pgSz{w:w=12240,w:code=9}"))
+        section = Section(sectPr, document_part_)
+
+        section.page_size.code = None
+
+        assert section.page_size.code is None
+        # width still present
+        assert section.page_size.width == Twips(12240)
+
+    def it_is_a_noop_to_clear_code_when_no_pgSz(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+
+        section.page_size.code = None
+
+        assert sectPr.xml == xml("w:sectPr")
+
+    # -- fixtures-----------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)
+
+
+class DescribeSection_rtl_gutter:
+    """Unit-test suite for `Section.rtl_gutter`."""
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "expected"),
+        [
+            ("w:sectPr", False),
+            ("w:sectPr/w:rtlGutter", True),
+            ("w:sectPr/w:rtlGutter{w:val=1}", True),
+            ("w:sectPr/w:rtlGutter{w:val=0}", False),
+        ],
+    )
+    def it_reads_rtl_gutter(
+        self, sectPr_cxml: str, expected: bool, document_part_: Mock
+    ):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        section = Section(sectPr, document_part_)
+        assert section.rtl_gutter is expected
+
+    @pytest.mark.parametrize(
+        ("sectPr_cxml", "value", "expected_cxml"),
+        [
+            ("w:sectPr", True, "w:sectPr/w:rtlGutter"),
+            ("w:sectPr/w:rtlGutter", False, "w:sectPr"),
+            ("w:sectPr/w:rtlGutter", None, "w:sectPr"),
+            ("w:sectPr", False, "w:sectPr"),
+        ],
+    )
+    def it_writes_rtl_gutter(
+        self,
+        sectPr_cxml: str,
+        value: bool | None,
+        expected_cxml: str,
+        document_part_: Mock,
+    ):
+        sectPr = cast(CT_SectPr, element(sectPr_cxml))
+        section = Section(sectPr, document_part_)
+
+        section.rtl_gutter = value
+
+        assert sectPr.xml == xml(expected_cxml)
+
+    # -- fixtures-----------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)
+
+
+class DescribeSection_doc_grid_and_page_number_format_aliases:
+    """Unit-test suite for the aliases `doc_grid` and `page_number_format`."""
+
+    def it_aliases_doc_grid_to_document_grid(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr/w:docGrid{w:linePitch=360}"))
+        section = Section(sectPr, document_part_)
+
+        # same DocumentGrid object semantics (proxy pointing at same element)
+        assert section.doc_grid is not None
+        assert section.doc_grid.line_pitch == 360
+        assert section.document_grid is not None
+        assert section.doc_grid.line_pitch == section.document_grid.line_pitch
+
+    def it_returns_None_for_doc_grid_when_absent(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        assert section.doc_grid is None
+
+    def it_aliases_page_number_format_to_page_numbering(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr/w:pgNumType{w:start=7}"))
+        section = Section(sectPr, document_part_)
+
+        assert section.page_number_format is not None
+        assert section.page_number_format.start == 7
+        assert section.page_numbering is not None
+        assert section.page_numbering.start == 7
+
+    def it_returns_None_for_page_number_format_when_absent(self, document_part_: Mock):
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        assert section.page_number_format is None
+
+    # -- fixtures-----------------------------------------------------
+
+    @pytest.fixture
+    def document_part_(self, request: FixtureRequest):
+        return instance_mock(request, DocumentPart)
+
+
+class DescribeSection_R5_2_roundtrip:
+    """Round-trip integration tests for R5-2 section-property surface.
+
+    Opens a fresh document, mutates every new property, saves to a BytesIO,
+    reloads, and asserts values survive.
+    """
+
+    def it_round_trips_page_margins_proxy(self):
+        import io
+
+        document = Document()
+        section = document.sections[0]
+        section.page_margins.top = Inches(1.25)
+        section.page_margins.header = Inches(0.5)
+        section.page_margins.footer = Inches(0.5)
+        section.page_margins.gutter = Inches(0.25)
+
+        stream = io.BytesIO()
+        document.save(stream)
+        stream.seek(0)
+        reloaded = Document(stream)
+        s = reloaded.sections[0]
+
+        assert s.page_margins.top == Inches(1.25)
+        assert s.page_margins.header == Inches(0.5)
+        assert s.page_margins.footer == Inches(0.5)
+        assert s.page_margins.gutter == Inches(0.25)
+
+    def it_round_trips_page_size_with_code(self):
+        import io
+
+        document = Document()
+        section = document.sections[0]
+        section.page_size.width = Inches(8.5)
+        section.page_size.height = Inches(11)
+        section.page_size.code = 1
+
+        stream = io.BytesIO()
+        document.save(stream)
+        stream.seek(0)
+        reloaded = Document(stream)
+        s = reloaded.sections[0]
+
+        assert s.page_size.width == Inches(8.5)
+        assert s.page_size.height == Inches(11)
+        assert s.page_size.code == 1
+
+    def it_round_trips_columns_widths_and_separator(self):
+        import io
+
+        document = Document()
+        section = document.sections[0]
+        section.set_columns(
+            count=3,
+            widths=[Inches(2), Inches(2.5), Inches(2)],
+            separator=True,
+        )
+
+        stream = io.BytesIO()
+        document.save(stream)
+        stream.seek(0)
+        reloaded = Document(stream)
+        s = reloaded.sections[0]
+
+        assert s.columns.count == 3
+        assert s.columns.separator is True
+        assert [c.width for c in s.columns] == [Inches(2), Inches(2.5), Inches(2)]
+        # widths implies equal_width False
+        assert s.columns.equal_width is False
+
+    def it_round_trips_rtl_gutter(self):
+        import io
+
+        document = Document()
+        section = document.sections[0]
+        section.rtl_gutter = True
+
+        stream = io.BytesIO()
+        document.save(stream)
+        stream.seek(0)
+        reloaded = Document(stream)
+        s = reloaded.sections[0]
+
+        assert s.rtl_gutter is True
+
+    def it_round_trips_vertical_alignment(self):
+        import io
+
+        document = Document()
+        section = document.sections[0]
+        section.vertical_alignment = WD_VERTICAL_ALIGNMENT.CENTER
+
+        stream = io.BytesIO()
+        document.save(stream)
+        stream.seek(0)
+        reloaded = Document(stream)
+
+        assert (
+            reloaded.sections[0].vertical_alignment
+            is WD_VERTICAL_ALIGNMENT.CENTER
+        )
+
+    def it_round_trips_titlePg_via_different_first_page_flag(self):
+        import io
+
+        document = Document()
+        section = document.sections[0]
+        section.different_first_page_header_footer = True
+
+        stream = io.BytesIO()
+        document.save(stream)
+        stream.seek(0)
+        reloaded = Document(stream)
+
+        assert reloaded.sections[0].different_first_page_header_footer is True
