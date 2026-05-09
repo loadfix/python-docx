@@ -956,9 +956,12 @@ document.save("out.docx")
 - `Document.comments` — `Comments` collection.
 - `Comments.add_comment(...)` / `Comments.get(comment_id)` / iteration / `len()`.
 - `Comment.text` / `Comment.author` / `Comment.initials` / `Comment.comment_id` / `Comment.timestamp` — Core properties. `author` and `initials` are writable. `timestamp` is timezone-aware.
-- `Comment.add_reply(text=None, author="", initials="")` / `Comment.replies` — Threaded replies. `[Added in 2026.05.0]`
+- `Comment.add_reply(text=None, author="", initials="")` / `Comment.reply(...)` / `Comment.replies` — Threaded replies. `.reply` alias `[Added in 2026.05.10]`.
+- `Comment.is_resolved` / `Comment.resolve()` / `Comment.reopen()` — Word 2013+ resolved/reopened state via `word/commentsExtended.xml` (`w15:commentEx/@done`). The extended-comments part is created on first call and the per-comment entry is materialised/updated automatically. `[Added in 2026.05.10]`
+- `Comment.parent_comment` — The parent `Comment` in a thread, resolved via `w16cid:paraIdParent` (falls back to `w15:commentEx/@paraIdParent`). Returns `None` for root comments. `[Added in 2026.05.10]`
 - `Comment.add_paragraph(...)` — Multi-paragraph comment bodies.
 - `Run.mark_comment_range(last_run, comment_id)` — Low-level anchor helper.
+- `CommentsPart.comments_extended_part` / `CommentsPart.comments_extended_part_or_add()` — Low-level accessors for the `word/commentsExtended.xml` part (`w15:commentsEx` root with `<w15:commentEx>` and `<w15:presenceInfo>` children). `[Added in 2026.05.10]`
 
 ---
 
