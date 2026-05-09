@@ -17,6 +17,7 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.section import Section, Sections
 from docx.shared import ElementProxy, Emu, Inches, Length, RGBColor
 from docx.text.run import Run
+from docx.watermark import Watermark
 
 if TYPE_CHECKING:
     import docx.types as t
@@ -1007,6 +1008,150 @@ class Document(ElementProxy):
             return
         background = self._element.get_or_add_background()
         background.color = value
+
+    @property
+    def page_background_color(self) -> str | None:
+        """Document-wide page background color as a 6-char hex string, or |None|.
+
+        Spec-friendly accessor that mirrors :attr:`background_color` but uses
+        plain ``"RRGGBB"`` strings (no ``#`` prefix) on both ends. Writing
+        |None| removes the ``w:background`` element.
+
+        .. versionadded:: 2026.05.0
+        """
+        rgb = self.background_color
+        if rgb is None:
+            return None
+        return str(rgb)
+
+    @page_background_color.setter
+    def page_background_color(self, value: str | None) -> None:
+        if value is None:
+            self.background_color = None
+            return
+        if not isinstance(value, str):
+            raise TypeError(
+                "page_background_color must be a 'RRGGBB' hex string or None, "
+                "got %r" % type(value).__name__
+            )
+        hex_value = value.lstrip("#").strip()
+        if len(hex_value) != 6:
+            raise ValueError(
+                "page_background_color must be a 6-char hex string, got %r"
+                % value
+            )
+        self.background_color = RGBColor.from_string(hex_value)
+
+    def add_text_watermark(
+        self,
+        text: str,
+        font_name: str = "Calibri",
+        font_size: int = 36,
+        color_rgb: str = "808080",
+        diagonal: bool = True,
+    ) -> "Watermark":
+        """Append a text watermark to every section's default page header.
+
+        Word renders a watermark by embedding a VML shape in a header paragraph.
+        This helper wires one up on each section, replacing any existing
+        watermark. Returns the |Watermark| proxy for the first section's shape
+        (all sections receive identical watermarks).
+
+        `font_size` is in points, `color_rgb` is an ``"RRGGBB"`` hex string
+        (with or without leading ``#``), and `diagonal=True` rotates the
+        watermark by 45 degrees.
+
+        .. versionadded:: 2026.05.0
+        """
+        from docx.shared import Pt
+
+        color_hex = color_rgb.lstrip("#").strip()
+        if len(color_hex) != 6:
+            raise ValueError(
+                "color_rgb must be a 6-char hex string, got %r" % color_rgb
+            )
+        rgb = RGBColor.from_string(color_hex)
+        layout = "diagonal" if diagonal else "horizontal"
+        first_watermark: Watermark | None = None
+        for section in self.sections:
+            wm = section.add_text_watermark(
+                text,
+                font=font_name,
+                size=Pt(font_size),
+                color=rgb,
+                layout=layout,
+            )
+            if first_watermark is None:
+                first_watermark = wm
+        assert first_watermark is not None, "document has no sections"
+        return first_watermark
+
+    def add_picture_watermark(
+        self,
+        image_path: "str | IO[bytes]",
+        scale: float = 1.0,
+    ) -> "Watermark":
+        """Append a picture watermark to every section's default page header.
+
+        `image_path` may be a filesystem path or a file-like stream. `scale`
+        is a positive multiplier applied to the image's native dimensions —
+        ``scale=0.5`` produces a half-size watermark.
+
+        Returns the |Watermark| proxy for the first section's shape.
+
+        .. versionadded:: 2026.05.0
+        """
+        if scale <= 0:
+            raise ValueError("scale must be > 0, got %r" % scale)
+
+        # -- read native dimensions once so we can size each section identically --
+        from docx.image.image import Image as _Image
+        from docx.shared import Emu
+
+        img = _Image.from_file(image_path)
+        # -- rewind file-like streams so each section can re-read if needed --
+        if hasattr(image_path, "seek"):
+            try:
+                image_path.seek(0)  # type: ignore[union-attr]
+            except Exception:
+                pass
+        px_w, px_h = img.px_width, img.px_height
+        h_dpi = img.horz_dpi or 72
+        v_dpi = img.vert_dpi or 72
+        # -- EMU = inches * 914400; inches = px / dpi --
+        width_emu = Emu(int(px_w / h_dpi * 914400 * scale))
+        height_emu = Emu(int(px_h / v_dpi * 914400 * scale))
+
+        first_watermark: Watermark | None = None
+        for section in self.sections:
+            if hasattr(image_path, "seek"):
+                try:
+                    image_path.seek(0)  # type: ignore[union-attr]
+                except Exception:
+                    pass
+            wm = section.add_image_watermark(
+                image_path, width=width_emu, height=height_emu
+            )
+            if first_watermark is None:
+                first_watermark = wm
+        assert first_watermark is not None, "document has no sections"
+        return first_watermark
+
+    @property
+    def watermarks(self) -> "list[Watermark]":
+        """List of |Watermark| proxies currently present across all sections.
+
+        Each section contributes at most one watermark (its default header's
+        first VML shape). Sections without a watermark are skipped.
+
+        .. versionadded:: 2026.05.0
+        """
+        result: list[Watermark] = []
+        for section in self.sections:
+            wm = section.watermark
+            if wm is not None:
+                result.append(wm)
+        return result
 
     @property
     def bibliography(self) -> "Bibliography":

@@ -1526,6 +1526,46 @@ document.save("out.docx")
 - `Section.add_image_watermark(image_path_or_stream, width=None, height=None)` — `[Added in 2026.05.0]`
 - `Section.remove_watermark()` / `Section.watermark` — `[Added in 2026.05.0]`
 - `Watermark.type` / `Watermark.text` — Read-only introspection. `[Added in 2026.05.0]`
+- `Watermark.remove()` — Detach the watermark's paragraph from its header. `[Added in 2026.05.0]`
+
+### Document-level watermark helpers
+
+`Document.add_text_watermark()` / `Document.add_picture_watermark()` wire
+the same watermark into **every** section in one call. `Document.watermarks`
+enumerates the current set. `[Added in 2026.05.0]`
+
+```python
+from io import BytesIO
+from docx import Document
+
+document = Document()
+
+# -- text watermark, diagonal silver-grey by default --
+document.add_text_watermark(
+    "DRAFT",
+    font_name="Calibri",
+    font_size=36,
+    color_rgb="808080",
+    diagonal=True,
+)
+
+# -- picture watermark (path or BytesIO of a PNG/JPEG) --
+# document.add_picture_watermark(BytesIO(png_bytes), scale=0.5)
+
+# -- enumerate / remove --
+for wm in document.watermarks:
+    print(wm.type, wm.text)
+document.watermarks[0].remove()
+
+# -- document-wide page background colour --
+document.page_background_color = "4472C4"
+```
+
+- `Document.add_text_watermark(text, font_name="Calibri", font_size=36, color_rgb="808080", diagonal=True)` — `[Added in 2026.05.0]`
+- `Document.add_picture_watermark(image_path_or_stream, scale=1.0)` — `[Added in 2026.05.0]`
+- `Document.watermarks` — list of |Watermark| proxies across all sections. `[Added in 2026.05.0]`
+- `Document.page_background_color` — `"RRGGBB"` hex string view of `w:background/@w:color`. `[Added in 2026.05.0]`
+- `Document.background_color` — same underlying element, exposed as |RGBColor|. `[Added in 2026.05.0]`
 
 ---
 
