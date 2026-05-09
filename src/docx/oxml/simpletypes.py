@@ -72,6 +72,7 @@ __all__ = [
     "ST_PointMeasure",
     "ST_PositiveCoordinate",
     "ST_RelationshipId",
+    "ST_SdtDateMappingType",
     "ST_SignedTwipsMeasure",
     "ST_String",
     "ST_TblLayoutType",
@@ -395,3 +396,19 @@ class ST_VerticalAlignRun(XsdStringEnumeration):
     SUBSCRIPT = "subscript"
 
     _members = (BASELINE, SUPERSCRIPT, SUBSCRIPT)
+
+
+class ST_SdtDateMappingType(XsdStringEnumeration):
+    """Valid values for ``w:storeMappedDataAs/@w:val`` on an SDT date-picker.
+
+    Per ECMA-376 §17.5.2.43, this governs how a bound XPath value is written
+    back into the custom-XML data part when Word serialises a user-entered
+    date: as a plain text string (``text``), as an ``xsd:date`` (``date``),
+    or as an ``xsd:dateTime`` (``dateTime``).
+    """
+
+    TEXT = "text"
+    DATE = "date"
+    DATE_TIME = "dateTime"
+
+    _members = (TEXT, DATE, DATE_TIME)

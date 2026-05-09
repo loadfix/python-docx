@@ -28,10 +28,21 @@ from collections.abc import Callable
 
 from docx.oxml.ns import qn
 from docx.oxml.parser import OxmlElement
-from docx.oxml.simpletypes import ST_String
-from docx.oxml.xmlchemy import BaseOxmlElement, OptionalAttribute, ZeroOrOne
+from docx.oxml.simpletypes import (
+    ST_OnOff,
+    ST_SdtDateMappingType,
+    ST_String,
+)
+from docx.oxml.xmlchemy import (
+    BaseOxmlElement,
+    OptionalAttribute,
+    ZeroOrMore,
+    ZeroOrOne,
+)
 
 if TYPE_CHECKING:
+    from docx.oxml.shared import CT_OnOff as CT_OnOffElement
+    from docx.oxml.shared import CT_String as CT_StringElement
     from docx.oxml.text.paragraph import CT_P
     from docx.oxml.text.run import CT_R
 
@@ -342,3 +353,150 @@ class CT_SdtContent(BaseOxmlElement):
                 # -- nested SDT --
                 parts.append(cast("CT_Sdt", child).text)
         return "".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# SDT property-value types
+#
+# These classes model the *value-carrying* children of ``<w:sdtPr>`` that
+# distinguish the different content-control flavours (date picker, combo
+# box, drop-down list, doc-part gallery, plain text). They correspond to
+# ``CT_SdtListItem``, ``CT_SdtDate``, ``CT_SdtComboBox``,
+# ``CT_SdtDocPart``, ``CT_SdtDropDownList``, ``CT_SdtText``,
+# ``CT_SdtDateMappingType``, and ``CT_SdtEndPr`` in ``wml.xsd``.
+#
+# Each class is a verbatim port of the XSD complexType: attribute names,
+# child-element names, and sequence ordering match the schema exactly so
+# that ``successors`` tuples are authoritative for insertion.
+
+
+class CT_SdtListItem(BaseOxmlElement):
+    """``<w:listItem>`` element — a single item in a combo-box / drop-down list.
+
+    Carries ``@w:displayText`` (what the user sees) and ``@w:value`` (what is
+    written into the bound data part when the item is selected). Both are
+    optional per the ECMA-376 schema.
+    """
+
+    displayText: "str | None" = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:displayText", ST_String
+    )
+    value: "str | None" = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:value", ST_String
+    )
+
+
+class CT_SdtDateMappingType(BaseOxmlElement):
+    """``<w:storeMappedDataAs>`` element — bound-data serialisation format.
+
+    Used inside ``<w:date>`` to tell Word whether to write the user-entered
+    date back into the bound custom-XML part as plain text, ``xsd:date``, or
+    ``xsd:dateTime``.
+    """
+
+    val: "str | None" = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:val", ST_SdtDateMappingType
+    )
+
+
+class CT_SdtDate(BaseOxmlElement):
+    """``<w:date>`` element — date-picker type marker and properties.
+
+    Its presence under ``<w:sdtPr>`` turns the SDT into a date-picker.
+    Carries the optional ``@w:fullDate`` attribute (the currently-chosen
+    date, in ISO-8601) plus optional ``dateFormat``, ``lid``,
+    ``storeMappedDataAs`` and ``calendar`` children.
+    """
+
+    dateFormat: "CT_StringElement | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:dateFormat",
+        successors=("w:lid", "w:storeMappedDataAs", "w:calendar"),
+    )
+    lid: "CT_StringElement | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:lid", successors=("w:storeMappedDataAs", "w:calendar")
+    )
+    storeMappedDataAs: "CT_SdtDateMappingType | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:storeMappedDataAs", successors=("w:calendar",)
+    )
+    calendar: "CT_StringElement | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:calendar", successors=()
+    )
+
+    fullDate: "str | None" = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:fullDate", ST_String
+    )
+
+
+class CT_SdtComboBox(BaseOxmlElement):
+    """``<w:comboBox>`` element — combo-box type marker and item list.
+
+    Carries zero-or-more ``<w:listItem>`` children plus an optional
+    ``@w:lastValue`` that records the most recent free-text input (combo
+    boxes allow the user to type a value that is not in the list).
+    """
+
+    listItem = ZeroOrMore("w:listItem", successors=())
+    listItem_lst: list[CT_SdtListItem]
+    add_listItem: Callable[..., CT_SdtListItem]
+
+    lastValue: "str | None" = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:lastValue", ST_String
+    )
+
+
+class CT_SdtDocPart(BaseOxmlElement):
+    """``<w:docPartObj>`` / ``<w:docPartList>`` element — doc-part gallery marker.
+
+    Both ``docPartObj`` and ``docPartList`` share this type. Carries the
+    optional ``docPartGallery``, ``docPartCategory`` and ``docPartUnique``
+    child elements that constrain which glossary entries the control offers.
+    """
+
+    docPartGallery: "CT_StringElement | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:docPartGallery", successors=("w:docPartCategory", "w:docPartUnique")
+    )
+    docPartCategory: "CT_StringElement | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:docPartCategory", successors=("w:docPartUnique",)
+    )
+    docPartUnique: "CT_OnOffElement | None" = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:docPartUnique", successors=()
+    )
+
+
+class CT_SdtDropDownList(BaseOxmlElement):
+    """``<w:dropDownList>`` element — drop-down list type marker and items.
+
+    Same shape as :class:`CT_SdtComboBox` but drop-down lists forbid free-text
+    input: the user must pick one of the ``<w:listItem>`` values.
+    """
+
+    listItem = ZeroOrMore("w:listItem", successors=())
+    listItem_lst: list[CT_SdtListItem]
+    add_listItem: Callable[..., CT_SdtListItem]
+
+    lastValue: "str | None" = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:lastValue", ST_String
+    )
+
+
+class CT_SdtText(BaseOxmlElement):
+    """``<w:text>`` element — plain-text type marker.
+
+    Presence under ``<w:sdtPr>`` restricts the SDT's editable surface to a
+    single run of plain text. Carries the optional ``@w:multiLine`` attribute
+    (default ``false``) that lets the user insert line breaks.
+    """
+
+    multiLine: "bool | None" = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:multiLine", ST_OnOff
+    )
+
+
+class CT_SdtEndPr(BaseOxmlElement):
+    """``<w:sdtEndPr>`` element — run-property marker applied at SDT end.
+
+    Holds zero or more ``<w:rPr>`` children that Word uses to reset the
+    effective run-property stack when the content control closes.
+    """
+
+    rPr = ZeroOrMore("w:rPr", successors=())

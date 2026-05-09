@@ -151,12 +151,35 @@ from .comments import CT_Comments, CT_Comment
 register_element_cls("w:comments", CT_Comments)
 register_element_cls("w:comment", CT_Comment)
 
-from .content_controls import CT_DataBinding, CT_Sdt, CT_SdtContent, CT_SdtPr
+from .content_controls import (
+    CT_DataBinding,
+    CT_Sdt,
+    CT_SdtComboBox,
+    CT_SdtContent,
+    CT_SdtDate,
+    CT_SdtDateMappingType,
+    CT_SdtDocPart,
+    CT_SdtDropDownList,
+    CT_SdtEndPr,
+    CT_SdtListItem,
+    CT_SdtPr,
+    CT_SdtText,
+)
 
 register_element_cls("w:dataBinding", CT_DataBinding)
 register_element_cls("w:sdt", CT_Sdt)
 register_element_cls("w:sdtContent", CT_SdtContent)
 register_element_cls("w:sdtPr", CT_SdtPr)
+# -- SDT property-value types (ECMA-376 wml.xsd) --
+register_element_cls("w:comboBox", CT_SdtComboBox)
+register_element_cls("w:date", CT_SdtDate)
+register_element_cls("w:docPartList", CT_SdtDocPart)
+register_element_cls("w:docPartObj", CT_SdtDocPart)
+register_element_cls("w:dropDownList", CT_SdtDropDownList)
+register_element_cls("w:listItem", CT_SdtListItem)
+register_element_cls("w:sdtEndPr", CT_SdtEndPr)
+register_element_cls("w:storeMappedDataAs", CT_SdtDateMappingType)
+register_element_cls("w:text", CT_SdtText)
 
 from .coreprops import CT_CoreProperties
 

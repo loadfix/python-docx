@@ -6,7 +6,18 @@ from __future__ import annotations
 
 from typing import cast
 
-from docx.oxml.content_controls import CT_Sdt, CT_SdtContent
+from docx.oxml.content_controls import (
+    CT_Sdt,
+    CT_SdtComboBox,
+    CT_SdtContent,
+    CT_SdtDate,
+    CT_SdtDateMappingType,
+    CT_SdtDocPart,
+    CT_SdtDropDownList,
+    CT_SdtEndPr,
+    CT_SdtListItem,
+    CT_SdtText,
+)
 from docx.oxml.ns import qn
 
 from ..unitutil.cxml import element
@@ -139,3 +150,203 @@ class DescribeCT_SdtContent:
     def it_returns_empty_string_when_no_children(self):
         sdtContent = cast(CT_SdtContent, element("w:sdtContent"))
         assert sdtContent.text == ""
+
+
+class DescribeCT_SdtListItem:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_SdtListItem``."""
+
+    def it_reads_displayText_and_value_attributes(self):
+        item = cast(
+            CT_SdtListItem,
+            element("w:listItem{w:displayText=Red,w:value=R}"),
+        )
+        assert item.displayText == "Red"
+        assert item.value == "R"
+
+    def it_returns_None_when_attributes_are_absent(self):
+        item = cast(CT_SdtListItem, element("w:listItem"))
+        assert item.displayText is None
+        assert item.value is None
+
+    def it_can_set_displayText_and_value(self):
+        item = cast(CT_SdtListItem, element("w:listItem"))
+        item.displayText = "Blue"
+        item.value = "B"
+        assert item.get(qn("w:displayText")) == "Blue"
+        assert item.get(qn("w:value")) == "B"
+
+
+class DescribeCT_SdtDateMappingType:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_SdtDateMappingType``."""
+
+    def it_reads_its_val(self):
+        sm = cast(
+            CT_SdtDateMappingType,
+            element("w:storeMappedDataAs{w:val=dateTime}"),
+        )
+        assert sm.val == "dateTime"
+
+    def it_returns_None_when_val_is_absent(self):
+        sm = cast(CT_SdtDateMappingType, element("w:storeMappedDataAs"))
+        assert sm.val is None
+
+    def it_can_set_its_val(self):
+        sm = cast(CT_SdtDateMappingType, element("w:storeMappedDataAs"))
+        sm.val = "date"
+        assert sm.get(qn("w:val")) == "date"
+
+
+class DescribeCT_SdtDate:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_SdtDate``."""
+
+    def it_reads_its_fullDate_attribute(self):
+        date = cast(
+            CT_SdtDate,
+            element("w:date{w:fullDate=2026-05-09T00:00:00Z}"),
+        )
+        assert date.fullDate == "2026-05-09T00:00:00Z"
+
+    def it_returns_None_for_missing_fullDate(self):
+        date = cast(CT_SdtDate, element("w:date"))
+        assert date.fullDate is None
+
+    def it_can_add_child_elements_in_schema_order(self):
+        date = cast(CT_SdtDate, element("w:date"))
+        date.get_or_add_dateFormat()
+        date.get_or_add_lid()
+        date.get_or_add_storeMappedDataAs()
+        date.get_or_add_calendar()
+        tags = [child.tag for child in date]
+        assert tags == [
+            qn("w:dateFormat"),
+            qn("w:lid"),
+            qn("w:storeMappedDataAs"),
+            qn("w:calendar"),
+        ]
+
+    def it_exposes_storeMappedDataAs_child_as_CT_SdtDateMappingType(self):
+        date = cast(
+            CT_SdtDate,
+            element("w:date/w:storeMappedDataAs{w:val=text}"),
+        )
+        sm = date.storeMappedDataAs
+        assert sm is not None
+        assert isinstance(sm, CT_SdtDateMappingType)
+        assert sm.val == "text"
+
+
+class DescribeCT_SdtComboBox:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_SdtComboBox``."""
+
+    def it_reads_its_lastValue_attribute(self):
+        combo = cast(
+            CT_SdtComboBox,
+            element("w:comboBox{w:lastValue=Custom}"),
+        )
+        assert combo.lastValue == "Custom"
+
+    def it_returns_an_empty_listItem_lst_when_none_present(self):
+        combo = cast(CT_SdtComboBox, element("w:comboBox"))
+        assert combo.listItem_lst == []
+
+    def it_can_add_a_listItem(self):
+        combo = cast(CT_SdtComboBox, element("w:comboBox"))
+        item = combo.add_listItem()
+        item.displayText = "Red"
+        item.value = "R"
+        assert len(combo.listItem_lst) == 1
+        assert combo.listItem_lst[0].displayText == "Red"
+
+    def it_iterates_multiple_listItem_children(self):
+        combo = cast(
+            CT_SdtComboBox,
+            element(
+                "w:comboBox/("
+                "w:listItem{w:displayText=Red,w:value=R},"
+                "w:listItem{w:displayText=Blue,w:value=B}"
+                ")"
+            ),
+        )
+        assert [(i.displayText, i.value) for i in combo.listItem_lst] == [
+            ("Red", "R"),
+            ("Blue", "B"),
+        ]
+
+
+class DescribeCT_SdtDocPart:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_SdtDocPart``."""
+
+    def it_can_add_docPartGallery_and_category_in_order(self):
+        dp = cast(CT_SdtDocPart, element("w:docPartObj"))
+        dp.get_or_add_docPartGallery()
+        dp.get_or_add_docPartCategory()
+        dp.get_or_add_docPartUnique()
+        tags = [child.tag for child in dp]
+        assert tags == [
+            qn("w:docPartGallery"),
+            qn("w:docPartCategory"),
+            qn("w:docPartUnique"),
+        ]
+
+    def it_returns_None_for_absent_children(self):
+        dp = cast(CT_SdtDocPart, element("w:docPartObj"))
+        assert dp.docPartGallery is None
+        assert dp.docPartCategory is None
+        assert dp.docPartUnique is None
+
+
+class DescribeCT_SdtDropDownList:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_SdtDropDownList``."""
+
+    def it_reads_its_lastValue_attribute(self):
+        dd = cast(
+            CT_SdtDropDownList,
+            element("w:dropDownList{w:lastValue=Two}"),
+        )
+        assert dd.lastValue == "Two"
+
+    def it_can_add_a_listItem(self):
+        dd = cast(CT_SdtDropDownList, element("w:dropDownList"))
+        item = dd.add_listItem()
+        item.displayText = "One"
+        item.value = "1"
+        assert len(dd.listItem_lst) == 1
+
+    def it_treats_listItem_children_as_CT_SdtListItem(self):
+        dd = cast(
+            CT_SdtDropDownList,
+            element("w:dropDownList/w:listItem{w:displayText=A,w:value=a}"),
+        )
+        items = dd.listItem_lst
+        assert len(items) == 1
+        assert isinstance(items[0], CT_SdtListItem)
+        assert items[0].displayText == "A"
+
+
+class DescribeCT_SdtText:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_SdtText``."""
+
+    def it_reads_multiLine_as_True_when_set_to_1(self):
+        txt = cast(CT_SdtText, element("w:text{w:multiLine=1}"))
+        assert txt.multiLine is True
+
+    def it_reads_multiLine_as_False_when_set_to_0(self):
+        txt = cast(CT_SdtText, element("w:text{w:multiLine=0}"))
+        assert txt.multiLine is False
+
+    def it_returns_None_when_multiLine_is_absent(self):
+        txt = cast(CT_SdtText, element("w:text"))
+        assert txt.multiLine is None
+
+
+class DescribeCT_SdtEndPr:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_SdtEndPr``."""
+
+    def it_exposes_an_empty_rPr_lst_when_none_present(self):
+        endPr = cast(CT_SdtEndPr, element("w:sdtEndPr"))
+        assert endPr.rPr_lst == []
+
+    def it_can_add_an_rPr_child(self):
+        endPr = cast(CT_SdtEndPr, element("w:sdtEndPr"))
+        endPr.add_rPr()
+        assert len(endPr.rPr_lst) == 1
