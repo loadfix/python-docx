@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from ooxml_math import MathExpr
     from docx.bookmarks import Bookmark
     from docx.content_controls import ContentControl, ContentControlType
-    from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+    from docx.enum.text import WD_FRAME_DROP_CAP, WD_PARAGRAPH_ALIGNMENT
     from docx.embedded_objects import EmbeddedObject
     from docx.equations import Equation
     from docx.ink import InkAnnotation
@@ -46,6 +46,7 @@ if TYPE_CHECKING:
     from docx.styles.style import CharacterStyle
     from docx.table import Table as _Table
     from docx.styles.style import _TableStyle  # pyright: ignore[reportPrivateUsage]
+    from docx.text.parfmt import DropCap
 
 
 __all__ = ["Paragraph"]
@@ -1082,6 +1083,78 @@ class Paragraph(StoryChild):
         if style is not None:
             paragraph.style = style
         return paragraph
+
+    @property
+    def drop_cap(self) -> DropCap | None:
+        """|DropCap| proxy for this paragraph's drop-cap frame, or |None|.
+
+        Returns |None| when the paragraph has no ``w:pPr/w:framePr`` child, or
+        when the ``w:framePr/@w:dropCap`` attribute is absent or set to
+        ``none``. A paragraph returned by :meth:`add_drop_cap` is itself the
+        drop-cap paragraph; the body paragraph that follows it (containing the
+        remainder of the text) is a normal paragraph with no drop cap.
+
+        .. versionadded:: 2026.05.0
+        """
+        from docx.enum.text import WD_FRAME_DROP_CAP
+        from docx.text.parfmt import DropCap
+
+        pPr = self._p.pPr
+        if pPr is None:
+            return None
+        framePr = pPr.framePr
+        if framePr is None:
+            return None
+        if framePr.dropCap is None or framePr.dropCap == WD_FRAME_DROP_CAP.NONE:
+            return None
+        return DropCap(framePr)
+
+    def add_drop_cap(
+        self,
+        letter: str,
+        mode: "WD_FRAME_DROP_CAP | None" = None,
+        lines: int = 3,
+    ) -> Paragraph:
+        """Split this paragraph so it begins with a drop-cap frame paragraph.
+
+        A new paragraph is inserted directly before this one, carrying a
+        ``w:framePr`` with ``@w:dropCap`` set to `mode` (default
+        :attr:`~docx.enum.text.WD_FRAME_DROP_CAP.DROP`) and ``@w:lines`` set to
+        `lines` (default ``3``). The drop-cap paragraph's text content is
+        `letter` (typically a single character).
+
+        The original first run of this paragraph is then stripped of exactly
+        that many leading characters so ``paragraph.text`` is continuous
+        across the two paragraphs. Callers that want to strip leading
+        whitespace, or transfer multiple characters, can do so directly on
+        the returned drop-cap paragraph and on ``self``.
+
+        Returns the newly inserted drop-cap paragraph.
+
+        .. versionadded:: 2026.05.0
+        """
+        from docx.enum.text import WD_FRAME_DROP_CAP
+
+        if mode is None:
+            mode = WD_FRAME_DROP_CAP.DROP
+        if mode == WD_FRAME_DROP_CAP.NONE:
+            raise ValueError(
+                "add_drop_cap mode must be WD_FRAME_DROP_CAP.DROP or "
+                "WD_FRAME_DROP_CAP.MARGIN, not NONE"
+            )
+
+        # -- create the drop-cap frame paragraph before self, containing `letter` --
+        drop_paragraph = self.insert_paragraph_before(letter)
+        drop_paragraph.paragraph_format.set_frame(drop_cap=mode, lines=lines)
+
+        # -- strip the same prefix from self's first w:t if it matches --
+        for t in self._p.xpath("./w:r/w:t"):
+            existing = t.text or ""
+            if existing.startswith(letter):
+                t.text = existing[len(letter):]
+                break
+
+        return drop_paragraph
 
     def add_caption_before(
         self,

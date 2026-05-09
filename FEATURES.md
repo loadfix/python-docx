@@ -330,6 +330,7 @@ document.save("out.docx")
 - `ParagraphFormat.tab_stops` — `TabStops` collection.
 - `ParagraphFormat.borders` — `ParagraphBorders` (top/bottom/left/right/between/bar). `[Added in 2026.05.0]`
 - `ParagraphFormat.frame` / `ParagraphFormat.set_frame(...)` / `ParagraphFormat.remove_frame()` — Text frames. `[Added in 2026.05.0]`
+- `Paragraph.drop_cap` / `Paragraph.add_drop_cap(letter, mode=DROP, lines=3)` — Drop caps (`w:framePr/@w:dropCap`). `.drop_cap` returns a `DropCap` proxy with `mode`/`lines`/`x`/`y`/`width`/`height`/`wrap`/`horizontal_anchor`/`vertical_anchor`, or `None` when the paragraph is not a drop-cap frame. `.add_drop_cap(letter)` splits the paragraph: inserts a drop-cap frame paragraph before `self` containing `letter`, then strips that leading character from `self`'s first `w:t`. `[Added in 2026.05.0]`
 
 ---
 

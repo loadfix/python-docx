@@ -15,7 +15,7 @@ from docx.enum.text import (
     WD_LINE_SPACING,
 )
 from docx.shared import Pt, Twips
-from docx.text.parfmt import ParagraphFormat, TextFrame
+from docx.text.parfmt import DropCap, ParagraphFormat, TextFrame
 from docx.text.tabstops import TabStops
 
 from ..unitutil.cxml import element, xml
@@ -944,3 +944,79 @@ class DescribeParagraphFormatNewFields:
         p = element("w:p/w:pPr/w:shd{w:val=clear,w:fill=FFFF00}")
         ParagraphFormat(p).shading_color = None
         assert p.xml == xml("w:p/w:pPr")
+
+
+class DescribeDropCap:
+    """Unit-test suite for the DropCap proxy class."""
+
+    @pytest.mark.parametrize(
+        ("cxml", "prop", "expected"),
+        [
+            ("w:framePr{w:dropCap=drop}", "mode", WD_FRAME_DROP_CAP.DROP),
+            ("w:framePr{w:dropCap=margin}", "mode", WD_FRAME_DROP_CAP.MARGIN),
+            ("w:framePr{w:lines=3}", "lines", 3),
+            ("w:framePr{w:x=720}", "x", Twips(720)),
+            ("w:framePr{w:y=-360}", "y", Twips(-360)),
+            ("w:framePr{w:w=1440}", "width", Twips(1440)),
+            ("w:framePr{w:h=2880}", "height", Twips(2880)),
+            ("w:framePr{w:wrap=around}", "wrap", WD_FRAME_WRAP.AROUND),
+            (
+                "w:framePr{w:hAnchor=page}",
+                "horizontal_anchor",
+                WD_FRAME_H_ANCHOR.PAGE,
+            ),
+            (
+                "w:framePr{w:vAnchor=margin}",
+                "vertical_anchor",
+                WD_FRAME_V_ANCHOR.MARGIN,
+            ),
+            ("w:framePr", "mode", None),
+            ("w:framePr", "lines", None),
+            ("w:framePr", "x", None),
+            ("w:framePr", "y", None),
+            ("w:framePr", "width", None),
+            ("w:framePr", "height", None),
+            ("w:framePr", "wrap", None),
+            ("w:framePr", "horizontal_anchor", None),
+            ("w:framePr", "vertical_anchor", None),
+        ],
+    )
+    def it_reads_attributes(self, cxml, prop, expected):
+        framePr = element(cxml)
+        assert getattr(DropCap(framePr), prop) == expected
+
+    @pytest.mark.parametrize(
+        ("prop", "value", "expected_cxml"),
+        [
+            ("mode", WD_FRAME_DROP_CAP.DROP, "w:framePr{w:dropCap=drop}"),
+            ("mode", WD_FRAME_DROP_CAP.MARGIN, "w:framePr{w:dropCap=margin}"),
+            ("lines", 4, "w:framePr{w:lines=4}"),
+            ("x", Twips(720), "w:framePr{w:x=720}"),
+            ("y", Twips(-180), "w:framePr{w:y=-180}"),
+            ("width", Twips(1440), "w:framePr{w:w=1440}"),
+            ("height", Twips(2880), "w:framePr{w:h=2880}"),
+            ("wrap", WD_FRAME_WRAP.AROUND, "w:framePr{w:wrap=around}"),
+            (
+                "horizontal_anchor",
+                WD_FRAME_H_ANCHOR.PAGE,
+                "w:framePr{w:hAnchor=page}",
+            ),
+            (
+                "vertical_anchor",
+                WD_FRAME_V_ANCHOR.MARGIN,
+                "w:framePr{w:vAnchor=margin}",
+            ),
+        ],
+    )
+    def it_writes_attributes(self, prop, value, expected_cxml):
+        framePr = element("w:framePr")
+        setattr(DropCap(framePr), prop, value)
+        assert framePr.xml == xml(expected_cxml)
+
+    def it_clears_attribute_when_set_to_None(self):
+        framePr = element("w:framePr{w:dropCap=drop,w:lines=3}")
+        dc = DropCap(framePr)
+
+        dc.lines = None
+
+        assert framePr.xml == xml("w:framePr{w:dropCap=drop}")
