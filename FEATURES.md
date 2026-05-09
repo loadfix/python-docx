@@ -473,10 +473,20 @@ document.save("out.docx")
 
 - `Document.numbering` — `Numbering` proxy. Creates `numbering.xml` on demand. `[Added in 2026.05.0]`
 - `Numbering.add_numbering_definition(levels=...)` — Add an abstract definition. `[Added in 2026.05.0]`
+- `Numbering.add_abstract_definition(format, start=1, lvl_text='%1.', alignment=WD_ALIGN_PARAGRAPH.LEFT)` — Shortcut for the common single-level list (no `w:num` is created — pair with `add_definition()`). `[Added in 2026.05.10]`
+- `Numbering.add_definition(abstract_num_id, style_name=None)` — Allocate a fresh `w:num` instance; optionally bind a paragraph-style name onto level-0's `w:pStyle`. Returns a `NumInstance`. `[Added in 2026.05.10]`
+- `Numbering.abstract_definitions` — Alias of `.definitions`. `[Added in 2026.05.10]`
+- `Numbering.abstract_definition(abstract_num_id)` — Lookup by id. `[Added in 2026.05.10]`
+- `Numbering.num_instances` / `Numbering.num_instance(num_id)` — `NumInstance` proxies over `w:num`. `[Added in 2026.05.10]`
+- `Numbering.next_num_id()` / `Numbering.next_abstract_num_id()` — Public id allocators (peek without mutating). `[Added in 2026.05.10]`
 - `Numbering.definitions` / iteration — Existing definitions.
 - `NumberingDefinition.apply_to(paragraph, level=0)` — Apply a numbering to a paragraph. `[Added in 2026.05.0]`
 - `NumberingDefinition.new_instance()` / `NumberingDefinition.levels` / `NumberingDefinition.level(ilvl)` — Instance and level access.
+- `AbstractNumberingDefinition` — Alias of `NumberingDefinition` for clarity when you mean *the* abstract definition. `[Added in 2026.05.10]`
+- `NumInstance` — Per-`w:num` proxy (`num_id`, `abstract_num_id`, `definition`, `level_overrides`, `set_level_override(ilvl, start)`). `[Added in 2026.05.10]`
+- `LevelOverride` — Proxy for `w:lvlOverride` (`ilvl`, `start_override`). `[Added in 2026.05.10]`
 - `Level.number_format` / `Level.text` / `Level.start` / `Level.indent` / `Level.ilvl` — Per-level properties.
+- Assigning a list-backed paragraph style via `paragraph.style = "MyList"` allocates a fresh `w:num` so the new list restarts from `1` rather than continuing a sibling list — only when the paragraph has no explicit `w:numPr`. `[Added in 2026.05.10]`
 - `Paragraph.list_level` / `Paragraph.list_format` / `Paragraph.numbering_format` / `Paragraph.list_label` — Read paragraph's current list settings. `[Added in 2026.05.0]`
 - `Paragraph.restart_numbering(level=None, start=1)` — Restart the counter. `[Added in 2026.05.0]`
 - `Document.list_labels()` — `{id(p): label}` for every numbered paragraph in the body (one pass). `[Added in 2026.05.0]`

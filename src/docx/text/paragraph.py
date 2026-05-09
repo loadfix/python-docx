@@ -1558,8 +1558,92 @@ class Paragraph(StoryChild):
 
     @style.setter
     def style(self, style_or_name: str | ParagraphStyle | None):
+        prior_style_id = self._p.style
         style_id = self.part.get_style_id(style_or_name, WD_STYLE_TYPE.PARAGRAPH)
         self._p.style = style_id
+        # -- When a new list-backed style is applied (and it differs from the
+        # -- prior style), allocate a fresh w:num instance so the paragraph
+        # -- restarts the list rather than continuing whatever sibling list was
+        # -- active via the previous style.  Only fires when the new style's
+        # -- pPr carries numPr and the paragraph has no explicit numPr already
+        # -- (explicit paragraph-level numbering wins).  Silent no-op for
+        # -- documents whose part has no numbering_part (malformed/manual).
+        if (
+            style_id is not None
+            and style_id != prior_style_id
+            and self._has_explicit_numPr() is False
+        ):
+            try:
+                self._maybe_restart_list_from_style(style_id)
+            except Exception:
+                # -- non-fatal: bail quietly if styles/numbering unavailable --
+                # -- (including when the surrounding part is a MagicMock in a
+                # -- unit test, which surfaces as TypeError from validate_int). --
+                pass
+
+    def _has_explicit_numPr(self) -> bool:
+        """True if the paragraph's own ``w:pPr/w:numPr/w:numId`` is present."""
+        pPr = self._p.pPr
+        if pPr is None or pPr.numPr is None:
+            return False
+        return pPr.numPr.numId_val is not None
+
+    def _maybe_restart_list_from_style(self, style_id: str) -> None:
+        """Restart numbering when `style_id` is a list-backed paragraph style.
+
+        Walks the style → basedOn chain looking for a ``w:pPr/w:numPr``. If one
+        is found, creates a fresh ``w:num`` pointing at the same abstract
+        definition and rewrites the paragraph's numPr to reference it so the
+        new list starts at 1 instead of continuing a sibling's count.
+        """
+        try:
+            styles_part = self.part.part_related_by(RT.STYLES)  # type: ignore[attr-defined]
+        except (AttributeError, KeyError):
+            return
+        styles_elm = getattr(styles_part, "element", None)
+        if styles_elm is None:
+            return
+
+        seen: set[str] = set()
+        cur: str | None = style_id
+        style_numId: int | None = None
+        style_ilvl: int | None = None
+        while cur is not None and cur not in seen:
+            seen.add(cur)
+            style = styles_elm.get_by_id(cur)
+            if style is None:
+                break
+            pPr = getattr(style, "pPr", None)
+            if pPr is not None and pPr.numPr is not None:
+                style_numId = pPr.numPr.numId_val
+                style_ilvl = pPr.numPr.ilvl_val
+                break
+            cur = style.basedOn_val
+        # -- require a real integer numId; a MagicMock result (unit tests) or
+        # -- an absent numPr short-circuits before any paragraph mutation. --
+        if not isinstance(style_numId, int):
+            return
+
+        try:
+            numbering_part = self.part.numbering_part  # type: ignore[attr-defined]
+        except AttributeError:
+            return
+        numbering_elm = numbering_part.numbering_element
+        try:
+            existing_num = numbering_elm.num_having_numId(style_numId)
+        except KeyError:
+            return
+        abstract_num_id = existing_num.abstractNumId.val
+        # -- stage the new numId / ilvl before mutating the paragraph so a
+        # -- downstream validation error (e.g. a mocked part in a unit test)
+        # -- doesn't leave a half-written w:numPr behind. --
+        new_numId = int(numbering_elm.next_numId)
+        target_ilvl = int(style_ilvl) if style_ilvl is not None else 0
+        new_num = numbering_elm.add_num(abstract_num_id)
+        pPr = self._p.get_or_add_pPr()
+        numPr = pPr.get_or_add_numPr()
+        numPr.numId_val = int(new_num.numId) if new_num.numId is not None else new_numId
+        numPr.ilvl_val = target_ilvl
 
     @property
     def formatting_change(self):

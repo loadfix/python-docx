@@ -31,7 +31,7 @@ from collections import namedtuple
 from typing import TYPE_CHECKING, Any, Union
 from collections.abc import Iterator, Mapping, Sequence
 
-from docx.enum.text import WD_NUMBER_FORMAT
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_NUMBER_FORMAT
 from docx.oxml.ns import qn
 from docx.oxml.parser import OxmlElement
 from docx.shared import Length, Twips
@@ -40,6 +40,8 @@ if TYPE_CHECKING:
     from docx.oxml.numbering import (
         CT_AbstractNum,
         CT_Lvl,
+        CT_Num,
+        CT_NumLvl,
         CT_Numbering,
         CT_NumPicBullet,
     )
@@ -194,6 +196,70 @@ class Numbering:
             for elm in self._numbering.abstractNum_lst
         ]
 
+    @property
+    def abstract_definitions(self) -> list["NumberingDefinition"]:
+        """Alias of :attr:`definitions` — the list of abstract numbering definitions.
+
+        Mirrors the ``abstractNum`` vs ``num`` split in WordprocessingML so that
+        callers writing new code can address abstract definitions explicitly.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.definitions
+
+    @property
+    def num_instances(self) -> list["NumInstance"]:
+        """List of |NumInstance| proxies wrapping every ``w:num`` instance.
+
+        A ``w:num`` is a concrete instance of an abstract numbering definition
+        and carries the ``numId`` referenced from a paragraph's ``w:numPr``.
+
+        .. versionadded:: 2026.05.10
+        """
+        return [NumInstance(elm, self) for elm in self._numbering.num_lst]
+
+    def num_instance(self, num_id: int) -> "NumInstance | None":
+        """Return the |NumInstance| with matching `num_id`, or |None|.
+
+        .. versionadded:: 2026.05.10
+        """
+        try:
+            elm = self._numbering.num_having_numId(num_id)
+        except KeyError:
+            return None
+        return NumInstance(elm, self)
+
+    def abstract_definition(
+        self, abstract_num_id: int
+    ) -> "NumberingDefinition | None":
+        """Return the |NumberingDefinition| with matching `abstract_num_id`, or |None|.
+
+        .. versionadded:: 2026.05.10
+        """
+        try:
+            elm = self._numbering.abstractNum_having_abstractNumId(abstract_num_id)
+        except KeyError:
+            return None
+        return NumberingDefinition(elm, self)
+
+    def next_num_id(self) -> int:
+        """The next unused ``numId`` that :meth:`add_definition` would allocate.
+
+        Peeking does not create a ``w:num`` element; it simply reports what
+        :attr:`CT_Numbering.next_numId` currently is.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._numbering.next_numId
+
+    def next_abstract_num_id(self) -> int:
+        """The next unused ``abstractNumId`` that :meth:`add_abstract_definition`
+        would allocate.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._numbering.next_abstractNumId
+
     def __iter__(self) -> Iterator["NumberingDefinition"]:
         return iter(self.definitions)
 
@@ -266,6 +332,72 @@ class Numbering:
         numbering.add_num(abstractNum.abstractNumId)
 
         return NumberingDefinition(abstractNum, self)
+
+    def add_abstract_definition(
+        self,
+        format: "WD_NUMBER_FORMAT | str" = WD_NUMBER_FORMAT.DECIMAL,
+        start: int = 1,
+        lvl_text: str = "%1.",
+        alignment: "WD_ALIGN_PARAGRAPH | None" = WD_ALIGN_PARAGRAPH.LEFT,
+    ) -> "NumberingDefinition":
+        """Create and return a single-level abstract numbering definition.
+
+        This is a convenience constructor for the common *"I just want a
+        decimal list"* case. It creates a ``w:abstractNum`` with one level
+        (``ilvl="0"``) configured with `format`, `start`, `lvl_text`, and
+        `alignment`. For multi-level lists use
+        :meth:`add_numbering_definition` which accepts a per-level spec.
+
+        Note that no ``w:num`` instance is created; call
+        :meth:`add_definition` with the returned definition's
+        ``abstract_num_id`` (or :meth:`NumberingDefinition.new_instance`) to
+        allocate a usable ``numId``.
+
+        .. versionadded:: 2026.05.10
+        """
+        fmt = _normalize_format(format)
+        numbering = self._numbering
+        abstractNum = numbering.add_abstractNum()
+        multiLevelType = OxmlElement("w:multiLevelType")
+        multiLevelType.set(qn("w:val"), "singleLevel")
+        abstractNum.append(multiLevelType)
+
+        lvl = abstractNum.add_lvl()
+        lvl.ilvl = 0
+        lvl.start_val = int(start)
+        lvl.numFmt_val = fmt
+        lvl.lvlText_val = lvl_text
+        if alignment is not None:
+            lvl.lvlJc_val = alignment.xml_value
+
+        return NumberingDefinition(abstractNum, self)
+
+    def add_definition(
+        self, abstract_num_id: int, style_name: str | None = None
+    ) -> "NumInstance":
+        """Allocate a new ``w:num`` instance referencing `abstract_num_id`.
+
+        Returns a |NumInstance| wrapping the new element. When `style_name`
+        is given, a ``w:pStyle`` child is attached to the abstract definition's
+        level-0 so Word will associate the style with the list.
+
+        Raises ``KeyError`` if no ``w:abstractNum`` with `abstract_num_id`
+        exists in the numbering part.
+
+        .. versionadded:: 2026.05.10
+        """
+        # -- verify abstract_num_id resolves before mutating --
+        abstractNum = self._numbering.abstractNum_having_abstractNumId(
+            abstract_num_id
+        )
+        num = self._numbering.add_num(abstract_num_id)
+        if style_name is not None:
+            lvl0 = abstractNum.get_lvl(0)
+            if lvl0 is None:
+                lvl0 = abstractNum.add_lvl()
+                lvl0.ilvl = 0
+            lvl0.pStyle_val = style_name
+        return NumInstance(num, self)
 
     def _num_id_for(self, abstractNum_id: int) -> int:
         """Return a ``numId`` pointing at `abstractNum_id`, reusing an existing
@@ -354,6 +486,126 @@ class NumberingDefinition:
         numPr = pPr.get_or_add_numPr()
         numPr.ilvl_val = level
         numPr.numId_val = num_id
+
+
+#: Alias of :class:`NumberingDefinition` emphasising that each object wraps a
+#: ``w:abstractNum`` element.  New code may prefer the longer name for clarity;
+#: existing ``NumberingDefinition`` callers continue to work unchanged.
+#:
+#: .. versionadded:: 2026.05.10
+AbstractNumberingDefinition = NumberingDefinition
+
+
+class NumInstance:
+    """Proxy for a single ``w:num`` element — a concrete numbering instance.
+
+    A ``w:num`` carries the ``numId`` that paragraphs reference in their
+    ``w:numPr/w:numId`` and points at an abstract definition. Instances are
+    created implicitly by :meth:`NumberingDefinition.new_instance` or
+    explicitly by :meth:`Numbering.add_definition`.
+
+    .. versionadded:: 2026.05.10
+    """
+
+    def __init__(self, num: "CT_Num", numbering: "Numbering"):
+        self._num = num
+        self._numbering = numbering
+
+    @property
+    def num_id(self) -> int:
+        """The ``numId`` referenced from paragraphs' ``w:numPr/w:numId``."""
+        return self._num.numId
+
+    @property
+    def abstract_num_id(self) -> int:
+        """The ``abstractNumId`` of the definition this instance points at."""
+        return self._num.abstractNumId_val
+
+    @property
+    def definition(self) -> "NumberingDefinition | None":
+        """The |NumberingDefinition| this instance references, or |None|.
+
+        Returns |None| if the numbering part has no matching ``w:abstractNum``
+        (a malformed document).
+        """
+        return self._numbering.abstract_definition(self.abstract_num_id)
+
+    @property
+    def level_overrides(self) -> list["LevelOverride"]:
+        """List of |LevelOverride| proxies for each ``w:lvlOverride`` child."""
+        return [LevelOverride(elm, self) for elm in self._num.lvlOverride_lst]
+
+    def level_override(self, ilvl: int) -> "LevelOverride | None":
+        """Return the |LevelOverride| at `ilvl`, or |None| when absent."""
+        elm = self._num.get_lvlOverride(ilvl)
+        if elm is None:
+            return None
+        return LevelOverride(elm, self)
+
+    def set_level_override(
+        self, ilvl: int, start: int | None = None
+    ) -> "LevelOverride":
+        """Create (or return) the ``w:lvlOverride`` for `ilvl` and optionally set
+        its ``w:startOverride`` to `start`.
+
+        Returns the |LevelOverride| proxy. When `start` is |None| the override
+        element is still created but no ``w:startOverride`` child is written —
+        callers can add level-level formatting later.
+        """
+        if not 0 <= ilvl <= 8:
+            raise ValueError("ilvl must be in range 0..8, got %d" % ilvl)
+        override = self._num.get_or_add_lvlOverride(ilvl)
+        if start is not None:
+            # -- remove any pre-existing startOverride so repeat calls stomp --
+            for child in override.xpath("./w:startOverride"):
+                override.remove(child)
+            override.add_startOverride(val=int(start))
+        return LevelOverride(override, self)
+
+    @property
+    def element(self) -> "CT_Num":
+        return self._num
+
+
+class LevelOverride:
+    """Proxy for a ``w:lvlOverride`` element on a ``w:num`` instance.
+
+    Level overrides let a single list instance redefine the starting value or
+    (optionally) swap an entire level of formatting compared to the underlying
+    abstract definition.  This proxy exposes the common ``startOverride`` lever;
+    the underlying ``w:lvl`` child remains available via :attr:`element`.
+
+    .. versionadded:: 2026.05.10
+    """
+
+    def __init__(self, override: "CT_NumLvl", num_instance: "NumInstance"):
+        self._override = override
+        self._num_instance = num_instance
+
+    @property
+    def ilvl(self) -> int:
+        """Zero-based level index this override targets."""
+        return self._override.ilvl
+
+    @property
+    def start_override(self) -> int | None:
+        """The override starting value, or |None| when no ``w:startOverride`` is set."""
+        elems = self._override.xpath("./w:startOverride")
+        if not elems:
+            return None
+        val = elems[0].get(qn("w:val"))
+        return int(val) if val is not None else None
+
+    @start_override.setter
+    def start_override(self, value: int | None) -> None:
+        for child in self._override.xpath("./w:startOverride"):
+            self._override.remove(child)
+        if value is not None:
+            self._override.add_startOverride(val=int(value))
+
+    @property
+    def element(self) -> "CT_NumLvl":
+        return self._override
 
 
 class Level:

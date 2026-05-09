@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 from collections.abc import Callable
 
-from docx.oxml.ns import nsdecls
+from docx.oxml.ns import nsdecls, qn
 from docx.oxml.parser import OxmlElement, parse_xml
 from docx.oxml.shared import CT_DecimalNumber
 from docx.oxml.simpletypes import ST_DecimalNumber, ST_String
@@ -60,6 +60,7 @@ class CT_Lvl(BaseOxmlElement):
     numFmt: CT_NumFmt | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:numFmt", successors=_tag_seq[2:]
     )
+    pStyle = ZeroOrOne("w:pStyle", successors=_tag_seq[4:])
     lvlText: CT_LvlText | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:lvlText", successors=_tag_seq[7:]
     )
@@ -115,6 +116,43 @@ class CT_Lvl(BaseOxmlElement):
         lvlText = self.get_or_add_lvlText()
         lvlText.val = value
 
+    @property
+    def pStyle_val(self) -> str | None:
+        """``val`` of this level's ``<w:pStyle>`` child, or |None|.
+
+        Word authors write ``w:pStyle`` into a level when the level is
+        bound to a paragraph style (e.g. a heading style that ties into
+        an outline-numbered list). Assigning ``None`` removes the child.
+        """
+        pStyle = self.pStyle
+        if pStyle is None:
+            return None
+        return pStyle.get(qn("w:val"))
+
+    @pStyle_val.setter
+    def pStyle_val(self, value: str | None) -> None:
+        if value is None:
+            self._remove_pStyle()
+            return
+        pStyle = self.get_or_add_pStyle()
+        pStyle.set(qn("w:val"), value)
+
+    @property
+    def lvlJc_val(self) -> str | None:
+        """The ``val`` of the level's ``<w:lvlJc>`` child (``left``/``center``/``right``)."""
+        lvlJc = self.lvlJc
+        if lvlJc is None:
+            return None
+        return lvlJc.get(qn("w:val"))
+
+    @lvlJc_val.setter
+    def lvlJc_val(self, value: str | None) -> None:
+        if value is None:
+            self._remove_lvlJc()
+            return
+        lvlJc = self.get_or_add_lvlJc()
+        lvlJc.set(qn("w:val"), value)
+
 
 class CT_AbstractNum(BaseOxmlElement):
     """``<w:abstractNum>`` element, defining an abstract numbering definition.
@@ -166,12 +204,33 @@ class CT_Num(BaseOxmlElement):
 
     abstractNumId = OneAndOnlyOne("w:abstractNumId")
     lvlOverride = ZeroOrMore("w:lvlOverride")
+    lvlOverride_lst: list["CT_NumLvl"]
     numId = RequiredAttribute("w:numId", ST_DecimalNumber)
 
     def add_lvlOverride(self, ilvl):
         """Return a newly added CT_NumLvl (<w:lvlOverride>) element having its ``ilvl``
         attribute set to `ilvl`."""
         return self._add_lvlOverride(ilvl=ilvl)
+
+    def get_lvlOverride(self, ilvl: int) -> "CT_NumLvl | None":
+        """Return the ``<w:lvlOverride>`` child with matching `ilvl`, or |None|."""
+        for override in self.lvlOverride_lst:
+            if override.ilvl == ilvl:
+                return override
+        return None
+
+    def get_or_add_lvlOverride(self, ilvl: int) -> "CT_NumLvl":
+        """Return the ``<w:lvlOverride>`` child with matching `ilvl`, creating it if
+        necessary."""
+        override = self.get_lvlOverride(ilvl)
+        if override is not None:
+            return override
+        return self.add_lvlOverride(ilvl)
+
+    @property
+    def abstractNumId_val(self) -> int:
+        """Integer ``val`` of the required ``<w:abstractNumId>`` child."""
+        return int(self.abstractNumId.val)
 
     @classmethod
     def new(cls, num_id, abstractNum_id):
@@ -316,6 +375,23 @@ class CT_Numbering(BaseOxmlElement):
             return self.xpath("./w:num[@w:numId=$numId]", numId=str(numId))[0]
         except IndexError:
             raise KeyError("no <w:num> element with numId %d" % numId)
+
+    @property
+    def next_numId(self) -> int:
+        """The first ``numId`` unused by a ``<w:num>`` element.
+
+        Public alias of the internal allocator so callers can peek at the
+        next id without creating a new ``<w:num>`` element.
+        """
+        return self._next_numId
+
+    @property
+    def next_abstractNumId(self) -> int:
+        """The first ``abstractNumId`` unused by a ``<w:abstractNum>`` element.
+
+        Public alias of the internal allocator.
+        """
+        return self._next_abstractNumId
 
     @property
     def _next_numId(self) -> int:
