@@ -965,3 +965,65 @@ register_element_cls("w:customXmlPr", CT_CustomXmlPr)
 register_element_cls("w:attr", CT_Attr)
 
 _ = (CT_CustomXmlRow, CT_CustomXmlCell, CT_CustomXmlRun)
+
+
+# ---------------------------------------------------------------------------
+# DrawingML table-style vocabulary (``a:tblStyleLst`` + descendants, 22 tags).
+#
+# The grammar lives in ``ooxml_shared_drawingml.tblstyle``; docx re-exports
+# via ``docx.oxml.tblstyle`` (pure shim) and wires the 22 namespaced tags
+# into docx's element-class registry here so the parser instantiates the
+# rich shared CT_* classes when reading DrawingML table-style content
+# (DrawingML-framework table styles accompanying inline ``w:drawing``
+# graphic-frame tables). Not to be confused with WordprocessingML's own
+# table-style family (``w:tblStyle`` / ``w:tblStylePr`` in styles.xml —
+# a distinct vocabulary modelled locally in ``docx.oxml.styles``).
+
+from .tblstyle import (
+    CT_Cell3D,
+    CT_TableBackgroundStyle,
+    CT_TableCellBorderStyle,
+    CT_TablePartStyle,
+    CT_TableStyle,
+    CT_TableStyleCellStyle,
+    CT_TableStyleList,
+    CT_TableStyleTextStyle,
+    CT_ThemeableLineStyle,
+)
+from ooxml_shared_drawingml.scene3d import CT_Bevel as _SDML_CT_Bevel
+
+register_element_cls("a:tblStyleLst", CT_TableStyleList)
+register_element_cls("a:tblStyle", CT_TableStyle)
+register_element_cls("a:tblBg", CT_TableBackgroundStyle)
+# -- 13 part-style slots all share CT_TablePartStyle --
+register_element_cls("a:wholeTbl", CT_TablePartStyle)
+register_element_cls("a:band1H", CT_TablePartStyle)
+register_element_cls("a:band2H", CT_TablePartStyle)
+register_element_cls("a:band1V", CT_TablePartStyle)
+register_element_cls("a:band2V", CT_TablePartStyle)
+register_element_cls("a:firstRow", CT_TablePartStyle)
+register_element_cls("a:lastRow", CT_TablePartStyle)
+register_element_cls("a:firstCol", CT_TablePartStyle)
+register_element_cls("a:lastCol", CT_TablePartStyle)
+register_element_cls("a:nwCell", CT_TablePartStyle)
+register_element_cls("a:neCell", CT_TablePartStyle)
+register_element_cls("a:swCell", CT_TablePartStyle)
+register_element_cls("a:seCell", CT_TablePartStyle)
+register_element_cls("a:tcTxStyle", CT_TableStyleTextStyle)
+register_element_cls("a:tcStyle", CT_TableStyleCellStyle)
+register_element_cls("a:tcBdr", CT_TableCellBorderStyle)
+register_element_cls("a:cell3D", CT_Cell3D)
+# -- ``a:bevel`` (singular): the mandatory child of CT_Cell3D. CT_Bevel
+# -- has only optional attributes, so the same class services the empty
+# -- ``a:bevel`` marker that appears as a line-join style inside
+# -- CT_LineProperties.
+register_element_cls("a:bevel", _SDML_CT_Bevel)
+# -- eight border slots of CT_TableCellBorderStyle (CT_ThemeableLineStyle) --
+register_element_cls("a:left", CT_ThemeableLineStyle)
+register_element_cls("a:right", CT_ThemeableLineStyle)
+register_element_cls("a:top", CT_ThemeableLineStyle)
+register_element_cls("a:bottom", CT_ThemeableLineStyle)
+register_element_cls("a:insideH", CT_ThemeableLineStyle)
+register_element_cls("a:insideV", CT_ThemeableLineStyle)
+register_element_cls("a:tl2br", CT_ThemeableLineStyle)
+register_element_cls("a:tr2bl", CT_ThemeableLineStyle)

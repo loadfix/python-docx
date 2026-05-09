@@ -72,20 +72,26 @@ dependencies = [
     # ``python-ooxml-smartart>=0.2.0``.
     "python-ooxml-smartart @ git+https://github.com/loadfix/python-ooxml-smartart@master",
     # Shared DrawingML element classes — the ``a:`` effect list, GVML
-    # shape vocabulary, gradient + pattern fill, 3D scene, and (0.3.0)
-    # the theme subtree (``a:theme`` / ``a:themeElements`` /
-    # ``a:clrScheme`` / ``a:fontScheme`` / ``a:fmtScheme``). docx pulls
-    # the dependency in to register the shared GVML element classes on
-    # its parser; the existing ``docx.oxml.shape.CT_EffectList`` /
-    # ``CT_OuterShadow`` and ``docx.oxml.theme.CT_Theme`` element
-    # classes stay docx-local for now — their simple-type conversions
-    # (raw ``XsdInt`` vs the shared ``ST_PositiveFixedAngle`` float-
-    # degrees conversion) and read-only accessor shape diverge from
-    # the shared grammar. A follow-up adoption lands once the shared
-    # package widens the effect/theme types to host both variants.
+    # shape vocabulary, gradient + pattern fill, 3D scene, the theme
+    # subtree (``a:theme`` / ``a:themeElements`` / ``a:clrScheme`` /
+    # ``a:fontScheme`` / ``a:fmtScheme``, 0.3.0), and the DrawingML
+    # table-style subtree (``a:tblStyleLst`` + 22 descendants —
+    # 9 CT_* classes, 0.4.0). docx pulls the dependency in to register
+    # the shared GVML element classes on its parser; the existing
+    # ``docx.oxml.shape.CT_EffectList`` / ``CT_OuterShadow`` and
+    # ``docx.oxml.theme.CT_Theme`` element classes stay docx-local for
+    # now — their simple-type conversions (raw ``XsdInt`` vs the shared
+    # ``ST_PositiveFixedAngle`` float-degrees conversion) and read-only
+    # accessor shape diverge from the shared grammar. A follow-up
+    # adoption lands once the shared package widens the effect/theme
+    # types to host both variants. The 0.4.0 table-style classes are
+    # re-exported verbatim from ``docx.oxml.tblstyle`` with no
+    # docx-specific behaviour (this is the DrawingML ``a:tblStyleLst``
+    # grammar, distinct from WordprocessingML's ``w:tblStyle`` /
+    # ``w:tblStylePr`` family, which docx continues to own locally).
     # Not yet on PyPI; pinned to the master branch until a PyPI
     # release lands, after which this becomes
-    # ``python-ooxml-shared-drawingml>=0.3.0``.
+    # ``python-ooxml-shared-drawingml>=0.4.0``.
     "python-ooxml-shared-drawingml @ git+https://github.com/loadfix/python-ooxml-shared-drawingml@master",
     "typing-extensions>=4.9.0",
 ]
