@@ -173,6 +173,12 @@ class CT_FtnDocProps(BaseOxmlElement):
 
     Appears as a child of `w:settings` (document-level) or `w:sectPr` (section-level).
     Specifies document/section-level footnote properties.
+
+    At `w:settings` level, may also contain up to three `w:footnote` separator-reference
+    children identifying the separator, continuation-separator, and continuation-notice
+    footnotes stored in the footnotes part (each using its `w:type` attribute to
+    distinguish the role). At `w:sectPr` level, separator-reference children MUST NOT
+    appear per ECMA-376 (only `CT_FtnProps` applies there).
     """
 
     get_or_add_pos: Callable[[], CT_FtnEdnPos]
@@ -183,6 +189,8 @@ class CT_FtnDocProps(BaseOxmlElement):
     _remove_numStart: Callable[[], None]
     get_or_add_numRestart: Callable[[], CT_NumRestart]
     _remove_numRestart: Callable[[], None]
+    footnote_lst: list["CT_Footnote"]
+    add_footnote: Callable[[], "CT_Footnote"]
 
     _tag_seq = (
         "w:pos",
@@ -203,4 +211,6 @@ class CT_FtnDocProps(BaseOxmlElement):
     numRestart: CT_NumRestart | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:numRestart", successors=_tag_seq[4:]
     )
+    # -- `w:footnote` separator-references at document level (maxOccurs=3). --
+    footnote = ZeroOrMore("w:footnote", successors=())
     del _tag_seq

@@ -986,8 +986,20 @@ print(fn.footnote_id, fn.text)
 # document-wide restart at each section, Roman numerals
 props = document.add_footnote_properties()
 props.number_format = WD_NUMBER_FORMAT.LOWER_ROMAN
-props.restart_rule = WD_FOOTNOTE_RESTART.EACH_SECTION
+props.numbering_restart = WD_FOOTNOTE_RESTART.EACH_SECTION  # alias `.restart_rule`
 props.position = WD_FOOTNOTE_POSITION.BOTTOM_OF_PAGE
+props.start_number = 1
+
+# section-level override — section-level wins over document-level in Word
+first_section = document.sections[0]
+sec_props = first_section.add_footnote_properties()
+sec_props.position = WD_FOOTNOTE_POSITION.END_OF_SECTION  # sectEnd
+
+# document-level separator / continuation-separator / continuation-notice refs.
+# Each w:id points to a w:footnote in the footnotes part whose w:type gives its role.
+props.separator_id = 0
+props.continuation_separator_id = 1
+props.continuation_notice_id = 2
 
 # endnotes mirror the same API
 document.endnotes.add(r, text="An endnote.")
@@ -998,11 +1010,12 @@ document.save("out.docx")
 - `Document.footnotes` / `Document.endnotes` — `Footnotes` / `Endnotes` collections. `[Added in 2026.05.0]`
 - `Footnotes.add(run, text="")` / `Endnotes.add(run, text="")` / iteration / `len()`. `[Added in 2026.05.0]`
 - `Footnote.text` / `.footnote_id` / `.add_paragraph(...)` / `.clear()` / `.delete()` — and analogous `Endnote` members. `[Added in 2026.05.0]`
-- `Document.footnote_properties` / `Document.add_footnote_properties()` / `Document.endnote_properties` / `Document.add_endnote_properties()` — Document-level. `[Added in 2026.05.0]`
-- `Section.footnote_properties` / `Section.endnote_properties` / `Section.add_*` / `Section.remove_*` — Section-level overrides. `[Added in 2026.05.0]`
-- `FootnoteProperties.number_format` / `.start_number` / `.restart_rule` / `.position` — Writable properties. `[Added in 2026.05.0]`
-- `EndnoteProperties` — Same shape as `FootnoteProperties` with `WD_ENDNOTE_POSITION`. `[Added in 2026.05.0]`
-- Enums: `WD_NUMBER_FORMAT`, `WD_FOOTNOTE_RESTART`, `WD_FOOTNOTE_POSITION`, `WD_ENDNOTE_POSITION`.
+- `Document.footnote_properties` / `Document.add_footnote_properties()` / `Document.endnote_properties` / `Document.add_endnote_properties()` — Document-level (`w:settings/w:footnotePr` etc.). `[Added in 2026.05.0]`
+- `Section.footnote_properties` / `Section.endnote_properties` / `Section.add_*` / `Section.remove_*` — Section-level overrides (`w:sectPr/w:footnotePr` etc.). `[Added in 2026.05.0]`
+- `FootnoteProperties.number_format` / `.start_number` / `.restart_rule` / `.numbering_restart` (alias) / `.position` — Writable properties. `[Added in 2026.05.0]`
+- `FootnoteProperties.separator_id` / `.continuation_separator_id` / `.continuation_notice_id` — Document-level separator-note refs (`w:footnote/@w:id` with `w:type` = `separator` / `continuationSeparator` / `continuationNotice`). Analogous `EndnoteProperties` members for `w:endnote` refs. `[Added in 2026.05.0]`
+- `EndnoteProperties` — Same shape as `FootnoteProperties` with `WD_ENDNOTE_POSITION` for `.position`. `[Added in 2026.05.0]`
+- Enums: `WD_NUMBER_FORMAT`, `WD_FOOTNOTE_RESTART` (`CONTINUOUS` / `EACH_SECTION` / `EACH_PAGE`), `WD_FOOTNOTE_POSITION` (`BOTTOM_OF_PAGE` / `BENEATH_TEXT` / `END_OF_SECTION` / `END_OF_DOCUMENT`), `WD_ENDNOTE_POSITION` (`END_OF_SECTION` / `END_OF_DOCUMENT`).
 
 ---
 

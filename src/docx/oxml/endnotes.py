@@ -136,6 +136,12 @@ class CT_EdnDocProps(BaseOxmlElement):
 
     Appears as a child of `w:settings` (document-level) or `w:sectPr` (section-level).
     Specifies document/section-level endnote properties.
+
+    At `w:settings` level, may also contain up to three `w:endnote` separator-reference
+    children identifying the separator, continuation-separator, and continuation-notice
+    endnotes stored in the endnotes part (each using its `w:type` attribute to
+    distinguish the role). At `w:sectPr` level, separator-reference children MUST NOT
+    appear per ECMA-376 (only `CT_EdnProps` applies there).
     """
 
     get_or_add_pos: Callable[[], CT_FtnEdnPos]
@@ -146,6 +152,8 @@ class CT_EdnDocProps(BaseOxmlElement):
     _remove_numStart: Callable[[], None]
     get_or_add_numRestart: Callable[[], CT_NumRestart]
     _remove_numRestart: Callable[[], None]
+    endnote_lst: list["CT_Endnote"]
+    add_endnote: Callable[[], "CT_Endnote"]
 
     _tag_seq = (
         "w:pos",
@@ -166,4 +174,6 @@ class CT_EdnDocProps(BaseOxmlElement):
     numRestart: CT_NumRestart | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:numRestart", successors=_tag_seq[4:]
     )
+    # -- `w:endnote` separator-references at document level (maxOccurs=3). --
+    endnote = ZeroOrMore("w:endnote", successors=())
     del _tag_seq

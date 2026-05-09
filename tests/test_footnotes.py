@@ -454,3 +454,112 @@ class DescribeFootnoteProperties:
             ",w:numRestart{w:val=eachPage})"
         )
         assert footnotePr.xml == xml(expected)
+
+    # -- R5-3: section-end and document-end positions --------------------------------
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:footnotePr/w:pos{w:val=sectEnd}", WD_FOOTNOTE_POSITION.END_OF_SECTION),
+            ("w:footnotePr/w:pos{w:val=docEnd}", WD_FOOTNOTE_POSITION.END_OF_DOCUMENT),
+        ],
+    )
+    def it_can_read_section_end_and_doc_end_positions(
+        self, cxml: str, expected_value: WD_FOOTNOTE_POSITION
+    ):
+        footnotePr = cast(CT_FtnDocProps, element(cxml))
+        assert FootnoteProperties(footnotePr).position == expected_value
+
+    @pytest.mark.parametrize(
+        ("new_value", "expected_cxml"),
+        [
+            (
+                WD_FOOTNOTE_POSITION.END_OF_SECTION,
+                "w:footnotePr/w:pos{w:val=sectEnd}",
+            ),
+            (
+                WD_FOOTNOTE_POSITION.END_OF_DOCUMENT,
+                "w:footnotePr/w:pos{w:val=docEnd}",
+            ),
+        ],
+    )
+    def it_can_write_section_end_and_doc_end_positions(
+        self, new_value: WD_FOOTNOTE_POSITION, expected_cxml: str
+    ):
+        footnotePr = cast(CT_FtnDocProps, element("w:footnotePr"))
+        FootnoteProperties(footnotePr).position = new_value
+        assert footnotePr.xml == xml(expected_cxml)
+
+    # -- R5-3: `.numbering_restart` alias for `.restart_rule` ------------------------
+
+    def it_exposes_numbering_restart_as_alias_of_restart_rule(self):
+        footnotePr = cast(
+            CT_FtnDocProps, element("w:footnotePr/w:numRestart{w:val=eachPage}")
+        )
+        props = FootnoteProperties(footnotePr)
+        assert props.numbering_restart == WD_FOOTNOTE_RESTART.EACH_PAGE
+        # -- write through alias, read through canonical property --
+        props.numbering_restart = WD_FOOTNOTE_RESTART.EACH_SECTION
+        assert props.restart_rule == WD_FOOTNOTE_RESTART.EACH_SECTION
+        # -- clearing through alias removes the child --
+        props.numbering_restart = None
+        assert props.restart_rule is None
+
+    # -- R5-3: separator / continuation-separator / continuation-notice refs ---------
+
+    def it_exposes_None_when_no_separator_refs_present(self):
+        footnotePr = cast(CT_FtnDocProps, element("w:footnotePr"))
+        props = FootnoteProperties(footnotePr)
+        assert props.separator_id is None
+        assert props.continuation_separator_id is None
+        assert props.continuation_notice_id is None
+
+    def it_reads_all_three_separator_reference_kinds(self):
+        footnotePr = cast(
+            CT_FtnDocProps,
+            element(
+                "w:footnotePr/("
+                'w:footnote{w:id=0,w:type=separator},'
+                'w:footnote{w:id=1,w:type=continuationSeparator},'
+                'w:footnote{w:id=2,w:type=continuationNotice}'
+                ")"
+            ),
+        )
+        props = FootnoteProperties(footnotePr)
+        assert props.separator_id == 0
+        assert props.continuation_separator_id == 1
+        assert props.continuation_notice_id == 2
+
+    def it_upserts_separator_ref_without_duplicating(self):
+        footnotePr = cast(CT_FtnDocProps, element("w:footnotePr"))
+        props = FootnoteProperties(footnotePr)
+        props.separator_id = 0
+        props.separator_id = 5  # -- overwrite, should not duplicate --
+        seps = [
+            fn for fn in footnotePr.footnote_lst if fn.type == "separator"
+        ]
+        assert len(seps) == 1
+        assert seps[0].id == 5
+
+    def it_clears_separator_ref_when_set_to_None(self):
+        footnotePr = cast(
+            CT_FtnDocProps,
+            element('w:footnotePr/w:footnote{w:id=0,w:type=separator}'),
+        )
+        props = FootnoteProperties(footnotePr)
+        assert props.separator_id == 0
+        props.separator_id = None
+        assert props.separator_id is None
+        assert footnotePr.footnote_lst == []
+
+    def it_writes_all_three_separator_refs_round_trip(self):
+        footnotePr = cast(CT_FtnDocProps, element("w:footnotePr"))
+        props = FootnoteProperties(footnotePr)
+        props.separator_id = 0
+        props.continuation_separator_id = 1
+        props.continuation_notice_id = 2
+        # -- each kind round-trips via its own property --
+        assert props.separator_id == 0
+        assert props.continuation_separator_id == 1
+        assert props.continuation_notice_id == 2
+        assert len(footnotePr.footnote_lst) == 3

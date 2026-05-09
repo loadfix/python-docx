@@ -640,6 +640,20 @@ class WD_FOOTNOTE_POSITION(BaseXmlEnum):
     )
     """Footnotes appear immediately beneath the body text on the page."""
 
+    END_OF_SECTION = (
+        2,
+        "sectEnd",
+        "Footnotes appear at the end of each section (section-end footnotes).",
+    )
+    """Footnotes appear at the end of each section (section-end footnotes)."""
+
+    END_OF_DOCUMENT = (
+        3,
+        "docEnd",
+        "Footnotes appear at the end of the document.",
+    )
+    """Footnotes appear at the end of the document."""
+
 
 class WD_ENDNOTE_POSITION(BaseXmlEnum):
     """Specifies the position of endnotes in the document.

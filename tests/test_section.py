@@ -1009,6 +1009,53 @@ class DescribeSection_footnote_and_endnote_properties:
         section.remove_endnote_properties()
         assert sectPr.xml == xml("w:sectPr")
 
+    # -- R5-3: section-level vs. settings-level distinctness ---------------------------
+
+    def it_keeps_section_level_properties_independent_of_settings_level(
+        self, document_part_: Mock
+    ):
+        """Section- and settings-level proxies never share XML state.
+
+        Setting a value on the section must not mutate the document-settings element,
+        and vice-versa. This is the "precedence" guarantee: the reader can layer a
+        section override on top of document defaults without either store leaking
+        into the other.
+        """
+        from docx.enum.text import WD_FOOTNOTE_POSITION
+        from docx.oxml.settings import CT_Settings
+        from docx.settings import Settings
+
+        sectPr = cast(CT_SectPr, element("w:sectPr"))
+        section = Section(sectPr, document_part_)
+        settings_elm = cast(CT_Settings, element("w:settings"))
+        settings = Settings(settings_elm)
+
+        # -- document-level default --
+        doc_props = settings.add_footnote_properties()
+        doc_props.position = WD_FOOTNOTE_POSITION.BOTTOM_OF_PAGE
+
+        # -- section-level override --
+        sec_props = section.add_footnote_properties()
+        sec_props.position = WD_FOOTNOTE_POSITION.END_OF_SECTION
+
+        # -- each store reports its own value; they do not merge --
+        assert settings.footnote_properties is not None
+        assert (
+            settings.footnote_properties.position == WD_FOOTNOTE_POSITION.BOTTOM_OF_PAGE
+        )
+        assert section.footnote_properties is not None
+        assert (
+            section.footnote_properties.position == WD_FOOTNOTE_POSITION.END_OF_SECTION
+        )
+
+        # -- removing the section override leaves settings unchanged --
+        section.remove_footnote_properties()
+        assert section.footnote_properties is None
+        assert settings.footnote_properties is not None
+        assert (
+            settings.footnote_properties.position == WD_FOOTNOTE_POSITION.BOTTOM_OF_PAGE
+        )
+
     # -- fixtures-----------------------------------------------------
 
     @pytest.fixture

@@ -265,3 +265,88 @@ class EndnoteProperties:
             return
         pos = self._endnotePr.get_or_add_pos()
         pos.val = WD_ENDNOTE_POSITION.to_xml(value)
+
+    # -- `.numbering_restart` — alias for `.restart_rule` matching the ECMA-376
+    # -- attribute name (`w:numRestart`). Both names are supported so callers can pick
+    # -- whichever reads more naturally; they share the same underlying XML.
+    @property
+    def numbering_restart(self) -> WD_FOOTNOTE_RESTART | None:
+        """Alias of :attr:`restart_rule` using the ECMA-376 attribute name.
+
+        .. versionadded:: 2026.05.0
+        """
+        return self.restart_rule
+
+    @numbering_restart.setter
+    def numbering_restart(self, value: WD_FOOTNOTE_RESTART | None):
+        self.restart_rule = value
+
+    # -- separator references (document-level only) -----------------------------------
+
+    def _separator_ref(self, separator_type: str) -> int | None:
+        """Return the `w:id` of the `w:endnote` child with `w:type=separator_type`."""
+        for en in self._endnotePr.endnote_lst:
+            if en.type == separator_type:
+                return en.id
+        return None
+
+    def _set_separator_ref(self, separator_type: str, endnote_id: int | None) -> None:
+        """Upsert a `w:endnote` child with `w:type=separator_type` referencing `endnote_id`.
+
+        Removes the child when `endnote_id` is `None`.
+        """
+        for en in list(self._endnotePr.endnote_lst):
+            if en.type == separator_type:
+                self._endnotePr.remove(en)
+        if endnote_id is None:
+            return
+        new_en = self._endnotePr.add_endnote()
+        new_en.type = separator_type
+        new_en.id = endnote_id
+
+    @property
+    def separator_id(self) -> int | None:
+        """The `w:id` of the separator endnote (``w:type="separator"``).
+
+        Read/write. Returns |None| when no separator reference is present. Setting to
+        |None| removes the reference. Only meaningful at document (`w:settings`) level.
+
+        .. versionadded:: 2026.05.0
+        """
+        return self._separator_ref("separator")
+
+    @separator_id.setter
+    def separator_id(self, value: int | None):
+        self._set_separator_ref("separator", value)
+
+    @property
+    def continuation_separator_id(self) -> int | None:
+        """The `w:id` of the continuation-separator endnote.
+
+        Read/write. Corresponds to the ``w:endnote`` child with
+        ``w:type="continuationSeparator"``. Returns |None| when no such reference is
+        present. Only meaningful at document (`w:settings`) level.
+
+        .. versionadded:: 2026.05.0
+        """
+        return self._separator_ref("continuationSeparator")
+
+    @continuation_separator_id.setter
+    def continuation_separator_id(self, value: int | None):
+        self._set_separator_ref("continuationSeparator", value)
+
+    @property
+    def continuation_notice_id(self) -> int | None:
+        """The `w:id` of the continuation-notice endnote.
+
+        Read/write. Corresponds to the ``w:endnote`` child with
+        ``w:type="continuationNotice"``. Returns |None| when no such reference is
+        present. Only meaningful at document (`w:settings`) level.
+
+        .. versionadded:: 2026.05.0
+        """
+        return self._separator_ref("continuationNotice")
+
+    @continuation_notice_id.setter
+    def continuation_notice_id(self, value: int | None):
+        self._set_separator_ref("continuationNotice", value)

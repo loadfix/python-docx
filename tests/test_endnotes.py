@@ -429,3 +429,77 @@ class DescribeEndnoteProperties:
         props = EndnoteProperties(endnotePr)
         props.position = new_value
         assert endnotePr.xml == xml(expected_cxml)
+
+    # -- R5-3: `.numbering_restart` alias for `.restart_rule` ------------------------
+
+    def it_exposes_numbering_restart_as_alias_of_restart_rule(self):
+        endnotePr = cast(
+            CT_EdnDocProps, element("w:endnotePr/w:numRestart{w:val=eachSect}")
+        )
+        props = EndnoteProperties(endnotePr)
+        assert props.numbering_restart == WD_FOOTNOTE_RESTART.EACH_SECTION
+        # -- write through alias, read through canonical property --
+        props.numbering_restart = WD_FOOTNOTE_RESTART.CONTINUOUS
+        assert props.restart_rule == WD_FOOTNOTE_RESTART.CONTINUOUS
+        # -- clearing through alias removes the child --
+        props.numbering_restart = None
+        assert props.restart_rule is None
+
+    # -- R5-3: separator / continuation-separator / continuation-notice refs ---------
+
+    def it_exposes_None_when_no_separator_refs_present(self):
+        endnotePr = cast(CT_EdnDocProps, element("w:endnotePr"))
+        props = EndnoteProperties(endnotePr)
+        assert props.separator_id is None
+        assert props.continuation_separator_id is None
+        assert props.continuation_notice_id is None
+
+    def it_reads_all_three_separator_reference_kinds(self):
+        endnotePr = cast(
+            CT_EdnDocProps,
+            element(
+                "w:endnotePr/("
+                'w:endnote{w:id=0,w:type=separator},'
+                'w:endnote{w:id=1,w:type=continuationSeparator},'
+                'w:endnote{w:id=2,w:type=continuationNotice}'
+                ")"
+            ),
+        )
+        props = EndnoteProperties(endnotePr)
+        assert props.separator_id == 0
+        assert props.continuation_separator_id == 1
+        assert props.continuation_notice_id == 2
+
+    def it_upserts_separator_ref_without_duplicating(self):
+        endnotePr = cast(CT_EdnDocProps, element("w:endnotePr"))
+        props = EndnoteProperties(endnotePr)
+        props.separator_id = 0
+        props.separator_id = 5  # -- overwrite, should not duplicate --
+        seps = [
+            en for en in endnotePr.endnote_lst if en.type == "separator"
+        ]
+        assert len(seps) == 1
+        assert seps[0].id == 5
+
+    def it_clears_separator_ref_when_set_to_None(self):
+        endnotePr = cast(
+            CT_EdnDocProps,
+            element('w:endnotePr/w:endnote{w:id=0,w:type=separator}'),
+        )
+        props = EndnoteProperties(endnotePr)
+        assert props.separator_id == 0
+        props.separator_id = None
+        assert props.separator_id is None
+        assert endnotePr.endnote_lst == []
+
+    def it_writes_all_three_separator_refs_round_trip(self):
+        endnotePr = cast(CT_EdnDocProps, element("w:endnotePr"))
+        props = EndnoteProperties(endnotePr)
+        props.separator_id = 0
+        props.continuation_separator_id = 1
+        props.continuation_notice_id = 2
+        # -- each kind round-trips via its own property --
+        assert props.separator_id == 0
+        assert props.continuation_separator_id == 1
+        assert props.continuation_notice_id == 2
+        assert len(endnotePr.endnote_lst) == 3
