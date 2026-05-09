@@ -2157,6 +2157,173 @@ class DescribeParagraph_PublicElement:
         assert paragraph.element is paragraph._p
 
 
+class DescribeParagraph_DropCap:
+    """Unit-test suite for ``Paragraph.drop_cap`` / ``Paragraph.add_drop_cap``."""
+
+    def _make_paragraph(
+        self, request: pytest.FixtureRequest, p: CT_P
+    ) -> Paragraph:
+        part_ = instance_mock(request, DocumentPart)
+
+        class FakeParent:
+            @property
+            def part(self):
+                return part_
+
+        return Paragraph(p, FakeParent())
+
+    # -- drop_cap property -----------------------------------------------
+
+    def it_returns_None_when_pPr_is_absent(self, request: pytest.FixtureRequest):
+        paragraph = self._make_paragraph(request, cast(CT_P, element("w:p")))
+        assert paragraph.drop_cap is None
+
+    def it_returns_None_when_framePr_is_absent(
+        self, request: pytest.FixtureRequest
+    ):
+        paragraph = self._make_paragraph(
+            request, cast(CT_P, element("w:p/w:pPr"))
+        )
+        assert paragraph.drop_cap is None
+
+    def it_returns_None_when_dropCap_is_none_value(
+        self, request: pytest.FixtureRequest
+    ):
+        paragraph = self._make_paragraph(
+            request,
+            cast(CT_P, element("w:p/w:pPr/w:framePr{w:dropCap=none,w:lines=3}")),
+        )
+        assert paragraph.drop_cap is None
+
+    def it_returns_None_when_dropCap_attribute_is_absent(
+        self, request: pytest.FixtureRequest
+    ):
+        # -- framePr present but no dropCap attr: treated as non-drop-cap frame --
+        paragraph = self._make_paragraph(
+            request, cast(CT_P, element("w:p/w:pPr/w:framePr{w:w=1440}"))
+        )
+        assert paragraph.drop_cap is None
+
+    def it_returns_DropCap_when_dropCap_is_drop(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.enum.text import WD_FRAME_DROP_CAP
+        from docx.text.parfmt import DropCap
+
+        paragraph = self._make_paragraph(
+            request,
+            cast(CT_P, element("w:p/w:pPr/w:framePr{w:dropCap=drop,w:lines=4}")),
+        )
+
+        dc = paragraph.drop_cap
+        assert isinstance(dc, DropCap)
+        assert dc.mode == WD_FRAME_DROP_CAP.DROP
+        assert dc.lines == 4
+
+    def it_returns_DropCap_when_dropCap_is_margin(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.enum.text import WD_FRAME_DROP_CAP
+
+        paragraph = self._make_paragraph(
+            request,
+            cast(CT_P, element("w:p/w:pPr/w:framePr{w:dropCap=margin,w:lines=2}")),
+        )
+
+        dc = paragraph.drop_cap
+        assert dc is not None
+        assert dc.mode == WD_FRAME_DROP_CAP.MARGIN
+
+    # -- add_drop_cap ----------------------------------------------------
+
+    def it_inserts_a_drop_cap_paragraph_before_self(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.enum.text import WD_FRAME_DROP_CAP
+
+        body = element("w:body/w:p/w:r/w:t")
+        body[0][0][0].text = "Hello world."  # set first w:t text
+        paragraph = self._make_paragraph(request, cast(CT_P, body[0]))
+
+        drop_par = paragraph.add_drop_cap("H")
+
+        # -- it is a Paragraph inserted before self --
+        assert isinstance(drop_par, Paragraph)
+        assert list(body) == [drop_par._p, paragraph._p]
+        # -- drop-cap paragraph carries the letter and a DROP framePr --
+        assert drop_par.text == "H"
+        dc = drop_par.drop_cap
+        assert dc is not None
+        assert dc.mode == WD_FRAME_DROP_CAP.DROP
+        assert dc.lines == 3
+        # -- and the original first w:t lost its leading "H" --
+        assert paragraph.text == "ello world."
+
+    def it_honors_custom_mode_and_lines(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.enum.text import WD_FRAME_DROP_CAP
+
+        body = element("w:body/w:p/w:r/w:t")
+        body[0][0][0].text = "Once upon a time"
+        paragraph = self._make_paragraph(request, cast(CT_P, body[0]))
+
+        drop_par = paragraph.add_drop_cap(
+            "O", mode=WD_FRAME_DROP_CAP.MARGIN, lines=5
+        )
+
+        dc = drop_par.drop_cap
+        assert dc is not None
+        assert dc.mode == WD_FRAME_DROP_CAP.MARGIN
+        assert dc.lines == 5
+        assert paragraph.text == "nce upon a time"
+
+    def it_does_not_strip_when_first_text_does_not_start_with_letter(
+        self, request: pytest.FixtureRequest
+    ):
+        body = element("w:body/w:p/w:r/w:t")
+        body[0][0][0].text = "Hello world."
+        paragraph = self._make_paragraph(request, cast(CT_P, body[0]))
+
+        drop_par = paragraph.add_drop_cap("Z")
+
+        assert drop_par.text == "Z"
+        # -- mismatched letter leaves the body paragraph text untouched --
+        assert paragraph.text == "Hello world."
+
+    def it_rejects_NONE_as_mode(self, request: pytest.FixtureRequest):
+        from docx.enum.text import WD_FRAME_DROP_CAP
+
+        body = element("w:body/w:p/w:r/w:t")
+        body[0][0][0].text = "Hello"
+        paragraph = self._make_paragraph(request, cast(CT_P, body[0]))
+
+        with pytest.raises(ValueError):
+            paragraph.add_drop_cap("H", mode=WD_FRAME_DROP_CAP.NONE)
+
+    def it_round_trips_drop_cap_through_xml(
+        self, request: pytest.FixtureRequest
+    ):
+        from docx.enum.text import WD_FRAME_DROP_CAP
+
+        body = element("w:body/w:p/w:r/w:t")
+        body[0][0][0].text = "Hello world."
+        paragraph = self._make_paragraph(request, cast(CT_P, body[0]))
+
+        drop_par = paragraph.add_drop_cap("H")
+        # -- serialize / reparse to confirm XML-durable --
+        xml_str = body.xml
+        from docx.oxml.parser import parse_xml
+        reparsed = parse_xml(xml_str)
+        drop_par_2 = self._make_paragraph(request, cast(CT_P, reparsed[0]))
+
+        dc = drop_par_2.drop_cap
+        assert dc is not None
+        assert dc.mode == WD_FRAME_DROP_CAP.DROP
+        assert dc.lines == 3
+        assert drop_par_2.text == "H"
+
+
 class DescribeParagraph_RestartNumberingLevel:
     """``Paragraph.restart_numbering`` accepts an explicit outer level."""
 

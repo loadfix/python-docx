@@ -946,3 +946,133 @@ class TextFrame:
     @vertical_alignment.setter
     def vertical_alignment(self, value: WD_FRAME_V_ALIGN | None) -> None:
         self._framePr.yAlign = value
+
+
+class DropCap:
+    """Proxy object for a drop-cap paragraph frame (``w:framePr`` with ``@dropCap``).
+
+    A drop cap is rendered as a separate paragraph whose ``w:pPr/w:framePr``
+    carries a non-``none`` ``@dropCap`` attribute and an ``@lines`` count
+    indicating how many lines of the following paragraph the cap drops into.
+    The paragraph's text content is the single "dropped" character (or
+    character-run).
+
+    This proxy narrows |TextFrame| to the attributes that are meaningful for a
+    drop cap. Use :attr:`docx.text.paragraph.Paragraph.drop_cap` to obtain one,
+    and :meth:`docx.text.paragraph.Paragraph.add_drop_cap` to create one.
+
+    .. versionadded:: 2026.05.0
+    """
+
+    def __init__(self, framePr: CT_FramePr):
+        self._framePr = framePr
+
+    @property
+    def mode(self) -> WD_FRAME_DROP_CAP | None:
+        """Drop-cap positioning mode — ``none``, ``drop``, or ``margin``.
+
+        Maps to ``w:framePr/@w:dropCap``.
+
+        .. versionadded:: 2026.05.0
+        """
+        return self._framePr.dropCap
+
+    @mode.setter
+    def mode(self, value: WD_FRAME_DROP_CAP | None) -> None:
+        self._framePr.dropCap = value
+
+    @property
+    def lines(self) -> int | None:
+        """Number of lines the drop cap spans (``w:framePr/@w:lines``).
+
+        .. versionadded:: 2026.05.0
+        """
+        return self._framePr.lines
+
+    @lines.setter
+    def lines(self, value: int | None) -> None:
+        self._framePr.lines = value
+
+    @property
+    def x(self) -> Length | None:
+        """Horizontal offset (``w:framePr/@w:x``) as a |Length|, or |None|.
+
+        .. versionadded:: 2026.05.0
+        """
+        return self._framePr.x
+
+    @x.setter
+    def x(self, value: Length | None) -> None:
+        self._framePr.x = value
+
+    @property
+    def y(self) -> Length | None:
+        """Vertical offset (``w:framePr/@w:y``) as a |Length|, or |None|.
+
+        .. versionadded:: 2026.05.0
+        """
+        return self._framePr.y
+
+    @y.setter
+    def y(self, value: Length | None) -> None:
+        self._framePr.y = value
+
+    @property
+    def width(self) -> Length | None:
+        """Frame width (``w:framePr/@w:w``) as a |Length|, or |None|.
+
+        .. versionadded:: 2026.05.0
+        """
+        return self._framePr.w
+
+    @width.setter
+    def width(self, value: Length | None) -> None:
+        self._framePr.w = value
+
+    @property
+    def height(self) -> Length | None:
+        """Frame height (``w:framePr/@w:h``) as a |Length|, or |None|.
+
+        .. versionadded:: 2026.05.0
+        """
+        return self._framePr.h
+
+    @height.setter
+    def height(self, value: Length | None) -> None:
+        self._framePr.h = value
+
+    @property
+    def wrap(self) -> WD_FRAME_WRAP | None:
+        """Text-wrap behaviour (``w:framePr/@w:wrap``).
+
+        .. versionadded:: 2026.05.0
+        """
+        return self._framePr.wrap
+
+    @wrap.setter
+    def wrap(self, value: WD_FRAME_WRAP | None) -> None:
+        self._framePr.wrap = value
+
+    @property
+    def horizontal_anchor(self) -> WD_FRAME_H_ANCHOR | None:
+        """Horizontal anchor (``w:framePr/@w:hAnchor``).
+
+        .. versionadded:: 2026.05.0
+        """
+        return self._framePr.hAnchor
+
+    @horizontal_anchor.setter
+    def horizontal_anchor(self, value: WD_FRAME_H_ANCHOR | None) -> None:
+        self._framePr.hAnchor = value
+
+    @property
+    def vertical_anchor(self) -> WD_FRAME_V_ANCHOR | None:
+        """Vertical anchor (``w:framePr/@w:vAnchor``).
+
+        .. versionadded:: 2026.05.0
+        """
+        return self._framePr.vAnchor
+
+    @vertical_anchor.setter
+    def vertical_anchor(self, value: WD_FRAME_V_ANCHOR | None) -> None:
+        self._framePr.vAnchor = value
