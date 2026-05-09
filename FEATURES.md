@@ -891,9 +891,12 @@ document.save("out.docx")
 ```
 
 - `Section.header` / `Section.footer` — Primary header/footer.
-- `Section.first_page_header` / `Section.first_page_footer` — First-page variant.
+- `Section.first_page_header` / `Section.first_page_footer` — First-page variant (requires `section.different_first_page_header_footer=True`).
 - `Section.even_page_header` / `Section.even_page_footer` — Even-page variant (requires `different_odd_and_even_pages_header_footer=True`). `[Added in 2026.05.0]`
-- `_Header.is_linked_to_previous` / `_Footer.is_linked_to_previous` — Read/write inheritance flag.
+- `_Header.is_linked_to_previous` / `_Footer.is_linked_to_previous` — Read/write inheritance flag. Assigning `False` drops any existing reference *and* creates a fresh, empty `/word/headerN.xml` part; assigning `True` removes the reference so the section inherits its ancestor's definition. `[Round-tripped through save/reopen — 2026.05.10]`
+- Schema — each variant is persisted as an independent `w:headerReference` / `w:footerReference` on the section's `w:sectPr`, with `@w:type` one of `default`, `first`, or `even`, pointing at a distinct `/word/headerN.xml` or `/word/footerN.xml` content part. A section with all three variants therefore writes three separate parts. `[Round-trip-tested in 2026.05.10]`
+- `Section.different_first_page_header_footer` ↔ `w:sectPr/w:titlePg` — per-section toggle for the first-page variant.
+- `Section.different_odd_and_even_pages_header_footer` ↔ `w:settings/w:evenAndOddHeaders` — document-level toggle (alias for `Settings.even_and_odd_headers`; exposed on `Section` for discoverability).
 - `_Header.paragraphs` / `_Header.tables` / `_Header.add_paragraph(...)` / `_Header.add_table(...)` — BlockItemContainer API.
 
 ---
