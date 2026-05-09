@@ -44,6 +44,10 @@ dependencies = [
     # PyPI release lands, after which this becomes
     # ``python-ooxml-comments>=0.1.0``.
     "python-ooxml-comments @ git+https://github.com/loadfix/python-ooxml-comments@master",
+    # Shared Office Math Markup Language (``m:``) readers/writers. Not
+    # yet on PyPI; pinned to the master branch until a PyPI release
+    # lands, after which this becomes ``python-ooxml-math>=0.1.0``.
+    "python-ooxml-math @ git+https://github.com/loadfix/python-ooxml-math@master",
     # Shared DrawingML classic-chart (``c:chartSpace``) readers/writers.
     # Provides the full authoring surface (``CT_ChartSpace``, ``CT_Chart``,
     # ``CT_PlotArea``, per-kind ``CT_<Kind>Chart``, ``CT_SeriesComposite``,
