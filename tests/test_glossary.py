@@ -457,3 +457,332 @@ class DescribeGlossaryWrite:
         # -- a subsequent read-only access now sees the same glossary --
         assert doc.glossary is not None
         assert len(doc.glossary) == 0
+
+
+# -- R9-21 advanced-metadata coverage -------------------------------
+
+from docx.enum.text import (  # noqa: E402 — grouped with R9-21 tests
+    WD_BUILDING_BLOCK_BEHAVIOR,
+    WD_BUILDING_BLOCK_TYPE,
+)
+from docx.glossary import GlossaryDocument  # noqa: E402
+
+
+class DescribeGlossaryDocumentAlias:
+    """R9-21: `GlossaryDocument` is a name alias of `Glossary`."""
+
+    def it_is_the_same_class(self):
+        assert GlossaryDocument is Glossary
+
+    def it_builds_from_an_element_via_the_alias(self):
+        gd = GlossaryDocument(
+            cast(CT_GlossaryDocument, element(_SAMPLE_GLOSSARY))
+        )
+        assert [b.name for b in gd] == ["First", "Second", "Third"]
+
+
+class DescribeBuildingBlockAdvancedAccessors:
+    """R9-21: shortcut/enum accessors on |BuildingBlock|."""
+
+    def it_exposes_category_name_shortcut(self):
+        block = BuildingBlock(cast(CT_DocPart, element(_SAMPLE_BLOCK)))
+        assert block.category_name == "General"
+
+    def it_returns_None_for_category_name_when_absent(self):
+        block = BuildingBlock(cast(CT_DocPart, element("w:docPart")))
+        assert block.category_name is None
+
+    def it_exposes_gallery_shortcut(self):
+        block = BuildingBlock(cast(CT_DocPart, element(_SAMPLE_BLOCK)))
+        assert block.gallery == "quickParts"
+
+    def it_returns_None_for_gallery_when_absent(self):
+        block = BuildingBlock(cast(CT_DocPart, element("w:docPart")))
+        assert block.gallery is None
+
+    def it_maps_gallery_to_enum(self):
+        block = BuildingBlock(cast(CT_DocPart, element(_SAMPLE_BLOCK)))
+        assert block.gallery_enum is WD_BUILDING_BLOCK_GALLERY.QUICK_PARTS
+
+    def it_returns_None_for_gallery_enum_when_unknown(self):
+        block = BuildingBlock(
+            cast(
+                CT_DocPart,
+                element(
+                    "w:docPart/w:docPartPr/w:category/"
+                    "w:gallery{w:val=zzzNotReal}"
+                ),
+            )
+        )
+        assert block.gallery_enum is None
+        assert block.gallery == "zzzNotReal"
+
+    def it_exposes_behaviors_as_a_set_of_enum_members(self):
+        block = BuildingBlock(
+            cast(CT_DocPart, element(_BLOCK_WITH_TYPES_AND_BEHAVIORS))
+        )
+        assert block.behaviors_set == {
+            WD_BUILDING_BLOCK_BEHAVIOR.CONTENT,
+            WD_BUILDING_BLOCK_BEHAVIOR.P,
+        }
+
+    def it_drops_unknown_behaviors_from_the_enum_set(self):
+        block = BuildingBlock(
+            cast(
+                CT_DocPart,
+                element(
+                    "w:docPart/w:docPartPr/w:behaviors/("
+                    "w:behavior{w:val=content},"
+                    "w:behavior{w:val=zz_unknown}"
+                    ")"
+                ),
+            )
+        )
+        assert block.behaviors_set == {WD_BUILDING_BLOCK_BEHAVIOR.CONTENT}
+        assert set(block.behaviors) == {"content", "zz_unknown"}
+
+    def it_writes_behaviors_from_an_enum_set(self):
+        block = BuildingBlock(cast(CT_DocPart, element("w:docPart")))
+        block.behaviors = {
+            WD_BUILDING_BLOCK_BEHAVIOR.P,
+            WD_BUILDING_BLOCK_BEHAVIOR.CONTENT,
+        }
+        # -- enum-order canonicalization: content before p --
+        assert block.behaviors == ["content", "p"]
+
+    def it_writes_behaviors_from_raw_strings(self):
+        block = BuildingBlock(cast(CT_DocPart, element("w:docPart")))
+        block.behaviors = ["pg", "content"]
+        assert block.behaviors == ["content", "pg"]
+
+    def it_clears_behaviors_with_an_empty_iterable(self):
+        block = BuildingBlock(
+            cast(CT_DocPart, element(_BLOCK_WITH_TYPES_AND_BEHAVIORS))
+        )
+        block.behaviors = []
+        assert block.behaviors == []
+
+    def it_clears_behaviors_with_None(self):
+        block = BuildingBlock(
+            cast(CT_DocPart, element(_BLOCK_WITH_TYPES_AND_BEHAVIORS))
+        )
+        block.behaviors = None
+        assert block.behaviors == []
+
+    def it_reads_docPartType_as_enum(self):
+        block = BuildingBlock(
+            cast(
+                CT_DocPart,
+                element(
+                    "w:docPart/w:docPartPr/w:types/w:type{w:val=normal}"
+                ),
+            )
+        )
+        assert block.docPartType is WD_BUILDING_BLOCK_TYPE.NORMAL
+
+    def it_returns_None_for_docPartType_when_absent(self):
+        block = BuildingBlock(cast(CT_DocPart, element("w:docPart")))
+        assert block.docPartType is None
+
+    def it_returns_None_for_docPartType_when_unknown(self):
+        block = BuildingBlock(
+            cast(
+                CT_DocPart,
+                element(
+                    "w:docPart/w:docPartPr/w:types/w:type{w:val=xx}"
+                ),
+            )
+        )
+        assert block.docPartType is None
+
+    def it_writes_docPartType_from_an_enum(self):
+        block = BuildingBlock(cast(CT_DocPart, element("w:docPart")))
+        block.docPartType = WD_BUILDING_BLOCK_TYPE.NORMAL
+        assert block.docPartType is WD_BUILDING_BLOCK_TYPE.NORMAL
+        assert block.types == ["normal"]
+
+    def it_writes_docPartType_from_a_raw_string(self):
+        block = BuildingBlock(cast(CT_DocPart, element("w:docPart")))
+        block.docPartType = "autoExpList"
+        assert block.docPartType is WD_BUILDING_BLOCK_TYPE.AUTO_EXP_LIST
+
+    def it_replaces_the_first_docPartType_without_removing_others(self):
+        block = BuildingBlock(
+            cast(
+                CT_DocPart,
+                element(
+                    "w:docPart/w:docPartPr/w:types/("
+                    "w:type{w:val=normal},w:type{w:val=autoExpList}"
+                    ")"
+                ),
+            )
+        )
+        block.docPartType = WD_BUILDING_BLOCK_TYPE.BBPLC
+        # -- first slot replaced, second slot preserved --
+        assert block.types == ["bbPlcHdr", "autoExpList"]
+
+    def it_clears_docPartType_with_None(self):
+        block = BuildingBlock(
+            cast(
+                CT_DocPart,
+                element(
+                    "w:docPart/w:docPartPr/w:types/w:type{w:val=normal}"
+                ),
+            )
+        )
+        block.docPartType = None
+        assert block.docPartType is None
+        assert block.types == []
+
+
+class DescribeGlossaryFind:
+    """R9-21: `Glossary.find` — filtered building-block lookup."""
+
+    def it_returns_all_blocks_when_no_filter_given(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element(_MIXED_GLOSSARY)))
+        assert len(glossary.find()) == 5
+
+    def it_filters_by_name(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element(_MIXED_GLOSSARY)))
+        hits = glossary.find(name="Alpha")
+        assert [b.name for b in hits] == ["Alpha"]
+
+    def it_filters_by_gallery_enum(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element(_MIXED_GLOSSARY)))
+        hits = glossary.find(
+            gallery=WD_BUILDING_BLOCK_GALLERY.QUICK_PARTS
+        )
+        assert [b.name for b in hits] == ["Alpha", "Beta"]
+
+    def it_filters_by_gallery_raw_string(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element(_MIXED_GLOSSARY)))
+        hits = glossary.find(gallery="coverPg")
+        assert [b.name for b in hits] == ["Gamma"]
+
+    def it_filters_by_category_name(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element(_MIXED_GLOSSARY)))
+        hits = glossary.find(category="Built-In")
+        assert [b.name for b in hits] == ["Gamma", "Delta"]
+
+    def it_intersects_every_filter(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element(_MIXED_GLOSSARY)))
+        hits = glossary.find(
+            name="Alpha",
+            gallery=WD_BUILDING_BLOCK_GALLERY.QUICK_PARTS,
+            category="General",
+        )
+        assert [b.name for b in hits] == ["Alpha"]
+
+    def it_returns_empty_when_filters_match_nothing(self):
+        glossary = Glossary(cast(CT_GlossaryDocument, element(_MIXED_GLOSSARY)))
+        assert glossary.find(name="nope") == []
+
+
+class DescribeAddBuildingBlockAdvanced:
+    """R9-21: new parameters for `Glossary.add_building_block`."""
+
+    def it_accepts_a_description(self):
+        glossary = Glossary(
+            cast(CT_GlossaryDocument, element("w:glossaryDocument"))
+        )
+        bb = glossary.add_building_block(
+            "Snippet", content="x", description="an example snippet"
+        )
+        assert bb.description == "an example snippet"
+
+    def it_accepts_a_list_of_content_elements(self):
+        from docx.oxml.ns import qn
+        from lxml import etree
+
+        nsmap = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+        p_elm = etree.SubElement(
+            etree.Element(qn("w:root"), nsmap=nsmap), qn("w:p")
+        )
+        tbl_elm = etree.SubElement(
+            etree.Element(qn("w:root"), nsmap=nsmap), qn("w:tbl")
+        )
+
+        glossary = Glossary(
+            cast(CT_GlossaryDocument, element("w:glossaryDocument"))
+        )
+        bb = glossary.add_building_block(
+            "Multi", content=[p_elm, tbl_elm]
+        )
+        assert len(bb.paragraphs) == 1
+        assert len(bb.tables) == 1
+
+    def it_accepts_a_CT_DocPartBody_replacement(self):
+        from docx.oxml.glossary import CT_DocPartBody
+
+        body_elm = cast(
+            CT_DocPartBody,
+            element("w:docPartBody/(w:p,w:p,w:p)"),
+        )
+        glossary = Glossary(
+            cast(CT_GlossaryDocument, element("w:glossaryDocument"))
+        )
+        bb = glossary.add_building_block("Body", content=body_elm)
+        assert len(bb.paragraphs) == 3
+
+
+class DescribeDocumentGlossaryDocumentProperty:
+    """R9-21: `Document.glossary_document` proxy + setter."""
+
+    def it_returns_None_when_no_glossary_part(self):
+        from docx import Document
+
+        doc = Document()
+        assert doc.glossary_document is None
+
+    def it_returns_a_glossary_when_the_part_exists(self):
+        from docx import Document
+
+        doc = Document()
+        doc.ensure_glossary()
+        gd = doc.glossary_document
+        assert gd is not None
+        assert isinstance(gd, Glossary)
+
+    def it_drops_the_glossary_part_when_assigned_None(self):
+        from docx import Document
+
+        doc = Document()
+        doc.ensure_glossary()
+        assert doc.glossary_document is not None
+        doc.glossary_document = None
+        assert doc.glossary_document is None
+
+    def it_lazy_creates_when_assigned_a_glossary(self):
+        from docx import Document
+
+        doc = Document()
+        assert doc.glossary_document is None
+        # -- a fresh glossary-doc proxy (detached) — assignment should cause
+        # -- a part to exist in the package, not copy XML.
+        placeholder = GlossaryDocument(
+            cast(CT_GlossaryDocument, element("w:glossaryDocument"))
+        )
+        doc.glossary_document = placeholder
+        assert doc.glossary_document is not None
+
+    def it_is_a_no_op_to_set_None_when_no_glossary_is_present(self):
+        from docx import Document
+
+        doc = Document()
+        doc.glossary_document = None  # should not raise
+        assert doc.glossary_document is None
+
+    def it_round_trips_description_through_save_and_reload(self, tmp_path):
+        from docx import Document
+
+        doc = Document()
+        g = doc.ensure_glossary()
+        g.add_building_block(
+            "R", content="x", description="sample description"
+        )
+        out = tmp_path / "round_desc.docx"
+        doc.save(str(out))
+        doc2 = Document(str(out))
+        g2 = doc2.glossary_document
+        assert g2 is not None
+        assert g2["R"].description == "sample description"

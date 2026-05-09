@@ -2222,6 +2222,32 @@ class Document(ElementProxy):
         return self._part.ensure_glossary()
 
     @property
+    def glossary_document(self) -> Glossary | None:
+        """The |GlossaryDocument| proxy, or |None| when no glossary part exists.
+
+        Alias for :attr:`glossary` that matches the ECMA-376 vocabulary used
+        by the R9-21 advanced API. The setter accepts a
+        :class:`~docx.glossary.GlossaryDocument` value — assigning |None|
+        drops the glossary-document relationship (removing the glossary
+        part from the package); assigning an existing proxy is equivalent
+        to :meth:`ensure_glossary` (the part is created when absent and
+        left alone otherwise — the passed-in proxy's XML is **not** copied
+        in at this pass, keeping the surface minimal).
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._part.glossary
+
+    @glossary_document.setter
+    def glossary_document(self, value: Glossary | None) -> None:
+        if value is None:
+            self._part.remove_glossary()
+            return
+        # -- lazily create when absent; ignore the passed proxy's XML --
+        # -- (assignment semantics are "ensure a glossary exists") --
+        self._part.ensure_glossary()
+
+    @property
     def theme(self) -> Theme | None:
         """A |Theme| proxy, or |None| when no ``theme`` part is related.
 

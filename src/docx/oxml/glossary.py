@@ -333,6 +333,57 @@ class CT_DocPartPr(BaseOxmlElement):
         """Set the ``w:guid`` child's ``w:val``, creating it if absent."""
         _set_w_val_child(self, "w:guid", guid, predecessors=())
 
+    # -- advanced-metadata helpers (R9-21) -----------------------------
+
+    @property
+    def docPartType_val(self) -> str | None:
+        """The first ``w:types/w:type/@w:val``, or |None| when absent.
+
+        ``w:docPartType`` is surfaced by :class:`docx.glossary.BuildingBlock`
+        as a single-value slot; at the XML level WML carries a ``w:types``
+        list with zero or more ``w:type`` children. This helper returns the
+        first child's ``w:val``.
+        """
+        if self.types is None:
+            return None
+        values = self.types.values
+        return values[0] if values else None
+
+    def set_docPartType(self, val: str) -> None:
+        """Set the first ``w:types/w:type/@w:val`` to `val`.
+
+        Creates the ``w:types`` element and a single ``w:type`` child when
+        absent; replaces the ``w:val`` on the existing first child otherwise.
+        Other ``w:type`` siblings are preserved.
+        """
+        types = self.get_or_add_types()
+        existing = types.xpath("./w:type")
+        if existing:
+            existing[0].set(qn("w:val"), val)
+        else:
+            types.add_type(val)
+
+    def clear_docPartType(self) -> None:
+        """Remove the ``w:types`` element if present."""
+        types = self.types
+        if types is not None:
+            self.remove(types)
+
+    def set_behaviors(self, values: list[str]) -> None:
+        """Replace the ``w:behaviors`` children with one per entry in `values`.
+
+        When `values` is empty the ``w:behaviors`` element is removed
+        entirely so the XML round-trips cleanly.
+        """
+        beh = self.behaviors
+        if beh is not None:
+            self.remove(beh)
+        if not values:
+            return
+        beh = self.get_or_add_behaviors()
+        for v in values:
+            beh.add_behavior(v)
+
 
 class CT_DocPartBody(BaseOxmlElement):
     """``<w:docPartBody>`` element — container for a building block's content.
