@@ -192,6 +192,97 @@ class DescribeDocument:
         prstGeoms = reopened.element.body.xpath(".//a:prstGeom/@prst")
         assert "ellipse" in prstGeoms
 
+    # -- Document.protect() / Document.unprotect() -------------------------
+
+    def it_can_protect_a_document_read_only(self):
+        from docx import Document as OpenDocument
+        from docx.enum.text import WD_PROTECTION
+
+        document = OpenDocument()
+        protection = document.protect(edit_mode=WD_PROTECTION.READ_ONLY)
+        assert protection.mode == WD_PROTECTION.READ_ONLY
+        assert protection.enforce is True
+        assert protection.password_hash is None
+
+    def it_can_protect_a_document_in_forms_mode(self):
+        from docx import Document as OpenDocument
+        from docx.enum.text import WD_PROTECTION
+
+        document = OpenDocument()
+        document.protect(edit_mode=WD_PROTECTION.FORMS)
+        assert document.settings.document_protection.mode == WD_PROTECTION.FORMS
+        assert document.settings.document_protection.enforce is True
+
+    def it_defaults_to_READ_ONLY_when_no_edit_mode_given(self):
+        from docx import Document as OpenDocument
+        from docx.enum.text import WD_PROTECTION
+
+        document = OpenDocument()
+        document.protect()
+        assert document.settings.document_protection.mode == WD_PROTECTION.READ_ONLY
+
+    def it_can_protect_with_a_password_round_trip(self):
+        import io
+
+        from docx import Document as OpenDocument
+        from docx.enum.text import WD_PROTECTION
+
+        document = OpenDocument()
+        document.protect(
+            edit_mode=WD_PROTECTION.TRACKED_CHANGES, password="corr3ct h0rse!"
+        )
+        original = document.settings.document_protection
+        assert original.password_hash is not None
+        assert original.password_salt is not None
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        reopened = OpenDocument(buf)
+        reloaded = reopened.settings.document_protection
+        assert reloaded.mode == WD_PROTECTION.TRACKED_CHANGES
+        assert reloaded.enforce is True
+        assert reloaded.password_hash == original.password_hash
+        assert reloaded.password_salt == original.password_salt
+        assert reloaded.spin_count == 100000
+
+    def it_can_unprotect_a_document(self):
+        from docx import Document as OpenDocument
+        from docx.enum.text import WD_PROTECTION
+
+        document = OpenDocument()
+        document.protect(edit_mode=WD_PROTECTION.READ_ONLY, password="x")
+        document.unprotect()
+        assert document.settings.document_protection.mode is None
+        assert document.settings.document_protection.enforce is False
+        assert document.settings.document_protection.password_hash is None
+
+    def it_round_trips_write_protection_with_password(self):
+        import io
+
+        from docx import Document as OpenDocument
+
+        document = OpenDocument()
+        document.settings.enable_write_protection(recommended=True, password="topS3cret")
+        original_hash = document.settings.write_protection.password_hash
+        original_salt = document.settings.write_protection.password_salt
+        assert original_hash is not None
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        reopened = OpenDocument(buf)
+        wp = reopened.settings.write_protection
+        assert wp.recommended_read_only is True
+        assert wp.password_hash == original_hash
+        assert wp.password_salt == original_salt
+        assert wp.crypto_provider_type == "rsaAES"
+        assert wp.spin_count == 100000
+
+        # -- disabling removes the element entirely --
+        reopened.settings.disable_write_protection()
+        assert reopened.settings.write_protection.present is False
+
     def it_can_add_a_canvas(self):
         from docx import Document as OpenDocument
         from docx.drawing import Canvas

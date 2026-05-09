@@ -423,6 +423,7 @@ from .settings import (
     CT_Rsids,
     CT_Settings,
     CT_View,
+    CT_WriteProtection,
     CT_Zoom,
     _CT_MMVal,
 )
@@ -431,6 +432,7 @@ register_element_cls("w:compat", CT_Compat)
 register_element_cls("w:compatSetting", CT_CompatSetting)
 register_element_cls("w:defaultTabStop", CT_DefaultTabStop)
 register_element_cls("w:documentProtection", CT_DocProtect)
+register_element_cls("w:writeProtection", CT_WriteProtection)
 register_element_cls("w:mailMerge", CT_MailMerge)
 register_element_cls("w:mainDocumentType", _CT_MMVal)
 register_element_cls("w:dataType", _CT_MMVal)
