@@ -1086,3 +1086,51 @@ class WD_MAIL_MERGE_DATA_TYPE(BaseXmlEnum):
 
     NATIVE = (5, "native", "Native Word data source.")
     """Native Word data source."""
+
+
+# -- Alias matching the ECMA "mainDocumentType" field name. ``WD_MAIL_MERGE_TYPE``
+# -- (above) is the original, shorter name; ``WD_MAIL_MERGE_DOCUMENT_TYPE`` is the
+# -- long form preferred by the Word object model and by recent roadmap work. Both
+# -- names resolve to the same enum class, so existing code and tests continue to
+# -- work unchanged.
+WD_MAIL_MERGE_DOCUMENT_TYPE = WD_MAIL_MERGE_TYPE
+
+
+class WD_ODSO_TYPE(BaseXmlEnum):
+    """Specifies the ODSO data-source category.
+
+    Maps to ``w:mailMerge/w:odso/w:type/@w:val``. Word uses this enum to tag
+    the underlying storage technology for the data source manifest — whether
+    it's a local database file, an Outlook address book, a legacy Office
+    data source, or a native one-off table. python-docx preserves the value
+    verbatim on round-trip; it doesn't drive any merge execution.
+
+    .. versionadded:: 2026.05.10
+    """
+
+    DATABASE = (0, "database", "Local database file (Access, SQL, etc.).")
+    """Local database file (Access, SQL, etc.)."""
+
+    ADDRESS_BOOK = (1, "addressBook", "Outlook / Exchange address book.")
+    """Outlook / Exchange address book."""
+
+    DOCUMENT1 = (2, "document1", "Word document data source, format 1.")
+    """Word document data source, format 1."""
+
+    DOCUMENT2 = (3, "document2", "Word document data source, format 2.")
+    """Word document data source, format 2."""
+
+    TEXT = (4, "text", "Delimited text file.")
+    """Delimited text file."""
+
+    EMAIL = (5, "email", "Email data source.")
+    """Email data source."""
+
+    NATIVE = (6, "native", "Native Word data source.")
+    """Native Word data source."""
+
+    LEGACY = (7, "legacy", "Legacy (pre-Office 2007) data source.")
+    """Legacy (pre-Office 2007) data source."""
+
+    MASTER = (8, "master", "Master / header-less data source.")
+    """Master / header-less data source."""

@@ -1548,7 +1548,62 @@ document.save("out.docx")
 - `Settings.enable_mail_merge(main_document_type=..., destination=..., data_type=...)` — Turn it on. `[Added in 2026.05.0]`
 - `Settings.disable_mail_merge()` — Remove the `w:mailMerge`. `[Added in 2026.05.0]`
 - `MailMerge.main_document_type` / `.destination` / `.data_type` — Per-property reads and writes. `[Added in 2026.05.0]`
-- Enums: `WD_MAIL_MERGE_TYPE`, `WD_MAIL_MERGE_DESTINATION`. `[Added in 2026.05.0]`
+- `MailMerge.connect_string` / `.query` / `.mail_subject` / `.address_field_name` /
+  `.active_record` / `.check_errors` — Per-property string and integer reads
+  and writes. `[Added in 2026.05.0]`
+- `MailMerge.data_source` / `.header_source` — rId references to the external
+  merge data-source / header-source parts (``w:mailMerge/w:dataSource/@r:id``
+  and ``.../w:headerSource/@r:id``). `[Added in 2026.05.10]`
+- `MailMerge.odso` — `OdsoSettings` proxy or `None`. `[Added in 2026.05.10]`
+- `MailMerge.add_odso()` / `.remove_odso()` — Create or drop the ODSO manifest. `[Added in 2026.05.10]`
+- Enums: `WD_MAIL_MERGE_TYPE` (aka `WD_MAIL_MERGE_DOCUMENT_TYPE`), `WD_MAIL_MERGE_DESTINATION`, `WD_MAIL_MERGE_DATA_TYPE`, `WD_ODSO_TYPE`. `[Added in 2026.05.0 / .10]`
+
+### ODSO — Office Data Source Object
+
+`MailMerge.odso` exposes the `w:odso` manifest describing the merge data
+source: the UDL path, table/view name, column delimiter, ODSO source
+category, first-row-as-header flag, optional relationship-referenced
+source part, and the field-mapping dict between Word merge-field names
+and external column names.
+
+```python
+from docx import Document
+from docx.enum.text import (
+    WD_MAIL_MERGE_DOCUMENT_TYPE,
+    WD_MAIL_MERGE_DATA_TYPE,
+    WD_ODSO_TYPE,
+)
+
+document = Document()
+document.settings.enable_mail_merge(
+    main_document_type=WD_MAIL_MERGE_DOCUMENT_TYPE.FORM_LETTERS,
+    data_type=WD_MAIL_MERGE_DATA_TYPE.ODBC,
+    connect_string="Provider=Microsoft.ACE.OLEDB.12.0;Data Source=customers.accdb",
+    query="SELECT * FROM Customers",
+)
+
+mm = document.settings.mail_merge
+odso = mm.add_odso()
+odso.udl = "customers.udl"
+odso.table = "Customers"
+odso.column_delimiter = 44
+odso.type = WD_ODSO_TYPE.DATABASE
+odso.first_row_has_column_names = True
+odso.field_mapping = {
+    "FirstName": "First_Name",
+    "LastName": "Last_Name",
+    "Email": "Email_Address",
+}
+```
+
+- `OdsoSettings.udl` / `.table` — UDL file path and table/view name. `[Added in 2026.05.10]`
+- `OdsoSettings.src` — rId of the source-file relationship. `[Added in 2026.05.10]`
+- `OdsoSettings.column_delimiter` — ASCII code of the column delimiter (`44`
+  for comma, `9` for tab). `[Added in 2026.05.10]`
+- `OdsoSettings.type` — `WD_ODSO_TYPE` source-category enum. `[Added in 2026.05.10]`
+- `OdsoSettings.first_row_has_column_names` — `w:fHdr` boolean. `[Added in 2026.05.10]`
+- `OdsoSettings.field_mapping` — `dict[str, str]` mapping merge-field names to
+  external column names; assigning replaces the entire `w:fieldMapData` list. `[Added in 2026.05.10]`
 
 ---
 
@@ -1633,7 +1688,7 @@ document.save("out.docx")
 - `Settings.document_protection` / `Settings.enable_protection(mode, password=None)` / `Settings.disable_protection()` — See [Permissions](#permissions-and-protection). `[Added in 2026.05.0]`
 - `Settings.write_protection` / `Settings.enable_write_protection(recommended=False, password=None)` / `Settings.disable_write_protection()` — Password-to-modify (`w:writeProtection`). `[Added in 2026.05.10]`
 - `CompatSettings` / `CompatFlags` / `DocVars` — Dict-like subtype helpers. `[Added in 2026.05.0]`
-- Enums: `WD_VIEW`, `WD_PROTECTION`, `WD_MAIL_MERGE_TYPE`, `WD_MAIL_MERGE_DESTINATION`.
+- Enums: `WD_VIEW`, `WD_PROTECTION`, `WD_MAIL_MERGE_TYPE` (aka `WD_MAIL_MERGE_DOCUMENT_TYPE`), `WD_MAIL_MERGE_DESTINATION`, `WD_MAIL_MERGE_DATA_TYPE`, `WD_ODSO_TYPE`.
 
 ---
 

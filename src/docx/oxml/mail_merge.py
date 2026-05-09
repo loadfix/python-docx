@@ -14,6 +14,10 @@ document remains byte-faithful.
 
 from __future__ import annotations
 
+from typing import Iterator, Optional, Union
+
+from docx.oxml.ns import qn
+from docx.oxml.parser import OxmlElement
 from docx.oxml.simpletypes import (
     ST_DecimalNumber,
     ST_OnOff,
@@ -204,6 +208,81 @@ class CT_Odso(BaseOxmlElement):
     recipientData = ZeroOrMore("w:recipientData", successors=())
 
     del _tag_seq
+
+    # ------------------------------------------------------------------
+    # Generic val-child helpers.
+    #
+    # The child elements registered globally (for example ``w:type``
+    # resolves to ``CT_SectType``) can't be relied on for ``.val`` access
+    # inside ODSO because their registered type is a different CT. These
+    # helpers read and write ``@w:val`` directly on whatever element the
+    # descriptor returns — no enum coercion, no side-effects on siblings.
+    # ------------------------------------------------------------------
+
+    def _val_child_read(self, tag_local: str) -> Optional[str]:
+        el = self.find(qn(f"w:{tag_local}"))
+        if el is None:
+            return None
+        return el.get(qn("w:val"))
+
+    def _val_child_write(
+        self,
+        tag_local: str,
+        value: Optional[Union[str, int]],
+    ) -> None:
+        if value is None:
+            remover = getattr(self, f"_remove_{tag_local}", None)
+            if remover is not None:
+                remover()
+            else:
+                el = self.find(qn(f"w:{tag_local}"))
+                if el is not None:
+                    self.remove(el)
+            return
+        adder = getattr(self, f"get_or_add_{tag_local}")
+        el = adder()
+        el.set(qn("w:val"), str(value))
+
+    # ------------------------------------------------------------------
+    # Field-map helpers — convert the unbounded ``w:fieldMapData`` list
+    # into the dict-shaped view the proxy layer wants.
+    # ------------------------------------------------------------------
+
+    def iter_field_map(self) -> Iterator["tuple[str, str]"]:
+        """Yield ``(name, mappedName)`` pairs for each ``w:fieldMapData`` child.
+
+        Records missing a ``w:name`` or ``w:mappedName`` grand-child are
+        skipped — the mapping is only meaningful when both sides are
+        present.
+        """
+        for fmd in self.findall(qn("w:fieldMapData")):
+            name_el = fmd.find(qn("w:name"))
+            mapped_el = fmd.find(qn("w:mappedName"))
+            if name_el is None or mapped_el is None:
+                continue
+            name = name_el.get(qn("w:val"))
+            mapped = mapped_el.get(qn("w:val"))
+            if name is None or mapped is None:
+                continue
+            yield name, mapped
+
+    def set_field_map(self, mapping: "dict[str, str]") -> None:
+        """Replace the current ``w:fieldMapData`` list with `mapping`.
+
+        Existing ``w:fieldMapData`` children are removed and a fresh child is
+        emitted for each `(name, mappedName)` pair. Order of iteration in
+        `mapping` is preserved in the resulting XML.
+        """
+        for fmd in list(self.findall(qn("w:fieldMapData"))):
+            self.remove(fmd)
+        for name, mapped in mapping.items():
+            fmd = self.add_fieldMapData()
+            name_el = OxmlElement("w:name")
+            name_el.set(qn("w:val"), name)
+            mapped_el = OxmlElement("w:mappedName")
+            mapped_el.set(qn("w:val"), mapped)
+            fmd.append(name_el)
+            fmd.append(mapped_el)
 
 
 # ---------------------------------------------------------------------------
