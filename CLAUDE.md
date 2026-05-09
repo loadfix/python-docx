@@ -186,6 +186,52 @@ pyright src/
 pip install -e ".[dev]"
 ```
 
+### Running the conformance (round-trip) harness
+
+`tests/conformance/` hosts the byte-identical round-trip harness — the
+docx counterpart of the vsdx harness at
+`python-vsdx/tests/conformance/`. It iterates every `*.office.docx`
+fixture under `~/code/ooxml-reference-corpus/fixtures/docx/`, loads
+each via `docx.Document`, re-serialises via `.save(BytesIO)`, and
+asserts that every zip entry is byte-identical to the original's.
+
+The harness is **pure instrumentation** — it surfaces drift without
+fixing it. When a fixture fails, file a fidelity bug with the
+drifting part name and a short preview of the divergence; do **not**
+relax the harness's byte-equality contract to mask a drop. Every
+relaxation risks hiding a real silent data loss.
+
+```bash
+# Run only the conformance harness
+pytest -m conformance tests/conformance/ -v
+
+# Run everything except the conformance harness (fast unit loop — the CI default)
+pytest -m 'not conformance' tests/
+
+# Override the corpus lookup path
+DOCX_CORPUS_ROOT=/path/to/alt/corpus pytest -m conformance tests/conformance/
+
+# See the list of fixtures pytest discovered without running them
+pytest -m conformance --collect-only -q tests/conformance/
+```
+
+The harness **skips cleanly** when no `*.office.docx` fixtures are
+present (clean checkout, CI without the corpus mounted) — landing or
+removing fixtures never causes a green run to go red for
+infrastructure reasons.
+
+Per-entry diff: when a part's bytes drift, the failure names the
+drifting zip entry and shows the first 200 chars of the original and
+saved XML side-by-side. Whole-file dumps are deliberately avoided —
+the investigator gets a scannable hint, not a megabyte of XML. See
+`tests/conformance/diff.py` for the format.
+
+Only Office-authored fixtures (filename suffix `.office.docx`)
+participate; generator-authored `*.docx` fixtures are synthesised by
+the same writer under test and so don't exercise the `reader →
+writer` fidelity path this harness enforces (the existing
+`test_reproducible_save.py` covers writer-writer determinism).
+
 ## What NOT to do
 
 - Don't amend or force-push to `master`, and never force-push to an upstream remote under any circumstance.
