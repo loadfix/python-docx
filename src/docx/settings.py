@@ -21,7 +21,13 @@ if TYPE_CHECKING:
     import docx.types as t
     from docx.endnotes import EndnoteProperties
     from docx.footnotes import FootnoteProperties
-    from docx.oxml.settings import CT_Compat, CT_DocVars, CT_MailMerge, CT_Settings
+    from docx.oxml.settings import (
+        CT_Compat,
+        CT_DocVars,
+        CT_MailMerge,
+        CT_Settings,
+        CT_WriteProtection,
+    )
     from docx.oxml.xmlchemy import BaseOxmlElement
     from docx.shared import Length
 
@@ -215,6 +221,59 @@ class Settings(ElementProxy):
         .. versionadded:: 2026.05.0
         """
         self._settings._remove_documentProtection()  # pyright: ignore[reportPrivateUsage]
+
+    @property
+    def write_protection(self) -> WriteProtection:
+        """Access to the document's write-protection (password-to-modify) settings.
+
+        Provides read/write access to the ``w:writeProtection`` element. The
+        ``w:writeProtection`` element is distinct from ``w:documentProtection``
+        — it governs *save* access to the current file rather than editing
+        modes within the document. Use :meth:`enable_write_protection` and
+        :meth:`disable_write_protection` for common high-level operations.
+
+        .. versionadded:: 2026.05.10
+        """
+        return WriteProtection(self._settings)
+
+    def enable_write_protection(
+        self,
+        recommended: bool = False,
+        password: str | None = None,
+    ) -> WriteProtection:
+        """Enable write-protection on the document.
+
+        When `recommended` is |True|, Word displays the "Read-only
+        recommended" banner on open. When `password` is supplied, Word's
+        SHA-1 password hash (with a fresh 16-byte random salt and 100,000
+        iterations) is written into the ``@w:hash``/``@w:salt`` attributes
+        along with the matching ``@w:crypt*`` metadata, and Word will
+        prompt for the password before allowing save.
+
+        Returns the :class:`WriteProtection` proxy for further tweaks.
+
+        .. versionadded:: 2026.05.10
+        """
+        wp = self.write_protection
+        wp.recommended_read_only = bool(recommended)
+        if password is None:
+            wp.password_hash = None
+            wp.password_salt = None
+            wp.crypto_provider_type = None
+            wp.crypto_algorithm_class = None
+            wp.crypto_algorithm_type = None
+            wp.crypto_algorithm_sid = None
+            wp.spin_count = None
+        else:
+            wp.set_password(password)
+        return wp
+
+    def disable_write_protection(self) -> None:
+        """Remove the ``w:writeProtection`` element entirely.
+
+        .. versionadded:: 2026.05.10
+        """
+        self._settings._remove_writeProtection()  # pyright: ignore[reportPrivateUsage]
 
     @property
     def mail_merge(self) -> MailMerge | None:
@@ -1034,6 +1093,253 @@ class DocumentProtection:
 
 # -- backward-compat: preserve private name referenced elsewhere --
 _DocumentProtection = DocumentProtection
+
+
+class WriteProtection:
+    """Read/write access to the document's ``w:writeProtection`` marker.
+
+    Wraps the ``w:writeProtection`` child of ``w:settings``. The element is
+    created on demand when any attribute is first written. All mutations are
+    persisted to the underlying XML immediately.
+
+    Distinct from :class:`DocumentProtection`: write-protection guards *save*
+    access (Word will refuse to overwrite the file without the password),
+    whereas document-protection restricts edits *within* an opened document.
+
+    .. versionadded:: 2026.05.10
+    """
+
+    def __init__(self, settings: CT_Settings):
+        self._settings = settings
+
+    # -- internal helpers ---------------------------------------------------
+
+    def _wp_or_none(self) -> "CT_WriteProtection | None":
+        return self._settings.writeProtection
+
+    def _wp_or_add(self) -> "CT_WriteProtection":
+        return self._settings.get_or_add_writeProtection()
+
+    # -- presence -----------------------------------------------------------
+
+    @property
+    def present(self) -> bool:
+        """True when a ``w:writeProtection`` element exists.
+
+        Note that an empty ``w:writeProtection`` element (no attributes) is
+        semantically equivalent to no element at all: it neither enforces
+        recommended-read-only nor enables password-to-modify.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._wp_or_none() is not None
+
+    # -- recommended_read_only ----------------------------------------------
+
+    @property
+    def recommended_read_only(self) -> bool:
+        """True when ``@w:recommended`` is set, i.e. the "open read-only" banner.
+
+        Reads False when the ``w:writeProtection`` element is missing.
+        Assigning False while the element carries password attributes clears
+        only the recommended flag and leaves the password intact.
+
+        .. versionadded:: 2026.05.10
+        """
+        wp = self._wp_or_none()
+        if wp is None:
+            return False
+        return wp.recommended
+
+    @recommended_read_only.setter
+    def recommended_read_only(self, value: bool) -> None:
+        self._wp_or_add().recommended = bool(value)
+
+    # -- ECMA-style enforcement alias --------------------------------------
+
+    @property
+    def enforcement(self) -> bool:
+        """Alias for :attr:`recommended_read_only`.
+
+        ``w:writeProtection`` has no distinct ``@w:enforcement`` attribute in
+        the schema — the presence of the element together with
+        ``@w:recommended`` or a populated password is what Word treats as
+        "enforced". This alias mirrors the equivalent API on
+        :class:`DocumentProtection` for symmetric call sites.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.recommended_read_only
+
+    @enforcement.setter
+    def enforcement(self, value: bool) -> None:
+        self.recommended_read_only = value
+
+    # -- password hash / salt -----------------------------------------------
+
+    @property
+    def password_hash(self) -> str | None:
+        """Base64-encoded password hash (``@w:hash``) or |None|.
+
+        .. versionadded:: 2026.05.10
+        """
+        wp = self._wp_or_none()
+        if wp is None:
+            return None
+        return wp.hash
+
+    @password_hash.setter
+    def password_hash(self, value: str | None) -> None:
+        wp = self._wp_or_none()
+        if value is None:
+            if wp is not None:
+                wp.hash = None
+            return
+        self._wp_or_add().hash = value
+
+    @property
+    def password_salt(self) -> str | None:
+        """Base64-encoded salt (``@w:salt``) used with the password hash, or |None|.
+
+        .. versionadded:: 2026.05.10
+        """
+        wp = self._wp_or_none()
+        if wp is None:
+            return None
+        return wp.salt
+
+    @password_salt.setter
+    def password_salt(self, value: str | None) -> None:
+        wp = self._wp_or_none()
+        if value is None:
+            if wp is not None:
+                wp.salt = None
+            return
+        self._wp_or_add().salt = value
+
+    # -- algorithm metadata -------------------------------------------------
+
+    @property
+    def crypto_provider_type(self) -> str | None:
+        """Value of ``@w:cryptProviderType`` or |None|.
+
+        .. versionadded:: 2026.05.10
+        """
+        wp = self._wp_or_none()
+        if wp is None:
+            return None
+        return wp.cryptProviderType
+
+    @crypto_provider_type.setter
+    def crypto_provider_type(self, value: str | None) -> None:
+        wp = self._wp_or_none()
+        if value is None:
+            if wp is not None:
+                wp.cryptProviderType = None
+            return
+        self._wp_or_add().cryptProviderType = value
+
+    @property
+    def crypto_algorithm_class(self) -> str | None:
+        """Value of ``@w:cryptAlgorithmClass`` or |None|.
+
+        .. versionadded:: 2026.05.10
+        """
+        wp = self._wp_or_none()
+        if wp is None:
+            return None
+        return wp.cryptAlgorithmClass
+
+    @crypto_algorithm_class.setter
+    def crypto_algorithm_class(self, value: str | None) -> None:
+        wp = self._wp_or_none()
+        if value is None:
+            if wp is not None:
+                wp.cryptAlgorithmClass = None
+            return
+        self._wp_or_add().cryptAlgorithmClass = value
+
+    @property
+    def crypto_algorithm_type(self) -> str | None:
+        """Value of ``@w:cryptAlgorithmType`` or |None|.
+
+        .. versionadded:: 2026.05.10
+        """
+        wp = self._wp_or_none()
+        if wp is None:
+            return None
+        return wp.cryptAlgorithmType
+
+    @crypto_algorithm_type.setter
+    def crypto_algorithm_type(self, value: str | None) -> None:
+        wp = self._wp_or_none()
+        if value is None:
+            if wp is not None:
+                wp.cryptAlgorithmType = None
+            return
+        self._wp_or_add().cryptAlgorithmType = value
+
+    @property
+    def crypto_algorithm_sid(self) -> int | None:
+        """Value of ``@w:cryptAlgorithmSid`` or |None|.
+
+        .. versionadded:: 2026.05.10
+        """
+        wp = self._wp_or_none()
+        if wp is None:
+            return None
+        return wp.cryptAlgorithmSid
+
+    @crypto_algorithm_sid.setter
+    def crypto_algorithm_sid(self, value: int | None) -> None:
+        wp = self._wp_or_none()
+        if value is None:
+            if wp is not None:
+                wp.cryptAlgorithmSid = None
+            return
+        self._wp_or_add().cryptAlgorithmSid = int(value)
+
+    @property
+    def spin_count(self) -> int | None:
+        """Value of ``@w:cryptSpinCount`` or |None|.
+
+        .. versionadded:: 2026.05.10
+        """
+        wp = self._wp_or_none()
+        if wp is None:
+            return None
+        return wp.cryptSpinCount
+
+    @spin_count.setter
+    def spin_count(self, value: int | None) -> None:
+        wp = self._wp_or_none()
+        if value is None:
+            if wp is not None:
+                wp.cryptSpinCount = None
+            return
+        self._wp_or_add().cryptSpinCount = int(value)
+
+    # -- high-level helpers -------------------------------------------------
+
+    def set_password(self, password: str) -> None:
+        """Populate ``@w:hash``/``@w:salt`` and algorithm metadata from `password`.
+
+        Uses the same Word-standard SHA-1 scheme (100,000 iterations, 16-byte
+        random salt, ``rsaAES``/``hash``/``typeAny``/SID=4) as
+        :meth:`DocumentProtection.set_password`.
+
+        .. versionadded:: 2026.05.10
+        """
+        salt_bytes = os.urandom(16)
+        digest = _hash_password(password, salt_bytes, _DEFAULT_SPIN_COUNT)
+        wp = self._wp_or_add()
+        wp.cryptProviderType = _DEFAULT_CRYPT_PROVIDER_TYPE
+        wp.cryptAlgorithmClass = _DEFAULT_CRYPT_ALGORITHM_CLASS
+        wp.cryptAlgorithmType = _DEFAULT_CRYPT_ALGORITHM_TYPE
+        wp.cryptAlgorithmSid = _DEFAULT_CRYPT_ALGORITHM_SID
+        wp.cryptSpinCount = _DEFAULT_SPIN_COUNT
+        wp.salt = base64.b64encode(salt_bytes).decode("ascii")
+        wp.hash = digest
 
 
 class CompatSettings:

@@ -17,7 +17,13 @@ from docx.enum.text import (
     WD_VIEW,
 )
 from docx.footnotes import FootnoteProperties
-from docx.settings import CompatFlags, CompatSettings, DocumentProtection, Settings
+from docx.settings import (
+    CompatFlags,
+    CompatSettings,
+    DocumentProtection,
+    Settings,
+    WriteProtection,
+)
 from docx.shared import Twips
 
 from .unitutil.cxml import element, xml
@@ -901,6 +907,165 @@ class DescribeDocumentProtection:
         assert protection.password_salt is None
         assert protection.crypto_provider_type is None
         assert protection.spin_count is None
+
+
+class DescribeWriteProtection:
+    """Unit-test suite for `docx.settings.WriteProtection`."""
+
+    def it_returns_a_WriteProtection_from_write_protection(self):
+        settings = Settings(element("w:settings"))
+        assert isinstance(settings.write_protection, WriteProtection)
+
+    def it_reads_present_as_True_when_element_exists(self):
+        settings = Settings(element("w:settings/w:writeProtection"))
+        assert settings.write_protection.present is True
+
+    def it_reads_present_as_False_when_element_absent(self):
+        settings = Settings(element("w:settings"))
+        assert settings.write_protection.present is False
+
+    # -- recommended_read_only ---------------------------------------------
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected"),
+        [
+            ("w:settings", False),
+            ("w:settings/w:writeProtection", False),
+            ("w:settings/w:writeProtection{w:recommended=1}", True),
+            ("w:settings/w:writeProtection{w:recommended=0}", False),
+        ],
+    )
+    def it_can_get_recommended_read_only(self, cxml: str, expected: bool):
+        assert (
+            Settings(element(cxml)).write_protection.recommended_read_only is expected
+        )
+
+    def it_can_set_recommended_read_only(self):
+        settings = Settings(element("w:settings"))
+        settings.write_protection.recommended_read_only = True
+        assert settings.write_protection.recommended_read_only is True
+        settings.write_protection.recommended_read_only = False
+        assert settings.write_protection.recommended_read_only is False
+
+    def it_creates_the_writeProtection_element_on_first_write(self):
+        settings = Settings(element("w:settings"))
+        settings.write_protection.recommended_read_only = True
+        assert settings._settings.xml == xml(
+            "w:settings/w:writeProtection{w:recommended=1}"
+        )
+
+    def it_exposes_enforcement_alias_for_recommended_read_only(self):
+        settings = Settings(element("w:settings"))
+        settings.write_protection.enforcement = True
+        assert settings.write_protection.enforcement is True
+        assert settings.write_protection.recommended_read_only is True
+
+    # -- password round-trip ----------------------------------------------
+
+    def it_round_trips_password_hash_and_salt(self):
+        settings = Settings(element("w:settings"))
+        settings.write_protection.password_hash = "deadbeef=="
+        settings.write_protection.password_salt = "cafebabe+/"
+        assert settings.write_protection.password_hash == "deadbeef=="
+        assert settings.write_protection.password_salt == "cafebabe+/"
+
+    def it_returns_None_for_password_fields_when_absent(self):
+        settings = Settings(element("w:settings"))
+        wp = settings.write_protection
+        assert wp.password_hash is None
+        assert wp.password_salt is None
+        assert wp.crypto_provider_type is None
+        assert wp.crypto_algorithm_class is None
+        assert wp.crypto_algorithm_type is None
+        assert wp.crypto_algorithm_sid is None
+        assert wp.spin_count is None
+
+    def it_round_trips_algorithm_metadata(self):
+        settings = Settings(element("w:settings"))
+        wp = settings.write_protection
+        wp.crypto_provider_type = "rsaAES"
+        wp.crypto_algorithm_class = "hash"
+        wp.crypto_algorithm_type = "typeAny"
+        wp.crypto_algorithm_sid = 4
+        wp.spin_count = 100000
+        assert wp.crypto_provider_type == "rsaAES"
+        assert wp.crypto_algorithm_class == "hash"
+        assert wp.crypto_algorithm_type == "typeAny"
+        assert wp.crypto_algorithm_sid == 4
+        assert wp.spin_count == 100000
+
+    # -- high-level enable / disable --------------------------------------
+
+    def it_can_enable_write_protection_without_a_password(self):
+        settings = Settings(element("w:settings"))
+        settings.enable_write_protection(recommended=True)
+        wp = settings.write_protection
+        assert wp.recommended_read_only is True
+        assert wp.password_hash is None
+        assert wp.password_salt is None
+        assert wp.crypto_provider_type is None
+        assert wp.spin_count is None
+
+    def it_can_enable_write_protection_with_a_password(self):
+        settings = Settings(element("w:settings"))
+        settings.enable_write_protection(recommended=True, password="s3cret")
+        wp = settings.write_protection
+        assert wp.recommended_read_only is True
+        assert wp.password_hash is not None
+        assert wp.password_salt is not None
+        import base64 as _b64
+
+        assert len(_b64.b64decode(wp.password_salt)) == 16
+        assert len(_b64.b64decode(wp.password_hash)) == 20  # SHA-1
+        assert wp.crypto_provider_type == "rsaAES"
+        assert wp.crypto_algorithm_class == "hash"
+        assert wp.crypto_algorithm_type == "typeAny"
+        assert wp.crypto_algorithm_sid == 4
+        assert wp.spin_count == 100000
+
+    def it_produces_a_different_hash_per_call(self):
+        settings = Settings(element("w:settings"))
+        settings.enable_write_protection(password="s3cret")
+        hash1 = settings.write_protection.password_hash
+        salt1 = settings.write_protection.password_salt
+        settings.enable_write_protection(password="s3cret")
+        hash2 = settings.write_protection.password_hash
+        salt2 = settings.write_protection.password_salt
+        assert salt1 != salt2
+        assert hash1 != hash2
+
+    def it_can_disable_write_protection(self):
+        settings = Settings(
+            element("w:settings/w:writeProtection{w:recommended=1}")
+        )
+        settings.disable_write_protection()
+        assert settings._settings.xml == xml("w:settings")
+
+    def it_tolerates_disable_when_already_absent(self):
+        settings = Settings(element("w:settings"))
+        settings.disable_write_protection()
+        assert settings._settings.xml == xml("w:settings")
+
+    def it_clears_stale_password_fields_when_enabling_without_password(self):
+        settings = Settings(element("w:settings"))
+        settings.enable_write_protection(recommended=True, password="s3cret")
+        settings.enable_write_protection(recommended=True)
+        wp = settings.write_protection
+        assert wp.password_hash is None
+        assert wp.password_salt is None
+        assert wp.crypto_provider_type is None
+        assert wp.spin_count is None
+
+    def it_preserves_document_protection_when_removing_write_protection(self):
+        cxml = (
+            "w:settings/("
+            "w:writeProtection{w:recommended=1},"
+            "w:documentProtection{w:edit=readOnly,w:enforcement=1})"
+        )
+        settings = Settings(element(cxml))
+        settings.disable_write_protection()
+        # -- documentProtection still present --
+        assert settings.document_protection.mode == WD_PROTECTION.READ_ONLY
 
 
 class DescribeSettings_themeFontLanguage:

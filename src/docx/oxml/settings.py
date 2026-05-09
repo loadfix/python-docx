@@ -134,6 +134,45 @@ class _CT_MMVal(BaseOxmlElement):
     )
 
 
+class CT_WriteProtection(BaseOxmlElement):
+    """`w:writeProtection` element, specifying the password-to-modify marker.
+
+    Corresponds to ECMA-376 ``CT_WriteProtection``. When present with
+    ``@w:recommended="1"`` Word surfaces the "Read-only recommended" banner when
+    the document is opened. When the password attributes are populated, Word
+    requires that password in order to save back to the same file. This is
+    independent of :class:`CT_DocProtect` (``w:documentProtection``), which
+    restricts *editing modes* rather than save access.
+
+    .. versionadded:: 2026.05.10
+    """
+
+    recommended: bool = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:recommended", ST_OnOff, default=False
+    )
+    cryptProviderType: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:cryptProviderType", ST_String
+    )
+    cryptAlgorithmClass: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:cryptAlgorithmClass", ST_String
+    )
+    cryptAlgorithmType: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:cryptAlgorithmType", ST_String
+    )
+    cryptAlgorithmSid: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:cryptAlgorithmSid", ST_DecimalNumber
+    )
+    cryptSpinCount: int | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:cryptSpinCount", ST_DecimalNumber
+    )
+    hash: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:hash", ST_String
+    )
+    salt: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:salt", ST_String
+    )
+
+
 class CT_DocProtect(BaseOxmlElement):
     """`w:documentProtection` element, specifying document editing restrictions."""
 
@@ -430,6 +469,8 @@ class CT_DocId(BaseOxmlElement):
 class CT_Settings(BaseOxmlElement):
     """`w:settings` element, root element for the settings part."""
 
+    get_or_add_writeProtection: Callable[[], CT_WriteProtection]
+    _remove_writeProtection: Callable[[], None]
     get_or_add_view: Callable[[], CT_View]
     _remove_view: Callable[[], None]
     get_or_add_zoom: Callable[[], CT_Zoom]
@@ -571,6 +612,9 @@ class CT_Settings(BaseOxmlElement):
         "w14:docId",
         "w15:chartTrackingRefBased",
         "w15:docId",
+    )
+    writeProtection: CT_WriteProtection | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
+        "w:writeProtection", successors=_tag_seq[1:]
     )
     view: CT_View | None = ZeroOrOne(  # pyright: ignore[reportAssignmentType]
         "w:view", successors=_tag_seq[2:]

@@ -47,7 +47,8 @@ if TYPE_CHECKING:
     from docx.parts.document import DocumentPart
     from docx.permissions import PermissionRange
     from docx.search import SearchMatch
-    from docx.settings import Settings
+    from docx.enum.text import WD_PROTECTION
+    from docx.settings import DocumentProtection, Settings
     from docx.signatures import SignatureInfo
     from docx.smart_art import SmartArt
     from docx.statistics import DocumentStatistics
@@ -2021,6 +2022,43 @@ class Document(ElementProxy):
     def settings(self) -> Settings:
         """A |Settings| object providing access to the document-level settings."""
         return self._part.settings
+
+    def protect(
+        self,
+        edit_mode: "WD_PROTECTION | None" = None,
+        password: str | None = None,
+        enforcement: bool = True,
+    ) -> DocumentProtection:
+        """Apply document protection in one call.
+
+        Populates ``w:documentProtection`` with ``@w:edit=<edit_mode>`` and
+        ``@w:enforcement=<enforcement>``. When `password` is given, the
+        password is hashed with Word's legacy SHA-1 algorithm (using a fresh
+        random salt and 100,000 iterations) and written to the ``@w:hash``,
+        ``@w:salt``, and ``@w:crypt*`` attributes. `edit_mode` defaults to
+        :attr:`WD_PROTECTION.READ_ONLY`.
+
+        Returns the :class:`DocumentProtection` proxy for further tuning.
+
+        .. versionadded:: 2026.05.10
+        """
+        from docx.enum.text import WD_PROTECTION
+
+        mode = WD_PROTECTION.READ_ONLY if edit_mode is None else edit_mode
+        return self.settings.enable_protection(
+            mode=mode, enforce=enforcement, password=password
+        )
+
+    def unprotect(self) -> None:
+        """Remove document protection, clearing ``w:documentProtection``.
+
+        Equivalent to :meth:`Settings.disable_protection`. Leaves any
+        ``w:writeProtection`` element untouched; call
+        :meth:`Settings.disable_write_protection` separately to clear that.
+
+        .. versionadded:: 2026.05.10
+        """
+        self.settings.disable_protection()
 
     @property
     def statistics(self) -> DocumentStatistics:

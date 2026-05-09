@@ -1558,6 +1558,7 @@ document.save("out.docx")
 - `Settings.mail_merge` / `.enable_mail_merge(...)` / `.disable_mail_merge()` — See [Mail merge](#mail-merge). `[Added in 2026.05.0]`
 - `Settings.footnote_properties` / `Settings.endnote_properties` / `Settings.add_*` / `Settings.remove_*` — Document-level note properties. `[Added in 2026.05.0]`
 - `Settings.document_protection` / `Settings.enable_protection(mode, password=None)` / `Settings.disable_protection()` — See [Permissions](#permissions-and-protection). `[Added in 2026.05.0]`
+- `Settings.write_protection` / `Settings.enable_write_protection(recommended=False, password=None)` / `Settings.disable_write_protection()` — Password-to-modify (`w:writeProtection`). `[Added in 2026.05.10]`
 - `CompatSettings` / `CompatFlags` / `DocVars` — Dict-like subtype helpers. `[Added in 2026.05.0]`
 - Enums: `WD_VIEW`, `WD_PROTECTION`, `WD_MAIL_MERGE_TYPE`, `WD_MAIL_MERGE_DESTINATION`.
 
@@ -1592,19 +1593,27 @@ if theme is not None:
 
 Document-wide protection (read-only, filling-forms, comments,
 tracked-changes) is controlled through `Settings.document_protection` and
-its `enable_protection()` / `disable_protection()` helpers. Range-level
-permissions (`w:permStart`/`w:permEnd`) restrict edits to a specific user
-or group within the document. `[Added in 2026.05.0]` across the board.
+its `enable_protection()` / `disable_protection()` helpers, or the
+`Document.protect()` / `Document.unprotect()` shortcuts. A separate
+`Settings.write_protection` proxy drives the password-to-modify
+(`w:writeProtection`) marker, which Word reads as "read-only recommended"
+and enforces on save. Range-level permissions
+(`w:permStart`/`w:permEnd`) restrict edits to a specific user or group
+within the document. `[Added in 2026.05.0]` across the board;
+`Document.protect/unprotect` and `WriteProtection` are
+`[Added in 2026.05.10]`.
 
 ```python
 from docx import Document
-from docx.settings import WD_PROTECTION
+from docx.enum.text import WD_PROTECTION
 
 document = Document()
 
-# global: only allow tracked-changes edits
-document.settings.enable_protection(WD_PROTECTION.TRACKED_CHANGES,
-                                    password="s3cret!")
+# global edit-lock: only allow tracked-changes edits, passworded
+document.protect(WD_PROTECTION.TRACKED_CHANGES, password="s3cret!")
+
+# password-to-modify (independent of the edit lock)
+document.settings.enable_write_protection(recommended=True, password="saveP!")
 
 # range-level: a paragraph only editable by "alex@example.com"
 p = document.add_paragraph("Restricted section.")
@@ -1613,16 +1622,21 @@ p.add_permission_range(user="alex@example.com")
 for pr in document.permission_ranges:
     print(pr.id, pr.user, pr.edit_group)
 
+document.unprotect()  # clears documentProtection, leaves writeProtection
 document.save("out.docx")
 ```
 
 - `Settings.document_protection` — `DocumentProtection` proxy. `[Added in 2026.05.0]`
 - `DocumentProtection.mode` / `.enforce` / `.formatting_locked` / `.password_hash` / `.password_salt` / `.crypto_*` / `.spin_count` — Read/write. `.set_password(password)` hashes with Word's algorithm. `[Added in 2026.05.0]`
 - `Settings.enable_protection(mode, password=None)` / `Settings.disable_protection()` — High-level shortcuts. `[Added in 2026.05.0]`
+- `Document.protect(edit_mode=None, password=None, enforcement=True)` / `Document.unprotect()` — Document-level shortcuts wrapping the settings helpers. `[Added in 2026.05.10]`
+- `Settings.write_protection` — `WriteProtection` proxy over `w:writeProtection`. `[Added in 2026.05.10]`
+- `WriteProtection.recommended_read_only` / `.enforcement` / `.password_hash` / `.password_salt` / `.crypto_*` / `.spin_count` / `.present` — Read/write. `.set_password(password)` applies Word's SHA-1 password algorithm. `[Added in 2026.05.10]`
+- `Settings.enable_write_protection(recommended=False, password=None)` / `Settings.disable_write_protection()` — High-level shortcuts. `[Added in 2026.05.10]`
 - `Paragraph.add_permission_range(name=None, user=None, edit_group=None)` — Wrap a paragraph in a `w:permStart`. `[Added in 2026.05.0]`
 - `Paragraph.permission_ranges` / `Document.permission_ranges` — Collections. `[Added in 2026.05.0]`
 - `PermissionRange.id` / `.user` / `.edit_group` / `.displaced_by_custom_xml` / `.delete()`. `[Added in 2026.05.0]`
-- Enum: `WD_PROTECTION` (`NONE`, `READ_ONLY`, `COMMENTS`, `TRACKED_CHANGES`, `FORMS`). `[Added in 2026.05.0]`
+- Enum: `WD_PROTECTION` (`READ_ONLY`, `COMMENTS`, `TRACKED_CHANGES`, `FORMS`). `[Added in 2026.05.0]`
 
 ---
 
