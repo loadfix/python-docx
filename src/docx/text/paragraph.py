@@ -11,7 +11,15 @@ from docx.enum.section import WD_SECTION_START
 from docx.enum.shape import WD_ANCHOR_H, WD_ANCHOR_V, WD_SHAPE, WD_WRAP_TYPE
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_BREAK
-from docx.fields import CrossReference, Field, build_cross_reference_instruction
+from docx.fields import (
+    CrossReference,
+    Field,
+    TableOfAuthoritiesField,
+    TableOfFiguresField,
+    TocField,
+    build_cross_reference_instruction,
+    build_toc_field_instruction,
+)
 from docx.form_fields import FormField
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml.drawing import CT_Drawing
@@ -520,6 +528,136 @@ class Paragraph(StoryChild):
         field = self.add_complex_field(instruction, cached_result)
         # -- return a CrossReference view of the same element --
         return CrossReference(field._kind, field._element)  # pyright: ignore[reportPrivateUsage]
+
+    def add_toc(
+        self,
+        heading_range: "tuple[int, int] | None" = (1, 3),
+        hyperlinks: bool = True,
+        hide_in_web: bool = True,
+        use_outline_levels: bool = True,
+        omit_page_numbers_range: "tuple[int, int] | None" = None,
+        separator: str | None = None,
+        custom_styles: "list[tuple[str, int]] | None" = None,
+        bookmark_name: str | None = None,
+        cached_result: str | None = None,
+        mark_dirty: bool = True,
+    ) -> TocField:
+        """Append a ``TOC`` complex field to this paragraph and return it.
+
+        Typed builder for the conventional Table-of-Contents switches (see
+        :func:`docx.fields.build_toc_field_instruction` for the full list).
+        The default arguments match the instruction Word writes when a user
+        picks *References ▸ Table of Contents ▸ Automatic Table* — heading
+        levels 1–3, hyperlinks enabled, hidden in web view, and paragraphs
+        with applied outline levels included in addition to the built-in
+        ``Heading N`` styles.
+
+        Pass ``heading_range=None`` to omit the ``\\o`` switch entirely
+        (unusual — Word always emits some outline-level range). Pass
+        ``omit_page_numbers_range=(0, 0)`` to emit a bare ``\\n`` switch
+        meaning "suppress page numbers for every level". `separator`
+        overrides the tab character between entry text and page number.
+        `custom_styles` maps ``Quote``-style paragraphs to TOC levels and
+        emits ``\\t "Quote,1,Intense Quote,2"``.
+
+        `cached_result` is the rendered text to insert between the
+        ``separate`` and ``end`` markers (preview only — Word rebuilds the
+        TOC on open). `mark_dirty` sets ``@w:dirty="true"`` on the ``begin``
+        ``w:fldChar`` so Word recomputes the TOC the next time it renders.
+
+        Returns a |TocField| proxy sharing the underlying element.
+
+        .. versionadded:: 2026.05.10
+        """
+        instruction = build_toc_field_instruction(
+            field_type="TOC",
+            heading_range=heading_range,
+            hyperlinks=hyperlinks,
+            hide_in_web=hide_in_web,
+            use_outline_levels=use_outline_levels,
+            omit_page_numbers_range=omit_page_numbers_range,
+            separator=separator,
+            custom_styles=custom_styles,
+            bookmark_name=bookmark_name,
+        )
+        field = self.add_complex_field(instruction, cached_result)
+        toc = TocField(field._kind, field._element)  # pyright: ignore[reportPrivateUsage]
+        if mark_dirty:
+            toc.mark_dirty()
+        return toc
+
+    def add_table_of_figures(
+        self,
+        caption_label: str = "Figure",
+        hyperlinks: bool = True,
+        cached_result: str | None = None,
+        mark_dirty: bool = True,
+    ) -> TableOfFiguresField:
+        """Append a *List of Figures* ``TOC \\c "<label>"`` field.
+
+        Emits the ``TOC`` variant Word uses for List of Figures / List of
+        Tables: a ``TOC`` instruction with a ``\\c "<caption_label>"``
+        switch and no outline-level range (``\\o``). `caption_label`
+        selects which captioned items are included — ``"Figure"`` (the
+        default), ``"Table"``, or any caption label in the document.
+
+        Returns a |TableOfFiguresField| subclass of :class:`TocField`.
+
+        .. versionadded:: 2026.05.10
+        """
+        instruction = build_toc_field_instruction(
+            field_type="TOC",
+            heading_range=None,
+            hyperlinks=hyperlinks,
+            hide_in_web=False,
+            use_outline_levels=False,
+            caption_label=caption_label,
+        )
+        field = self.add_complex_field(instruction, cached_result)
+        tof = TableOfFiguresField(
+            field._kind, field._element  # pyright: ignore[reportPrivateUsage]
+        )
+        if mark_dirty:
+            tof.mark_dirty()
+        return tof
+
+    def add_table_of_authorities(
+        self,
+        category: int | None = None,
+        hyperlinks: bool = False,
+        cached_result: str | None = None,
+        mark_dirty: bool = True,
+    ) -> TableOfAuthoritiesField:
+        """Append a *Table of Authorities* (``TOA``) complex field.
+
+        A TOA field builds a legal-brief-style list of citations. Word's
+        TOA dialog generates a ``TOA \\c "N" \\h`` instruction where ``N``
+        is a category number (1 = Cases, 2 = Statutes, 3 = Other
+        Authorities, …). When `category` is |None| no ``\\c`` switch is
+        emitted — Word interprets that as "include every category".
+
+        Returns a |TableOfAuthoritiesField| subclass of :class:`TocField`.
+
+        .. versionadded:: 2026.05.10
+        """
+        extras: list[str] = []
+        if category is not None:
+            extras.append(f'\\c "{category}"')
+        instruction = build_toc_field_instruction(
+            field_type="TOA",
+            heading_range=None,
+            hyperlinks=hyperlinks,
+            hide_in_web=False,
+            use_outline_levels=False,
+            extra_switches=extras or None,
+        )
+        field = self.add_complex_field(instruction, cached_result)
+        toa = TableOfAuthoritiesField(
+            field._kind, field._element  # pyright: ignore[reportPrivateUsage]
+        )
+        if mark_dirty:
+            toa.mark_dirty()
+        return toa
 
     def add_text_form_field(
         self,

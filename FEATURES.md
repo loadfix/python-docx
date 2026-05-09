@@ -1120,6 +1120,12 @@ document.save("out.docx")
 - `Paragraph.add_cross_reference(ref_type, target_name, insert_as_hyperlink=False, insert_paragraph_number=False, insert_relative_position=False, cached_result=None)` — Typed builder for `REF`, `PAGEREF`, `NOTEREF`, `SEQREF`, `STYLEREF` complex fields. Builds the instruction string, quoting names with spaces, and emits the `\h` / `\r` / `\p` switches when requested. Returns a `CrossReference`. `[Added in 2026.05.10]`
 - `CrossReference` (subclass of `Field`) — proxy for REF-family fields exposing `ref_type`, `target_name`, `insert_as_hyperlink`, `insert_paragraph_number`, `insert_relative_position`, and `target_bookmark(document) -> Bookmark | None`. Obtainable from any `Field` via `Field.as_cross_reference`. `[Added in 2026.05.10]`
 - `build_cross_reference_instruction(ref_type, target_name, insert_as_hyperlink=False, insert_paragraph_number=False, insert_relative_position=False, extra_switches=None)` — Standalone helper returning the field-code string (e.g. `'REF heading1 \\h \\r'`). Quotes names that contain characters outside `[A-Za-z0-9_]`. `[Added in 2026.05.10]`
+- `Paragraph.add_toc(heading_range=(1, 3), hyperlinks=True, hide_in_web=True, use_outline_levels=True, omit_page_numbers_range=None, separator=None, custom_styles=None, bookmark_name=None, cached_result=None, mark_dirty=True)` — Typed builder for a `TOC` complex field. Emits the conventional `\o "min-max" \h \z \u` switches plus the optional `\n`, `\p`, `\t`, `\b` switches. Returns a `TocField`. `[Added in 2026.05.10]`
+- `Paragraph.add_table_of_figures(caption_label="Figure", hyperlinks=True, cached_result=None, mark_dirty=True)` — Emits a `TOC \c "<label>" \h` field (the shape Word uses for *List of Figures* / *List of Tables*). Returns a `TableOfFiguresField`. `[Added in 2026.05.10]`
+- `Paragraph.add_table_of_authorities(category=None, hyperlinks=False, cached_result=None, mark_dirty=True)` — Emits a `TOA` field for legal briefs. Returns a `TableOfAuthoritiesField` with a `.category` accessor. `[Added in 2026.05.10]`
+- `TocField` (subclass of `Field`) — proxy for TOC-family fields exposing `heading_range: tuple[int,int] | None`, `hyperlinks_enabled: bool`, `hide_in_web: bool`, `use_outline_levels: bool`, `omit_page_numbers_range: tuple[int,int] | None`, `separator: str | None`, `custom_styles: list[tuple[str,int]]`, `caption_label: str | None`, `bookmark_name: str | None`. Subclasses: `TableOfFiguresField` (for `TOC \c "<label>"` and bare `TOF`) and `TableOfAuthoritiesField` (for `TOA`, adding a `.category: int | None`). Obtainable from any `Field` via `Field.as_toc`. `[Added in 2026.05.10]`
+- `build_toc_field_instruction(field_type="TOC", heading_range=(1, 3), hyperlinks=True, hide_in_web=True, use_outline_levels=True, omit_page_numbers_range=None, separator=None, custom_styles=None, caption_label=None, bookmark_name=None, extra_switches=None)` — Standalone helper returning the TOC field-code string (e.g. `'TOC \\o "1-3" \\h \\z \\u'`). `[Added in 2026.05.10]`
+- `parse_toc_instruction(text)` — TOC-specific parser. Unlike `parse_field_instruction`, treats `\o`, `\n`, `\p`, `\t`, `\c`, `\b`, `\s`, `\l`, `\d`, `\e`, `\g`, `\a` as argument-taking (per ECMA-376 § 17.16.5.68) so `\o "1-3"` round-trips as `switches["O"] == "1-3"` rather than spilling into positional args. `[Added in 2026.05.10]`
 - `Paragraph.fields` — Mixed list of simple and complex fields. `[Added in 2026.05.0]`
 - `Document.fields` — All fields in the body (simple + complex) in document order. `[Added in 2026.05.10]`
 - `Run.parent_field` — The enclosing complex |Field| when this run sits between a `begin` and `end` marker, else `None`. `[Added in 2026.05.10]`
@@ -1194,6 +1200,21 @@ document.save("out.docx")
 - `Paragraph.insert_table_of_contents_before(levels=(1,3))` / `insert_table_of_contents_after(...)` — Place TOC adjacent to a paragraph. `[Added in 2026.05.0]`
 - `Document.add_list_of_figures(caption_label="Figure")` / `Document.add_list_of_tables(caption_label="Table")` — `[Added in 2026.05.0]`
 - `Document.include_sdt_flat` iteration flag on `iter_inner_content()` surfaces TOC-wrapper content. `[Added in 2026.05.0]`
+- `Paragraph.add_toc(...)` / `Paragraph.add_table_of_figures(...)` / `Paragraph.add_table_of_authorities(...)` — Typed TOC / TOF / TOA builders with full switch coverage. Each returns a `TocField` subclass so callers can inspect `heading_range`, `custom_styles`, `caption_label`, `category`, etc. without reparsing the instruction text. See the *Fields and cross-references* section for the full signature. `[Added in 2026.05.10]`
+
+```python
+# typed TOC with custom-style mapping and restricted heading range
+document = Document()
+toc = document.paragraphs[-1].add_toc(
+    heading_range=(1, 4),
+    custom_styles=[("Quote", 2), ("Intense Quote", 3)],
+    separator="-",
+)
+assert toc.heading_range == (1, 4)
+assert toc.hyperlinks_enabled is True
+assert toc.custom_styles == [("Quote", 2), ("Intense Quote", 3)]
+assert toc.is_dirty is True  # → Word re-renders on open
+```
 
 ---
 

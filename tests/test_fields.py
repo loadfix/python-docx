@@ -1473,3 +1473,502 @@ class DescribeField_as_cross_reference:
         field = Field.for_simple(fldSimple)
 
         assert field.as_cross_reference is None
+
+
+# -- Table-of-contents family (R8-1) -------------------------------------
+
+
+class DescribeParseTocInstruction:
+    """`docx.fields.parse_toc_instruction` TOC-aware parser."""
+
+    def it_parses_outline_range_as_switch_argument(self):
+        from docx.fields import parse_toc_instruction
+
+        parsed = parse_toc_instruction('TOC \\o "1-3" \\h \\z \\u')
+        assert parsed.name == "TOC"
+        # -- \o is argument-taking in a TOC context; it picks up "1-3" --
+        assert parsed.switches == {"O": "1-3", "H": "", "Z": "", "U": ""}
+        # -- nothing spills into args --
+        assert parsed.args == []
+
+    def it_records_custom_styles_verbatim_in_t_switch(self):
+        from docx.fields import parse_toc_instruction
+
+        parsed = parse_toc_instruction(
+            'TOC \\o "1-3" \\t "Quote,1,Intense Quote,2"'
+        )
+        assert parsed.switches["T"] == "Quote,1,Intense Quote,2"
+
+    def it_treats_bare_n_switch_as_flag(self):
+        from docx.fields import parse_toc_instruction
+
+        parsed = parse_toc_instruction('TOC \\o "1-3" \\n')
+        assert parsed.switches == {"O": "1-3", "N": ""}
+
+    def it_parses_n_switch_range_when_followed_by_argument(self):
+        from docx.fields import parse_toc_instruction
+
+        parsed = parse_toc_instruction('TOC \\o "1-3" \\n "3-5"')
+        assert parsed.switches["N"] == "3-5"
+
+    def it_parses_caption_label_c_switch(self):
+        from docx.fields import parse_toc_instruction
+
+        parsed = parse_toc_instruction('TOC \\c "Figure"')
+        assert parsed.switches == {"C": "Figure"}
+
+    def it_parses_bookmark_b_switch(self):
+        from docx.fields import parse_toc_instruction
+
+        parsed = parse_toc_instruction('TOC \\b "Chapter1" \\o "1-3"')
+        assert parsed.switches["B"] == "Chapter1"
+        assert parsed.switches["O"] == "1-3"
+
+    def it_parses_separator_p_switch(self):
+        from docx.fields import parse_toc_instruction
+
+        parsed = parse_toc_instruction('TOC \\o "1-3" \\p "..."')
+        assert parsed.switches["P"] == "..."
+
+
+class DescribeBuildTocFieldInstruction:
+    """`docx.fields.build_toc_field_instruction` builder."""
+
+    def it_builds_word_default_toc_instruction(self):
+        from docx.fields import build_toc_field_instruction
+
+        assert (
+            build_toc_field_instruction()
+            == 'TOC \\o "1-3" \\h \\z \\u'
+        )
+
+    def it_respects_explicit_heading_range(self):
+        from docx.fields import build_toc_field_instruction
+
+        instr = build_toc_field_instruction(heading_range=(2, 4))
+        assert '\\o "2-4"' in instr
+
+    def it_omits_heading_range_switch_when_None(self):
+        from docx.fields import build_toc_field_instruction
+
+        instr = build_toc_field_instruction(heading_range=None)
+        assert "\\o" not in instr
+
+    def it_emits_custom_styles_as_comma_list(self):
+        from docx.fields import build_toc_field_instruction
+
+        instr = build_toc_field_instruction(
+            custom_styles=[("Quote", 1), ("Intense Quote", 2)],
+        )
+        assert '\\t "Quote,1,Intense Quote,2"' in instr
+
+    def it_emits_caption_label_switch(self):
+        from docx.fields import build_toc_field_instruction
+
+        instr = build_toc_field_instruction(
+            heading_range=None,
+            hyperlinks=False,
+            hide_in_web=False,
+            use_outline_levels=False,
+            caption_label="Figure",
+        )
+        assert instr == 'TOC \\c "Figure"'
+
+    def it_emits_bare_n_switch_for_zero_zero_range(self):
+        from docx.fields import build_toc_field_instruction
+
+        instr = build_toc_field_instruction(
+            heading_range=(1, 3), omit_page_numbers_range=(0, 0)
+        )
+        assert "\\n" in instr
+        assert '\\n "' not in instr  # -- bare, no argument --
+
+    def it_emits_n_switch_with_quoted_range(self):
+        from docx.fields import build_toc_field_instruction
+
+        instr = build_toc_field_instruction(
+            heading_range=(1, 5), omit_page_numbers_range=(3, 5)
+        )
+        assert '\\n "3-5"' in instr
+
+    def it_emits_bookmark_name_switch(self):
+        from docx.fields import build_toc_field_instruction
+
+        instr = build_toc_field_instruction(bookmark_name="Chapter1")
+        assert '\\b "Chapter1"' in instr
+
+    def it_emits_separator_switch(self):
+        from docx.fields import build_toc_field_instruction
+
+        instr = build_toc_field_instruction(separator="-")
+        assert '\\p "-"' in instr
+
+    def it_appends_extra_switches_verbatim(self):
+        from docx.fields import build_toc_field_instruction
+
+        instr = build_toc_field_instruction(extra_switches=["\\w", "\\x"])
+        assert instr.endswith("\\w \\x")
+
+    def it_uppercases_field_type(self):
+        from docx.fields import build_toc_field_instruction
+
+        instr = build_toc_field_instruction(field_type="toc", heading_range=None)
+        assert instr.startswith("TOC")
+
+    def it_accepts_toa_and_tof(self):
+        from docx.fields import build_toc_field_instruction
+
+        assert build_toc_field_instruction(
+            field_type="TOA",
+            heading_range=None,
+            hyperlinks=False,
+            hide_in_web=False,
+            use_outline_levels=False,
+        ) == "TOA"
+        assert build_toc_field_instruction(
+            field_type="TOF",
+            heading_range=None,
+            hyperlinks=False,
+            hide_in_web=False,
+            use_outline_levels=False,
+        ) == "TOF"
+
+    def it_raises_on_unknown_field_type(self):
+        from docx.fields import build_toc_field_instruction
+
+        with pytest.raises(ValueError):
+            build_toc_field_instruction(field_type="WEIRD")
+
+    def it_raises_on_bad_heading_range(self):
+        from docx.fields import build_toc_field_instruction
+
+        with pytest.raises(ValueError):
+            build_toc_field_instruction(heading_range=(5, 2))
+
+    def it_raises_on_bad_omit_page_numbers_range(self):
+        from docx.fields import build_toc_field_instruction
+
+        with pytest.raises(ValueError):
+            build_toc_field_instruction(omit_page_numbers_range=(5, 2))
+
+
+class DescribeParagraph_add_toc:
+    """`paragraph.add_toc()` TOC field emitter."""
+
+    def it_emits_a_TOC_field_with_word_defaults(self):
+        from docx.fields import TocField
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        toc = para.add_toc()
+        assert isinstance(toc, TocField)
+        assert toc.is_complex is True
+        assert toc.heading_range == (1, 3)
+        assert toc.hyperlinks_enabled is True
+        assert toc.hide_in_web is True
+        assert toc.use_outline_levels is True
+
+    def it_marks_the_field_dirty_by_default(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        toc = para.add_toc()
+        assert toc.is_dirty is True
+
+    def it_skips_the_dirty_flag_when_asked(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        toc = para.add_toc(mark_dirty=False)
+        assert toc.is_dirty is False
+
+    def it_respects_heading_range_argument(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        toc = para.add_toc(heading_range=(2, 5))
+        assert toc.heading_range == (2, 5)
+
+    def it_passes_custom_styles_through(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        toc = para.add_toc(
+            custom_styles=[("Quote", 1), ("Intense Quote", 2)]
+        )
+        assert toc.custom_styles == [("Quote", 1), ("Intense Quote", 2)]
+
+    def it_passes_bookmark_name_through(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        toc = para.add_toc(bookmark_name="Chapter1")
+        assert toc.bookmark_name == "Chapter1"
+
+    def it_passes_separator_through(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        toc = para.add_toc(separator="-")
+        assert toc.separator == "-"
+
+    def it_emits_omit_page_numbers_bare_n_for_all_levels(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        toc = para.add_toc(omit_page_numbers_range=(0, 0))
+        assert toc.omit_page_numbers_range == (0, 0)
+
+    def it_emits_omit_page_numbers_range(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        toc = para.add_toc(omit_page_numbers_range=(3, 5))
+        assert toc.omit_page_numbers_range == (3, 5)
+
+    def it_stores_cached_result_between_separate_and_end(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        toc = para.add_toc(cached_result="Heading One\t1\nHeading Two\t2")
+        assert "Heading One" in toc.result_text
+        assert "Heading Two" in toc.result_text
+
+
+class DescribeParagraph_add_table_of_figures:
+    """`paragraph.add_table_of_figures()` emitter."""
+
+    def it_emits_a_TOC_with_caption_label(self):
+        from docx.fields import TableOfFiguresField, TocField
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        tof = para.add_table_of_figures(caption_label="Figure")
+        assert isinstance(tof, TableOfFiguresField)
+        assert isinstance(tof, TocField)
+        assert tof.caption_label == "Figure"
+        # -- type is still "TOC" (the \c shape distinguishes it) --
+        assert tof.type == "TOC"
+
+    def it_defaults_caption_label_to_Figure(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        tof = para.add_table_of_figures()
+        assert tof.caption_label == "Figure"
+
+    def it_accepts_arbitrary_caption_labels(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        tof = para.add_table_of_figures(caption_label="Illustration")
+        assert tof.caption_label == "Illustration"
+
+
+class DescribeParagraph_add_table_of_authorities:
+    """`paragraph.add_table_of_authorities()` emitter."""
+
+    def it_emits_a_TOA_field(self):
+        from docx.fields import TableOfAuthoritiesField
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        toa = para.add_table_of_authorities(category=1)
+        assert isinstance(toa, TableOfAuthoritiesField)
+        assert toa.type == "TOA"
+        assert toa.category == 1
+
+    def it_omits_category_switch_when_category_is_None(self):
+        from docx.text.paragraph import Paragraph
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        toa = para.add_table_of_authorities()
+        assert toa.category is None
+        assert "\\c" not in toa.instruction
+
+
+class DescribeTocField_properties:
+    """`TocField` switch accessors against synthetic fldSimple elements."""
+
+    def _toc(self, instr: str):
+        from docx.fields import TocField
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), instr)
+        return TocField("simple", fldSimple)
+
+    def it_reads_heading_range_from_o_switch(self):
+        toc = self._toc('TOC \\o "1-3" \\h')
+        assert toc.heading_range == (1, 3)
+
+    def it_returns_None_heading_range_when_o_absent(self):
+        toc = self._toc("TOC \\h")
+        assert toc.heading_range is None
+
+    def it_returns_None_heading_range_when_o_malformed(self):
+        toc = self._toc('TOC \\o "badrange"')
+        assert toc.heading_range is None
+
+    def it_reads_flag_switches(self):
+        toc = self._toc('TOC \\o "1-3" \\h \\z \\u')
+        assert toc.hyperlinks_enabled is True
+        assert toc.hide_in_web is True
+        assert toc.use_outline_levels is True
+
+    def it_returns_False_for_missing_flag_switches(self):
+        toc = self._toc('TOC \\o "1-3"')
+        assert toc.hyperlinks_enabled is False
+        assert toc.hide_in_web is False
+        assert toc.use_outline_levels is False
+
+    def it_parses_case_insensitive_switch_letters(self):
+        toc = self._toc('TOC \\o "1-3" \\H \\Z \\U')
+        assert toc.hyperlinks_enabled is True
+        assert toc.hide_in_web is True
+        assert toc.use_outline_levels is True
+
+    def it_reads_custom_styles_from_t_switch(self):
+        toc = self._toc('TOC \\t "Quote,1,Intense Quote,2"')
+        assert toc.custom_styles == [("Quote", 1), ("Intense Quote", 2)]
+
+    def it_returns_empty_custom_styles_for_malformed_t(self):
+        toc = self._toc('TOC \\t "oddnumberoftokens"')
+        assert toc.custom_styles == []
+
+    def it_reads_bookmark_name_from_b_switch(self):
+        toc = self._toc('TOC \\b "MyChapter" \\o "1-3"')
+        assert toc.bookmark_name == "MyChapter"
+
+    def it_returns_None_bookmark_when_b_absent(self):
+        toc = self._toc('TOC \\o "1-3"')
+        assert toc.bookmark_name is None
+
+    def it_reads_separator_from_p_switch(self):
+        toc = self._toc('TOC \\o "1-3" \\p "..."')
+        assert toc.separator == "..."
+
+    def it_reads_caption_label_from_c_switch(self):
+        toc = self._toc('TOC \\c "Figure"')
+        assert toc.caption_label == "Figure"
+
+    def it_returns_zero_tuple_for_bare_n_switch(self):
+        toc = self._toc('TOC \\o "1-3" \\n')
+        assert toc.omit_page_numbers_range == (0, 0)
+
+    def it_returns_range_for_n_switch_with_argument(self):
+        toc = self._toc('TOC \\o "1-5" \\n "3-5"')
+        assert toc.omit_page_numbers_range == (3, 5)
+
+    def it_returns_None_when_n_absent(self):
+        toc = self._toc('TOC \\o "1-3"')
+        assert toc.omit_page_numbers_range is None
+
+
+class DescribeTocField_round_trip:
+    """`TocField` survives serialise/reparse."""
+
+    def it_round_trips_all_switches_through_xml(self):
+        from docx.fields import TocField
+        from docx.oxml.parser import parse_xml
+        from docx.text.paragraph import Paragraph
+        from lxml import etree
+
+        p = cast(CT_P, element("w:p"))
+        para = Paragraph(p, None)  # type: ignore[arg-type]
+        para.add_toc(
+            heading_range=(1, 4),
+            hyperlinks=True,
+            hide_in_web=True,
+            use_outline_levels=False,
+            omit_page_numbers_range=(3, 4),
+            separator="-",
+            custom_styles=[("Quote", 1), ("Intense Quote", 2)],
+            bookmark_name="Chapter1",
+        )
+
+        xml = etree.tostring(p, pretty_print=False).decode()
+        reparsed = cast(CT_P, parse_xml(xml))
+        begin_run = reparsed.xpath(
+            ".//w:fldChar[@w:fldCharType='begin']/parent::w:r"
+        )[0]
+        toc = TocField("complex", begin_run)
+
+        assert toc.heading_range == (1, 4)
+        assert toc.hyperlinks_enabled is True
+        assert toc.hide_in_web is True
+        assert toc.use_outline_levels is False
+        assert toc.omit_page_numbers_range == (3, 4)
+        assert toc.separator == "-"
+        assert toc.custom_styles == [("Quote", 1), ("Intense Quote", 2)]
+        assert toc.bookmark_name == "Chapter1"
+
+
+class DescribeField_as_toc:
+    """`Field.as_toc` upcast accessor."""
+
+    def it_returns_a_TocField_for_plain_TOC(self):
+        from docx.fields import Field, TableOfFiguresField, TocField
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), 'TOC \\o "1-3" \\h')
+        toc = Field.for_simple(fldSimple).as_toc
+        assert isinstance(toc, TocField)
+        assert not isinstance(toc, TableOfFiguresField)
+
+    def it_returns_TableOfFiguresField_for_TOC_with_c_switch(self):
+        from docx.fields import Field, TableOfFiguresField
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), 'TOC \\c "Figure"')
+        toc = Field.for_simple(fldSimple).as_toc
+        assert isinstance(toc, TableOfFiguresField)
+
+    def it_returns_TableOfAuthoritiesField_for_TOA(self):
+        from docx.fields import Field, TableOfAuthoritiesField
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), 'TOA \\c "1"')
+        toc = Field.for_simple(fldSimple).as_toc
+        assert isinstance(toc, TableOfAuthoritiesField)
+
+    def it_returns_TableOfFiguresField_for_bare_TOF(self):
+        from docx.fields import Field, TableOfFiguresField
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), "TOF")
+        toc = Field.for_simple(fldSimple).as_toc
+        assert isinstance(toc, TableOfFiguresField)
+
+    def it_returns_None_for_non_TOC_fields(self):
+        from docx.fields import Field
+        from docx.oxml.ns import qn
+        from docx.oxml.parser import OxmlElement
+
+        fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
+        fldSimple.set(qn("w:instr"), "REF Ref1")
+        assert Field.for_simple(fldSimple).as_toc is None

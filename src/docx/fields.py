@@ -387,6 +387,22 @@ class Field:
         return _wrap_as_cross_reference(self)
 
     @property
+    def as_toc(self) -> "TocField | None":
+        """Return a :class:`TocField` view of this field, or |None|.
+
+        Returns a :class:`TableOfFiguresField` when the instruction is a
+        ``TOC \\c "label"`` variant, a :class:`TableOfAuthoritiesField`
+        when the field type is ``TOA``, a plain :class:`TocField` for
+        ordinary ``TOC`` fields, and |None| for everything else. The
+        returned object shares the same underlying XML element, so writes
+        (e.g. :meth:`update_result_text`, :meth:`mark_dirty`) propagate
+        back to the document.
+
+        .. versionadded:: 2026.05.10
+        """
+        return _wrap_as_toc(self)
+
+    @property
     def is_dirty(self) -> bool:
         """True when this field is marked dirty (``@w:dirty="true"``).
 
@@ -1211,3 +1227,457 @@ def _wrap_as_cross_reference(field: "Field") -> "CrossReference | None":
     if field.type.upper() not in _CROSS_REFERENCE_TYPES:
         return None
     return CrossReference(field._kind, field._element)  # pyright: ignore[reportPrivateUsage]
+
+
+# -- Table-of-contents family -------------------------------------------
+
+
+_TOC_FIELD_TYPES = frozenset({"TOC", "TOA", "TOF"})
+
+# -- switches that take an argument in a TOC / TOA / TOF instruction,
+#    per ECMA-376 § 17.16.5.68 (TOC), § 17.16.5.69 (TOA), § 17.16.5.70
+#    (TOF). These override the generic `_ARG_TAKING_SWITCHES` for
+#    field-specific parsing — in a REF field `\p` is a flag, in a TOC
+#    field `\p` takes a string argument (the separator). --
+_TOC_ARG_TAKING_SWITCHES = frozenset(
+    {
+        "a",  # \a: category abbreviation (TOA)
+        "b",  # \b: bookmark name (TOC)
+        "c",  # \c: caption label (TOC) / category number (TOA)
+        "d",  # \d: separator between seq and page (TOC)
+        "e",  # \e: entry separator (TOC with TC fields)
+        "f",  # \f: TC-field ident filter (TOC)
+        "g",  # \g: TOA sequence separator
+        "l",  # \l: TC-field level range (TOC) / TOA levels
+        "n",  # \n: omit-page-numbers range (TOC)
+        "o",  # \o: outline-level range (TOC)
+        "p",  # \p: separator (TOC) / passim text (TOA)
+        "s",  # \s: sequence identifier (TOC)
+        "t",  # \t: custom-style list (TOC)
+    }
+)
+
+
+def parse_toc_instruction(instruction: str) -> ParsedFieldInstruction:
+    """Parse a TOC / TOA / TOF instruction using TOC-specific switch rules.
+
+    The generic :func:`parse_field_instruction` treats only ``\\*``, ``\\@``,
+    ``\\#``, ``\\f`` as argument-taking. TOC fields extend the
+    argument-taking set to ``\\a``, ``\\b``, ``\\c``, ``\\d``, ``\\e``,
+    ``\\f``, ``\\g``, ``\\l``, ``\\n``, ``\\o``, ``\\p``, ``\\s``, ``\\t``.
+    This parser honours the extended set so a switch-value like
+    ``\\o "1-3"`` round-trips as ``switches["O"] == "1-3"`` instead of
+    spilling into positional arguments.
+
+    The ``\\n`` switch is special: it may appear with or without an
+    argument (Word's "suppress page numbers everywhere" form is a bare
+    ``\\n``). When the next token starts with a backslash, ``\\n`` is
+    treated as a flag and recorded as ``switches["N"] == ""``.
+
+    .. versionadded:: 2026.05.10
+    """
+    stripped = instruction.strip()
+    if not stripped:
+        return ParsedFieldInstruction(name="", args=[], switches={})
+
+    tokens = _tokenize_field_args(stripped)
+    if not tokens:
+        return ParsedFieldInstruction(name="", args=[], switches={})
+
+    name = tokens[0]
+    args: list[str] = []
+    switches: dict[str, str] = {}
+
+    i = 1
+    while i < len(tokens):
+        token = tokens[i]
+        if token.startswith("\\") and len(token) >= 2:
+            raw_key = token[1:]
+            key = raw_key.upper() if raw_key.isalpha() else raw_key
+            tag = raw_key.lower() if raw_key.isalpha() else raw_key
+            # -- TOC-scoped arg-taking switches first; fall back to the
+            #    generic set (covers \* \@ \# \f) --
+            takes_arg = tag in _TOC_ARG_TAKING_SWITCHES or tag in _ARG_TAKING_SWITCHES
+            if takes_arg and i + 1 < len(tokens):
+                next_token = tokens[i + 1]
+                # -- special: \n is argument-taking only when followed by
+                #    a non-switch token; a bare \n is the "all levels" form --
+                if tag == "n" and next_token.startswith("\\"):
+                    switches[key] = ""
+                    i += 1
+                    continue
+                switches[key] = next_token
+                i += 2
+                continue
+            switches[key] = ""
+            i += 1
+            continue
+        args.append(token)
+        i += 1
+
+    return ParsedFieldInstruction(name=name, args=args, switches=switches)
+
+
+def _parse_level_range(spec: str) -> "tuple[int, int] | None":
+    """Return ``(min, max)`` parsed from a ``"1-3"`` / ``"2-2"`` range spec.
+
+    Returns |None| when the spec is not a well-formed ``"<n>-<n>"`` string
+    with ``1 <= min <= max <= 9``. Used for the ``\\o`` switch of a ``TOC``
+    instruction and the ``\\n`` "omit page numbers for this range" switch.
+    """
+    if not spec or "-" not in spec:
+        return None
+    lo_s, _, hi_s = spec.partition("-")
+    lo_s = lo_s.strip()
+    hi_s = hi_s.strip()
+    if not lo_s.isdigit() or not hi_s.isdigit():
+        return None
+    lo, hi = int(lo_s), int(hi_s)
+    if not (1 <= lo <= hi <= 9):
+        return None
+    return (lo, hi)
+
+
+def _parse_custom_styles(spec: str) -> "list[tuple[str, int]]":
+    """Return ``[(style_name, level), ...]`` parsed from a ``\\t`` switch arg.
+
+    Word encodes custom style mappings in the ``\\t`` switch as a
+    comma-separated list of alternating style-name / level tokens, e.g.
+    ``"Quote,1,Intense Quote,2"``. Returns an empty list when `spec` is
+    empty, has no commas, or has an odd number of tokens.
+
+    Malformed pair-level tokens (non-numeric) are skipped rather than
+    raising. The caller can detect a fully-malformed value by checking for
+    an empty return.
+    """
+    if not spec:
+        return []
+    tokens = [t.strip() for t in spec.split(",")]
+    if len(tokens) < 2 or len(tokens) % 2 == 1:
+        return []
+    pairs: list[tuple[str, int]] = []
+    for i in range(0, len(tokens), 2):
+        style_name = tokens[i]
+        level_s = tokens[i + 1]
+        if not style_name or not level_s.isdigit():
+            continue
+        pairs.append((style_name, int(level_s)))
+    return pairs
+
+
+def _format_custom_styles(pairs: "list[tuple[str, int]]") -> str:
+    """Return the ``"style,level,style,level"`` string for `pairs`.
+
+    The inverse of :func:`_parse_custom_styles`. Style names are emitted
+    verbatim; commas inside a style name are not escaped (Word doesn't
+    support them either — the TOC dialog forbids commas in style names).
+    """
+    parts: list[str] = []
+    for style_name, level in pairs:
+        parts.append(f"{style_name},{level}")
+    return ",".join(parts)
+
+
+def build_toc_field_instruction(
+    field_type: str = "TOC",
+    heading_range: "tuple[int, int] | None" = (1, 3),
+    hyperlinks: bool = True,
+    hide_in_web: bool = True,
+    use_outline_levels: bool = True,
+    omit_page_numbers_range: "tuple[int, int] | None" = None,
+    separator: "str | None" = None,
+    custom_styles: "list[tuple[str, int]] | None" = None,
+    caption_label: "str | None" = None,
+    bookmark_name: "str | None" = None,
+    extra_switches: "list[str] | None" = None,
+) -> str:
+    """Return the raw field-code string for a TOC-family field.
+
+    `field_type` is one of ``"TOC"``, ``"TOA"``, ``"TOF"`` (case-insensitive
+    on input; canonicalised to upper on output). The remaining arguments map
+    to the ECMA-376 § 17.16.5.68 switch set:
+
+    * `heading_range` → ``\\o "min-max"`` (outline-level range)
+    * `hyperlinks` → ``\\h`` (render entries as hyperlinks)
+    * `hide_in_web` → ``\\z`` (hide tab leader / page numbers in web layout)
+    * `use_outline_levels` → ``\\u`` (use applied outline level on any
+      paragraph, not just ``Heading N`` styles)
+    * `omit_page_numbers_range` → ``\\n "min-max"`` (suppress page numbers
+      for this outline-level range; passing ``(0, 0)`` emits a bare ``\\n``
+      meaning "omit page numbers for all levels")
+    * `separator` → ``\\p "sep"`` (character between entry text and page
+      number — default is a tab)
+    * `custom_styles` → ``\\t "style1,level1,style2,level2"`` (map custom
+      paragraph styles to TOC levels)
+    * `caption_label` → ``\\c "label"`` (include caption entries with this
+      label — used by List of Figures / List of Tables)
+    * `bookmark_name` → ``\\b "name"`` (restrict the TOC to headings inside
+      this bookmark range)
+    * `extra_switches` → appended verbatim (e.g. ``["\\w"]`` to preserve
+      tab entries, or ``["\\x"]`` to preserve newline entries)
+
+    The returned string is not wrapped in leading/trailing spaces; callers
+    that append it into a ``w:instrText`` element typically add their own
+    single-space padding to match Word's on-disk form.
+
+    .. versionadded:: 2026.05.10
+    """
+    field_type = (field_type or "").strip().upper()
+    if field_type not in _TOC_FIELD_TYPES:
+        raise ValueError(
+            "field_type must be 'TOC', 'TOA', or 'TOF'; got %r" % (field_type,)
+        )
+
+    parts: list[str] = [field_type]
+
+    if heading_range is not None:
+        lo, hi = heading_range
+        if not (1 <= lo <= hi <= 9):
+            raise ValueError(
+                "heading_range must satisfy 1 <= min <= max <= 9, got %r"
+                % (heading_range,)
+            )
+        parts.append(f'\\o "{lo}-{hi}"')
+
+    if hyperlinks:
+        parts.append("\\h")
+    if hide_in_web:
+        parts.append("\\z")
+    if use_outline_levels:
+        parts.append("\\u")
+
+    if omit_page_numbers_range is not None:
+        lo, hi = omit_page_numbers_range
+        if lo == 0 and hi == 0:
+            parts.append("\\n")
+        else:
+            if not (1 <= lo <= hi <= 9):
+                raise ValueError(
+                    "omit_page_numbers_range must satisfy 1 <= min <= max <= 9 "
+                    "or be (0, 0), got %r" % (omit_page_numbers_range,)
+                )
+            parts.append(f'\\n "{lo}-{hi}"')
+
+    if separator is not None:
+        parts.append(f'\\p "{separator}"')
+
+    if custom_styles:
+        parts.append(f'\\t "{_format_custom_styles(custom_styles)}"')
+
+    if caption_label is not None:
+        parts.append(f'\\c "{caption_label}"')
+
+    if bookmark_name is not None:
+        parts.append(f'\\b "{bookmark_name}"')
+
+    if extra_switches:
+        parts.extend(extra_switches)
+
+    return " ".join(parts)
+
+
+class TocField(Field):
+    """A :class:`Field` specialised for the ``TOC``-family fields.
+
+    Returned by :meth:`Paragraph.add_toc`. Also produced by
+    :attr:`Field.as_toc` for any existing |Field| whose type is one of
+    ``TOC``, ``TOA``, ``TOF``. Two subclasses refine the base:
+
+    * :class:`TableOfFiguresField` — a ``TOC`` with a ``\\c "label"`` switch
+      (the shape Word emits for a *List of Figures* / *List of Tables*).
+    * :class:`TableOfAuthoritiesField` — a ``TOA`` field (table of
+      authorities).
+
+    Exposes typed accessors for the most-common switches on TOC
+    instructions:
+
+    * :attr:`heading_range` → the ``\\o "min-max"`` outline-level range
+    * :attr:`hyperlinks_enabled` → ``\\h``
+    * :attr:`hide_in_web` → ``\\z``
+    * :attr:`use_outline_levels` → ``\\u``
+    * :attr:`omit_page_numbers_range` → ``\\n "min-max"`` (or |None| when
+      the ``\\n`` switch is absent, or ``(0, 0)`` when ``\\n`` is bare)
+    * :attr:`separator` → ``\\p "..."``
+    * :attr:`custom_styles` → parsed ``\\t`` mapping
+    * :attr:`caption_label` → ``\\c "..."``
+    * :attr:`bookmark_name` → ``\\b "..."``
+
+    .. versionadded:: 2026.05.10
+    """
+
+    @property
+    def heading_range(self) -> "tuple[int, int] | None":
+        """The ``(min, max)`` heading range from the ``\\o`` switch, or |None|.
+
+        Returns |None| when the ``\\o`` switch is absent or malformed.
+        """
+        parsed = parse_toc_instruction(self.instruction)
+        arg = parsed.switches.get("O")
+        if arg is None:
+            return None
+        return _parse_level_range(arg)
+
+    @property
+    def hyperlinks_enabled(self) -> bool:
+        """``True`` when the instruction carries the ``\\h`` switch."""
+        return self._has_switch("H")
+
+    @property
+    def hide_in_web(self) -> bool:
+        """``True`` when the instruction carries the ``\\z`` switch."""
+        return self._has_switch("Z")
+
+    @property
+    def use_outline_levels(self) -> bool:
+        """``True`` when the instruction carries the ``\\u`` switch."""
+        return self._has_switch("U")
+
+    @property
+    def omit_page_numbers_range(self) -> "tuple[int, int] | None":
+        """The ``(min, max)`` range from the ``\\n`` switch, or |None|.
+
+        Returns ``(0, 0)`` when the ``\\n`` switch is present without an
+        argument (Word's shorthand for "suppress page numbers for every
+        level"). Returns |None| when the switch is absent.
+        """
+        parsed = parse_toc_instruction(self.instruction)
+        if "N" not in parsed.switches:
+            return None
+        arg = parsed.switches["N"]
+        if not arg:
+            return (0, 0)
+        parsed_range = _parse_level_range(arg)
+        if parsed_range is None:
+            return (0, 0)
+        return parsed_range
+
+    @property
+    def separator(self) -> "str | None":
+        """The ``\\p`` separator argument, or |None| when not set."""
+        parsed = parse_toc_instruction(self.instruction)
+        arg = parsed.switches.get("P")
+        if arg is None or arg == "":
+            return None
+        return arg
+
+    @property
+    def custom_styles(self) -> "list[tuple[str, int]]":
+        """The ``\\t`` custom-style mapping, or an empty list.
+
+        Each tuple is ``(style_name, level)``. The list is empty when the
+        ``\\t`` switch is absent or malformed.
+        """
+        parsed = parse_toc_instruction(self.instruction)
+        arg = parsed.switches.get("T")
+        if not arg:
+            return []
+        return _parse_custom_styles(arg)
+
+    @property
+    def caption_label(self) -> "str | None":
+        """The ``\\c`` caption-label argument, or |None| when not set.
+
+        Non-empty when the field is a List of Figures / List of Tables
+        (``TOC \\c "Figure"`` / ``TOC \\c "Table"``).
+        """
+        parsed = parse_toc_instruction(self.instruction)
+        arg = parsed.switches.get("C")
+        if arg is None or arg == "":
+            return None
+        return arg
+
+    @property
+    def bookmark_name(self) -> "str | None":
+        """The ``\\b`` bookmark-name argument, or |None| when not set."""
+        parsed = parse_toc_instruction(self.instruction)
+        arg = parsed.switches.get("B")
+        if arg is None or arg == "":
+            return None
+        return arg
+
+    # -- internals ---------------------------------------------------------
+
+    def _has_switch(self, letter: str) -> bool:
+        """Return ``True`` when the instruction carries a ``\\<letter>`` switch.
+
+        Matches :class:`CrossReference._has_switch` — case-insensitive on
+        the switch letter. Uses :func:`parse_toc_instruction` so switches
+        that take arguments in a TOC context (``\\o``, ``\\n``, ``\\p``,
+        ``\\t``, ``\\c``, ``\\b``, ``\\s``) are correctly distinguished
+        from plain flags.
+        """
+        parsed = parse_toc_instruction(self.instruction)
+        return letter.upper() in parsed.switches
+
+
+class TableOfFiguresField(TocField):
+    """A :class:`TocField` specialised for ``TOC \\c "label"`` fields.
+
+    Produced by :meth:`Paragraph.add_table_of_figures` and by
+    :attr:`Field.as_toc` for any ``TOC`` field that carries a ``\\c``
+    switch. The :attr:`caption_label` property on the base class already
+    exposes the label; this subclass exists so callers can
+    ``isinstance(field, TableOfFiguresField)`` to branch on *List of
+    Figures* vs. *Table of Contents*.
+
+    .. versionadded:: 2026.05.10
+    """
+
+    pass
+
+
+class TableOfAuthoritiesField(TocField):
+    """A :class:`TocField` specialised for the ``TOA`` field type.
+
+    Produced by :meth:`Paragraph.add_table_of_authorities` and by
+    :attr:`Field.as_toc` for any ``TOA`` field. The TOA field shares the
+    ``\\h``, ``\\c`` (category number for TOA), and ``\\b`` switches with
+    TOC but has its own ``\\e``, ``\\g``, ``\\l``, ``\\p``, ``\\s`` forms
+    that python-docx does not currently parse — callers that need those
+    values can read :attr:`instruction` directly.
+
+    .. versionadded:: 2026.05.10
+    """
+
+    @property
+    def category(self) -> "int | None":
+        """The TOA ``\\c`` category number, or |None| when absent.
+
+        On a TOA field, ``\\c "N"`` selects which category (1 = cases,
+        2 = statutes, …) to include. This differs from ``TOC \\c`` where
+        the argument is a caption-label string.
+        """
+        parsed = parse_toc_instruction(self.instruction)
+        arg = parsed.switches.get("C")
+        if arg is None or arg == "":
+            return None
+        try:
+            return int(arg)
+        except ValueError:
+            return None
+
+
+def _wrap_as_toc(field: "Field") -> "TocField | None":
+    """Return a :class:`TocField` (or subclass) view of `field`, or |None|.
+
+    Dispatches to :class:`TableOfFiguresField` when the field is a ``TOC``
+    with a ``\\c`` switch, :class:`TableOfAuthoritiesField` for ``TOA``,
+    :class:`TocField` for plain ``TOC`` / ``TOF``. Returns |None| for
+    everything else. The returned object shares the same underlying
+    element — mutations propagate.
+    """
+    ft = field.type.upper()
+    if ft not in _TOC_FIELD_TYPES:
+        return None
+    kind = field._kind  # pyright: ignore[reportPrivateUsage]
+    elm = field._element  # pyright: ignore[reportPrivateUsage]
+    if ft == "TOA":
+        return TableOfAuthoritiesField(kind, elm)
+    if ft == "TOC":
+        parsed = parse_toc_instruction(field.instruction)
+        if "C" in parsed.switches and parsed.switches["C"]:
+            return TableOfFiguresField(kind, elm)
+        return TocField(kind, elm)
+    # -- TOF: bare "TOF" field type (rare; Word typically emits TOC \c
+    #    instead, but ECMA-376 lists TOF as a separate field type too) --
+    return TableOfFiguresField(kind, elm)
