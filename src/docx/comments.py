@@ -10,7 +10,12 @@ from docx.blkcntnr import BlockItemContainer
 
 if TYPE_CHECKING:
     from docx.oxml.comments import CT_Comment, CT_Comments
+    from docx.oxml.comments_extended import (
+        CT_CommentExtended,
+        CT_CommentExtendedList,
+    )
     from docx.parts.comments import CommentsPart
+    from docx.parts.comments_extended import CommentsExtendedPart
     from docx.styles.style import ParagraphStyle
     from docx.text.paragraph import Paragraph
 
@@ -216,6 +221,133 @@ class Comment(BlockItemContainer):
         comments_elm = cast("CT_Comments", self._comment_elm.getparent())
         reply_elms = comments_elm.get_replies_for(para_id)
         return [Comment(reply_elm, self._comments_part) for reply_elm in reply_elms]
+
+    def reply(
+        self,
+        text: str = "",
+        author: str = "",
+        initials: str | None = "",
+        date: dt.datetime | None = None,
+    ) -> Comment:
+        """Add a threaded reply to this comment and return it.
+
+        Alias for :meth:`add_reply` with a terser spelling. Identical
+        behaviour — see :meth:`add_reply` for parameter semantics.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.add_reply(text=text, author=author, initials=initials, date=date)
+
+    # ------------------------------------------------------------------
+    # Word 2013+ commentsExtended — resolved/done state + parent linkage
+    # ------------------------------------------------------------------
+
+    @property
+    def is_resolved(self) -> bool:
+        """|True| when this comment is marked resolved in Word (``w15:done``).
+
+        A comment's resolved state lives in ``commentsExtended.xml`` as a
+        ``<w15:commentEx>`` entry keyed on the comment's paraId. When no
+        extended-comments part is related, or no ``<w15:commentEx>``
+        exists for this comment's paraId, or ``@w15:done`` is omitted,
+        this returns |False|.
+
+        .. versionadded:: 2026.05.10
+        """
+        commentEx = self._commentEx
+        if commentEx is None:
+            return False
+        return bool(commentEx.done)
+
+    def resolve(self) -> None:
+        """Mark this comment as resolved (``w15:done="1"``).
+
+        Creates the ``commentsExtended.xml`` part and/or the
+        ``<w15:commentEx>`` entry for this comment if they don't already
+        exist. Raises :class:`ValueError` if the comment has no paraId
+        (should never happen for python-docx-created comments, which
+        always allocate one at insert time).
+
+        .. versionadded:: 2026.05.10
+        """
+        self._set_done(True)
+
+    def reopen(self) -> None:
+        """Mark this comment as reopened (``w15:done="0"``).
+
+        The inverse of :meth:`resolve`. Leaves the ``<w15:commentEx>``
+        entry in place (Word does the same — it flips ``@w15:done`` to
+        ``"0"`` rather than removing the entry) so any thread-reply
+        linkage on the entry is preserved across reopen/resolve cycles.
+
+        .. versionadded:: 2026.05.10
+        """
+        self._set_done(False)
+
+    @property
+    def parent_comment(self) -> "Comment | None":
+        """The parent |Comment| this comment replies to, or |None|.
+
+        Resolved via the ``<w:comment>``'s ``w16cid:paraIdParent``
+        attribute (the primary link that python-docx authors on reply
+        creation). Falls back to ``<w15:commentEx>/@w15:paraIdParent``
+        when the inline attribute is absent (Word sometimes stores the
+        parent only on the extended entry).
+
+        .. versionadded:: 2026.05.10
+        """
+        parent_para_id = self._comment_elm.paraIdParent
+        if parent_para_id is None:
+            commentEx = self._commentEx
+            if commentEx is not None:
+                parent_para_id = commentEx.paraIdParent
+        if parent_para_id is None:
+            return None
+
+        comments_elm = cast("CT_Comments", self._comment_elm.getparent())
+        matches = comments_elm.xpath(
+            "./w:comment[@w16cid:paraId=$paraId]",
+            paraId=parent_para_id,
+        )
+        if not matches:
+            return None
+        return Comment(cast("CT_Comment", matches[0]), self._comments_part)
+
+    # -- internal helpers ---------------------------------------------------
+
+    @property
+    def _commentEx(self) -> "CT_CommentExtended | None":
+        """The ``<w15:commentEx>`` entry keyed on this comment's paraId.
+
+        Returns |None| when no ``commentsExtended.xml`` part is related,
+        or when no matching ``<w15:commentEx>`` exists yet.
+        """
+        para_id = self._comment_elm.paraId
+        if para_id is None:
+            return None
+        ex_part = self._comments_part.comments_extended_part
+        if ex_part is None:
+            return None
+        return ex_part.element.get_commentEx_by_paraId(para_id)
+
+    def _set_done(self, value: bool) -> None:
+        """Create or update the ``<w15:commentEx>/@w15:done`` for this comment."""
+        para_id = self._comment_elm.paraId
+        if para_id is None:
+            raise ValueError(
+                "cannot set resolved state: comment has no paraId "
+                "(is this an imported legacy comment?)"
+            )
+        ex_part = self._comments_part.comments_extended_part_or_add()
+        ex_root = ex_part.element
+        commentEx = ex_root.get_commentEx_by_paraId(para_id)
+        if commentEx is None:
+            parent_para_id = self._comment_elm.paraIdParent
+            ex_root.add_commentEx(
+                paraId=para_id, done=value, parentParaId=parent_para_id
+            )
+        else:
+            commentEx.done = value
 
     @property
     def text(self) -> str:

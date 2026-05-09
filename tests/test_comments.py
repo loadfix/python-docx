@@ -377,6 +377,146 @@ class DescribeComment:
         assert len(reply.paragraphs) == 2
         assert [p.text for p in reply.paragraphs] == ["line 1", "line 2"]
 
+    # -- Word 2013+ commentsExtended (resolve/reopen + parent chain) -------------
+
+    def it_starts_unresolved_for_a_newly_added_comment(self):
+        from docx import Document
+
+        doc = Document()
+        p = doc.add_paragraph("hi")
+        comment = doc.add_comment(runs=[p.add_run(" there")], text="body", author="A")
+
+        assert comment.is_resolved is False
+
+    def it_can_be_resolved_and_reopened(self):
+        from docx import Document
+
+        doc = Document()
+        p = doc.add_paragraph("hi")
+        comment = doc.add_comment(runs=[p.add_run(" there")], text="body", author="A")
+
+        comment.resolve()
+        assert comment.is_resolved is True
+        comment.reopen()
+        assert comment.is_resolved is False
+
+    def it_creates_the_extended_part_on_first_resolve(self):
+        from docx import Document
+
+        doc = Document()
+        p = doc.add_paragraph("hi")
+        comment = doc.add_comment(runs=[p.add_run(" there")], text="body", author="A")
+        comments_part = doc.part._comments_part  # type: ignore[attr-defined]
+
+        assert comments_part.comments_extended_part is None
+        comment.resolve()
+        assert comments_part.comments_extended_part is not None
+
+    def it_preserves_the_parent_linkage_across_resolve_reopen(self):
+        from docx import Document
+
+        doc = Document()
+        p = doc.add_paragraph("hi")
+        parent = doc.add_comment(runs=[p.add_run(" there")], text="parent", author="A")
+        reply = parent.reply(text="reply", author="B")
+
+        reply.resolve()
+        reply.reopen()
+
+        ex_part = doc.part._comments_part.comments_extended_part  # type: ignore[attr-defined]
+        assert ex_part is not None
+        reply_para_id = reply._comment_elm.paraId
+        assert reply_para_id is not None
+        entry = ex_part.element.get_commentEx_by_paraId(reply_para_id)
+        assert entry is not None
+        # -- parent link survives the reopen --
+        assert entry.paraIdParent == parent._comment_elm.paraId
+
+    def it_finds_the_parent_comment_via_paraIdParent(self):
+        from docx import Document
+
+        doc = Document()
+        p = doc.add_paragraph("hi")
+        parent = doc.add_comment(runs=[p.add_run(" there")], text="parent", author="A")
+        reply = parent.reply(text="reply", author="B")
+
+        resolved = reply.parent_comment
+
+        assert resolved is not None
+        assert resolved.comment_id == parent.comment_id
+
+    def it_returns_None_for_parent_comment_when_the_comment_is_a_root(self):
+        from docx import Document
+
+        doc = Document()
+        p = doc.add_paragraph("hi")
+        root = doc.add_comment(runs=[p.add_run(" there")], text="root", author="A")
+
+        assert root.parent_comment is None
+
+    def it_exposes_reply_as_an_alias_for_add_reply(self, package_: Mock):
+        comments_elm = cast(CT_Comments, element("w:comments"))
+        comments_part = CommentsPart(
+            PackURI("/word/comments.xml"),
+            CT.WML_COMMENTS,
+            comments_elm,
+            package_,
+        )
+        comments = Comments(comments_elm, comments_part)
+        parent = comments.add_comment(text="p", author="A")
+
+        reply = parent.reply(text="r", author="B")
+
+        assert isinstance(reply, Comment)
+        assert reply.text == "r"
+        assert reply.author == "B"
+        assert reply._comment_elm.paraIdParent == parent._comment_elm.paraId
+
+    def it_round_trips_extended_state_through_save_and_load(self, tmp_path):
+        import io
+
+        from docx import Document
+
+        doc = Document()
+        p = doc.add_paragraph("hi")
+        parent = doc.add_comment(runs=[p.add_run(" there")], text="parent", author="A")
+        reply = parent.reply(text="child", author="B")
+        parent.resolve()
+
+        buf = io.BytesIO()
+        doc.save(buf)
+        buf.seek(0)
+        reloaded = Document(buf)
+
+        loaded = list(reloaded.comments)
+        assert len(loaded) == 2
+        by_id = {c.comment_id: c for c in loaded}
+        assert by_id[parent.comment_id].is_resolved is True
+        assert by_id[reply.comment_id].is_resolved is False
+        # -- parent-chain survives round-trip --
+        assert by_id[reply.comment_id].parent_comment is not None
+        assert by_id[reply.comment_id].parent_comment.comment_id == parent.comment_id  # type: ignore[union-attr]
+        # -- replies survive round-trip --
+        assert [r.comment_id for r in by_id[parent.comment_id].replies] == [
+            reply.comment_id
+        ]
+
+    def it_raises_when_setting_resolved_state_without_a_paraId(self, package_: Mock):
+        # -- simulate a legacy comment parsed without a paraId attribute --
+        comment_elm = cast(CT_Comment, element("w:comment{w:id=5}"))
+        comments_elm = cast(CT_Comments, element("w:comments"))
+        comments_elm.append(comment_elm)
+        comments_part = CommentsPart(
+            PackURI("/word/comments.xml"),
+            CT.WML_COMMENTS,
+            comments_elm,
+            package_,
+        )
+        comment = Comment(comment_elm, comments_part)
+
+        with pytest.raises(ValueError, match="paraId"):
+            comment.resolve()
+
     # -- fixtures --------------------------------------------------------------------------------
 
     @pytest.fixture

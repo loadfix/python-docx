@@ -159,6 +159,22 @@ from .comments import CT_Comments, CT_Comment
 register_element_cls("w:comments", CT_Comments)
 register_element_cls("w:comment", CT_Comment)
 
+# -- Word 2013+ ``w15:commentsEx`` extended-comments part (resolve/reopen
+# -- state + threaded reply parent linkage + co-author presence info). The
+# -- element classes carry the ``@w15:paraId`` / ``@w15:done`` /
+# -- ``@w15:paraIdParent`` descriptors and the ``<w15:presenceInfo>``
+# -- provider/user pair. Registering here so ``parse_xml()`` resolves
+# -- these tags to the typed classes rather than plain lxml elements. --
+from .comments_extended import (
+    CT_CommentExtended,
+    CT_CommentExtendedList,
+    CT_PresenceInfo,
+)
+
+register_element_cls("w15:commentsEx", CT_CommentExtendedList)
+register_element_cls("w15:commentEx", CT_CommentExtended)
+register_element_cls("w15:presenceInfo", CT_PresenceInfo)
+
 from .content_controls import (
     CT_DataBinding,
     CT_Lock,
