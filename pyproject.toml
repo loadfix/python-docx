@@ -145,6 +145,7 @@ venv = ".venv"
 [tool.pytest.ini_options]
 markers = [
     "libreoffice: marks tests requiring LibreOffice headless (deselect with '-m \"not libreoffice\"')",
+    "conformance: byte-round-trip conformance harness (deselect with '-m \"not conformance\"')",
 ]
 filterwarnings = [
     # -- exit on any warning not explicitly ignored here --
