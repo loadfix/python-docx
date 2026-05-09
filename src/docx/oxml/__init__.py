@@ -153,6 +153,7 @@ register_element_cls("w:comment", CT_Comment)
 
 from .content_controls import (
     CT_DataBinding,
+    CT_Lock,
     CT_Sdt,
     CT_SdtComboBox,
     CT_SdtContent,
@@ -174,6 +175,7 @@ from .content_controls import (
 )
 
 register_element_cls("w:dataBinding", CT_DataBinding)
+register_element_cls("w:lock", CT_Lock)
 register_element_cls("w:sdt", CT_Sdt)
 register_element_cls("w:sdtContent", CT_SdtContent)
 register_element_cls("w:sdtPr", CT_SdtPr)

@@ -1112,7 +1112,13 @@ document.save("out.docx")
 Structured Document Tags (SDTs) — rich text, plain text, date, checkbox,
 combo, dropdown, picture. Block-level and inline controls are both
 supported, and custom-XML data binding can be attached or removed.
-`[Added in 2026.05.0]`.
+`[Added in 2026.05.0]`. Additional type markers — `w15:repeatingSection`
+(repeating-section template) and `w:docPartObj`/`w:docPartList`
+(building-block gallery) — plus per-type proxy subclasses with typed
+accessors (`DropDownListControl.items`, `DateControl.full_date`,
+`RepeatingSectionControl.rows`, `BuildingBlockControl.gallery`, etc.) and
+the SDT write-protection `w:lock` property are all surfaced.
+`[Added in 2026.05.10]`.
 
 ```python
 from docx import Document
@@ -1140,6 +1146,33 @@ cc.set_data_binding(
 for control in document.content_controls:
     print(control.type, control.tag, control.title)
 
+# typed proxies dispatch automatically based on the SDT's `w:sdtPr` marker
+dropdown = document.add_content_control(ContentControlType.DROPDOWN, tag="Color")
+dropdown.items = ["Red", "Green", "Blue"]        # DropDownListControl
+
+date_cc = document.add_content_control(ContentControlType.DATE, tag="Signed")
+date_cc.full_date = "2026-05-09"                # DateControl
+date_cc.date_format = "yyyy-MM-dd"
+
+# repeating-section template, e.g. invoice line items
+rs = document.add_content_control(
+    ContentControlType.REPEATING_SECTION, tag="LineItems",
+)
+rs.section_title = "Item"
+rs.add_row()
+rs.add_row()                                     # RepeatingSectionControl
+
+# building-block gallery picker (e.g. cover pages)
+bb = document.add_content_control(
+    ContentControlType.BUILDING_BLOCK, tag="Cover",
+)
+bb.gallery = "Cover Pages"
+bb.category = "Built-In"
+bb.unique = True                                 # BuildingBlockControl
+
+# write-protect the rich-text control so end-users can edit but not delete
+cc.lock = "sdtLocked"
+
 document.save("out.docx")
 ```
 
@@ -1149,7 +1182,15 @@ document.save("out.docx")
 - `ContentControl.type` / `.tag` / `.title` / `.sdt_id` / `.text` / `.checked` / `.element`. `[Added in 2026.05.0]`
 - `ContentControl.data_binding` / `.set_data_binding(xpath, prefix_mappings="", store_item_id=None)` / `.remove_data_binding()`. `[Added in 2026.05.0]`
 - `DataBinding.prefix_mappings` / `.xpath` / `.store_item_id`. `[Added in 2026.05.0]`
-- Enum: `ContentControlType` (`RICH_TEXT`, `PLAIN_TEXT`, `DATE`, `CHECKBOX`, `COMBO_BOX`, `DROP_DOWN_LIST`, `PICTURE`). `[Added in 2026.05.0]`
+- Enum: `ContentControlType` (`RICH_TEXT`, `PLAIN_TEXT`, `DATE`, `CHECKBOX`, `COMBO_BOX`, `DROPDOWN`, `PICTURE`, `REPEATING_SECTION`, `BUILDING_BLOCK`). `REPEATING_SECTION` and `BUILDING_BLOCK` are `[Added in 2026.05.10]`; others `[Added in 2026.05.0]`
+- `ContentControl.proxy_for(sdt)` — Factory dispatching to the matching proxy subclass. `[Added in 2026.05.10]`
+- `ContentControl.lock` — SDT write-protection (`unlocked` / `sdtContentLocked` / `sdtLocked` / `contentLocked`). `[Added in 2026.05.10]`
+- Typed proxy subclasses returned by `proxy_for()` and the `content_controls` collections:
+  - `RichTextControl` / `PlainTextControl` (`.multi_line`) / `PictureControl` / `CheckboxControl`. `[Added in 2026.05.10]`
+  - `DateControl` (`.full_date`, `.date_format`). `[Added in 2026.05.10]`
+  - `DropDownListControl` / `ComboBoxControl` (`.items: list[str]`, `.add_item(display_text, value=None)`, `ComboBoxControl.last_value`). `[Added in 2026.05.10]`
+  - `BuildingBlockControl` (`.gallery`, `.category`, `.unique`). `[Added in 2026.05.10]`
+  - `RepeatingSectionControl` (`.section_title`, `.rows`, `.add_row()`). `[Added in 2026.05.10]`
 - `Document.custom_xml_parts` — Read-only list of bound `CustomXmlPart` data sources. `[Added in 2026.05.0]`
 
 ---

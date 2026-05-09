@@ -2129,7 +2129,7 @@ class _Body(BlockItemContainer):
         sdt = new_sdt(type, tag=tag, title=title, inline=False)
         # -- insert before trailing sectPr, if present --
         self._body._insert_sdt(sdt)  # pyright: ignore[reportPrivateUsage]
-        return ContentControl(sdt)
+        return ContentControl.proxy_for(sdt)
 
     def clear_content(self) -> _Body:
         """Return this |_Body| instance after clearing it of all content.
@@ -2148,5 +2148,6 @@ class _Body(BlockItemContainer):
         from docx.content_controls import ContentControl
 
         return [
-            ContentControl(cast("CT_Sdt", sdt)) for sdt in self._body.xpath("./w:sdt")
+            ContentControl.proxy_for(cast("CT_Sdt", sdt))
+            for sdt in self._body.xpath("./w:sdt")
         ]

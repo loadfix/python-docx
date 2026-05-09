@@ -1406,6 +1406,30 @@ class Describe_Body:
 
         assert [cc.tag for cc in body.content_controls] == ["A", "B"]
 
+    def it_returns_type_specific_proxies_for_extended_types(self, document_: Mock):
+        from docx.content_controls import (
+            BuildingBlockControl,
+            ContentControlType,
+            DateControl,
+            DropDownListControl,
+            RepeatingSectionControl,
+            RichTextControl,
+        )
+
+        body = _Body(cast(CT_Body, element("w:body")), document_)
+        body.add_content_control(ContentControlType.RICH_TEXT, tag="R")
+        body.add_content_control(ContentControlType.DATE, tag="D")
+        body.add_content_control(ContentControlType.DROPDOWN, tag="DD")
+        body.add_content_control(ContentControlType.REPEATING_SECTION, tag="RS")
+        body.add_content_control(ContentControlType.BUILDING_BLOCK, tag="BB")
+
+        ccs = body.content_controls
+        assert isinstance(ccs[0], RichTextControl)
+        assert isinstance(ccs[1], DateControl)
+        assert isinstance(ccs[2], DropDownListControl)
+        assert isinstance(ccs[3], RepeatingSectionControl)
+        assert isinstance(ccs[4], BuildingBlockControl)
+
     # -- fixtures --------------------------------------------------------------------------------
 
     @pytest.fixture

@@ -328,7 +328,7 @@ class Paragraph(StoryChild):
 
         sdt = new_sdt(type, tag=tag, title=title, inline=True)
         self._p.append(sdt)
-        return ContentControl(sdt)
+        return ContentControl.proxy_for(sdt)
 
     def add_citation_reference(
         self,
@@ -772,7 +772,8 @@ class Paragraph(StoryChild):
         from docx.content_controls import ContentControl
 
         return [
-            ContentControl(cast("CT_Sdt", sdt)) for sdt in self._p.xpath("./w:sdt")
+            ContentControl.proxy_for(cast("CT_Sdt", sdt))
+            for sdt in self._p.xpath("./w:sdt")
         ]
 
     @property
