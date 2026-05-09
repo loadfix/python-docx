@@ -214,3 +214,67 @@ class DescribeBookmark_name_setter:
         # -- underlying w:bookmarkStart/@w:name reflects the rename --
         bookmarkStart = body.xpath(".//w:bookmarkStart")[0]
         assert bookmarkStart.get(qn("w:name")) == "new_name"
+
+
+class DescribeBookmark_roundtrip:
+    """End-to-end round-trip: build doc -> save -> reload -> inspect."""
+
+    def it_preserves_bookmarks_across_save_and_reload(self):
+        import io
+
+        from docx import Document
+
+        doc = Document()
+        p1 = doc.add_paragraph()
+        r1a = p1.add_run("Chapter ")
+        r1b = p1.add_run("One")
+        p2 = doc.add_paragraph()
+        r2a = p2.add_run("continues ")
+        r2b = p2.add_run("here.")
+
+        # -- single-run bookmark via Bookmarks.add --
+        doc.bookmarks.add("bm_word", r1b)
+        # -- multi-run bookmark via Document.add_bookmark --
+        doc.add_bookmark([r1a, r1b], "bm_heading")
+        # -- cross-paragraph bookmark via Bookmarks.add(start_para, end_para) --
+        doc.bookmarks.add("bm_span", p1, p2)
+
+        buf = io.BytesIO()
+        doc.save(buf)
+        buf.seek(0)
+        reloaded = Document(buf)
+
+        names = {bm.name for bm in reloaded.bookmarks}
+        assert names == {"bm_word", "bm_heading", "bm_span"}
+
+        bm_word = reloaded.bookmarks["bm_word"]
+        assert bm_word.text == "One"
+
+        bm_heading = reloaded.bookmarks["bm_heading"]
+        assert bm_heading.text == "Chapter One"
+
+        bm_span = reloaded.bookmarks["bm_span"]
+        assert bm_span.text == "Chapter Onecontinues here."
+        assert len(bm_span.paragraphs) == 2
+
+    def it_roundtrips_a_removal(self):
+        import io
+
+        from docx import Document
+
+        doc = Document()
+        p = doc.add_paragraph()
+        r = p.add_run("hello")
+        doc.bookmarks.add("keep", r)
+        doc.bookmarks.add("drop", r)
+        assert len(doc.bookmarks) == 2
+
+        doc.bookmarks.remove("drop")
+
+        buf = io.BytesIO()
+        doc.save(buf)
+        buf.seek(0)
+        reloaded = Document(buf)
+
+        names = {bm.name for bm in reloaded.bookmarks}
+        assert names == {"keep"}
