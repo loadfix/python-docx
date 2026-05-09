@@ -797,6 +797,7 @@ class Document(ElementProxy):
         self,
         content: bytes | str,
         content_type: str = "text/html",
+        match_src: bool | None = None,
     ) -> AltChunk:
         """Append an ``altChunk`` import reference and return an |AltChunk| proxy.
 
@@ -808,13 +809,17 @@ class Document(ElementProxy):
         is opened — python-docx does not evaluate the content itself.
 
         `content` may be :class:`bytes` or a UTF-8-decodable :class:`str`.
-        Closes upstream#1317, upstream#1103, and PR#649.
+        Pass `match_src=True` to write a ``w:altChunkPr/w:matchSrc`` child
+        asking Word to preserve the source's character formatting during
+        the import. Closes upstream#1317, upstream#1103, and PR#649.
 
         .. versionadded:: 2026.05.0
         """
         from docx.alt_chunk import add_alt_chunk_to_document
 
-        return add_alt_chunk_to_document(self._part, content, content_type)
+        return add_alt_chunk_to_document(
+            self._part, content, content_type, match_src=match_src
+        )
 
     @property
     def alt_chunks(self) -> list[AltChunk]:

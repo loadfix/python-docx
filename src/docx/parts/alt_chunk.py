@@ -72,7 +72,9 @@ class AltChunkPart(Part):
         inferred from `content_type` (``text/html`` → ``.html``,
         ``application/rtf`` → ``.rtf``, ``text/plain`` → ``.txt``,
         ``application/xhtml+xml`` → ``.xhtml``, ``application/msword`` →
-        ``.doc``); anything else falls back to ``.bin``.
+        ``.doc``, ``message/rfc822`` / ``multipart/related`` → ``.mht``,
+        the wordprocessingml document main+xml type → ``.docx``); anything
+        else falls back to ``.bin``.
         """
         from docx.opc.packuri import PackURI
 
@@ -85,14 +87,40 @@ class AltChunkPart(Part):
         return cls(partname, content_type, content, package)
 
 
+# Recognised altChunk payload content-types. Word's import filters dispatch
+# on the target part's content-type, so we accept any string but prefer the
+# types below for extension inference. See ECMA-376 §17.17 for the list.
+CT_XHTML = "application/xhtml+xml"
+CT_HTML = "text/html"
+CT_RTF = "application/rtf"
+CT_RTF_ALT = "text/rtf"
+CT_PLAIN = "text/plain"
+CT_MSWORD = "application/msword"
+CT_MHTML = "message/rfc822"
+CT_MHTML_ALT = "multipart/related"
+CT_DOCX_FRAGMENT = (
+    "application/vnd.openxmlformats-officedocument."
+    "wordprocessingml.document.main+xml"
+)
+
+
 def _ext_for_content_type(content_type: str) -> str:
-    """Return the conventional file extension for `content_type`."""
+    """Return the conventional file extension for `content_type`.
+
+    Covers every content-type Word recognises for an ``altChunk`` payload:
+    HTML, XHTML, RTF (both MIME spellings), plain text, legacy ``.doc``,
+    MHTML, and a wordprocessingml-document fragment part. Unknown types
+    fall back to ``.bin``.
+    """
     mapping = {
-        "text/html": ".html",
-        "application/xhtml+xml": ".xhtml",
-        "application/rtf": ".rtf",
-        "text/rtf": ".rtf",
-        "text/plain": ".txt",
-        "application/msword": ".doc",
+        CT_HTML: ".html",
+        CT_XHTML: ".xhtml",
+        CT_RTF: ".rtf",
+        CT_RTF_ALT: ".rtf",
+        CT_PLAIN: ".txt",
+        CT_MSWORD: ".doc",
+        CT_MHTML: ".mht",
+        CT_MHTML_ALT: ".mht",
+        CT_DOCX_FRAGMENT: ".docx",
     }
     return mapping.get(content_type.lower(), ".bin")

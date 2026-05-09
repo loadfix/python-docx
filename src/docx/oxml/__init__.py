@@ -269,9 +269,11 @@ register_element_cls("w:textInput", CT_FFTextInput)
 register_element_cls("w:checkBox", CT_FFCheckBox)
 register_element_cls("w:ddList", CT_FFDDList)
 
-from .document import CT_AltChunk, CT_Background, CT_Body, CT_Document
+from .document import CT_AltChunk, CT_AltChunkPr, CT_Background, CT_Body, CT_Document
 
 register_element_cls("w:altChunk", CT_AltChunk)
+register_element_cls("w:altChunkPr", CT_AltChunkPr)
+register_element_cls("w:matchSrc", CT_OnOff)
 register_element_cls("w:background", CT_Background)
 register_element_cls("w:body", CT_Body)
 register_element_cls("w:document", CT_Document)
