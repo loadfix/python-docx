@@ -12,15 +12,27 @@ from docx.enum.text import (
     WD_MAIL_MERGE_DATA_TYPE,
     WD_MAIL_MERGE_DESTINATION,
     WD_MAIL_MERGE_TYPE,
+    WD_ODSO_TYPE,
     WD_PROTECTION,
     WD_VIEW,
 )
+from docx.oxml.ns import qn as _qn
 from docx.shared import ElementProxy
+
+
+def qn_w(local: str) -> str:
+    """Return the Clark-notation form of a ``w:{local}`` QName.
+
+    Tiny local alias — keeps the OdsoSettings proxy reads and writes
+    compact without littering the module with full ``qn("w:...")`` calls.
+    """
+    return _qn(f"w:{local}")
 
 if TYPE_CHECKING:
     import docx.types as t
     from docx.endnotes import EndnoteProperties
     from docx.footnotes import FootnoteProperties
+    from docx.oxml.mail_merge import CT_DataSourceObject, CT_Odso
     from docx.oxml.settings import (
         CT_Compat,
         CT_DocVars,
@@ -1828,3 +1840,252 @@ class MailMerge:
     @view_merged_data.setter
     def view_merged_data(self, value: bool):
         self._set_bool("viewMergedData", value)
+
+    # -- odso ---------------------------------------------------------------
+
+    @property
+    def odso(self) -> "OdsoSettings | None":
+        """The :class:`OdsoSettings` proxy or |None| when no ``w:odso`` child.
+
+        .. versionadded:: 2026.05.10
+        """
+        odso = self._mm.odso
+        if odso is None:
+            return None
+        return OdsoSettings(odso)
+
+    def add_odso(self) -> "OdsoSettings":
+        """Create ``w:mailMerge/w:odso`` (if missing) and return the proxy.
+
+        .. versionadded:: 2026.05.10
+        """
+        odso = self._mm.get_or_add_odso()
+        return OdsoSettings(odso)
+
+    def remove_odso(self) -> None:
+        """Remove the ``w:odso`` child element if present.
+
+        .. versionadded:: 2026.05.10
+        """
+        self._mm._remove_odso()  # pyright: ignore[reportPrivateUsage]
+
+    # -- data_source (`w:mailMerge/w:dataSource` — the rId-based relationship) ---
+
+    @property
+    def data_source(self) -> str | None:
+        """The relationship id (``r:id``) referencing the merge data-source part.
+
+        Corresponds to ``w:mailMerge/w:dataSource/@r:id``. Read/write. Assigning
+        |None| removes the element.
+
+        .. versionadded:: 2026.05.10
+        """
+        ds = self._mm.dataSource
+        if ds is None:
+            return None
+        return ds.rId
+
+    @data_source.setter
+    def data_source(self, value: str | None) -> None:
+        if value is None:
+            self._mm._remove_dataSource()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._mm.get_or_add_dataSource().rId = value
+
+    # -- header_source (same shape as dataSource) ---------------------------
+
+    @property
+    def header_source(self) -> str | None:
+        """The relationship id (``r:id``) referencing the header-source part.
+
+        Corresponds to ``w:mailMerge/w:headerSource/@r:id``. Read/write.
+
+        .. versionadded:: 2026.05.10
+        """
+        hs = self._mm.headerSource
+        if hs is None:
+            return None
+        return hs.rId
+
+    @header_source.setter
+    def header_source(self, value: str | None) -> None:
+        if value is None:
+            self._mm._remove_headerSource()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._mm.get_or_add_headerSource().rId = value
+
+
+class OdsoSettings:
+    """Read/write access to the ``w:mailMerge/w:odso`` (ODSO) data manifest.
+
+    ODSO — *Office Data Source Object* — is Word's schema-tagged description
+    of the external data source backing a mail merge. It records the UDL
+    path, the table/view name, the optional relationship-referenced source
+    file, the column delimiter, the source-type tag, whether the first row
+    carries column names, and a dict-like mapping from external column names
+    to merge-field names.
+
+    python-docx does not execute mail-merge — this proxy is a faithful
+    read/write view that preserves authored metadata across save.
+
+    .. versionadded:: 2026.05.10
+    """
+
+    def __init__(self, odso: "CT_Odso"):
+        self._odso = odso
+
+    # -- udl / table (string val-wrappers) ---------------------------------
+
+    @property
+    def udl(self) -> str | None:
+        """Value of ``w:udl/@w:val``, a UDL (Microsoft Data Link) file path.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._odso._val_child_read("udl")  # pyright: ignore[reportPrivateUsage]
+
+    @udl.setter
+    def udl(self, value: str | None) -> None:
+        self._odso._val_child_write("udl", value)  # pyright: ignore[reportPrivateUsage]
+
+    @property
+    def table(self) -> str | None:
+        """Value of ``w:table/@w:val`` — the table / view / sheet name.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._odso._val_child_read("table")  # pyright: ignore[reportPrivateUsage]
+
+    @table.setter
+    def table(self, value: str | None) -> None:
+        self._odso._val_child_write("table", value)  # pyright: ignore[reportPrivateUsage]
+
+    # -- src (relationship reference) ---------------------------------------
+
+    @property
+    def src(self) -> str | None:
+        """The relationship id (``r:id``) of the ``w:src`` child, or |None|.
+
+        Corresponds to ``w:odso/w:src/@r:id`` — a pointer to the external
+        source-file relationship.
+
+        .. versionadded:: 2026.05.10
+        """
+        el = self._odso.src
+        if el is None:
+            return None
+        return el.rId
+
+    @src.setter
+    def src(self, value: str | None) -> None:
+        if value is None:
+            self._odso._remove_src()  # pyright: ignore[reportPrivateUsage]
+            return
+        self._odso.get_or_add_src().rId = value
+
+    # -- colDelim (decimal val-wrapper) ------------------------------------
+
+    @property
+    def column_delimiter(self) -> int | None:
+        """The ASCII code of the column delimiter character (``w:colDelim``).
+
+        For example, ``44`` for comma-separated files or ``9`` for tab.
+        Read/write. |None| when the element is absent or the value cannot be
+        parsed as an integer.
+
+        .. versionadded:: 2026.05.10
+        """
+        raw = self._odso._val_child_read("colDelim")  # pyright: ignore[reportPrivateUsage]
+        if raw is None:
+            return None
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return None
+
+    @column_delimiter.setter
+    def column_delimiter(self, value: int | None) -> None:
+        if value is None:
+            self._odso._val_child_write("colDelim", None)  # pyright: ignore[reportPrivateUsage]
+            return
+        self._odso._val_child_write("colDelim", int(value))  # pyright: ignore[reportPrivateUsage]
+
+    # -- type (enum val-wrapper) -------------------------------------------
+
+    @property
+    def type(self) -> "WD_ODSO_TYPE | None":
+        """The ODSO source-type as a :class:`WD_ODSO_TYPE` member, or |None|.
+
+        Corresponds to ``w:odso/w:type/@w:val``. Returns |None| when the
+        element is absent or the value isn't a recognised enum member.
+
+        .. versionadded:: 2026.05.10
+        """
+        raw = self._odso._val_child_read("type")  # pyright: ignore[reportPrivateUsage]
+        if raw is None:
+            return None
+        try:
+            return WD_ODSO_TYPE.from_xml(raw)
+        except ValueError:
+            return None
+
+    @type.setter
+    def type(self, value: "WD_ODSO_TYPE | None") -> None:
+        if value is None:
+            self._odso._val_child_write("type", None)  # pyright: ignore[reportPrivateUsage]
+            return
+        self._odso._val_child_write(  # pyright: ignore[reportPrivateUsage]
+            "type", value.xml_value
+        )
+
+    # -- fHdr (bool flag) ---------------------------------------------------
+
+    @property
+    def first_row_has_column_names(self) -> bool:
+        """True when ``w:fHdr`` is present (first-row-is-header flag).
+
+        An empty ``w:fHdr`` element reads as |True| (ST_OnOff default).
+        Assigning |False| removes the element.
+
+        .. versionadded:: 2026.05.10
+        """
+        el = self._odso.fHdr
+        if el is None:
+            return False
+        val = el.get(qn_w("val"))
+        if val is None:
+            return True
+        return val.lower() in ("1", "true", "on")
+
+    @first_row_has_column_names.setter
+    def first_row_has_column_names(self, value: bool) -> None:
+        if value:
+            el = self._odso.get_or_add_fHdr()
+            # leave attribute absent so the element's presence-default (True) governs
+            if el.get(qn_w("val")) is not None:
+                del el.attrib[qn_w("val")]
+            return
+        self._odso._remove_fHdr()  # pyright: ignore[reportPrivateUsage]
+
+    # -- field mapping -----------------------------------------------------
+
+    @property
+    def field_mapping(self) -> "dict[str, str]":
+        """A ``{merge_field_name: external_column_name}`` dict.
+
+        Built from the ``w:fieldMapData`` child records. Each record
+        represents one mapping between a Word merge field and an ODSO data
+        source column. Records missing ``w:name`` or ``w:mappedName`` are
+        omitted.
+
+        Assigning a dict replaces the entire ``w:fieldMapData`` list with
+        fresh records in iteration order. Iteration order of the returned
+        dict matches the on-disk ``w:fieldMapData`` order.
+
+        .. versionadded:: 2026.05.10
+        """
+        return dict(self._odso.iter_field_map())
+
+    @field_mapping.setter
+    def field_mapping(self, value: "dict[str, str] | None") -> None:
+        self._odso.set_field_map(value or {})
