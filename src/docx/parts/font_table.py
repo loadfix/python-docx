@@ -7,8 +7,9 @@ optional sibling font-data parts that hold embedded font binaries.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Union, cast
 
+from docx.font_obfuscation import OBFUSCATED_FONT_CONTENT_TYPE
 from docx.font_table import FontTable
 from docx.opc.constants import CONTENT_TYPE as CT
 from docx.opc.packuri import PackURI
@@ -69,7 +70,7 @@ class FontTablePart(XmlPart):
         """The ``w:fonts`` root element for this part."""
         return cast("CT_Fonts", self._element)
 
-    def add_font_part(self, font_path: str | Path) -> "FontPart":
+    def add_font_part(self, font_path: Union[str, Path]) -> "FontPart":
         """Return a new |FontPart| holding the contents of the file at `font_path`.
 
         The part is registered with this font-table part via an ``r:font``
@@ -87,6 +88,23 @@ class FontTablePart(XmlPart):
         partname = self._package.next_partname("/word/fonts/font%d.fntdata")
         font_part = FontPart(partname, CT.X_FONTDATA, blob, self._package)
         return font_part
+
+    def add_obfuscated_font_part(self, blob: bytes) -> "FontPart":
+        """Return a new |FontPart| for obfuscated-font bytes.
+
+        `blob` must already be obfuscated per ECMA-376 Part 1 §17.8 — the
+        caller is responsible for deriving the ``fontKey`` GUID, applying
+        :func:`docx.font_obfuscation.obfuscate_font_bytes`, and storing
+        the GUID on the ``<w:embed*>`` element that references this part.
+        The content type is set to
+        ``application/vnd.openxmlformats-officedocument.obfuscatedFont``
+        which is what Word itself writes for embedded fonts.
+
+        .. versionadded:: 2026.05.10
+        """
+        assert self._package is not None
+        partname = self._package.next_partname("/word/fonts/font%d.fntdata")
+        return FontPart(partname, OBFUSCATED_FONT_CONTENT_TYPE, blob, self._package)
 
 
 class FontPart(Part):

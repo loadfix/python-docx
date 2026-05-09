@@ -109,3 +109,40 @@ class DescribeWebSettings:
         web_settings = WebSettings(element(cxml))
         web_settings.do_not_save_as_single_file = new_value
         assert web_settings._web_settings.xml == xml(expected_cxml)
+
+    @pytest.mark.parametrize(
+        ("cxml", "expected_value"),
+        [
+            ("w:webSettings", False),
+            ("w:webSettings/w:relyOnVML", True),
+            ("w:webSettings/w:relyOnVML{w:val=0}", False),
+        ],
+    )
+    def it_provides_access_to_rely_on_vml(self, cxml: str, expected_value: bool):
+        assert WebSettings(element(cxml)).rely_on_vml is expected_value
+
+    @pytest.mark.parametrize(
+        ("cxml", "new_value", "expected_cxml"),
+        [
+            ("w:webSettings", True, "w:webSettings/w:relyOnVML"),
+            ("w:webSettings/w:relyOnVML", False, "w:webSettings"),
+            ("w:webSettings/w:relyOnVML", None, "w:webSettings"),
+        ],
+    )
+    def it_can_change_rely_on_vml(
+        self, cxml: str, new_value: bool | None, expected_cxml: str
+    ):
+        web_settings = WebSettings(element(cxml))
+        web_settings.rely_on_vml = new_value
+        assert web_settings._web_settings.xml == xml(expected_cxml)
+
+    def it_returns_an_empty_frames_list_when_no_frameset(self):
+        ws = WebSettings(element("w:webSettings"))
+        assert ws.frames == []
+
+    def it_enumerates_frames_from_the_top_level_frameset(self):
+        ws = WebSettings(
+            element("w:webSettings/w:frameset/(w:frame,w:frame,w:frame)")
+        )
+        frames = ws.frames
+        assert len(frames) == 3

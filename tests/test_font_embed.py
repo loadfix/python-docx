@@ -15,6 +15,10 @@ from typing import cast
 import pytest
 
 import docx
+from docx.font_obfuscation import (
+    OBFUSCATED_FONT_CONTENT_TYPE,
+    deobfuscate_font_bytes,
+)
 from docx.font_table import FontTable
 from docx.opc.constants import CONTENT_TYPE as CT
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
@@ -146,6 +150,164 @@ class DescribeFontPart:
         )
         assert part.blob == _FAKE_FONT_BLOB
         assert part.content_type == CT.X_FONTDATA
+
+
+class DescribeFontTable_EmbedFont:
+    """Coverage for `FontTable.embed_font(name, regular=..., ...)` (R5-23)."""
+
+    def it_embeds_a_regular_variant_using_the_obfuscated_content_type(self):
+        package = Package()
+        ft_part = FontTablePart.default(package)
+
+        metadata = ft_part.font_table.embed_font("Acme", regular=_FAKE_FONT_BLOB)
+
+        assert metadata.name == "Acme"
+        assert metadata.embed_regular is True
+        # -- the backing FontPart uses Word's obfuscatedFont MIME --
+        font_rels = [r for r in ft_part.rels.values() if r.reltype == RT.FONT]
+        assert len(font_rels) == 1
+        font_part = font_rels[0].target_part
+        assert font_part.content_type == OBFUSCATED_FONT_CONTENT_TYPE
+        # -- and stored bytes are XOR-obfuscated, not raw --
+        assert font_part.blob != _FAKE_FONT_BLOB
+
+    def it_writes_a_fontKey_GUID_on_the_embed_element(self):
+        package = Package()
+        ft_part = FontTablePart.default(package)
+
+        metadata = ft_part.font_table.embed_font("Acme", regular=_FAKE_FONT_BLOB)
+
+        embed = metadata.element.embedRegular
+        assert embed is not None
+        assert embed.fontKey is not None
+        # -- canonical Word-style braced uppercase GUID --
+        assert embed.fontKey.startswith("{") and embed.fontKey.endswith("}")
+
+    def it_deobfuscates_embedded_regular_back_to_the_original_bytes(self):
+        package = Package()
+        ft_part = FontTablePart.default(package)
+
+        metadata = ft_part.font_table.embed_font("Acme", regular=_FAKE_FONT_BLOB)
+
+        assert metadata.embedded_regular == _FAKE_FONT_BLOB
+
+    def it_can_embed_all_four_variants_in_a_single_call(self):
+        package = Package()
+        ft_part = FontTablePart.default(package)
+        bold_blob = b"BOLD" + b"\x00" * 60
+        italic_blob = b"ITAL" + b"\xff" * 60
+        bi_blob = b"BOIT" + b"\x11" * 60
+
+        metadata = ft_part.font_table.embed_font(
+            "Acme",
+            regular=_FAKE_FONT_BLOB,
+            bold=bold_blob,
+            italic=italic_blob,
+            bold_italic=bi_blob,
+        )
+
+        assert metadata.embed_regular is True
+        assert metadata.embed_bold is True
+        assert metadata.embed_italic is True
+        assert metadata.embed_bold_italic is True
+        # -- each variant gets its own GUID (different rIds, different keys) --
+        rel_ids = {
+            metadata.element.embedRegular.rId,  # type: ignore[union-attr]
+            metadata.element.embedBold.rId,  # type: ignore[union-attr]
+            metadata.element.embedItalic.rId,  # type: ignore[union-attr]
+            metadata.element.embedBoldItalic.rId,  # type: ignore[union-attr]
+        }
+        assert len(rel_ids) == 4
+        # -- and deobfuscated bytes round-trip --
+        assert metadata.embedded_regular == _FAKE_FONT_BLOB
+        assert metadata.embedded_bold == bold_blob
+        assert metadata.embedded_italic == italic_blob
+        assert metadata.embedded_bold_italic == bi_blob
+
+    def it_updates_an_existing_entry_in_place(self):
+        package = Package()
+        ft_part = FontTablePart.default(package)
+        ft_part.font_table.embed_font("Acme", regular=_FAKE_FONT_BLOB)
+
+        # -- second call with the same name should NOT create a duplicate entry --
+        ft_part.font_table.embed_font("Acme", bold=b"BOLD" + b"\x00" * 60)
+
+        assert len(ft_part.font_table) == 1
+        metadata = ft_part.font_table["Acme"]
+        assert metadata.embed_regular is True
+        assert metadata.embed_bold is True
+
+    def it_rejects_a_call_with_no_variants(self):
+        package = Package()
+        ft_part = FontTablePart.default(package)
+        with pytest.raises(ValueError, match="at least one"):
+            ft_part.font_table.embed_font("Acme")
+
+
+class DescribeFontTable_FontsDict:
+    """`FontTable.fonts` returns a snapshot `{name: FontMetadata}` mapping."""
+
+    def it_keys_by_font_name_in_xml_order(self):
+        fonts = cast(
+            CT_Fonts,
+            element(
+                "w:fonts/("
+                "w:font{w:name=Arial},"
+                "w:font{w:name=Calibri}"
+                ")"
+            ),
+        )
+        ft_part = FontTablePart.default(Package())
+        # -- swap in the cxml-constructed element so the proxy sees both fonts --
+        table = FontTable(fonts, ft_part)
+
+        d = table.fonts
+
+        assert list(d) == ["Arial", "Calibri"]
+        assert d["Arial"].name == "Arial"
+
+
+class DescribeDocument_EmbedFont_RoundTrip:
+    """Full docx save/reopen round-trip for an obfuscated-font embed."""
+
+    def it_round_trips_the_embedded_bytes_bit_identically(self):
+        document = docx.Document()
+        ft = document.font_table_or_new
+        ft.embed_font("Acme", regular=_FAKE_FONT_BLOB)
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        reopened = docx.Document(buf)
+
+        ft2 = reopened.font_table
+        assert ft2 is not None
+        metadata = ft2["Acme"]
+        # -- and the round-trip preserves the exact bytes through the XOR pair --
+        assert metadata.embedded_regular == _FAKE_FONT_BLOB
+
+    def it_preserves_the_obfuscatedFont_content_type_across_save(self):
+        document = docx.Document()
+        document.font_table_or_new.embed_font("Acme", regular=_FAKE_FONT_BLOB)
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        reopened = docx.Document(buf)
+
+        ft_part = reopened.font_table.part  # type: ignore[union-attr]
+        font_rels = [r for r in ft_part.rels.values() if r.reltype == RT.FONT]
+        assert len(font_rels) == 1
+        assert font_rels[0].target_part.content_type == OBFUSCATED_FONT_CONTENT_TYPE
+        # -- the stored bytes remain obfuscated on disk --
+        stored = font_rels[0].target_part.blob
+        assert stored != _FAKE_FONT_BLOB
+        # -- and the fontKey round-trips on the specific Acme entry --
+        acme_elm = ft_part.font_table_element.get_font_by_name("Acme")
+        assert acme_elm is not None
+        embed = acme_elm.embedRegular
+        assert embed is not None and embed.fontKey is not None
+        assert deobfuscate_font_bytes(stored, embed.fontKey) == _FAKE_FONT_BLOB
 
 
 # -- sanity: element helper used above yields a CT_Fonts --

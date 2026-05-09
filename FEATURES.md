@@ -1768,6 +1768,16 @@ stored verbatim): `text/html`, `application/xhtml+xml`, `application/rtf`
 embed TTF bytes for private fonts. The fork exposes a read-only view of the
 table plus `add_embedded_font()` for authoring. `[Added in 2026.05.0]`.
 
+Since `2026.05.10` (R5-23) the font table also supports Word's native
+obfuscated-font embedding format (ECMA-376 Part 1 §17.8). Pass raw
+TrueType bytes to `FontTable.embed_font(name, regular=..., bold=...,
+italic=..., bold_italic=...)` — python-docx generates a fresh
+`fontKey` GUID per variant, XOR-obfuscates the first 32 bytes, and
+stores the result as an `application/vnd.openxmlformats-officedocument.obfuscatedFont`
+part. `FontMetadata.embedded_regular` / `.embedded_bold` / `.embedded_italic`
+/ `.embedded_bold_italic` deobfuscate on read and return the raw TTF
+bytes (or `None` when the variant is not embedded).
+
 ```python
 from docx import Document
 
@@ -1778,21 +1788,32 @@ if ft is not None:
         print(meta.name, meta.family, meta.embed_regular)
     print("Calibri" in ft)
 
-# create an embedded-font slot when authoring
+# embed Word-style obfuscated TTF bytes when authoring
 ft2 = document.font_table_or_new
+with open("Acme-Regular.ttf", "rb") as fh:
+    ft2.embed_font("Acme", regular=fh.read())
+# ...and read back the deobfuscated bytes later:
+with open("Acme-Regular.ttf", "rb") as fh:
+    assert ft2["Acme"].embedded_regular == fh.read()
 ```
 
 - `Document.font_table` — `FontTable` or `None`. `[Added in 2026.05.0]`
 - `Document.font_table_or_new` — Same, but creates an empty part if missing. `[Added in 2026.05.0]`
-- `FontTable.__iter__` / `__len__` / `__contains__` / `__getitem__` / `.get(name)` / `.add_embedded_font(name, ttf_blob, style="regular")`. `[Added in 2026.05.0]`
+- `FontTable.__iter__` / `__len__` / `__contains__` / `__getitem__` / `.get(name)` / `.add_embedded_font(path, family="regular")`. `[Added in 2026.05.0]`
+- `FontTable.fonts` — `{name: FontMetadata}` snapshot. `[Added in 2026.05.10]`
+- `FontTable.embed_font(name, regular=bytes, bold=bytes, italic=bytes, bold_italic=bytes)` — obfuscated-font authoring (R5-23). `[Added in 2026.05.10]`
 - `FontMetadata.name` / `.family` / `.charset` / `.pitch` / `.panose` / `.alt_name` / `.embed_regular` / `.embed_bold` / `.embed_italic` / `.embed_bold_italic`. `[Added in 2026.05.0]`
+- `FontMetadata.embedded_regular` / `.embedded_bold` / `.embedded_italic` / `.embedded_bold_italic` — deobfuscated TTF bytes (or `None`). `[Added in 2026.05.10]`
+- `docx.font_obfuscation.obfuscate_font_bytes(data, guid)` / `.deobfuscate_font_bytes(data, guid)` / `.generate_font_key()` — low-level helpers for ECMA-376 §17.8. `[Added in 2026.05.10]`
 
 ---
 
 ## Web settings
 
-`webSettings.xml` is exposed read-oriented via `Document.web_settings`.
-`[Added in 2026.05.0]`.
+`webSettings.xml` is exposed read-oriented via `Document.web_settings`
+(reader was `2026.05.0`; writer surface extended in `2026.05.10` to
+cover `rely_on_vml` plus a read-only enumeration of the frameset
+frames for R5-22).
 
 ```python
 from docx import Document
@@ -1801,10 +1822,15 @@ document = Document("some.docx")
 ws = document.web_settings
 if ws is not None:
     print(ws.encoding, ws.optimize_for_browser, ws.allow_png)
+    print(ws.rely_on_vml)
+    for frame in ws.frames:
+        print("frame:", frame)
 ```
 
 - `Document.web_settings` — `WebSettings` proxy or `None`. `[Added in 2026.05.0]`
 - `WebSettings.encoding` / `.optimize_for_browser` / `.allow_png` / `.do_not_save_as_single_file`. `[Added in 2026.05.0]`
+- `WebSettings.rely_on_vml` (read/write bool) — toggle VML fallback for legacy browsers. `[Added in 2026.05.10]`
+- `WebSettings.frames` — list of `<w:frame>` children under the root `<w:frameset>` (empty when no frameset). `[Added in 2026.05.10]`
 
 ---
 

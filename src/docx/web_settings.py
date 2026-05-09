@@ -1,11 +1,9 @@
 """|WebSettings| proxy for ``word/webSettings.xml``.
 
-Provides read-only-ish access to a small subset of the OOXML web-settings
-part: encoding, "optimize for browser", "allow PNG", and
-"do not save as single file". The remaining schema children
-(``w:frameset``, ``w:divs``, and several rarely-used flags) are not
-exposed because they are unlikely to be useful from Python code and
-add significant surface area.
+Provides read/write access to the OOXML web-settings part: encoding,
+"optimize for browser", "rely on VML", "allow PNG", "do not save as
+single file", and the (read-only) frameset. Remaining schema children
+are preserved bytewise on round-trip.
 
 Access via :attr:`docx.document.Document.web_settings`, which returns a
 :class:`WebSettings` instance when the document has a ``webSettings``
@@ -20,7 +18,7 @@ from docx.shared import ElementProxy
 
 if TYPE_CHECKING:
     import docx.types as t
-    from docx.oxml.web_settings import CT_WebSettings
+    from docx.oxml.web_settings import CT_Frame, CT_WebSettings
     from docx.oxml.xmlchemy import BaseOxmlElement
 
 
@@ -66,6 +64,38 @@ class WebSettings(ElementProxy):
     @optimize_for_browser.setter
     def optimize_for_browser(self, value: bool | None):
         self._web_settings.optimizeForBrowser_val = value
+
+    @property
+    def rely_on_vml(self) -> bool:
+        """True when ``w:relyOnVML`` is present and not disabled.
+
+        Read/write. Assigning ``False`` (or |None|) removes the element.
+        Word sets this flag on documents authored before native graphic
+        support so that VML fallbacks render correctly in older browsers.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._web_settings.relyOnVML_val
+
+    @rely_on_vml.setter
+    def rely_on_vml(self, value: bool | None):
+        self._web_settings.relyOnVML_val = value
+
+    @property
+    def frames(self) -> list["CT_Frame"]:
+        """Direct ``<w:frame>`` children of the root ``<w:frameset>`` (if any).
+
+        Returns a list (possibly empty) of the top-level frame elements
+        declared in the web-settings frameset. Nested framesets and other
+        metadata are preserved on round-trip but not surfaced by this
+        read-only helper.
+
+        .. versionadded:: 2026.05.10
+        """
+        frameset = self._web_settings.frameset
+        if frameset is None:
+            return []
+        return list(frameset.frame_lst)
 
     @property
     def allow_png(self) -> bool:
