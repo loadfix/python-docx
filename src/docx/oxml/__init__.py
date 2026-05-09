@@ -156,6 +156,11 @@ from .content_controls import (
     CT_Sdt,
     CT_SdtComboBox,
     CT_SdtContent,
+    CT_SdtContentBlock,
+    CT_SdtContentCell,
+    CT_SdtContentRow,
+    CT_SdtContentRun,
+    CT_SdtContentRunRuby,
     CT_SdtDate,
     CT_SdtDateMappingType,
     CT_SdtDocPart,
@@ -180,6 +185,20 @@ register_element_cls("w:listItem", CT_SdtListItem)
 register_element_cls("w:sdtEndPr", CT_SdtEndPr)
 register_element_cls("w:storeMappedDataAs", CT_SdtDateMappingType)
 register_element_cls("w:text", CT_SdtText)
+# -- SDT content-container types (ECMA-376 wml.xsd) --
+#    These share the ``w:sdtContent`` tag with the default ``CT_SdtContent``
+#    registration above; callers opt into a typed container (block / cell /
+#    row / run / ruby) by constructing it directly when they need the
+#    container-specific accessors.  The tuple keeps the classes reachable
+#    as module-level exports so downstream code and typing tools can
+#    reference them.
+_SDT_CONTENT_CONTAINER_CLASSES = (
+    CT_SdtContentBlock,
+    CT_SdtContentCell,
+    CT_SdtContentRow,
+    CT_SdtContentRun,
+    CT_SdtContentRunRuby,
+)
 
 from .coreprops import CT_CoreProperties
 

@@ -500,3 +500,93 @@ class CT_SdtEndPr(BaseOxmlElement):
     """
 
     rPr = ZeroOrMore("w:rPr", successors=())
+
+
+# ---------------------------------------------------------------------------
+# SDT content-container types
+#
+# These classes are the typed containers that hold the SDT's *content*
+# depending on where it lives in the document tree. ``<w:sdtContent>`` is
+# polymorphic — the allowed children are determined by the parent of the
+# enclosing ``<w:sdt>`` (a paragraph contributes run-level content, a table
+# cell contributes row-level content, etc.).
+#
+# The existing :class:`CT_SdtContent` above handles the generic case and is
+# registered for the plain ``w:sdtContent`` tag. The classes below are used
+# where a caller needs to type-check against the specific flavour —
+# currently the Microsoft ``w15:repeatingSectionItem`` support path.
+
+
+class CT_SdtContentRun(BaseOxmlElement):
+    """``<w:sdtContent>`` used under an inline ``<w:sdt>`` (i.e. inside a
+    paragraph).
+
+    Per ECMA-376 §17.5.2.36, the content is ``EG_PContent`` — runs,
+    hyperlinks, fields, smart tags, bookmarks, etc.
+    """
+
+    @property
+    def r_lst(self) -> list["CT_R"]:
+        """List of direct ``<w:r>`` children."""
+        return self.findall(qn("w:r"))
+
+
+class CT_SdtContentBlock(BaseOxmlElement):
+    """``<w:sdtContent>`` used under a block-level ``<w:sdt>``.
+
+    Per ECMA-376 §17.5.2.34, the content is ``EG_ContentBlockContent`` —
+    paragraphs, tables, custom-XML blocks, and nested SDTs.
+    """
+
+    @property
+    def p_lst(self) -> list["CT_P"]:
+        """List of direct ``<w:p>`` children."""
+        return self.findall(qn("w:p"))
+
+
+class CT_SdtContentRow(BaseOxmlElement):
+    """``<w:sdtContent>`` used under an ``<w:sdt>`` that wraps table rows.
+
+    Per ECMA-376 §17.5.2.37, the content is ``EG_ContentRowContent`` —
+    ``<w:tr>`` children plus custom-XML rows and nested row-level SDTs.
+    This is the shape that Microsoft's ``w15:repeatingSection`` extension
+    consumes.
+    """
+
+    @property
+    def tr_lst(self) -> list[BaseOxmlElement]:
+        """List of direct ``<w:tr>`` children."""
+        return self.findall(qn("w:tr"))
+
+
+class CT_SdtContentCell(BaseOxmlElement):
+    """``<w:sdtContent>`` used under an ``<w:sdt>`` that wraps table cells.
+
+    Per ECMA-376 §17.5.2.35, the content is ``EG_ContentCellContent`` —
+    ``<w:tc>`` children plus custom-XML cells and nested cell-level SDTs.
+    """
+
+    @property
+    def tc_lst(self) -> list[BaseOxmlElement]:
+        """List of direct ``<w:tc>`` children."""
+        return self.findall(qn("w:tc"))
+
+
+class CT_SdtContentRunRuby(BaseOxmlElement):
+    """``<w:sdtContent>`` used under an ``<w:sdt>`` inside a ruby annotation.
+
+    The ECMA-376 wml.xsd does not name a dedicated type for this case — an
+    SDT within ``<w:ruby>/<w:rt>`` or ``<w:rubyBase>`` is handled by the
+    same ``EG_RubyContent`` grammar the parent uses. This class is provided
+    as a typed alias so the roadmap's full 16-type SDT tree is addressable
+    from Python code that needs to distinguish ruby-embedded SDT content
+    from the plain run-level case.
+
+    Structurally identical to :class:`CT_SdtContentRun`; declared as a
+    sibling so callers can pattern-match the specific container.
+    """
+
+    @property
+    def r_lst(self) -> list["CT_R"]:
+        """List of direct ``<w:r>`` children."""
+        return self.findall(qn("w:r"))

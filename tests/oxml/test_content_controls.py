@@ -10,6 +10,11 @@ from docx.oxml.content_controls import (
     CT_Sdt,
     CT_SdtComboBox,
     CT_SdtContent,
+    CT_SdtContentBlock,
+    CT_SdtContentCell,
+    CT_SdtContentRow,
+    CT_SdtContentRun,
+    CT_SdtContentRunRuby,
     CT_SdtDate,
     CT_SdtDateMappingType,
     CT_SdtDocPart,
@@ -350,3 +355,82 @@ class DescribeCT_SdtEndPr:
         endPr = cast(CT_SdtEndPr, element("w:sdtEndPr"))
         endPr.add_rPr()
         assert len(endPr.rPr_lst) == 1
+
+
+def _sdt_content_as(cls, cxml: str):
+    """Parse `cxml` and re-parse under a class lookup that binds ``w:sdtContent``
+    to `cls`.
+
+    The SDT content-container types (``CT_SdtContentBlock`` et al.) all share
+    the ``w:sdtContent`` tag with the generic :class:`CT_SdtContent`, which
+    is the class registered for that tag in ``docx.oxml.__init__``.  These
+    tests want to exercise the typed-only accessors on the specific
+    container class; a dedicated class-lookup isolates that.
+    """
+    from lxml import etree
+
+    parsed = element(cxml)
+    xml = etree.tostring(parsed)
+
+    lookup = etree.ElementNamespaceClassLookup()
+    ns = lookup.get_namespace("http://schemas.openxmlformats.org/wordprocessingml/2006/main")
+    ns["sdtContent"] = cls
+
+    parser = etree.XMLParser()
+    parser.set_element_class_lookup(lookup)
+    return etree.fromstring(xml, parser)
+
+
+class DescribeCT_SdtContentBlock:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_SdtContentBlock``."""
+
+    def it_exposes_its_paragraph_children(self):
+        block = cast(
+            CT_SdtContentBlock,
+            _sdt_content_as(CT_SdtContentBlock, "w:sdtContent/(w:p,w:p)"),
+        )
+        assert len(block.p_lst) == 2
+
+
+class DescribeCT_SdtContentCell:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_SdtContentCell``."""
+
+    def it_exposes_its_tc_children(self):
+        cell = cast(
+            CT_SdtContentCell,
+            _sdt_content_as(CT_SdtContentCell, "w:sdtContent/(w:tc,w:tc,w:tc)"),
+        )
+        assert len(cell.tc_lst) == 3
+
+
+class DescribeCT_SdtContentRow:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_SdtContentRow``."""
+
+    def it_exposes_its_tr_children(self):
+        row = cast(
+            CT_SdtContentRow,
+            _sdt_content_as(CT_SdtContentRow, "w:sdtContent/(w:tr,w:tr)"),
+        )
+        assert len(row.tr_lst) == 2
+
+
+class DescribeCT_SdtContentRun:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_SdtContentRun``."""
+
+    def it_exposes_its_run_children(self):
+        run_content = cast(
+            CT_SdtContentRun,
+            _sdt_content_as(CT_SdtContentRun, "w:sdtContent/(w:r,w:r)"),
+        )
+        assert len(run_content.r_lst) == 2
+
+
+class DescribeCT_SdtContentRunRuby:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_SdtContentRunRuby``."""
+
+    def it_exposes_its_run_children(self):
+        ruby_content = cast(
+            CT_SdtContentRunRuby,
+            _sdt_content_as(CT_SdtContentRunRuby, "w:sdtContent/w:r"),
+        )
+        assert len(ruby_content.r_lst) == 1
