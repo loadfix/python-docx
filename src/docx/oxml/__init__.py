@@ -729,14 +729,58 @@ register_element_cls("o:OLEObject", _Base)
 
 # ---------------------------------------------------------------------------
 # SmartArt (DrawingML diagram) elements
+#
+# Families A (``dgm:relIds``) and B (``dgm:dataModel``) have been covered
+# since 0.1.0 of the shared ``ooxml_smartart`` package. 0.2.0 adds
+# families D (``dgm:styleDef`` style-label catalogue) and E
+# (``dgm:colorsDef`` colour transforms). Register each new tag against
+# docx's element-class lookup so ``docx.oxml.parser.parse_xml`` resolves
+# the diagram quickStyle and colors parts to the typed classes instead of
+# returning plain ``lxml.etree._Element`` stubs.
 
-from .smart_art import CT_Cxn, CT_DataModel, CT_Pt, CT_PtLst, CT_RelIds
+from .smart_art import (
+    CT_ColorTransform,
+    CT_ColorTransformHeader,
+    CT_ColorTransformHeaderLst,
+    CT_Colors,
+    CT_Cxn,
+    CT_DataModel,
+    CT_Pt,
+    CT_PtLst,
+    CT_RelIds,
+    CT_StyleDefinition,
+    CT_StyleDefinitionHeader,
+    CT_StyleDefinitionHeaderLst,
+    CT_StyleLabel,
+    CT_TextProps,
+)
 
+# -- Family A + B (relIds + dataModel) --
 register_element_cls("dgm:cxn", CT_Cxn)
 register_element_cls("dgm:dataModel", CT_DataModel)
 register_element_cls("dgm:pt", CT_Pt)
 register_element_cls("dgm:ptLst", CT_PtLst)
 register_element_cls("dgm:relIds", CT_RelIds)
+
+# -- Family D (styleDef) — new in ``ooxml_smartart`` 0.2.0. --
+register_element_cls("dgm:styleDef", CT_StyleDefinition)
+register_element_cls("dgm:styleDefHdr", CT_StyleDefinitionHeader)
+register_element_cls("dgm:styleDefHdrLst", CT_StyleDefinitionHeaderLst)
+register_element_cls("dgm:styleLbl", CT_StyleLabel)
+register_element_cls("dgm:txPr", CT_TextProps)
+
+# -- Family E (colorsDef) — new in ``ooxml_smartart`` 0.2.0. The six
+# -- colour-list tags all map to :class:`CT_Colors` per the shared
+# -- package's registration. --
+register_element_cls("dgm:colorsDef", CT_ColorTransform)
+register_element_cls("dgm:colorsDefHdr", CT_ColorTransformHeader)
+register_element_cls("dgm:colorsDefHdrLst", CT_ColorTransformHeaderLst)
+register_element_cls("dgm:fillClrLst", CT_Colors)
+register_element_cls("dgm:linClrLst", CT_Colors)
+register_element_cls("dgm:effectClrLst", CT_Colors)
+register_element_cls("dgm:txLinClrLst", CT_Colors)
+register_element_cls("dgm:txFillClrLst", CT_Colors)
+register_element_cls("dgm:txEffectClrLst", CT_Colors)
 
 # ---------------------------------------------------------------------------
 # Chart-related elements

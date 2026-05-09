@@ -8,11 +8,18 @@ from typing import cast
 
 from docx.oxml.drawing import CT_Drawing
 from docx.oxml.smart_art import (
+    CT_ColorTransform,
+    CT_ColorTransformHeader,
+    CT_Colors,
     CT_Cxn,
     CT_DataModel,
     CT_Pt,
     CT_PtLst,
     CT_RelIds,
+    CT_StyleDefinition,
+    CT_StyleDefinitionHeader,
+    CT_StyleLabel,
+    CT_TextProps,
     dgm_relIds_from_drawing,
 )
 
@@ -165,3 +172,97 @@ class DescribeCT_PtLst:
     def it_is_registered(self):
         pt_lst = element("dgm:ptLst")
         assert isinstance(pt_lst, CT_PtLst)
+
+
+# ---------------------------------------------------------------------------
+# 0.2.0 adoption smoke tests — one element per shared-package family.
+#
+# Confirms that ``docx.oxml.smart_art`` re-exports the family-D (styleDef)
+# and family-E (colorsDef) ``CT_*`` classes introduced in
+# ``python-ooxml-smartart`` 0.2.0 and that docx's parser resolves the new
+# ``dgm:`` tags to those classes. Families A + B are already covered by
+# the tests above; the smoke tests here mirror that shape for D + E.
+# ---------------------------------------------------------------------------
+
+
+class DescribeFamilyA_Smoke:
+    """Family A — ``dgm:relIds`` relationship stub."""
+
+    def it_parses_a_relIds_element(self):
+        relIds = cast(
+            CT_RelIds,
+            element("dgm:relIds{r:dm=rId2,r:lo=rId3,r:qs=rId4,r:cs=rId5}"),
+        )
+        assert isinstance(relIds, CT_RelIds)
+        assert relIds.dm_rId == "rId2"
+
+
+class DescribeFamilyB_Smoke:
+    """Family B — ``dgm:dataModel`` + ``dgm:pt`` typed tree."""
+
+    def it_parses_a_dataModel_with_a_pt(self):
+        data_model = cast(
+            CT_DataModel,
+            element("dgm:dataModel/dgm:ptLst/dgm:pt{modelId=abc}"),
+        )
+        assert isinstance(data_model, CT_DataModel)
+        assert isinstance(data_model.ptLst, CT_PtLst)
+        pt = data_model.ptLst.pt_lst[0]
+        assert isinstance(pt, CT_Pt)
+
+
+class DescribeFamilyD_Smoke:
+    """Family D — ``dgm:styleDef`` style-label catalogue (new in 0.2.0)."""
+
+    def it_parses_a_styleDef_root(self):
+        style_def = cast(
+            CT_StyleDefinition,
+            element('dgm:styleDef{uniqueId=urn:docx-smoke,minVer=12.0}'),
+        )
+        assert isinstance(style_def, CT_StyleDefinition)
+        assert style_def.uniqueId == "urn:docx-smoke"
+        assert style_def.minVer == "12.0"
+
+    def it_parses_a_styleLbl_with_a_txPr(self):
+        style_lbl = cast(
+            CT_StyleLabel,
+            element("dgm:styleLbl{name=node0}/dgm:txPr"),
+        )
+        assert isinstance(style_lbl, CT_StyleLabel)
+        assert style_lbl.name == "node0"
+        assert isinstance(style_lbl.txPr, CT_TextProps)
+
+    def it_parses_a_styleDefHdr(self):
+        header = cast(
+            CT_StyleDefinitionHeader,
+            element('dgm:styleDefHdr{uniqueId=urn:docx-smoke,minVer=12.0,resId=1}'),
+        )
+        assert isinstance(header, CT_StyleDefinitionHeader)
+        assert header.uniqueId == "urn:docx-smoke"
+
+
+class DescribeFamilyE_Smoke:
+    """Family E — ``dgm:colorsDef`` colour transforms (new in 0.2.0)."""
+
+    def it_parses_a_colorsDef_root(self):
+        colors_def = cast(
+            CT_ColorTransform,
+            element('dgm:colorsDef{uniqueId=urn:docx-smoke,minVer=12.0}'),
+        )
+        assert isinstance(colors_def, CT_ColorTransform)
+        assert colors_def.uniqueId == "urn:docx-smoke"
+
+    def it_parses_a_colorsDefHdr(self):
+        header = cast(
+            CT_ColorTransformHeader,
+            element('dgm:colorsDefHdr{uniqueId=urn:docx-smoke,minVer=12.0,resId=1}'),
+        )
+        assert isinstance(header, CT_ColorTransformHeader)
+
+    def it_parses_a_colour_list_wrapper(self):
+        fill_clr_lst = cast(
+            CT_Colors, element('dgm:fillClrLst{meth=span,hueDir=cw}')
+        )
+        assert isinstance(fill_clr_lst, CT_Colors)
+        assert fill_clr_lst.meth == "span"
+        assert fill_clr_lst.hueDir == "cw"
