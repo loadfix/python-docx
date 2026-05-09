@@ -842,3 +842,26 @@ register_element_cls("w:targetScreenSz", CT_TargetScreenSz)
 
 # Silence unused-import warnings for CT classes exported for tests / consumers
 _ = (CT_MailMergeSourceType, CT_MailMergeOdsoFMDFieldType)
+
+# ---------------------------------------------------------------------------
+# Inline CustomXml container elements
+
+from .custom_xml import (
+    CT_Attr,
+    CT_CustomXmlBlock,
+    CT_CustomXmlCell,
+    CT_CustomXmlPr,
+    CT_CustomXmlRow,
+    CT_CustomXmlRun,
+)
+
+# w:customXml is a single QName used in block / row / cell / run positions;
+# register the block flavor as the default — its grammar (customXmlPr +
+# block-content) is the most permissive and parses the other three flavors
+# faithfully. CT_CustomXmlRow / CT_CustomXmlCell / CT_CustomXmlRun remain
+# available for programmatic construction.
+register_element_cls("w:customXml", CT_CustomXmlBlock)
+register_element_cls("w:customXmlPr", CT_CustomXmlPr)
+register_element_cls("w:attr", CT_Attr)
+
+_ = (CT_CustomXmlRow, CT_CustomXmlCell, CT_CustomXmlRun)
