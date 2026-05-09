@@ -7,6 +7,14 @@ xlsx); this module preserves docx's historical public surface —
 ``CT_RelIds``, ``CT_DataModel``, ``CT_Pt``, ``CT_PtLst``, ``CT_Cxn`` —
 so every ``from docx.oxml.smart_art import ...`` path keeps working.
 
+Since shared-package 0.2.0 the re-export surface also covers families
+D (``dgm:styleDef`` style-label catalogue — :class:`CT_StyleDefinition`
+and friends) and E (``dgm:colorsDef`` colour transforms —
+:class:`CT_ColorTransform` and friends). docx does not yet ship a
+diagram-style or diagram-colors part-class layer, so these re-exports
+give downstream consumers typed element-tree access as a stepping
+stone to a future ``DiagramStylePart`` / ``DiagramColorsPart``.
+
 Historical docx behaviour preserved via a thin subclass shim:
 
 * :class:`CT_Pt` — docx treats ``@modelId`` as an optional attribute so
@@ -54,9 +62,22 @@ from ooxml_smartart.authoring import (
     get_root_doc_pt_id,
 )
 from ooxml_smartart.oxml import (
+    CT_Categories,
+    CT_Category,
+    CT_ColorTransform,
+    CT_ColorTransformHeader,
+    CT_ColorTransformHeaderLst,
+    CT_Colors,
     CT_Cxn,
     CT_DataModel,
+    CT_Description,
+    CT_Name,
     CT_RelIds,
+    CT_StyleDefinition,
+    CT_StyleDefinitionHeader,
+    CT_StyleDefinitionHeaderLst,
+    CT_StyleLabel,
+    CT_TextProps,
     register_element_cls,
 )
 from ooxml_smartart.oxml.data_model import CT_Pt as _CT_Pt
@@ -73,11 +94,24 @@ if TYPE_CHECKING:
 
 
 __all__ = [
+    "CT_Categories",
+    "CT_Category",
+    "CT_ColorTransform",
+    "CT_ColorTransformHeader",
+    "CT_ColorTransformHeaderLst",
+    "CT_Colors",
     "CT_Cxn",
     "CT_DataModel",
+    "CT_Description",
+    "CT_Name",
     "CT_Pt",
     "CT_PtLst",
     "CT_RelIds",
+    "CT_StyleDefinition",
+    "CT_StyleDefinitionHeader",
+    "CT_StyleDefinitionHeaderLst",
+    "CT_StyleLabel",
+    "CT_TextProps",
     "add_data_node",
     "dgm_relIds_from_drawing",
     "get_root_doc_pt_id",

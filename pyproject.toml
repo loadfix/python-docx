@@ -60,13 +60,16 @@ dependencies = [
     # ``python-ooxml-chart>=0.3.0``.
     "python-ooxml-chart @ git+https://github.com/loadfix/python-ooxml-chart@master",
     # Shared SmartArt (DrawingML diagrams — ``dgm:``) readers/writers.
-    # 0.1.0 ships families A + B only (``dgm:relIds`` relationship stub +
-    # ``dgm:dataModel`` typed node/connection tree). docx re-exports the
-    # ``CT_*`` classes from their historical ``docx.oxml.smart_art``
-    # module paths with a thin docx-local subclass for ``CT_Pt`` (optional
-    # ``@modelId`` for defensive reads). Not yet on PyPI; pinned to the
-    # master branch until a PyPI release lands, after which this becomes
-    # ``python-ooxml-smartart>=0.1.0``.
+    # 0.2.0 extends the 0.1.0 family-A + family-B surface to cover
+    # families D (``dgm:styleDef`` style-label catalogue) and E
+    # (``dgm:colorsDef`` colour transforms). Families C (``dgm:layoutDef``)
+    # and F (org-chart specialisation inside layoutDef) remain
+    # indefinitely deferred. docx re-exports the ``CT_*`` classes from
+    # their historical ``docx.oxml.smart_art`` module paths with a thin
+    # docx-local subclass for ``CT_Pt`` (optional ``@modelId`` for
+    # defensive reads). Not yet on PyPI; pinned to the master branch
+    # until a PyPI release lands, after which this becomes
+    # ``python-ooxml-smartart>=0.2.0``.
     "python-ooxml-smartart @ git+https://github.com/loadfix/python-ooxml-smartart@master",
     "typing-extensions>=4.9.0",
 ]
