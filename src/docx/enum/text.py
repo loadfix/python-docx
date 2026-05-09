@@ -1013,6 +1013,82 @@ class WD_BUILDING_BLOCK_GALLERY(BaseXmlEnum):
         return None
 
 
+class WD_BUILDING_BLOCK_BEHAVIOR(BaseXmlEnum):
+    """Building-block insertion behavior flag.
+
+    Maps to the ``w:val`` attribute of ``w:docPart/w:docPartPr/w:behaviors/
+    w:behavior``. A building block may declare zero or more behaviors; the
+    enumeration surfaces the three schema-defined values.
+
+    .. versionadded:: 2026.05.10
+    """
+
+    CONTENT = (0, "content", "Insert the content only, no wrapping element.")
+    """Insert the content only, no wrapping element."""
+
+    P = (1, "p", "Insert the content wrapped in a paragraph.")
+    """Insert the content wrapped in a paragraph."""
+
+    PG = (2, "pg", "Insert the content on its own page.")
+    """Insert the content on its own page."""
+
+    @classmethod
+    def from_xml_safe(
+        cls, xml_value: str | None
+    ) -> WD_BUILDING_BLOCK_BEHAVIOR | None:
+        """Return the enum member for `xml_value`, or |None| when unknown.
+
+        .. versionadded:: 2026.05.10
+        """
+        if xml_value is None:
+            return None
+        for member in cls:
+            if member.xml_value == xml_value:
+                return member
+        return None
+
+
+class WD_BUILDING_BLOCK_TYPE(BaseXmlEnum):
+    """Building-block ``w:docPartType`` classification.
+
+    Maps to the ``w:val`` attribute of
+    ``w:docPart/w:docPartPr/w:docPartType/@w:val``. Controls how Word treats
+    the building block when inserting and auto-completing.
+
+    .. versionadded:: 2026.05.10
+    """
+
+    BBPLC = (0, "bbPlcHdr", "Building-block placeholder.")
+    """Building-block placeholder."""
+
+    AUTO_EXP_LIST = (1, "autoExpList", "AutoComplete expansion list entry.")
+    """AutoComplete expansion list entry."""
+
+    NORMAL = (2, "normal", "A normal building block.")
+    """A normal building block."""
+
+    SPELLING_ERROR = (3, "speller", "A spell-checker-supplied building block.")
+    """A spell-checker-supplied building block."""
+
+    GRAMMAR_ERROR = (4, "grammar", "A grammar-checker-supplied building block.")
+    """A grammar-checker-supplied building block."""
+
+    @classmethod
+    def from_xml_safe(
+        cls, xml_value: str | None
+    ) -> WD_BUILDING_BLOCK_TYPE | None:
+        """Return the enum member for `xml_value`, or |None| when unknown.
+
+        .. versionadded:: 2026.05.10
+        """
+        if xml_value is None:
+            return None
+        for member in cls:
+            if member.xml_value == xml_value:
+                return member
+        return None
+
+
 class WD_MAIL_MERGE_TYPE(BaseXmlEnum):
     """Specifies the mail-merge main document type.
 

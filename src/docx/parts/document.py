@@ -274,6 +274,20 @@ class DocumentPart(StoryPart):
             self.relate_to(glossary_part, RT.GLOSSARY_DOCUMENT)
         return glossary_part.glossary
 
+    def remove_glossary(self) -> bool:
+        """Drop the ``glossaryDocument`` relationship, if one exists.
+
+        Returns ``True`` when a glossary relationship was dropped, ``False``
+        when there was no glossary to remove.
+
+        .. versionadded:: 2026.05.10
+        """
+        for rId, rel in list(self.rels.items()):
+            if rel.reltype == RT.GLOSSARY_DOCUMENT:
+                self.drop_rel(rId)
+                return True
+        return False
+
     @property
     def _glossary_part(self) -> GlossaryPart | None:
         """The |GlossaryPart| related to this document, or |None| if not present.

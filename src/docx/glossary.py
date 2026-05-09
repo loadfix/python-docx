@@ -19,13 +19,18 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, Union
 
 from docx.blkcntnr import BlockItemContainer
-from docx.enum.text import WD_BUILDING_BLOCK_GALLERY
+from docx.enum.text import (
+    WD_BUILDING_BLOCK_BEHAVIOR,
+    WD_BUILDING_BLOCK_GALLERY,
+    WD_BUILDING_BLOCK_TYPE,
+)
 from docx.shared import ElementProxy
 
 if TYPE_CHECKING:
     import docx.types as t
     from docx.oxml.glossary import (
         CT_DocPart,
+        CT_DocPartBody,
         CT_DocPartCategory,
         CT_GlossaryDocument,
     )
@@ -91,7 +96,10 @@ class Glossary(ElementProxy):
         gallery: WD_BUILDING_BLOCK_GALLERY | str = (
             WD_BUILDING_BLOCK_GALLERY.QUICK_PARTS
         ),
-        content: Union["Paragraph", str, None] = None,
+        content: Union[
+            "Paragraph", str, list, "CT_DocPartBody", None
+        ] = None,
+        description: str | None = None,
     ) -> BuildingBlock:
         """Add a new building block and return its :class:`BuildingBlock`.
 
@@ -126,7 +134,21 @@ class Glossary(ElementProxy):
         cat = pr.get_or_add_category()
         cat.set_name(category)
         cat.set_gallery(gallery_xml)
+        if description is not None:
+            pr.set_description(description)
         pr.set_guid("{%s}" % _uuid.uuid4())
+
+        # -- If `content` is a CT_DocPartBody, replace the body wholesale;
+        # -- otherwise populate the freshly-created body element.
+        from docx.oxml.glossary import CT_DocPartBody
+
+        if isinstance(content, CT_DocPartBody):
+            existing_body = doc_part.docPartBody
+            if existing_body is not None:
+                doc_part.remove(existing_body)
+            doc_part.append(content)
+            return BuildingBlock(doc_part, self._glossary_part)
+
         body = doc_part.get_or_add_docPartBody()
 
         if isinstance(content, str):
@@ -135,11 +157,51 @@ class Glossary(ElementProxy):
             from docx.oxml.text.run import CT_R
             run_elm: CT_R = p.add_r()
             run_elm.text = content
+        elif isinstance(content, list):
+            # -- a list of w:p / w:tbl elements; detach and append in order.
+            for elm in content:
+                body.append(elm)
         elif content is not None:
             # -- a Paragraph proxy — detach its element and append --
             body.append(content._p)  # type: ignore[attr-defined]
 
         return BuildingBlock(doc_part, self._glossary_part)
+
+    def find(
+        self,
+        name: str | None = None,
+        gallery: WD_BUILDING_BLOCK_GALLERY | str | None = None,
+        category: str | None = None,
+    ) -> list[BuildingBlock]:
+        """Return building blocks matching every provided filter.
+
+        Each of `name`, `gallery`, `category` is optional; any argument that
+        is |None| is ignored. When all three are |None| the result is every
+        building block in document order (equivalent to :attr:`building_blocks`).
+
+        `name` is compared to :attr:`BuildingBlock.name` exactly
+        (case-sensitive). `gallery` may be a :class:`WD_BUILDING_BLOCK_GALLERY`
+        enum member or a raw XML string (e.g. ``"quickParts"``); the block's
+        raw gallery string is used for comparison. `category` compares against
+        :attr:`BuildingBlock.category_name`.
+
+        .. versionadded:: 2026.05.10
+        """
+        if isinstance(gallery, WD_BUILDING_BLOCK_GALLERY):
+            gallery_xml: str | None = gallery.xml_value
+        else:
+            gallery_xml = gallery
+
+        result: list[BuildingBlock] = []
+        for block in self.building_blocks:
+            if name is not None and block.name != name:
+                continue
+            if gallery_xml is not None and block.gallery != gallery_xml:
+                continue
+            if category is not None and block.category_name != category:
+                continue
+            result.append(block)
+        return result
 
     def remove_building_block(self, name: str) -> bool:
         """Remove the first building block whose name is `name`.
@@ -373,6 +435,130 @@ class BuildingBlock(BlockItemContainer):
             return []
         return pr.behaviors.values
 
+    @behaviors.setter
+    def behaviors(self, values) -> None:
+        """Replace the behaviors with `values`.
+
+        `values` may be:
+
+        * a set / iterable of :class:`~docx.enum.text.WD_BUILDING_BLOCK_BEHAVIOR`
+          members (order is then schema-order of the enum);
+        * a set / iterable of raw XML strings (``"content"``, ``"p"``,
+          ``"pg"``);
+        * |None| or an empty iterable to drop every behavior.
+
+        Unknown strings are written through verbatim — the proxy does not
+        validate against the enum, which keeps forward compatibility with
+        future WML additions.
+        """
+        pr = self._doc_part.get_or_add_docPartPr()
+        if values is None:
+            pr.set_behaviors([])
+            return
+        incoming: list[str] = []
+        for v in values:
+            if isinstance(v, WD_BUILDING_BLOCK_BEHAVIOR):
+                assert v.xml_value is not None
+                incoming.append(v.xml_value)
+            else:
+                incoming.append(str(v))
+
+        xml_values: list[str] = []
+        seen: set[str] = set()
+        # -- Iterate WD_BUILDING_BLOCK_BEHAVIOR order first so set-like inputs
+        # -- produce a stable XML order; fall back to iteration order for
+        # -- unknown strings.
+        for member in WD_BUILDING_BLOCK_BEHAVIOR:
+            xml = member.xml_value
+            if xml in incoming and xml not in seen:
+                xml_values.append(xml)  # type: ignore[arg-type]
+                seen.add(xml)  # type: ignore[arg-type]
+        for xml in incoming:
+            if xml not in seen:
+                xml_values.append(xml)
+                seen.add(xml)
+        pr.set_behaviors(xml_values)
+
+    @property
+    def behaviors_set(self) -> set[WD_BUILDING_BLOCK_BEHAVIOR]:
+        """The block's behaviors as a set of enum members.
+
+        Raw XML strings that do not map to a :class:`WD_BUILDING_BLOCK_BEHAVIOR`
+        member are dropped from the set; use :attr:`behaviors` to see the
+        full raw list.
+
+        .. versionadded:: 2026.05.10
+        """
+        result: set[WD_BUILDING_BLOCK_BEHAVIOR] = set()
+        for xml_val in self.behaviors:
+            member = WD_BUILDING_BLOCK_BEHAVIOR.from_xml_safe(xml_val)
+            if member is not None:
+                result.add(member)
+        return result
+
+    @property
+    def category_name(self) -> str | None:
+        """Shortcut for ``block.category.category_name``.
+
+        |None| when the block has no ``w:category`` element or its
+        ``w:name`` child is absent.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.category.category_name
+
+    @property
+    def gallery(self) -> str | None:
+        """Shortcut for ``block.category.gallery`` — the raw gallery string.
+
+        Returns the ``w:val`` of ``w:category/w:gallery``, or |None| when
+        absent. Use :attr:`gallery_enum` for a typed view.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.category.gallery
+
+    @property
+    def gallery_enum(self) -> WD_BUILDING_BLOCK_GALLERY | None:
+        """The block's gallery as a |WD_BUILDING_BLOCK_GALLERY| member.
+
+        |None| when the gallery slot is absent or its value is not one of
+        the modelled galleries.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.category.gallery_value
+
+    @property
+    def docPartType(self) -> WD_BUILDING_BLOCK_TYPE | None:
+        """The block's ``w:docPartType`` as a |WD_BUILDING_BLOCK_TYPE| member.
+
+        Backed by the first ``w:types/w:type`` child's ``w:val`` attribute.
+        |None| when the element is absent or its value is not one of the
+        modelled types.
+
+        .. versionadded:: 2026.05.10
+        """
+        pr = self._doc_part.docPartPr
+        if pr is None:
+            return None
+        return WD_BUILDING_BLOCK_TYPE.from_xml_safe(pr.docPartType_val)
+
+    @docPartType.setter
+    def docPartType(
+        self, value: WD_BUILDING_BLOCK_TYPE | str | None
+    ) -> None:
+        pr = self._doc_part.get_or_add_docPartPr()
+        if value is None:
+            pr.clear_docPartType()
+            return
+        if isinstance(value, WD_BUILDING_BLOCK_TYPE):
+            assert value.xml_value is not None
+            xml = value.xml_value
+        else:
+            xml = str(value)
+        pr.set_docPartType(xml)
+
     @property
     def content_paragraphs(self) -> list[Paragraph]:
         """Alias of :attr:`paragraphs`.
@@ -474,3 +660,11 @@ class BuildingBlockCategory:
         .. versionadded:: 2026.05.0
         """
         return WD_BUILDING_BLOCK_GALLERY.from_xml_safe(self.gallery)
+
+
+# -- name alias — the R9-21 spec and ECMA-376 vocabulary refer to the
+# -- ``w:glossaryDocument`` element / proxy as the "glossary document". The
+# -- existing class name ``Glossary`` is preserved for backwards
+# -- compatibility; ``GlossaryDocument`` is the canonical spelling going
+# -- forward.
+GlossaryDocument = Glossary
