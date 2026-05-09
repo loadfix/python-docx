@@ -421,11 +421,14 @@ document.save("out.docx")
 - `Table.split(before_row)` — Split into two tables at a boundary. `[Added in 2026.05.0]`
 - `Table.delete()` — Remove from document. `[Added in 2026.05.0]`
 - `Table.merged_cell_ranges` — Tuples of `(top_row, top_col, bottom_row, bottom_col)`. `[Added in 2026.05.0]`
+- `Table.merge_range(row0, col0, row1, col1)` — Merge a rectangular block in one call; returns the origin `_Cell`. Corners may be supplied in any diagonal order. `[Added in 2026.05.11]`
 - `Table.spans_page_break` — `True` if the rendered table crosses a page break.
 - `Table.stable_id` / `Table.formatting_change` — Stable fingerprint and tracked-formatting proxy. `[Added in 2026.05.0]`
 - `Table.next_block` / `Table.previous_block` — Block-level navigation. `[Added in 2026.05.0]`
 - `_Cell.add_paragraph(...)` / `_Cell.add_table(...)` / `_Cell.add_picture(...)` — Nested content.
 - `_Cell.merge(other)` / `_Cell.split()` / `_Cell.is_merge_origin` / `_Cell.merge_origin` / `_Cell.grid_span` — Merge handling. Merge-origin APIs are `[Added in 2026.05.0]`.
+- `_Cell.merge_down(count=1)` / `_Cell.unmerge_vertical()` — Vertical-merge authoring. `merge_down` marks this cell `w:vMerge="restart"` and the `count` cells below as `w:vMerge="continue"`; `unmerge_vertical` strips `w:vMerge` across the full span (walking up to the origin if called on a continuation). `[Added in 2026.05.11]`
+- `_Cell.is_merged_origin` / `_Cell.is_merged_continuation` — Plain-boolean companions to the tri-state `is_merge_origin`. Useful when iterating and the "not merged" case should be |False| rather than |None|. `[Added in 2026.05.11]`
 - `_Cell.borders` / `_Cell.margins` / `_Cell.set_margins(...)` / `_Cell.remove_margins()` — Cell-level borders and margins. `[Added in 2026.05.0]`
 - `_Cell.shading.fill_color` / `_Cell.shading.pattern` — Background. `[Added in 2026.05.0]`
 - `_Cell.text_direction` / `_Cell.vertical_alignment` / `_Cell.width` / `_Cell.text` — Cell properties (`text_direction` is `[Added in 2026.05.0]`).

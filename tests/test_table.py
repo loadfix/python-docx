@@ -903,6 +903,103 @@ class DescribeTable:
         ranges = table.merged_cell_ranges()
         assert ranges == [(0, 2, 0, 1)]
 
+    # -- merge_range (R5-11) -----------------------------------------
+
+    def it_can_merge_a_rectangular_range_of_cells(self, document_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/("
+                "w:tblPr,"
+                "w:tblGrid/(w:gridCol,w:gridCol,w:gridCol),"
+                "w:tr/(w:tc/w:p,w:tc/w:p,w:tc/w:p),"
+                "w:tr/(w:tc/w:p,w:tc/w:p,w:tc/w:p),"
+                "w:tr/(w:tc/w:p,w:tc/w:p,w:tc/w:p))"
+            ),
+        )
+        table = Table(tbl, document_)
+
+        origin = table.merge_range(0, 0, 1, 1)
+
+        assert isinstance(origin, _Cell)
+        # -- 2x2 merge: row 0 col 0 is restart + gridSpan=2 --
+        tc_00 = tbl.tr_lst[0].tc_lst[0]
+        tc_10 = tbl.tr_lst[1].tc_lst[0]
+        assert tc_00.vMerge == "restart"
+        assert tc_00.grid_span == 2
+        # -- row 1 col 0 is continue + gridSpan=2 --
+        assert tc_10.vMerge == "continue"
+        assert tc_10.grid_span == 2
+        # -- unaffected trailing column still has 1 grid col worth of tc's --
+        assert tbl.tr_lst[2].tc_lst[0].vMerge is None
+
+    def it_normalises_inverted_corners_in_merge_range(self, document_: Mock):
+        """merge_range accepts either diagonal; (r1,c1) may be the top-left."""
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/("
+                "w:tblPr,"
+                "w:tblGrid/(w:gridCol,w:gridCol),"
+                "w:tr/(w:tc/w:p,w:tc/w:p),"
+                "w:tr/(w:tc/w:p,w:tc/w:p))"
+            ),
+        )
+        table = Table(tbl, document_)
+
+        origin = table.merge_range(1, 1, 0, 0)
+
+        assert isinstance(origin, _Cell)
+        assert tbl.tr_lst[0].tc_lst[0].vMerge == "restart"
+        assert tbl.tr_lst[0].tc_lst[0].grid_span == 2
+
+    def it_can_add_a_nested_table_inside_a_nested_table(self, document_: Mock):
+        """Depth-2 nesting: a cell in a nested table can hold another table."""
+        from docx import Document as OpenDocument
+
+        document = OpenDocument()
+        outer = document.add_table(rows=1, cols=1)
+
+        middle = outer.cell(0, 0).add_table(rows=1, cols=1)
+        inner = middle.cell(0, 0).add_table(rows=1, cols=1)
+
+        assert isinstance(middle, Table)
+        assert isinstance(inner, Table)
+        # -- outer cell's first child is the middle tbl --
+        outer_tc = outer.cell(0, 0)._tc
+        assert middle._tbl in list(outer_tc)
+        # -- middle's cell contains the inner tbl --
+        middle_tc = middle.cell(0, 0)._tc
+        assert inner._tbl in list(middle_tc)
+
+    def it_roundtrips_vertical_merge_through_save_reload(self, document_: Mock):
+        """Save + re-open preserves w:vMerge restart/continue markers."""
+        import io
+
+        from docx import Document as OpenDocument
+
+        doc = OpenDocument()
+        tbl = doc.add_table(rows=3, cols=2)
+        tbl.cell(0, 0).merge_down(count=2)
+        # -- also a rectangle merge for extra coverage --
+        tbl2 = doc.add_table(rows=3, cols=3)
+        tbl2.merge_range(0, 0, 1, 1)
+
+        buf = io.BytesIO()
+        doc.save(buf)
+        buf.seek(0)
+        doc2 = OpenDocument(buf)
+
+        rt = doc2.tables[0]
+        assert rt._tbl.tr_lst[0].tc_lst[0].vMerge == "restart"
+        assert rt._tbl.tr_lst[1].tc_lst[0].vMerge == "continue"
+        assert rt._tbl.tr_lst[2].tc_lst[0].vMerge == "continue"
+        rt2 = doc2.tables[1]
+        assert rt2._tbl.tr_lst[0].tc_lst[0].vMerge == "restart"
+        assert rt2._tbl.tr_lst[0].tc_lst[0].grid_span == 2
+        assert rt2._tbl.tr_lst[1].tc_lst[0].vMerge == "continue"
+        assert rt2._tbl.tr_lst[1].tc_lst[0].grid_span == 2
+
     # -- split (upstream#481) ----------------------------------------
 
     def it_can_split_itself_at_a_row_boundary(self, document_: Mock):
@@ -1657,6 +1754,144 @@ class Describe_Cell:
 
         with pytest.raises(ValueError, match="orphan vMerge continuation"):
             cell.merge_origin
+
+    # -- merge_down / unmerge_vertical / is_merged_* (R5-11) ------------------
+
+    def it_can_merge_down_into_a_vertical_span(self, parent_: Mock):
+        """merge_down(count=1) sets restart on self + continue on cell below."""
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblGrid/(w:gridCol,w:gridCol),"
+                "w:tr/(w:tc/w:p,w:tc/w:p),"
+                "w:tr/(w:tc/w:p,w:tc/w:p))"
+            ),
+        )
+        table = Table(tbl, parent_)
+
+        origin = table.cell(0, 0).merge_down()
+
+        assert isinstance(origin, _Cell)
+        # -- row 0 col 0 is now a vMerge="restart" --
+        assert tbl.tr_lst[0].tc_lst[0].vMerge == "restart"
+        # -- row 1 col 0 is a vMerge="continue" (raw attr on w:vMerge omitted) --
+        assert tbl.tr_lst[1].tc_lst[0].vMerge == "continue"
+        # -- col 1 is unaffected in both rows --
+        assert tbl.tr_lst[0].tc_lst[1].vMerge is None
+        assert tbl.tr_lst[1].tc_lst[1].vMerge is None
+
+    def it_can_merge_down_by_multiple_rows(self, parent_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/w:p,"
+                "w:tr/w:tc/w:p,"
+                "w:tr/w:tc/w:p)"
+            ),
+        )
+        table = Table(tbl, parent_)
+
+        table.cell(0, 0).merge_down(count=2)
+
+        assert tbl.tr_lst[0].tc_lst[0].vMerge == "restart"
+        assert tbl.tr_lst[1].tc_lst[0].vMerge == "continue"
+        assert tbl.tr_lst[2].tc_lst[0].vMerge == "continue"
+
+    def it_raises_when_merge_down_extends_past_last_row(self, parent_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/w:p,"
+                "w:tr/w:tc/w:p)"
+            ),
+        )
+        table = Table(tbl, parent_)
+
+        with pytest.raises(ValueError, match="past the last row"):
+            table.cell(0, 0).merge_down(count=5)
+
+    @pytest.mark.parametrize("bad", [0, -1])
+    def it_raises_on_non_positive_merge_down_count(self, bad: int, parent_: Mock):
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/w:p,"
+                "w:tr/w:tc/w:p)"
+            ),
+        )
+        table = Table(tbl, parent_)
+        with pytest.raises(ValueError, match="count must be >= 1"):
+            table.cell(0, 0).merge_down(count=bad)
+
+    def it_can_unmerge_a_vertical_span_from_the_origin(self, parent_: Mock):
+        """unmerge_vertical on the restart cell strips vMerge across the span."""
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/(w:tcPr/w:vMerge{w:val=restart},w:p),"
+                "w:tr/w:tc/(w:tcPr/w:vMerge,w:p),"
+                "w:tr/w:tc/(w:tcPr/w:vMerge,w:p))"
+            ),
+        )
+        table = Table(tbl, parent_)
+
+        result = table.cell(0, 0).unmerge_vertical()
+
+        assert isinstance(result, _Cell)
+        for row in tbl.tr_lst:
+            for tc in row.tc_lst:
+                assert tc.vMerge is None
+
+    def it_can_unmerge_from_a_continuation_cell(self, parent_: Mock):
+        """Calling unmerge_vertical on a continuation walks up to origin first."""
+        tbl = cast(
+            CT_Tbl,
+            element(
+                "w:tbl/(w:tblGrid/w:gridCol,"
+                "w:tr/w:tc/(w:tcPr/w:vMerge{w:val=restart},w:p),"
+                "w:tr/w:tc/(w:tcPr/w:vMerge,w:p))"
+            ),
+        )
+        table = Table(tbl, parent_)
+        # -- use the continuation's raw tc directly (cell grid delegates) --
+        continuation = _Cell(tbl.tr_lst[1].tc_lst[0], parent_)
+
+        result = continuation.unmerge_vertical()
+
+        assert isinstance(result, _Cell)
+        assert tbl.tr_lst[0].tc_lst[0].vMerge is None
+        assert tbl.tr_lst[1].tc_lst[0].vMerge is None
+
+    def it_is_a_noop_unmerge_on_unmerged_cell(self, parent_: Mock):
+        cell = _Cell(cast(CT_Tc, element("w:tc/w:p")), parent_)
+        result = cell.unmerge_vertical()
+        assert result is cell
+        assert cell._tc.vMerge is None
+
+    @pytest.mark.parametrize(
+        ("tc_cxml", "expected_origin", "expected_cont"),
+        [
+            ("w:tc", False, False),
+            ("w:tc/w:tcPr/w:gridSpan{w:val=2}", True, False),
+            ("w:tc/w:tcPr/w:vMerge{w:val=restart}", True, False),
+            ("w:tc/w:tcPr/w:vMerge", False, True),
+            ("w:tc/w:tcPr/w:vMerge{w:val=continue}", False, True),
+        ],
+    )
+    def it_exposes_boolean_is_merged_origin_and_continuation(
+        self,
+        tc_cxml: str,
+        expected_origin: bool,
+        expected_cont: bool,
+        parent_: Mock,
+    ):
+        cell = _Cell(cast(CT_Tc, element(tc_cxml)), parent_)
+        assert cell.is_merged_origin is expected_origin
+        assert cell.is_merged_continuation is expected_cont
 
     # -- merged-cell read robustness edge cases --------------------------------
 

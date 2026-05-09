@@ -585,6 +585,27 @@ class Table(StoryChild):
         """
         return TableCellMargins(self._tbl)
 
+    def merge_range(
+        self, row0: int, col0: int, row1: int, col1: int
+    ) -> _Cell:
+        """Merge a rectangular block of cells and return the resulting origin cell.
+
+        The block spans from ``(row0, col0)`` through ``(row1, col1)`` inclusive
+        (either pair may be the "top-left" or the "bottom-right"; the method
+        normalises the corners). The returned |_Cell| wraps the top-left
+        ``w:tc`` of the resulting merged region. Horizontal merging produces
+        ``w:gridSpan``; vertical merging produces ``w:vMerge`` continuations.
+
+        Raises |InvalidSpanError| if the requested rectangle cannot be
+        realised over the underlying grid (e.g. it would cut through an
+        existing merged region in a non-rectangular way).
+
+        .. versionadded:: 2026.05.11
+        """
+        top, bot = (row0, row1) if row0 <= row1 else (row1, row0)
+        left, right = (col0, col1) if col0 <= col1 else (col1, col0)
+        return self.cell(top, left).merge(self.cell(bot, right))
+
     def merged_cell_ranges(self) -> list[tuple[int, int, int, int]]:
         """Return a list of rectangular merged-cell regions in this table.
 
@@ -1343,6 +1364,120 @@ class _Cell(BlockItemContainer):
         if table is not None and hasattr(table, "_invalidate_cells_cache"):
             table._invalidate_cells_cache()
         return _Cell(merged_tc, self._parent)
+
+    def merge_down(self, count: int = 1) -> _Cell:
+        """Vertically merge this cell with the `count` cells directly below it.
+
+        Marks this cell as ``w:vMerge="restart"`` and each of the ``count``
+        cells directly below in the same grid column as ``w:vMerge="continue"``.
+        Returns this cell (the merge origin) wrapped in a fresh proxy so the
+        underlying ``w:tc`` remains valid after the owning |Table|'s cell-grid
+        cache is invalidated.
+
+        `count` must be >= 1 and there must be at least that many rows below
+        this cell in its table. Horizontal span (``w:gridSpan``) is preserved.
+
+        .. versionadded:: 2026.05.11
+        """
+        if count < 1:
+            raise ValueError(f"count must be >= 1, got {count}")
+        tc = self._tc
+        # -- locate the bottom-most tc in the same grid column --
+        target = tc
+        for _ in range(count):
+            below = target._tc_below  # pyright: ignore[reportPrivateUsage]
+            if below is None:
+                raise ValueError(
+                    f"merge_down(count={count}) extends past the last row of the table"
+                )
+            target = below
+        merged_tc = tc.merge(target)
+        parent = self._parent
+        table = getattr(parent, "table", None) if parent is not None else None
+        if table is not None and hasattr(table, "_invalidate_cells_cache"):
+            table._invalidate_cells_cache()
+        return _Cell(merged_tc, self._parent)
+
+    def unmerge_vertical(self) -> _Cell:
+        """Remove this cell's vertical-merge membership.
+
+        If this cell is a vMerge="restart" origin, every continuation cell
+        below it in the same grid column has its ``w:vMerge`` stripped, and
+        the restart marker on this cell is removed as well. If this cell is
+        a vMerge="continue" member, the origin is resolved via
+        :attr:`merge_origin` and the full vertical span is unmerged.
+
+        Horizontal span (``w:gridSpan``) is NOT affected. For a cell that is
+        only horizontally merged, this is a no-op that still returns this
+        cell.
+
+        Returns the origin |_Cell| after the operation.
+
+        .. versionadded:: 2026.05.11
+        """
+        # -- fast path: no vMerge anywhere on this cell → nothing to do. This
+        # -- also protects against a bare `w:tc` with no ancestor `w:tbl`
+        # -- (unit tests commonly build such fragments). --
+        if self._tc.vMerge is None:
+            return self
+
+        origin_cell = self.merge_origin  # walks up to restart, or self
+        origin_tc = origin_cell._tc
+        origin_tcPr = origin_tc.tcPr
+
+        # -- walk down collecting continuation cells first (before mutation) --
+        continuations: list[CT_Tc] = []
+        current = origin_tc
+        while True:
+            below = current._tc_below  # pyright: ignore[reportPrivateUsage]
+            if below is None:
+                break
+            if below.vMerge != ST_Merge.CONTINUE:
+                break
+            continuations.append(below)
+            current = below
+
+        # -- strip vMerge on every continuation --
+        for tc in continuations:
+            tcPr = tc.tcPr
+            if tcPr is not None and tcPr.vMerge is not None:
+                tcPr._remove_vMerge()  # pyright: ignore[reportPrivateUsage]
+
+        # -- strip vMerge="restart" from the origin --
+        if origin_tcPr is not None and origin_tcPr.vMerge is not None:
+            origin_tcPr._remove_vMerge()  # pyright: ignore[reportPrivateUsage]
+
+        # -- invalidate the owning Table's cached cell grid --
+        parent = origin_cell._parent
+        table = getattr(parent, "table", None) if parent is not None else None
+        if table is not None and hasattr(table, "_invalidate_cells_cache"):
+            table._invalidate_cells_cache()
+        return origin_cell
+
+    @property
+    def is_merged_origin(self) -> bool:
+        """|True| when this cell is the top-left origin of any merged region.
+
+        An origin is a cell with ``w:vMerge="restart"`` or ``w:gridSpan > 1``
+        (without a continuation ``w:vMerge``). Unlike :attr:`is_merge_origin`
+        this accessor returns a plain boolean — |False| covers both
+        "not merged" and "continuation" cells.
+
+        .. versionadded:: 2026.05.11
+        """
+        return self.is_merge_origin is True
+
+    @property
+    def is_merged_continuation(self) -> bool:
+        """|True| when this cell is a continuation of a vertically merged region.
+
+        A continuation is a cell whose ``w:vMerge`` has no ``@w:val`` or is
+        explicitly ``"continue"``. Horizontally merged cells and non-merged
+        cells both return |False|.
+
+        .. versionadded:: 2026.05.11
+        """
+        return self.is_merge_origin is False
 
     @property
     def paragraphs(self):
