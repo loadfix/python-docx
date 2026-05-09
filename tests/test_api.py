@@ -76,7 +76,7 @@ class DescribeDocument:
         document = DocumentFactoryFn("foobar.docx")
 
         Package_.open.assert_called_once_with(
-            "foobar.docx", recover=False, huge_tree=False, password=None
+            "foobar.docx", recover=False, huge_tree=False, password=None, strict=False
         )
         assert document is document_
 
@@ -90,7 +90,7 @@ class DescribeDocument:
 
         # -- os.fspath normalises the PathLike to str before delegating --
         Package_.open.assert_called_once_with(
-            "foobar.docx", recover=False, huge_tree=False, password=None
+            "foobar.docx", recover=False, huge_tree=False, password=None, strict=False
         )
         assert document is document_
 
@@ -106,7 +106,7 @@ class DescribeDocument:
         document = DocumentFactoryFn()
 
         Package_.open.assert_called_once_with(
-            default_stream, recover=False, huge_tree=False, password=None
+            default_stream, recover=False, huge_tree=False, password=None, strict=False
         )
         assert document is document_
 
@@ -156,7 +156,7 @@ class DescribeDocument:
         document = DocumentFactoryFn("foobar.docm")
 
         Package_.open.assert_called_once_with(
-            "foobar.docm", recover=False, huge_tree=False, password=None
+            "foobar.docm", recover=False, huge_tree=False, password=None, strict=False
         )
         assert document is document_
 
@@ -289,7 +289,7 @@ class DescribeDocument:
         DocumentFactoryFn("foobar.docx", recover=True)
 
         Package_.open.assert_called_once_with(
-            "foobar.docx", recover=True, huge_tree=False, password=None
+            "foobar.docx", recover=True, huge_tree=False, password=None, strict=False
         )
 
     def it_passes_huge_tree_True_through_to_Package_open(
@@ -303,7 +303,7 @@ class DescribeDocument:
         DocumentFactoryFn("foobar.docx", huge_tree=True)
 
         Package_.open.assert_called_once_with(
-            "foobar.docx", recover=False, huge_tree=True, password=None
+            "foobar.docx", recover=False, huge_tree=True, password=None, strict=False
         )
 
     def it_defaults_huge_tree_to_False(self, Package_: Mock, document_: Mock):
@@ -314,7 +314,7 @@ class DescribeDocument:
         DocumentFactoryFn("foobar.docx")
 
         Package_.open.assert_called_once_with(
-            "foobar.docx", recover=False, huge_tree=False, password=None
+            "foobar.docx", recover=False, huge_tree=False, password=None, strict=False
         )
 
     def it_passes_password_through_to_Package_open(
@@ -327,7 +327,7 @@ class DescribeDocument:
         DocumentFactoryFn("protected.docx", password="hunter2")
 
         Package_.open.assert_called_once_with(
-            "protected.docx", recover=False, huge_tree=False, password="hunter2"
+            "protected.docx", recover=False, huge_tree=False, password="hunter2", strict=False
         )
 
     def it_ships_hanging_indents_on_List_Bullet_and_List_Number(self):

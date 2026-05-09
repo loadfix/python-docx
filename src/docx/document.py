@@ -2210,12 +2210,36 @@ class Document(ElementProxy):
 
         return append_paragraph(self, paragraph)
 
+    @property
+    def is_strict(self) -> bool:
+        """``True`` when this package was opened in ECMA-376 Strict mode.
+
+        Delegates to :attr:`docx.opc.package.OpcPackage.is_strict`. A
+        fresh authoring-path |Document| is Transitional by default.
+        Assigning a value flips the flag so a subsequent :meth:`save`
+        (with ``strict=None``) preserves the Strict class on emit.
+
+        python-docx translates Strict → Transitional byte-level on
+        open at the :class:`~docx.opc.pkgreader.PackageReader` layer,
+        so the in-memory part tree carries Transitional URIs either
+        way; the flag is surfaced for programmatic introspection and
+        explicit round-trip preservation.
+
+        .. versionadded:: 2026.05.11
+        """
+        return self._part.package.is_strict
+
+    @is_strict.setter
+    def is_strict(self, value: bool) -> None:
+        self._part.package.is_strict = bool(value)
+
     def save(
         self,
         path_or_stream: str | IO[bytes],
         flat_opc: bool = False,
         reproducible: bool = False,
         password: str | None = None,
+        strict: bool | None = None,
     ):
         """Save this document to `path_or_stream`.
 
@@ -2249,10 +2273,18 @@ class Document(ElementProxy):
         ``password`` compose normally — the fixed-timestamp zip members are
         produced first and the encryption wrapper is applied to that buffer.
 
+        `strict` records the ECMA-376 conformance class on the package.
+        ``None`` (default) preserves :attr:`is_strict`; ``True`` /
+        ``False`` override it for this call. The bytes written to
+        disk are always Transitional — python-docx does not currently
+        perform Transitional → Strict byte-level translation on emit.
+
         .. versionadded:: 2026.05.0
            The `flat_opc` and `reproducible` parameters.
         .. versionadded:: 2026.05.10
            The `password` parameter.
+        .. versionadded:: 2026.05.11
+           The `strict` parameter.
         """
         if flat_opc:
             if password is not None:
@@ -2266,11 +2298,12 @@ class Document(ElementProxy):
             from docx.opc.flat_opc import write_flat_opc
 
             buf = _io.BytesIO()
-            self._part.save(buf, reproducible=reproducible)
+            self._part.save(buf, reproducible=reproducible, strict=strict)
             write_flat_opc(path_or_stream, buf.getvalue())
             return
         self._part.save(
-            path_or_stream, reproducible=reproducible, password=password
+            path_or_stream, reproducible=reproducible, password=password,
+            strict=strict,
         )
 
     def search(

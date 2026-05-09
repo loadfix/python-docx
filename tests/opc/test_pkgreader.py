@@ -46,7 +46,9 @@ class DescribePackageReader:
         _srels_for.assert_called_once_with(phys_reader, "/")
         _load_serialized_parts.assert_called_once_with(phys_reader, pkg_srels, content_types)
         phys_reader.close.assert_called_once_with()
-        _init_.assert_called_once_with(ANY, content_types, pkg_srels, sparts)
+        _init_.assert_called_once_with(
+            ANY, content_types, pkg_srels, sparts, is_strict=False
+        )
         assert isinstance(pkg_reader, PackageReader)
 
     def it_can_iterate_over_the_serialized_parts(self, iter_sparts_fixture):

@@ -714,6 +714,7 @@ class DocumentPart(StoryPart):
         path_or_stream: str | IO[bytes],
         reproducible: bool = False,
         password: str | None = None,
+        strict: bool | None = None,
     ):
         """Save this document to `path_or_stream`, which can be either a path to a
         filesystem location (a string) or a file-like object.
@@ -726,13 +727,20 @@ class DocumentPart(StoryPart):
         using ECMA-376 Agile Encryption. Encryption requires the optional
         ``python-ooxml-crypto`` dependency.
 
+        `strict` is forwarded to :meth:`docx.opc.package.OpcPackage.save`
+        for ECMA-376 conformance-class handling; see
+        :meth:`docx.document.Document.save`.
+
         .. versionadded:: 2026.05.0
            The `reproducible` parameter.
         .. versionadded:: 2026.05.10
            The `password` parameter.
+        .. versionadded:: 2026.05.11
+           The `strict` parameter.
         """
         self.package.save(
-            path_or_stream, reproducible=reproducible, password=password
+            path_or_stream, reproducible=reproducible, password=password,
+            strict=strict,
         )
 
     @property

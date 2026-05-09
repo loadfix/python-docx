@@ -116,7 +116,7 @@ class DescribeDocumentPart:
         document_part.save("foobar.docx")
 
         package_.save.assert_called_once_with(
-            "foobar.docx", reproducible=False, password=None
+            "foobar.docx", reproducible=False, password=None, strict=None
         )
 
     def it_provides_access_to_the_comments_added_to_the_document(

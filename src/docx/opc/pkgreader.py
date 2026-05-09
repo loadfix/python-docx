@@ -34,10 +34,15 @@ class PackageReader:
     """Provides access to the contents of a zip-format OPC package via its
     :attr:`serialized_parts` and :attr:`pkg_srels` attributes."""
 
-    def __init__(self, content_types, pkg_srels, sparts):
+    def __init__(self, content_types, pkg_srels, sparts, is_strict: bool = False):
         super().__init__()
         self._pkg_srels = pkg_srels
         self._sparts = sparts
+        #: ``True`` when the underlying package declared the ECMA-376
+        #: Strict namespace family (``purl.oclc.org/ooxml``) and was
+        #: translated to Transitional on the read path.
+        #: .. versionadded:: 2026.05.11
+        self.is_strict: bool = is_strict
 
     @staticmethod
     def from_file(pkg_file, password: str | None = None):
@@ -65,7 +70,8 @@ class PackageReader:
         if looks_like_flat_opc(pkg_file):
             pkg_file = expand_flat_opc_to_zip_stream(pkg_file)
         phys_reader = PhysPkgReader(pkg_file, password=password)
-        if _looks_like_strict_package(phys_reader):
+        is_strict_source = _looks_like_strict_package(phys_reader)
+        if is_strict_source:
             phys_reader = _StrictTranslatingPkgReader(phys_reader)
         # -- `[Content_Types].xml` is mandatory per OPC §9.2; a zip that lacks it
         # -- is not a valid OOXML package. `ZipFile.read` raises a bare `KeyError`
@@ -83,7 +89,9 @@ class PackageReader:
         pkg_srels = PackageReader._srels_for(phys_reader, PACKAGE_URI)
         sparts = PackageReader._load_serialized_parts(phys_reader, pkg_srels, content_types)
         phys_reader.close()
-        return PackageReader(content_types, pkg_srels, sparts)
+        return PackageReader(
+            content_types, pkg_srels, sparts, is_strict=is_strict_source
+        )
 
     def iter_sparts(self):
         """Generate a 4-tuple `(partname, content_type, reltype, blob)` for each of the
