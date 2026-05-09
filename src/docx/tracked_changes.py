@@ -113,7 +113,38 @@ class TrackedChange(ElementProxy):
         self._tc_element.reject()
 
 
-class MoveRevision(TrackedChange):
+#: Alias of :class:`TrackedChange`, the common base for all four run-level
+#: revision proxies. Prefer this name in new code — it matches the ECMA-376
+#: terminology ("revision") and aligns with :attr:`Document.revisions` /
+#: :attr:`Paragraph.revisions` / :attr:`Run.revisions`.
+#:
+#: .. versionadded:: 2026.05.11
+Revision = TrackedChange
+
+
+class Insertion(TrackedChange):
+    """Proxy for an insertion revision (a `<w:ins>` element).
+
+    :attr:`type` is always ``"insertion"``. :meth:`accept` unwraps the element
+    (keeping the inserted runs as live content); :meth:`reject` removes the
+    element and its content.
+
+    .. versionadded:: 2026.05.11
+    """
+
+
+class Deletion(TrackedChange):
+    """Proxy for a deletion revision (a `<w:del>` element).
+
+    :attr:`type` is always ``"deletion"``. :meth:`accept` removes the element
+    and its deleted runs; :meth:`reject` unwraps the element and converts
+    `w:delText` descendants back to `w:t` so the deleted text is restored.
+
+    .. versionadded:: 2026.05.11
+    """
+
+
+class Move(TrackedChange):
     """Proxy for a move revision — a `<w:moveFrom>` or `<w:moveTo>` element.
 
     In addition to the common author/date/text surface inherited from
@@ -122,13 +153,16 @@ class MoveRevision(TrackedChange):
     property resolves the counterpart element anywhere in the same XML tree by
     matching `@w:name`.
 
+    :attr:`type` is ``"move_from"`` for the source and ``"move_to"`` for the
+    destination.
+
     Note on the paragraph-level range markers `w:moveFromRangeStart/End` and
     `w:moveToRangeStart/End`: those bracket cross-paragraph moves rather than
     wrap run content, so no proxy type is exposed for them. They survive a
     round-trip unchanged; callers that need to work with them can iterate the
     underlying XML.
 
-    .. versionadded:: 2026.05.0
+    .. versionadded:: 2026.05.11
     """
 
     @property
@@ -143,7 +177,7 @@ class MoveRevision(TrackedChange):
         return self._tc_element.get(qn("w:name"))
 
     @property
-    def peer(self) -> MoveRevision | None:
+    def peer(self) -> "Move | None":
         """The paired `w:moveFrom`/`w:moveTo` on the other side of the move.
 
         Looks up the first element (other than ``self``) in the same tree whose
@@ -178,8 +212,16 @@ class MoveRevision(TrackedChange):
             if not isinstance(candidate, peer_cls):
                 continue
             if candidate.get(qn("w:name")) == name:
-                return MoveRevision(candidate)
+                return Move(candidate)
         return None
+
+
+#: Back-compatibility alias. New code should prefer :class:`Move`.
+#:
+#: .. versionadded:: 2026.05.0
+#: .. versionchanged:: 2026.05.11
+#:    Renamed to :class:`Move`; ``MoveRevision`` is now an alias of the new name.
+MoveRevision = Move
 
 
 class FormattingChange(ElementProxy):
@@ -249,6 +291,25 @@ class FormattingChange(ElementProxy):
         if isinstance(self._fc_element, CT_TblPrChange):
             return self._fc_element.tblPr
         return None
+
+
+def _wrap_revision(elm: "CT_RunTrackChange") -> TrackedChange:
+    """Return the proxy subclass matching `elm`'s element type.
+
+    Maps `w:ins` to :class:`Insertion`, `w:del` to :class:`Deletion`, and
+    `w:moveFrom`/`w:moveTo` to :class:`Move`. The move subclasses must be
+    checked before their bases (`CT_MoveFrom` extends `CT_Del`,
+    `CT_MoveTo` extends `CT_Ins`).
+
+    .. versionadded:: 2026.05.11
+    """
+    from docx.oxml.tracked_changes import CT_Ins, CT_MoveFrom, CT_MoveTo
+
+    if isinstance(elm, (CT_MoveFrom, CT_MoveTo)):
+        return Move(elm)
+    if isinstance(elm, CT_Ins):
+        return Insertion(elm)
+    return Deletion(elm)
 
 
 def _render_paragraph_marks(

@@ -703,6 +703,71 @@ class DescribeDocument:
         assert "".join(t.text for t in paragraphs[0].xpath(".//w:t")) == "keep added"
         assert "".join(t.text for t in paragraphs[1].xpath(".//w:t")) == " end"
 
+    def it_aliases_accept_revisions_to_accept_all_changes(
+        self, document_part_: Mock
+    ):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/"
+                'w:p/(w:r/w:t"k ",w:ins{w:id=1,w:author=A}/w:r/w:t"added")'
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.accept_revisions()
+
+        assert count == 1
+        assert document_elm.xpath(".//w:ins") == []
+
+    def it_aliases_reject_revisions_to_reject_all_changes(
+        self, document_part_: Mock
+    ):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/"
+                'w:p/(w:r/w:t"k ",w:ins{w:id=1,w:author=A}/w:r/w:t"added")'
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.reject_revisions()
+
+        assert count == 1
+        assert document_elm.xpath(".//w:ins") == []
+
+    def it_exposes_revisions_as_typed_proxies(self, document_part_: Mock):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/("
+                'w:p/(w:r/w:t"a ",w:ins{w:id=1,w:author=A}/w:r/w:t"b"),'
+                'w:p/(w:del{w:id=2,w:author=B}/w:r/w:delText"c",'
+                'w:moveFrom{w:id=3,w:author=C,w:name=m}/w:r/w:delText"d",'
+                'w:moveTo{w:id=4,w:author=D,w:name=m}/w:r/w:t"d")'
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        revs = document.revisions
+
+        # -- expect 4 revisions in document order --
+        assert len(revs) == 4
+        types = [r.type for r in revs]
+        assert types == ["insertion", "deletion", "move_from", "move_to"]
+
+    def it_returns_empty_revisions_when_body_has_none(
+        self, document_part_: Mock
+    ):
+        document_elm = cast(
+            CT_Document,
+            element('w:document/w:body/w:p/w:r/w:t"plain"'),
+        )
+        document = Document(document_elm, document_part_)
+        assert document.revisions == []
+
     def it_can_reject_all_tracked_changes(self, document_part_: Mock):
         document_elm = cast(
             CT_Document,

@@ -1097,11 +1097,14 @@ document.save("out.docx")
 
 - `Document.tracked_changes(author, date=None)` — Context manager that wraps new runs in `w:ins`. `[Added in 2026.05.0]`
 - `Document.accept_all_changes()` / `Document.reject_all_changes()` — Resolve every change in the body. `[Added in 2026.05.0]`
+- `Document.accept_revisions()` / `Document.reject_revisions()` — ECMA-376-spelled aliases of the above. `[Added in 2026.05.11]`
+- `Document.revisions` / `Paragraph.revisions` / `Run.revisions` — Typed-proxy read of every run-level revision (`Insertion`, `Deletion`, `Move`) plus, on `Run`, the local `FormattingChange` from `w:rPrChange`. `[Added in 2026.05.11]`
 - `Document.revision_marks_text(open_ins="[+", close_ins="+]", open_del="[-", close_del="-]")` — Body-text preview with markers. `[Added in 2026.05.0]`
 - `Paragraph.tracked_changes` / `Paragraph.revision_marks_text(...)` / `Paragraph.formatting_change` — Per-paragraph reads. `[Added in 2026.05.0]`
 - `Run.formatting_change` / `_Cell.is_tracked_insertion` / `_Cell.is_tracked_deletion` / `_Cell.formatting_change` / `Table.formatting_change` / `Section.formatting_change` — Change detection on other types. `[Added in 2026.05.0]`
+- `Revision` (alias of `TrackedChange`) / `Insertion` / `Deletion` / `Move` — Typed subclasses wrapping `w:ins`, `w:del`, and `w:moveFrom`/`w:moveTo`. `[Added in 2026.05.11]`
 - `TrackedChange.author` / `.date` / `.text` / `.type` / `.accept()` / `.reject()`. `[Added in 2026.05.0]`
-- `MoveRevision.name` / `MoveRevision.peer` — Move source ↔ destination pairing. `[Added in 2026.05.0]`
+- `MoveRevision.name` / `MoveRevision.peer` — Move source ↔ destination pairing. `[Added in 2026.05.0]` (now an alias of `Move`. `[Added in 2026.05.11]`)
 - `FormattingChange.author` / `.date` / `.old_properties` — `w:rPrChange` / `w:pPrChange` / `w:sectPrChange` reader. `[Added in 2026.05.0]`
 - `Settings.track_revisions` / `Settings.rsid_root` / `Settings.rsids` — Revision-ID plumbing. `[Added in 2026.05.0]`
 
