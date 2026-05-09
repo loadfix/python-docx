@@ -50,6 +50,7 @@ from docx.parts.smart_art import (
 )
 from docx.parts.styles import StylesPart
 from docx.parts.theme import ThemePart
+from docx.parts.vml import VmlDrawingPart
 from docx.parts.web_settings import WebSettingsPart
 
 
@@ -95,6 +96,7 @@ PartFactory.part_type_for[CT.DML_DIAGRAM_DATA] = DiagramDataPart
 PartFactory.part_type_for[CT.DML_DIAGRAM_LAYOUT] = DiagramLayoutPart
 PartFactory.part_type_for[CT.DML_DIAGRAM_STYLE] = DiagramStylePart
 PartFactory.part_type_for[CT.OFC_THEME] = ThemePart
+PartFactory.part_type_for[CT.OFC_VML_DRAWING] = VmlDrawingPart
 PartFactory.part_type_for[CT.WML_WEB_SETTINGS] = WebSettingsPart
 
 del (
@@ -123,6 +125,7 @@ del (
     SettingsPart,
     StylesPart,
     ThemePart,
+    VmlDrawingPart,
     WebSettingsPart,
     part_class_selector,
 )
