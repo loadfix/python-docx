@@ -590,3 +590,71 @@ class CT_SdtContentRunRuby(BaseOxmlElement):
     def r_lst(self) -> list["CT_R"]:
         """List of direct ``<w:r>`` children."""
         return self.findall(qn("w:r"))
+
+
+# ---------------------------------------------------------------------------
+# w15 (Word 2012 extension) — repeating-section SDT types
+#
+# ``w15:repeatingSection`` / ``w15:repeatingSectionItem`` are not in the
+# ECMA-376 5th-edition wml.xsd — they were introduced by Microsoft as part
+# of the Word 2013 wave of transitional extensions (namespace
+# ``http://schemas.microsoft.com/office/word/2012/wordml``). A repeating
+# section wraps a table-row (or block) region that users can duplicate via
+# the doc-part gallery UI, e.g. for invoice line-items.
+#
+# Element shape in the wild (Word-emitted XML):
+#
+#     <w:sdtPr>
+#       <w15:repeatingSection/>                  <-- type marker
+#     </w:sdtPr>
+#     <w:sdtContent>
+#       <w:sdt>
+#         <w:sdtPr>
+#           <w15:repeatingSectionItem/>          <-- one per instance
+#         </w:sdtPr>
+#         <w:sdtContent> ... </w:sdtContent>
+#       </w:sdt>
+#       ... further repeated child SDTs ...
+#     </w:sdtContent>
+#
+# Neither element carries attributes or child elements in the ordinary
+# case; Word treats them as flag-shaped markers whose presence changes the
+# SDT's authoring behaviour. The classes below expose them as registered
+# types so round-trips preserve them faithfully and so downstream code can
+# detect a repeating-section SDT without falling back to string parsing.
+
+
+class CT_SdtRepeatedSection(BaseOxmlElement):
+    """``<w15:repeatingSection>`` element — repeating-section type marker.
+
+    Microsoft Word 2013+ extension (namespace
+    ``http://schemas.microsoft.com/office/word/2012/wordml``). Appears as a
+    childless marker inside ``<w:sdtPr>`` to flag the enclosing SDT as a
+    *repeating section*: the user can press the Word UI's "Insert New Item"
+    button to duplicate the inner block, for authoring invoice rows,
+    address lists, and similar tabular templates.
+
+    Carries the optional ``@w15:sectionTitle`` attribute (the label shown in
+    the duplicate-item drop-down) and ``@w15:doNotAllowInsertDeleteSection``
+    that disables the UI affordance.
+    """
+
+    sectionTitle: "str | None" = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w15:sectionTitle", ST_String
+    )
+    doNotAllowInsertDeleteSection: "bool | None" = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w15:doNotAllowInsertDeleteSection", ST_OnOff
+    )
+
+
+class CT_SdtRepeatedSectionItem(BaseOxmlElement):
+    """``<w15:repeatingSectionItem>`` element — one instance in a repeating section.
+
+    Microsoft Word 2013+ extension. Flags an inner ``<w:sdt>`` as a single
+    instance (row / card) of a surrounding repeating-section SDT. Word
+    preserves these markers so the user can delete individual instances
+    via the content-control handle, and round-trippers MUST preserve them
+    to keep the template shape intact.
+
+    The element carries no attributes or children.
+    """

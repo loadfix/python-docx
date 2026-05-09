@@ -21,6 +21,8 @@ from docx.oxml.content_controls import (
     CT_SdtDropDownList,
     CT_SdtEndPr,
     CT_SdtListItem,
+    CT_SdtRepeatedSection,
+    CT_SdtRepeatedSectionItem,
     CT_SdtText,
 )
 from docx.oxml.ns import qn
@@ -434,3 +436,52 @@ class DescribeCT_SdtContentRunRuby:
             _sdt_content_as(CT_SdtContentRunRuby, "w:sdtContent/w:r"),
         )
         assert len(ruby_content.r_lst) == 1
+
+
+class DescribeCT_SdtRepeatedSection:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_SdtRepeatedSection``."""
+
+    def it_is_registered_for_the_w15_tag(self):
+        rs = element("w15:repeatingSection")
+        assert isinstance(rs, CT_SdtRepeatedSection)
+
+    def it_reads_its_sectionTitle_attribute(self):
+        rs = cast(
+            CT_SdtRepeatedSection,
+            element("w15:repeatingSection{w15:sectionTitle=Rows}"),
+        )
+        assert rs.sectionTitle == "Rows"
+
+    def it_reads_doNotAllowInsertDeleteSection_as_True(self):
+        rs = cast(
+            CT_SdtRepeatedSection,
+            element("w15:repeatingSection{w15:doNotAllowInsertDeleteSection=1}"),
+        )
+        assert rs.doNotAllowInsertDeleteSection is True
+
+    def it_returns_None_for_absent_attributes(self):
+        rs = cast(CT_SdtRepeatedSection, element("w15:repeatingSection"))
+        assert rs.sectionTitle is None
+        assert rs.doNotAllowInsertDeleteSection is None
+
+
+class DescribeCT_SdtRepeatedSectionItem:
+    """Unit-test suite for ``docx.oxml.content_controls.CT_SdtRepeatedSectionItem``."""
+
+    def it_is_registered_for_the_w15_tag(self):
+        rsi = element("w15:repeatingSectionItem")
+        assert isinstance(rsi, CT_SdtRepeatedSectionItem)
+
+    def it_round_trips_inside_a_sdtPr(self):
+        from docx.oxml.parser import parse_xml
+
+        xml = (
+            '<w:sdt xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+            ' xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml">'
+            "<w:sdtPr><w15:repeatingSectionItem/></w:sdtPr>"
+            "</w:sdt>"
+        )
+        sdt = cast(CT_Sdt, parse_xml(xml))
+        marker = sdt.sdtPr.find(qn("w15:repeatingSectionItem"))
+        assert marker is not None
+        assert isinstance(marker, CT_SdtRepeatedSectionItem)

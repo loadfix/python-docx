@@ -168,6 +168,8 @@ from .content_controls import (
     CT_SdtEndPr,
     CT_SdtListItem,
     CT_SdtPr,
+    CT_SdtRepeatedSection,
+    CT_SdtRepeatedSectionItem,
     CT_SdtText,
 )
 
@@ -199,6 +201,9 @@ _SDT_CONTENT_CONTAINER_CLASSES = (
     CT_SdtContentRun,
     CT_SdtContentRunRuby,
 )
+# -- w15 repeated-section SDT markers (MS Word 2013+ extension) --
+register_element_cls("w15:repeatingSection", CT_SdtRepeatedSection)
+register_element_cls("w15:repeatingSectionItem", CT_SdtRepeatedSectionItem)
 
 from .coreprops import CT_CoreProperties
 
