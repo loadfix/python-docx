@@ -1781,27 +1781,48 @@ if ws is not None:
 
 ## Glossary (building blocks)
 
-The glossary document (AutoText / Quick Parts / cover pages) is read-only
-in `Document.glossary`. You can enumerate building blocks, filter by
-category or gallery, and inspect each entry's paragraphs and tables.
-`[Added in 2026.05.0]`.
+The glossary document (AutoText / Quick Parts / cover pages) is exposed via
+`Document.glossary`. You can enumerate building blocks, filter by category
+or gallery, and inspect each entry's paragraphs and tables. `[Added in
+2026.05.0]`. Since `2026.05.10` the glossary is also writable — lazy-create
+it with `Document.ensure_glossary()` and then add or remove building
+blocks.
 
 ```python
 from docx import Document
+from docx.enum.text import WD_BUILDING_BLOCK_GALLERY
 
+# read-only inspection
 document = Document("template-with-glossary.dotx")
 g = document.glossary
 if g is not None:
     print("%d building blocks" % len(g))
     for bb in g:
         print(bb.name, "→", bb.category.category_name, "/", bb.category.gallery)
+        print("  type:", bb.type, "behaviors:", bb.behaviors)
     print("categories:", g.categories)
     print("galleries:", g.galleries)
+
+# write: lazy-create a glossary and add an entry
+document = Document()
+g = document.ensure_glossary()
+g.add_building_block(
+    "MyQuickPart",
+    category="Custom",
+    gallery=WD_BUILDING_BLOCK_GALLERY.QUICK_PARTS,
+    content="Canned paragraph text.",
+)
+g.remove_building_block("MyQuickPart")
+document.save("with-glossary.docx")
 ```
 
 - `Document.glossary` — `Glossary` or `None`. `[Added in 2026.05.0]`
+- `Document.ensure_glossary()` — returns a `Glossary`, lazy-creating the
+  `glossaryDocument` part if needed. `[Added in 2026.05.10]`
 - `Glossary.__iter__` / `__len__` / `__getitem__(name)` / `.building_blocks` / `.categories` / `.galleries` / `.by_category(name=None, gallery=None)`. `[Added in 2026.05.0]`
+- `Glossary.add_building_block(name, category="General", gallery=WD_BUILDING_BLOCK_GALLERY.QUICK_PARTS, content=None)` / `.remove_building_block(name)`. `content` accepts `str`, an existing `Paragraph`, or `None`. `[Added in 2026.05.10]`
 - `BuildingBlock.name` / `.category` / `.description` / `.guid` / `.paragraphs` / `.tables`. `[Added in 2026.05.0]`
+- `BuildingBlock.uuid` (alias of `.guid`) / `.type` / `.types` / `.behaviors` / `.content_paragraphs` (alias of `.paragraphs`). `[Added in 2026.05.10]`
 - `BuildingBlockCategory.category_name` / `.gallery` / `.gallery_value`. `[Added in 2026.05.0]`
 
 ---

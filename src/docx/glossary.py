@@ -14,8 +14,9 @@ and tables are exposed via the standard block-item container API.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import uuid as _uuid
 from collections.abc import Iterator
+from typing import TYPE_CHECKING, Union
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.text import WD_BUILDING_BLOCK_GALLERY
@@ -82,6 +83,84 @@ class Glossary(ElementProxy):
             BuildingBlock(doc_part, self._glossary_part)
             for doc_part in self._glossary_elm.docPart_lst
         ]
+
+    def add_building_block(
+        self,
+        name: str,
+        category: str = "General",
+        gallery: WD_BUILDING_BLOCK_GALLERY | str = (
+            WD_BUILDING_BLOCK_GALLERY.QUICK_PARTS
+        ),
+        content: Union["Paragraph", str, None] = None,
+    ) -> BuildingBlock:
+        """Add a new building block and return its :class:`BuildingBlock`.
+
+        `name` becomes ``w:docPartPr/w:name/@w:val`` — the display name used
+        by Word when listing Quick Parts. `category` and `gallery` populate
+        ``w:docPartPr/w:category`` (``w:name`` and ``w:gallery``
+        respectively); the default gallery is ``QUICK_PARTS`` since that is
+        the most common bucket for user-authored snippets. `gallery` may be
+        passed as a :class:`WD_BUILDING_BLOCK_GALLERY` enum member or as its
+        raw XML string (e.g. ``"coverPg"``).
+
+        `content` populates ``w:docPartBody``. A ``str`` is wrapped in a
+        single paragraph with a single run; a :class:`docx.text.paragraph.Paragraph`
+        has its underlying ``<w:p>`` element appended directly (making the
+        building block "take ownership" — the caller's paragraph now lives
+        in the glossary part). |None| produces an empty body.
+
+        A fresh ``w:guid`` is generated for every new block — Word uses this
+        to disambiguate building blocks that share a name across galleries.
+
+        .. versionadded:: 2026.05.10
+        """
+        if isinstance(gallery, WD_BUILDING_BLOCK_GALLERY):
+            gallery_xml = gallery.xml_value
+        else:
+            gallery_xml = gallery
+
+        doc_parts = self._glossary_elm.get_or_add_docParts()
+        doc_part = doc_parts.add_docPart()
+        pr = doc_part.get_or_add_docPartPr()
+        pr.set_name(name)
+        cat = pr.get_or_add_category()
+        cat.set_name(category)
+        cat.set_gallery(gallery_xml)
+        pr.set_guid("{%s}" % _uuid.uuid4())
+        body = doc_part.get_or_add_docPartBody()
+
+        if isinstance(content, str):
+            p = body.add_p()
+            # -- append a run with the supplied text --
+            from docx.oxml.text.run import CT_R
+            run_elm: CT_R = p.add_r()
+            run_elm.text = content
+        elif content is not None:
+            # -- a Paragraph proxy — detach its element and append --
+            body.append(content._p)  # type: ignore[attr-defined]
+
+        return BuildingBlock(doc_part, self._glossary_part)
+
+    def remove_building_block(self, name: str) -> bool:
+        """Remove the first building block whose name is `name`.
+
+        Returns ``True`` when a block was removed, ``False`` when no match
+        exists. The first match in document order wins when names collide.
+        Name comparison is exact and case-sensitive.
+
+        .. versionadded:: 2026.05.10
+        """
+        docParts = self._glossary_elm.docParts
+        if docParts is None:
+            return False
+        for doc_part in list(docParts.docPart_lst):
+            pr = doc_part.docPartPr
+            if pr is None:
+                continue
+            if pr.name_val == name:
+                docParts.remove(doc_part)
+                return True
+        return False
 
     def by_category(
         self,
@@ -241,6 +320,71 @@ class BuildingBlock(BlockItemContainer):
         if pr is None:
             return None
         return pr.guid_val
+
+    @property
+    def uuid(self) -> str | None:
+        """Alias of :attr:`guid`, returning the ``w:guid`` ``w:val`` slot.
+
+        The OOXML element is named ``w:guid`` so that remains the canonical
+        spelling; this property is provided for callers who prefer the
+        vendor-neutral name.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.guid
+
+    @property
+    def types(self) -> list[str]:
+        """List of raw ``w:types/w:type/@w:val`` strings for this block.
+
+        Empty when ``w:docPartPr`` or ``w:types`` is absent, or when the
+        ``w:types`` element has no children.
+
+        .. versionadded:: 2026.05.10
+        """
+        pr = self._doc_part.docPartPr
+        if pr is None or pr.types is None:
+            return []
+        return pr.types.values
+
+    @property
+    def type(self) -> str | None:
+        """The first ``w:types/w:type/@w:val`` string, or |None| when absent.
+
+        Convenience for building blocks that declare a single type (the
+        common case — Word writes one ``w:type`` child with a value like
+        ``"autoTxt"``). Use :attr:`types` to see every declared type.
+
+        .. versionadded:: 2026.05.10
+        """
+        type_values = self.types
+        return type_values[0] if type_values else None
+
+    @property
+    def behaviors(self) -> list[str]:
+        """List of raw ``w:behaviors/w:behavior/@w:val`` strings.
+
+        Empty when ``w:docPartPr`` or ``w:behaviors`` is absent.
+
+        .. versionadded:: 2026.05.10
+        """
+        pr = self._doc_part.docPartPr
+        if pr is None or pr.behaviors is None:
+            return []
+        return pr.behaviors.values
+
+    @property
+    def content_paragraphs(self) -> list[Paragraph]:
+        """Alias of :attr:`paragraphs`.
+
+        The task-spec vocabulary surfaces "content paragraphs" as a
+        distinct slot from the `BlockItemContainer` paragraphs property —
+        they refer to the same ``w:docPartBody`` contents, but the alias
+        keeps API callers aligned with the glossary-schema terminology.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.paragraphs
 
     @property
     def paragraphs(self) -> list[Paragraph]:

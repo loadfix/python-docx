@@ -246,22 +246,40 @@ class DocumentPart(StoryPart):
     def glossary(self) -> Glossary | None:
         """A |Glossary| proxy for this document, or |None| when no glossary part is related.
 
-        The glossary-document part is managed by Word; python-docx does not
-        create one on demand, so this returns |None| when the document has
-        no existing ``glossaryDocument`` relationship.
+        Prefer :meth:`ensure_glossary` when you want a writable glossary —
+        this property preserves backward compatibility (returns |None| for
+        read-only callers inspecting a document that has no glossary).
         """
         glossary_part = self._glossary_part
         if glossary_part is None:
             return None
         return glossary_part.glossary
 
+    def ensure_glossary(self) -> Glossary:
+        """A |Glossary| proxy, creating an empty glossary part if none exists.
+
+        When the document already has a ``glossaryDocument`` relationship
+        the existing part is used; otherwise a fresh, empty
+        :class:`GlossaryPart` is created and related. Callers that need to
+        mutate the glossary (for example by adding a building block) should
+        use this method rather than the :attr:`glossary` property, which
+        returns |None| for documents without a pre-existing glossary.
+
+        .. versionadded:: 2026.05.10
+        """
+        glossary_part = self._glossary_part
+        if glossary_part is None:
+            assert self.package is not None
+            glossary_part = GlossaryPart.default(self.package)
+            self.relate_to(glossary_part, RT.GLOSSARY_DOCUMENT)
+        return glossary_part.glossary
+
     @property
     def _glossary_part(self) -> GlossaryPart | None:
         """The |GlossaryPart| related to this document, or |None| if not present.
 
-        A default glossary part is not created on demand; the part is
-        exposed read-only and only available when the source document
-        already contains one.
+        A default glossary part is **not** created on demand here — use
+        :meth:`ensure_glossary` for write access.
         """
         try:
             return cast(GlossaryPart, self.part_related_by(RT.GLOSSARY_DOCUMENT))
