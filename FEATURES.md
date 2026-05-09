@@ -757,10 +757,39 @@ for eq in document.equations:
 document.save("out.docx")
 ```
 
-- `Paragraph.add_equation(omml_xml, display_mode=False)` — Append an OMML expression. `[Added in 2026.05.0]`
+- `Paragraph.add_equation(omml_xml, display_mode=False)` — Append an OMML expression. Accepts an OMML XML string **or** a `docx.math.MathExpr` proxy (raw operators are auto-wrapped in `<m:oMath>`). `[Added in 2026.05.0]` (MathExpr accepted `[Added in 2026.05.12]`)
 - `Document.equations` / `Paragraph.equations` / `Run.equations` — Read iterators. `[Added in 2026.05.0]`
 - `Equation.text` / `.raw_xml` / `.xml_element` / `.is_display_mode` / `.set_text(...)` / `.replace_identifier(old, new)` / `.swap_children(a, b)` / `Equation.from_omml_xml(...)`. `[Added in 2026.05.0]`
 - Builders: `build_identifier`, `build_fraction`, `build_superscript`, `build_subscript`, `build_radical`. `[Added in 2026.05.0]`
+
+### Pythonic equation construction (`docx.math`)
+
+`docx.math` re-exports the `ooxml_math` 0.3.0 proxy layer so callers can
+build equations with typed Python objects instead of hand-writing OMML
+XML. `[Added in 2026.05.12]`
+
+```python
+from docx import Document
+from docx.math import Fraction, Lit, Sum, Var, oMath
+
+doc = Document()
+p = doc.add_paragraph("sum: ")
+
+expr = oMath(
+    Sum(
+        body=Fraction(Var("x"), Lit(2)),
+        lower=Var("i"),
+        upper=Lit("n"),
+    )
+)
+p.add_equation(expr)
+```
+
+- `docx.math.MathExpr` — Abstract base for every proxy.
+- Leaves: `Var`, `Lit`, `Text`, `Raw`.
+- Operator tree: `Fraction`, `Radical`, `Sub`, `Sup`, `SubSup`, `Pre`, `Sum`, `Product`, `Integral`, `Nary`, `Limit`, `FuncApply`, `Delimiter`, `Matrix`, `Accent`.
+- Root container: `oMath`.
+- Parse dispatch: `from_element(element)` — returns the matching proxy for any OMML element.
 
 ---
 
