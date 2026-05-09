@@ -5,12 +5,14 @@ from __future__ import annotations
 from typing import IO, cast
 
 from docx.image.image import Image
+from docx.opc.constants import CONTENT_TYPE as CT
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.opc.package import OpcPackage
 from docx.opc.packuri import PackURI
+from docx.opc.part import Part
 from docx.parts.image import ImagePart
 from docx.shared import lazyproperty
-from docx.signatures import SignatureInfo
+from docx.signatures import SignatureInfo, build_signature_line_placeholder_xml
 
 
 class Package(OpcPackage):
@@ -103,6 +105,75 @@ class Package(OpcPackage):
         _collect_from(self.rels)
 
         return signatures
+
+    def add_signature_line(
+        self,
+        signer_name: str,
+        signer_title: str | None = None,
+        email: str | None = None,
+    ) -> SignatureInfo:
+        """Attach an unsigned signature-line placeholder part to this package.
+
+        Creates a minimal, **unsigned** ``sigN.xml`` part declaring
+        *signer_name* (plus optional *signer_title* / *email* encoded into
+        ``mdssi:SignatureComments``) and the ``origin.sigs`` hub + rels
+        needed for ``Document.signatures`` to surface it. python-docx does
+        not produce a cryptographically valid signature — callers who need
+        real signing should open the saved package with
+        :class:`ooxml_signatures.Signer` (0.2+) or sign it via Word.
+
+        Multiple calls append additional placeholder parts
+        (``sig1.xml``, ``sig2.xml``, ...). Returns the :class:`SignatureInfo`
+        for the newly-created part.
+
+        .. versionadded:: 2026.05.10
+        """
+        # -- obtain or create the /_xmlsignatures/origin.sigs hub part --
+        origin_part: Part | None = None
+        for rel in self.rels.values():
+            if rel.is_external:
+                continue
+            if rel.reltype == RT.DIGITAL_SIGNATURE_ORIGIN:
+                origin_part = rel.target_part
+                break
+        if origin_part is None:
+            origin_part = Part(
+                PackURI("/_xmlsignatures/origin.sigs"),
+                CT.OPC_DIGITAL_SIGNATURE_ORIGIN,
+                b"",
+                self,
+            )
+            self.relate_to(origin_part, RT.DIGITAL_SIGNATURE_ORIGIN)
+
+        # -- allocate the next /_xmlsignatures/sigN.xml partname --
+        used: set[int] = set()
+        for rel in origin_part.rels.values():
+            if rel.is_external:
+                continue
+            if rel.reltype != RT.DIGITAL_SIGNATURE:
+                continue
+            try:
+                pn = str(rel.target_part.partname)
+            except (AttributeError, ValueError):
+                continue
+            stem = pn.rsplit("/", 1)[-1]
+            if stem.startswith("sig") and stem.endswith(".xml"):
+                try:
+                    used.add(int(stem[3:-4]))
+                except ValueError:
+                    pass
+        n = 1
+        while n in used:
+            n += 1
+
+        blob = build_signature_line_placeholder_xml(
+            signer_name=signer_name, signer_title=signer_title, email=email
+        )
+        sig_partname = PackURI(f"/_xmlsignatures/sig{n}.xml")
+        sig_part = Part(sig_partname, CT.OPC_DIGITAL_SIGNATURE_XMLSIGNATURE, blob, self)
+        origin_part.relate_to(sig_part, RT.DIGITAL_SIGNATURE)
+
+        return SignatureInfo(sig_part)
 
     def _gather_image_parts(self):
         """Load the image part collection with all the image parts in package."""

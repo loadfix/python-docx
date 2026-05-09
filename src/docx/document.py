@@ -1203,6 +1203,32 @@ class Document(ElementProxy):
 
         return cast("Package", self._part.package).signatures
 
+    def add_signature_line(
+        self,
+        signer_name: str,
+        signer_title: str | None = None,
+        email: str | None = None,
+    ) -> "SignatureInfo":
+        """Attach an unsigned signature-line placeholder to this document.
+
+        Creates an unsigned ``/_xmlsignatures/sigN.xml`` placeholder part
+        declaring *signer_name* (with optional *signer_title* / *email*
+        encoded in ``mdssi:SignatureComments``). The placeholder is *not*
+        a cryptographically valid signature — python-docx does not have
+        access to a signing key. Round-trips through save + reload so
+        downstream signing tools (or
+        :class:`ooxml_signatures.Signer` / Word) can finalise it.
+
+        .. versionadded:: 2026.05.10
+        """
+        from docx.package import Package
+
+        return cast("Package", self._part.package).add_signature_line(
+            signer_name=signer_name,
+            signer_title=signer_title,
+            email=email,
+        )
+
     @property
     def font_table(self) -> FontTable | None:
         """A |FontTable| collection, or |None| if no font-table part is related.
