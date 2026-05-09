@@ -180,6 +180,25 @@ register_element_cls("w15:commentsEx", CT_CommentExtendedList)
 register_element_cls("w15:commentEx", CT_CommentExtended)
 register_element_cls("w15:presenceInfo", CT_PresenceInfo)
 
+# -- Word 2016+ ``w16cid:commentsIds`` and Word 2018+ ``w16cex:commentsExtensible``
+# -- auxiliary parts. The commentsIds part maps legacy ``w:comment/@w:id``
+# -- integers to stable paragraph ids (``w16cid:paraId``) used by Office's
+# -- threaded-reply feature. The commentsExtensible part attaches durable
+# -- GUID identifiers to each legacy comment so Office 365 clients don't
+# -- renumber them across edit sessions. Element classes live in the shared
+# -- ``ooxml_comments`` package; we re-export and register them here.
+from .comments_ids import (
+    CT_CommentExtensible,
+    CT_CommentExtensibleList,
+    CT_CommentId,
+    CT_CommentIdList,
+)
+
+register_element_cls("w16cid:commentsIds", CT_CommentIdList)
+register_element_cls("w16cid:commentId", CT_CommentId)
+register_element_cls("w16cex:commentsExtensible", CT_CommentExtensibleList)
+register_element_cls("w16cex:commentExtensible", CT_CommentExtensible)
+
 from .content_controls import (
     CT_DataBinding,
     CT_Lock,

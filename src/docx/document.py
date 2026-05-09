@@ -21,6 +21,9 @@ from docx.watermark import Watermark
 
 if TYPE_CHECKING:
     import docx.types as t
+
+    from ooxml_comments import CommentIds, CommentsExtensible
+
     from docx.accessibility import HeadingIssue
     from docx.alt_chunk import AltChunk
     from docx.attachments import Attachment
@@ -1252,6 +1255,30 @@ class Document(ElementProxy):
     def comments(self) -> Comments:
         """A |Comments| object providing access to comments added to the document."""
         return self._part.comments
+
+    @property
+    def comments_ids(self) -> "CommentIds":
+        """|CommentIds| proxy over ``word/commentsIds.xml``.
+
+        Lazily creates the part on first access so callers writing new
+        comments don't need to manage the relationship by hand. The
+        returned proxy wraps the live ``<w16cid:commentsIds>`` element
+        so mutations persist on save.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._part.comments_ids
+
+    @property
+    def comments_extensible(self) -> "CommentsExtensible":
+        """|CommentsExtensible| proxy over ``word/commentsExtensible.xml``.
+
+        Lazily creates the part on first access. See :attr:`comments_ids`
+        for semantics.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._part.comments_extensible
 
     @property
     def permission_ranges(self) -> list[PermissionRange]:

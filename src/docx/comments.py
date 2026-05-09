@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import secrets
 from typing import TYPE_CHECKING, cast
 from collections.abc import Iterator
 
@@ -18,6 +19,31 @@ if TYPE_CHECKING:
     from docx.parts.comments_extended import CommentsExtendedPart
     from docx.styles.style import ParagraphStyle
     from docx.text.paragraph import Paragraph
+
+
+def _new_paragraph_id() -> str:
+    """Return a fresh 8-character uppercase hex paraId (32-bit token).
+
+    Used when auto-minting a ``w16cid:paraId`` entry for a new comment.
+    Matches the token shape Word writes (``[0-9A-F]{8}``); uniqueness
+    within the ``commentsIds.xml`` registry is enforced by the
+    per-comment-id keying on ``set_paragraph_id``.
+    """
+    return secrets.token_hex(4).upper()
+
+
+def _new_durable_id() -> str:
+    """Return a fresh braced GUID token for a ``w16cex:durableId``.
+
+    Word writes durable-ids in ``{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}``
+    form (uppercase hex, surrounding braces). The value only has to be
+    unique per-package; we use 16 random bytes and lay them out as a
+    canonical UUID-like token without depending on the :mod:`uuid`
+    module's v4 format details (which carry version bits we don't need
+    to mirror for this use case).
+    """
+    b = secrets.token_hex(16).upper()
+    return "{%s-%s-%s-%s-%s}" % (b[:8], b[8:12], b[12:16], b[16:20], b[20:])
 
 
 class Comments:
@@ -80,6 +106,15 @@ class Comments:
         comment_elm.initials = initials
         comment_elm.date = date if date is not None else dt.datetime.now(dt.timezone.utc)
         comment = Comment(comment_elm, self._comments_part)
+
+        # -- auto-mint w16cid:paraId + w16cex:durableId entries so Office 365
+        # -- clients don't renumber them on the next edit. The inline
+        # -- ``w:comment/@w16cid:paraId`` token is already allocated by
+        # -- :meth:`CT_Comments.add_comment`; we mirror it into
+        # -- ``word/commentsIds.xml`` and allocate a fresh GUID for
+        # -- ``word/commentsExtensible.xml``. See R13-2 / ooxml-comments 0.4.
+        comment.paragraph_id = comment_elm.paraId or _new_paragraph_id()
+        comment.durable_id = _new_durable_id()
 
         if text == "":
             return comment
@@ -193,6 +228,10 @@ class Comment(BlockItemContainer):
         reply_elm.initials = initials
         reply_elm.date = date if date is not None else dt.datetime.now(dt.timezone.utc)
         reply = Comment(reply_elm, self._comments_part)
+
+        # -- auto-mint commentsIds + commentsExtensible entries (R13-2). --
+        reply.paragraph_id = reply_elm.paraId or _new_paragraph_id()
+        reply.durable_id = _new_durable_id()
 
         if text == "":
             return reply
@@ -312,6 +351,88 @@ class Comment(BlockItemContainer):
         if not matches:
             return None
         return Comment(cast("CT_Comment", matches[0]), self._comments_part)
+
+    # ------------------------------------------------------------------
+    # Word 2016+ commentsIds.xml / Word 2018+ commentsExtensible.xml
+    # ------------------------------------------------------------------
+
+    @property
+    def paragraph_id(self) -> str:
+        """The stable paragraph id recorded in ``word/commentsIds.xml``.
+
+        Returns the empty string when no entry exists for this comment's
+        id yet. Read-through goes via the live ``<w16cid:commentsIds>``
+        element on the related ``CommentsIdsPart`` — no registry is
+        created on read-only access.
+
+        Setting the attribute lazily creates ``word/commentsIds.xml``
+        (and its relationship from ``word/comments.xml``) and writes or
+        updates the entry mapping this comment's ``@w:id`` to *value*.
+
+        .. versionadded:: 2026.05.10
+        """
+        part = self._comments_part.comments_ids_part
+        if part is None:
+            return ""
+        entry = part.element.get_by_comment_id(self._comment_elm.id)
+        return "" if entry is None else entry.paraId
+
+    @paragraph_id.setter
+    def paragraph_id(self, value: str) -> None:
+        part = self._comments_part.comments_ids_part_or_add()
+        part.element.set_paragraph_id(self._comment_elm.id, value)
+
+    @property
+    def durable_id(self) -> str:
+        """The durable GUID-shaped id recorded in ``word/commentsExtensible.xml``.
+
+        Office uses this identifier to re-attach comments across edit
+        sessions without renumbering them. Matching is positional:
+        entry *N* in ``commentsExtensible`` corresponds to the *N*-th
+        ``<w16cid:commentId>`` entry in ``commentsIds`` (which is how
+        Word writes the pair).
+
+        Returns the empty string when no ``commentsIds`` entry exists
+        for this comment (no durable-id slot to read) or when the
+        ``commentsExtensible`` part has no matching positional entry.
+
+        .. versionadded:: 2026.05.10
+        """
+        ids_part = self._comments_part.comments_ids_part
+        ex_part = self._comments_part.comments_extensible_part
+        if ids_part is None or ex_part is None:
+            return ""
+        ids = ids_part.element.iter_ids()
+        for i, (cid, _) in enumerate(ids):
+            if cid == self._comment_elm.id:
+                entries = ex_part.element.commentExtensible_lst
+                if i < len(entries):
+                    return entries[i].durableId
+                return ""
+        return ""
+
+    @durable_id.setter
+    def durable_id(self, value: str) -> None:
+        ids_part = self._comments_part.comments_ids_part_or_add()
+        ex_part = self._comments_part.comments_extensible_part_or_add()
+        ids = ids_part.element.iter_ids()
+        entries = ex_part.element.commentExtensible_lst
+        for i, (cid, _) in enumerate(ids):
+            if cid == self._comment_elm.id:
+                if i < len(entries):
+                    entries[i].durableId = value
+                    return
+                # -- extend parallel entries so position N resolves --
+                while len(ex_part.element.commentExtensible_lst) < i:
+                    ex_part.element.set_durable_id(
+                        "{00000000-0000-0000-0000-000000000000}"
+                    )
+                ex_part.element.set_durable_id(value)
+                return
+        raise LookupError(
+            "cannot set durable_id: comment id %r has no commentsIds entry"
+            % (self._comment_elm.id,)
+        )
 
     # -- internal helpers ---------------------------------------------------
 

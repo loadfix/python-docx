@@ -28,6 +28,8 @@ from docx.shape import InlineShapes
 from docx.shared import lazyproperty
 
 if TYPE_CHECKING:
+    from ooxml_comments import CommentIds, CommentsExtensible
+
     from docx.bibliography import Bibliography
     from docx.comments import Comments
     from docx.custom_properties import CustomProperties
@@ -151,6 +153,38 @@ class DocumentPart(StoryPart):
     def comments(self) -> Comments:
         """|Comments| object providing access to the comments added to this document."""
         return self._comments_part.comments
+
+    @property
+    def comments_ids(self) -> "CommentIds":
+        """|CommentIds| proxy over ``word/commentsIds.xml``.
+
+        Lazily creates the part (and its relationship from
+        ``word/comments.xml``) on first access so callers can read/write
+        without juggling the relationship manually. The returned proxy
+        wraps the live ``<w16cid:commentsIds>`` element, so mutations
+        through it persist on save.
+
+        .. versionadded:: 2026.05.10
+        """
+        from ooxml_comments import CommentIds
+
+        part = self._comments_part.comments_ids_part_or_add()
+        return CommentIds(part.element)
+
+    @property
+    def comments_extensible(self) -> "CommentsExtensible":
+        """|CommentsExtensible| proxy over ``word/commentsExtensible.xml``.
+
+        Lazily creates the part (and its relationship from
+        ``word/comments.xml``) on first access. See :attr:`comments_ids`
+        for semantics.
+
+        .. versionadded:: 2026.05.10
+        """
+        from ooxml_comments import CommentsExtensible
+
+        part = self._comments_part.comments_extensible_part_or_add()
+        return CommentsExtensible(part.element)
 
     @property
     def endnotes(self) -> Endnotes:

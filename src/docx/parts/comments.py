@@ -15,6 +15,7 @@ from docx.oxml.comments import CT_Comments
 from docx.oxml.parser import parse_xml
 from docx.package import Package
 from docx.parts.comments_extended import CommentsExtendedPart
+from docx.parts.comments_ids import CommentsExtensiblePart, CommentsIdsPart
 from docx.parts.story import StoryPart
 
 if TYPE_CHECKING:
@@ -79,4 +80,71 @@ class CommentsPart(StoryPart):
         assert self.package is not None
         part = CommentsExtendedPart.default(self.package)
         self.relate_to(part, RT.COMMENTS_EXTENDED)
+        return part
+
+    # -- Word 2016+ commentsIds.xml linkage -------------------------------
+
+    @property
+    def comments_ids_part(self) -> "CommentsIdsPart | None":
+        """Related |CommentsIdsPart|, or |None| when none is related.
+
+        Read-only view; does not create the part on demand. Use
+        :meth:`comments_ids_part_or_add` to materialise one.
+
+        .. versionadded:: 2026.05.10
+        """
+        try:
+            return cast("CommentsIdsPart", self.part_related_by(RT.COMMENTS_IDS))
+        except KeyError:
+            return None
+
+    def comments_ids_part_or_add(self) -> CommentsIdsPart:
+        """Return the related |CommentsIdsPart|, creating one if needed.
+
+        Materialises a default (empty) ``commentsIds.xml`` part and
+        relates it via ``RT.COMMENTS_IDS`` on the first call.
+
+        .. versionadded:: 2026.05.10
+        """
+        existing = self.comments_ids_part
+        if existing is not None:
+            return existing
+        assert self.package is not None
+        part = CommentsIdsPart.default(self.package)
+        self.relate_to(part, RT.COMMENTS_IDS)
+        return part
+
+    # -- Word 2018+ commentsExtensible.xml linkage ------------------------
+
+    @property
+    def comments_extensible_part(self) -> "CommentsExtensiblePart | None":
+        """Related |CommentsExtensiblePart|, or |None| when none is related.
+
+        Read-only view; does not create the part on demand. Use
+        :meth:`comments_extensible_part_or_add` to materialise one.
+
+        .. versionadded:: 2026.05.10
+        """
+        try:
+            return cast(
+                "CommentsExtensiblePart",
+                self.part_related_by(RT.COMMENTS_EXTENSIBLE),
+            )
+        except KeyError:
+            return None
+
+    def comments_extensible_part_or_add(self) -> CommentsExtensiblePart:
+        """Return the related |CommentsExtensiblePart|, creating one if needed.
+
+        Materialises a default (empty) ``commentsExtensible.xml`` part and
+        relates it via ``RT.COMMENTS_EXTENSIBLE`` on the first call.
+
+        .. versionadded:: 2026.05.10
+        """
+        existing = self.comments_extensible_part
+        if existing is not None:
+            return existing
+        assert self.package is not None
+        part = CommentsExtensiblePart.default(self.package)
+        self.relate_to(part, RT.COMMENTS_EXTENSIBLE)
         return part

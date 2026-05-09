@@ -39,6 +39,32 @@ setattr(
     "http://schemas.microsoft.com/office/2011/relationships/commentsExtended",
 )
 
+# -- Word 2016+ ``commentsIds.xml`` (``w16cid:commentsIds``) and Word 2018+
+# -- ``commentsExtensible.xml`` (``w16cex:commentsExtensible``) content types
+# -- and relationship types. Sourced from the shared ``ooxml_comments`` 0.4
+# -- constants module so the docx ``CT.*`` / ``RT.*`` namespaces stay in
+# -- sync with the canonical strings. Attached via ``setattr`` for the same
+# -- reason as ``WML_COMMENTS_EXTENDED`` above — no pptx/xlsx parity yet,
+# -- so not yet promoted to the shared ``ooxml_opc`` registry.
+from ooxml_comments import (
+    CONTENT_TYPE_WML_COMMENTS_EXTENSIBLE as _CT_WML_COMMENTS_EXTENSIBLE,
+    CONTENT_TYPE_WML_COMMENTS_IDS as _CT_WML_COMMENTS_IDS,
+    RELATIONSHIP_TYPE_COMMENTS_EXTENSIBLE as _RT_COMMENTS_EXTENSIBLE,
+    RELATIONSHIP_TYPE_COMMENTS_IDS as _RT_COMMENTS_IDS,
+)
+
+setattr(CONTENT_TYPE, "WML_COMMENTS_IDS", _CT_WML_COMMENTS_IDS)
+setattr(CONTENT_TYPE, "WML_COMMENTS_EXTENSIBLE", _CT_WML_COMMENTS_EXTENSIBLE)
+setattr(RELATIONSHIP_TYPE, "COMMENTS_IDS", _RT_COMMENTS_IDS)
+setattr(RELATIONSHIP_TYPE, "COMMENTS_EXTENSIBLE", _RT_COMMENTS_EXTENSIBLE)
+
+del (
+    _CT_WML_COMMENTS_IDS,
+    _CT_WML_COMMENTS_EXTENSIBLE,
+    _RT_COMMENTS_IDS,
+    _RT_COMMENTS_EXTENSIBLE,
+)
+
 __all__ = [
     "CONTENT_TYPE",
     "NAMESPACE",

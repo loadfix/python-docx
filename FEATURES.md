@@ -966,6 +966,12 @@ document.save("out.docx")
 - `Comment.add_paragraph(...)` — Multi-paragraph comment bodies.
 - `Run.mark_comment_range(last_run, comment_id)` — Low-level anchor helper.
 - `CommentsPart.comments_extended_part` / `CommentsPart.comments_extended_part_or_add()` — Low-level accessors for the `word/commentsExtended.xml` part (`w15:commentsEx` root with `<w15:commentEx>` and `<w15:presenceInfo>` children). `[Added in 2026.05.10]`
+- `Document.comments_ids` — `CommentIds` proxy over `word/commentsIds.xml` (`w16cid:commentsIds` / `w16cid:commentId`) — paragraph-id registry that Office 365 uses to re-attach classic comments across edit sessions. The part is created on first access; :meth:`iter_ids` yields `(comment_id, paragraph_id)` tuples in document order. `[Added in 2026.05.10]` (R13-2)
+- `Document.comments_extensible` — `CommentsExtensible` proxy over `word/commentsExtensible.xml` (`w16cex:commentsExtensible`) — durable GUID registry companion to `commentsIds`. Also lazily materialised. `[Added in 2026.05.10]` (R13-2)
+- `Comment.paragraph_id` — Read/write. The `w16cid:paraId` token recorded in `commentsIds.xml` for this comment. Returns `""` when no registry entry exists (no `commentsIds` part related, or the comment predates the registry); assigning a value materialises the part and the entry on first write. `[Added in 2026.05.10]` (R13-2)
+- `Comment.durable_id` — Read/write. The `w16cex:durableId` recorded in `commentsExtensible.xml` for this comment (positional mapping against `commentsIds`). Returns `""` when no registry entry exists; assigning a value materialises both parts and the entry on first write. `[Added in 2026.05.10]` (R13-2)
+- `Comments.add_comment(...)` / `Comment.add_reply(...)` / `Comment.reply(...)` — **auto-mint** a fresh 32-bit hex `paragraph_id` and a canonical-shape GUID `durable_id` for every newly-created comment, so Office 365 clients don't renumber them on the next edit. The auto-minted values match the formats Word writes (`[0-9A-F]{8}` and `{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}`). `[Added in 2026.05.10]` (R13-2)
+- `CommentsPart.comments_ids_part` / `CommentsPart.comments_ids_part_or_add()` / `.comments_extensible_part` / `.comments_extensible_part_or_add()` — Low-level accessors for the two modern comment-id parts. Follow the same create-on-demand pattern as `comments_extended_part_or_add`. `[Added in 2026.05.10]` (R13-2)
 
 ---
 

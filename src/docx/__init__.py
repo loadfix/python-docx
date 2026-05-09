@@ -28,6 +28,7 @@ from docx.opc.parts.coreprops import CorePropertiesPart
 from docx.parts.chart import ChartPart
 from docx.parts.comments import CommentsPart
 from docx.parts.comments_extended import CommentsExtendedPart
+from docx.parts.comments_ids import CommentsExtensiblePart, CommentsIdsPart
 from docx.parts.custom_properties import CustomPropertiesPart
 from docx.parts.custom_xml import CustomXmlPart
 from docx.parts.alt_chunk import AltChunkPart
@@ -77,6 +78,8 @@ PartFactory.part_type_for[CT.OPC_CORE_PROPERTIES] = CorePropertiesPart
 PartFactory.part_type_for[CT.XML] = CustomXmlPart
 PartFactory.part_type_for[CT.WML_COMMENTS] = CommentsPart
 PartFactory.part_type_for[CT.WML_COMMENTS_EXTENDED] = CommentsExtendedPart
+PartFactory.part_type_for[CT.WML_COMMENTS_IDS] = CommentsIdsPart
+PartFactory.part_type_for[CT.WML_COMMENTS_EXTENSIBLE] = CommentsExtensiblePart
 PartFactory.part_type_for[CT.WML_DOCUMENT_MAIN] = DocumentPart
 PartFactory.part_type_for[CT.WML_DOCUMENT_MACRO] = DocumentPart
 PartFactory.part_type_for[CT.WML_TEMPLATE_MAIN] = DocumentPart
@@ -109,6 +112,8 @@ del (
     CorePropertiesPart,
     CommentsPart,
     CommentsExtendedPart,
+    CommentsExtensiblePart,
+    CommentsIdsPart,
     CustomPropertiesPart,
     CustomXmlPart,
     DiagramColorsPart,
