@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import io
+
 import pytest
 
 from docx import Document
@@ -192,6 +194,140 @@ class DescribeDocumentAltChunks:
         chunks = reopened.alt_chunks
         assert len(chunks) == 1
         assert chunks[0].match_src is True
+
+
+class DescribeDocumentAddHtmlChunk:
+    """Unit-test suite for `Document.add_html_chunk` (R14-5)."""
+
+    def it_sets_content_type_to_xhtml(self):
+        document: DocumentCls = Document()
+
+        chunk = document.add_html_chunk("<p>hello</p>")
+
+        assert chunk.content_type == "application/xhtml+xml"
+        assert chunk.content == b"<p>hello</p>"
+
+    def it_encodes_string_as_utf_8(self):
+        document: DocumentCls = Document()
+
+        chunk = document.add_html_chunk("<p>café</p>")
+
+        assert chunk.content == "<p>café</p>".encode("utf-8")
+
+    def it_passes_match_src_through(self):
+        document: DocumentCls = Document()
+
+        chunk = document.add_html_chunk("<p>x</p>", match_src=True)
+
+        assert chunk.match_src is True
+
+    def it_round_trips_through_a_BytesIO_stream(self):
+        document: DocumentCls = Document()
+        document.add_html_chunk("<p>html</p>")
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        reopened: DocumentCls = Document(buf)
+
+        chunks = reopened.alt_chunks
+        assert len(chunks) == 1
+        assert chunks[0].content_type == "application/xhtml+xml"
+        assert chunks[0].content == b"<p>html</p>"
+
+
+class DescribeDocumentAddTextChunk:
+    """Unit-test suite for `Document.add_text_chunk` (R14-5)."""
+
+    def it_sets_content_type_to_text_plain(self):
+        document: DocumentCls = Document()
+
+        chunk = document.add_text_chunk("hello world")
+
+        assert chunk.content_type == "text/plain"
+        assert chunk.content == b"hello world"
+
+    def it_defaults_to_utf_8_encoding(self):
+        document: DocumentCls = Document()
+
+        chunk = document.add_text_chunk("café")
+
+        assert chunk.content == "café".encode("utf-8")
+
+    def it_accepts_a_custom_encoding(self):
+        document: DocumentCls = Document()
+
+        chunk = document.add_text_chunk("café", encoding="latin-1")
+
+        assert chunk.content == "café".encode("latin-1")
+
+    def it_round_trips_through_a_BytesIO_stream(self):
+        document: DocumentCls = Document()
+        document.add_text_chunk("plain text")
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        reopened: DocumentCls = Document(buf)
+
+        chunks = reopened.alt_chunks
+        assert len(chunks) == 1
+        assert chunks[0].content_type == "text/plain"
+        assert chunks[0].content == b"plain text"
+
+
+class DescribeDocumentAddRtfChunk:
+    """Unit-test suite for `Document.add_rtf_chunk` (R14-5)."""
+
+    def it_sets_content_type_to_application_rtf(self):
+        document: DocumentCls = Document()
+
+        chunk = document.add_rtf_chunk(b"{\\rtf1 hi}")
+
+        assert chunk.content_type == "application/rtf"
+        assert chunk.content == b"{\\rtf1 hi}"
+
+    def it_round_trips_through_a_BytesIO_stream(self):
+        document: DocumentCls = Document()
+        rtf_bytes = b"{\\rtf1\\ansi\\deff0 Roundtrip}"
+        document.add_rtf_chunk(rtf_bytes, match_src=True)
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        reopened: DocumentCls = Document(buf)
+
+        chunks = reopened.alt_chunks
+        assert len(chunks) == 1
+        assert chunks[0].content_type == "application/rtf"
+        assert chunks[0].content == rtf_bytes
+        assert chunks[0].match_src is True
+
+
+class DescribeDocumentAddMhtmlChunk:
+    """Unit-test suite for `Document.add_mhtml_chunk` (R14-5)."""
+
+    def it_sets_content_type_to_message_rfc822(self):
+        document: DocumentCls = Document()
+
+        chunk = document.add_mhtml_chunk(b"From: a@b\r\n\r\nbody")
+
+        assert chunk.content_type == "message/rfc822"
+
+    def it_round_trips_through_a_BytesIO_stream(self):
+        document: DocumentCls = Document()
+        mhtml_bytes = b"MIME-Version: 1.0\r\nContent-Type: text/html\r\n\r\n<p>hi</p>"
+        document.add_mhtml_chunk(mhtml_bytes)
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        reopened: DocumentCls = Document(buf)
+
+        chunks = reopened.alt_chunks
+        assert len(chunks) == 1
+        assert chunks[0].content_type == "message/rfc822"
+        assert chunks[0].content == mhtml_bytes
 
 
 class DescribeAltChunkPart:
