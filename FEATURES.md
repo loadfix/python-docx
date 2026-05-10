@@ -841,6 +841,38 @@ p.add_equation(expr)
 - `Document.iter_math_expressions()` — Document-wide walk yielding a `MathExpr` for each body equation. `[Added in 2026.05.10]`
 - `Paragraph.add_math(expr)` — Insert a math block before the first run (or append when no runs exist). Returns a `MathExpr` proxy around the inserted element. `[Added in 2026.05.10]`
 
+### LaTeX-to-OMML translation (`docx.latex_math`)
+
+`docx.latex_math` ships a minimal LaTeX-to-OMML translator for the common case
+of authoring equations in LaTeX. The supported subset covers variables, digit
+literals, `+ - * /`, `=`, superscripts and subscripts, `\frac{a}{b}`,
+`\sqrt{x}`, parentheses, common Greek letters (`\alpha` … `\omega`,
+`\Gamma` … `\Omega`), and `\begin{align}…\end{align}` equation arrays.
+Everything else (matrices, integrals with limits, custom commands, full
+LaTeX-to-MathML) raises `NotImplementedError` pointing back at the supported
+subset. `[Added in 2026.05.11]`
+
+```python
+from docx import Document
+from docx.latex_math import latex_to_omml
+
+doc = Document()
+p = doc.add_paragraph("Euler: ")
+p.add_math_from_latex(r"e^{i \pi} + 1 = 0")
+
+# standalone form — returns a CT_OMath element
+omath = latex_to_omml(r"\frac{a+b}{2}")
+doc.save("out.docx")
+```
+
+- `docx.latex_math.latex_to_omml(latex)` — Translate a LaTeX math body to a
+  `CT_OMath` element. Raises `LatexMathError` on malformed input,
+  `NotImplementedError` on unsupported constructs. `[Added in 2026.05.11]`
+- `docx.latex_math.LatexMathError` — `ValueError` subclass raised for
+  malformed input (unbalanced braces, stray separators, …). `[Added in 2026.05.11]`
+- `Paragraph.add_math_from_latex(latex)` — Append an OMML expression built
+  from *latex*. Returns the inserted `MathExpr` proxy. `[Added in 2026.05.11]`
+
 ---
 
 ## Sections and page layout
