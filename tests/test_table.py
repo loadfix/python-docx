@@ -287,6 +287,126 @@ class DescribeTable:
         table.autofit = new_value
         assert table._tbl.xml == xml(expected_cxml)
 
+    def it_can_autofit_column_widths_to_cell_content(self, document_: Mock):
+        # -- build a 3x5 table with distinctly varying content lengths --
+        import docx
+
+        doc = docx.Document()
+        table = doc.add_table(rows=3, cols=5)
+        # -- column 2 has the widest content; column 0 and 4 are narrowest --
+        contents = [
+            ["x", "medium text", "a lot longer content here", "mid", "ab"],
+            ["yy", "short", "longer", "m", "c"],
+            ["z", "m2", "l1", "mmid", "x"],
+        ]
+        for r_idx, row in enumerate(table.rows):
+            for c_idx, cell in enumerate(row.cells):
+                cell.text = contents[r_idx][c_idx]
+
+        widths = table.autofit_to_content()
+
+        # -- 5 columns returned, all Length-typed --
+        assert len(widths) == 5
+        assert all(isinstance(w, Length) for w in widths)
+        # -- widest is col 2 (len 25), then col 1 (len 11), col 3 (len 4) --
+        assert widths[2].twips > widths[1].twips > widths[3].twips > widths[0].twips
+        # -- strict proportionality for the widest column at default 100 twips/char --
+        assert widths[2].twips == 25 * 100
+        assert widths[1].twips == 11 * 100
+        assert widths[0].twips == 2 * 100
+        # -- layout switched to fixed (autofit now reports False) --
+        assert table.autofit is False
+        # -- gridCol widths written, and tcW propagated to every cell --
+        for c_idx, col in enumerate(table.columns):
+            assert col.width == widths[c_idx]
+            for cell in col.cells:
+                assert cell.width == widths[c_idx]
+
+    def it_honours_autofit_char_width_twips_override(self, document_: Mock):
+        import docx
+
+        doc = docx.Document()
+        table = doc.add_table(rows=1, cols=2)
+        table.cell(0, 0).text = "abc"
+        table.cell(0, 1).text = "longer"
+        table.autofit_char_width_twips = 50
+
+        widths = table.autofit_to_content()
+
+        assert widths[0].twips == 3 * 50
+        assert widths[1].twips == 6 * 50
+
+    def it_uses_widest_line_for_multi_line_cells(self, document_: Mock):
+        import docx
+
+        doc = docx.Document()
+        table = doc.add_table(rows=1, cols=2)
+        table.cell(0, 0).text = "short"  # 5
+        # -- multi-paragraph cell: widest line is 20 chars --
+        cell = table.cell(0, 1)
+        cell.text = "tiny"  # first p
+        cell.add_paragraph("twenty-chars-exactly")  # 20
+
+        widths = table.autofit_to_content()
+
+        assert widths[0].twips == 5 * 100
+        assert widths[1].twips == 20 * 100
+
+    def it_returns_empty_list_for_tables_with_no_columns(self, document_: Mock):
+        tbl_cxml = "w:tbl/(w:tblPr,w:tblGrid)"
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+
+        assert table.autofit_to_content() == []
+
+    def it_can_autofit_columns_evenly_to_window(self, document_: Mock):
+        tbl_cxml = (
+            "w:tbl/(w:tblPr,w:tblGrid/(w:gridCol,w:gridCol,w:gridCol,w:gridCol),"
+            "w:tr/(w:tc/w:p,w:tc/w:p,w:tc/w:p,w:tc/w:p))"
+        )
+        table = Table(cast(CT_Tbl, element(tbl_cxml)), document_)
+
+        table.autofit_to_window()
+
+        tblPr = table._tblPr
+        # -- 100% total width via tblW pct=5000 --
+        assert tblPr.tblW.type == "pct"
+        assert tblPr.tblW.w == 5000
+        # -- tblLayout type is autofit --
+        assert tblPr.tblLayout is not None
+        assert tblPr.tblLayout.type == "autofit"
+        # -- every cell has tcW pct=1250 (5000 // 4) --
+        for tc in table._tbl.tr_lst[0].tc_lst:
+            tcW = tc.tcPr.tcW
+            assert tcW is not None
+            assert tcW.type == "pct"
+            assert tcW.w == 1250
+
+    def it_can_set_fixed_width_columns(self, document_: Mock):
+        import docx
+
+        doc = docx.Document()
+        table = doc.add_table(rows=2, cols=3)
+
+        table.fixed_width_columns([Inches(1), Inches(2), Inches(3)])
+
+        # -- layout is fixed --
+        assert table.autofit is False
+        # -- each column has its explicit width on both gridCol and every tc --
+        expected = [Inches(1), Inches(2), Inches(3)]
+        for c_idx, col in enumerate(table.columns):
+            assert col.width == expected[c_idx]
+            for cell in col.cells:
+                assert cell.width == expected[c_idx]
+
+    def it_raises_when_fixed_widths_mismatch_column_count(self, document_: Mock):
+        import docx
+
+        doc = docx.Document()
+        table = doc.add_table(rows=1, cols=3)
+
+        with pytest.raises(ValueError, match="does not match column count"):
+            table.fixed_width_columns([Inches(1), Inches(2)])
+
     def it_knows_it_is_the_table_its_children_belong_to(self, table: Table):
         assert table.table is table
 

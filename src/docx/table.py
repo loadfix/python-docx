@@ -19,7 +19,7 @@ from docx.enum.table import (
 )
 from docx.oxml.simpletypes import ST_Merge
 from docx.oxml.table import CT_Tbl, CT_TblGridCol
-from docx.shared import Emu, Inches, Parented, Pt, RGBColor, StoryChild, lazyproperty
+from docx.shared import Emu, Inches, Parented, Pt, RGBColor, StoryChild, Twips, lazyproperty
 from docx.text.paragraph import Paragraph
 
 if TYPE_CHECKING:
@@ -471,6 +471,125 @@ class Table(StoryChild):
             tblPr.set_tblW(0, "auto")
             return
         raise ValueError(f"unsupported WD_TABLE_AUTOFIT value: {value!r}")
+
+    # -- default character-width estimate used by autofit_to_content, in twips --
+    # -- roughly the average Calibri-11pt advance width; override per-instance --
+    # -- before calling autofit_to_content to bias the computation. --
+    autofit_char_width_twips: int = 100
+
+    def autofit_to_content(self) -> list[Length]:
+        """Compute per-column widths from cell content and write them.
+
+        Walks every cell, measures the longest line in each, and assigns each
+        column a width proportional to the widest content in that column.
+        Multi-line cells use the widest *line* (split on ``\\n``). The estimate
+        is ``len(line) * autofit_char_width_twips`` in twips; override
+        :attr:`autofit_char_width_twips` (default ``100``) to tune for a
+        different base font.
+
+        Writes ``@w:w`` on each ``w:gridCol`` and propagates the value to every
+        matching single-span ``w:tc/w:tcPr/w:tcW`` via :attr:`_Column.width`.
+        Also switches the layout to fixed (``w:tblLayout w:type="fixed"``) so
+        Word honours the computed widths instead of reflowing them. Cells that
+        span multiple grid columns are skipped for measurement but their text
+        is divided evenly across the spanned columns so the spanning cell
+        still influences the distribution.
+
+        Returns the list of computed widths in column order, as |Length|
+        (EMU) values. Empty tables return an empty list.
+        """
+        from docx.oxml.ns import qn
+
+        column_count = self._column_count
+        if column_count == 0:
+            return []
+        char_twips = int(self.autofit_char_width_twips)
+        # -- accumulate the max per-column "line length" across all cells --
+        max_chars_per_col = [0] * column_count
+        for tr in self._tbl.tr_lst:
+            for tc in tr.tc_lst:
+                offset = tc.grid_offset
+                span = tc.grid_span or 1
+                if offset < 0 or offset >= column_count:
+                    continue
+                widest = 0
+                for p in tc.iter(qn("w:p")):
+                    # -- text of the paragraph: concatenate every w:t below --
+                    line_text = "".join(
+                        (t.text or "") for t in p.iter(qn("w:t"))
+                    )
+                    # -- split on hard line breaks inside a run as well --
+                    for line in line_text.split("\n"):
+                        if len(line) > widest:
+                            widest = len(line)
+                # -- divide a span's measurement across its covered columns --
+                per_col = widest // span if span > 0 else widest
+                end = min(offset + span, column_count)
+                for c in range(offset, end):
+                    if per_col > max_chars_per_col[c]:
+                        max_chars_per_col[c] = per_col
+        # -- convert char-counts to EMU widths, guarding against all-zero --
+        min_twips = char_twips  # -- reserve one char of width for empty cols --
+        widths: list[Length] = []
+        for chars in max_chars_per_col:
+            twips = max(chars * char_twips, min_twips)
+            widths.append(Twips(twips))
+        # -- write results: switch to fixed layout, then assign each column --
+        self._tblPr.get_or_add_tblLayout().type = "fixed"
+        gridCols = self._tbl.tblGrid.gridCol_lst
+        for col_idx, w in enumerate(widths):
+            if col_idx >= len(gridCols):
+                break
+            self.columns[col_idx].width = w
+        return widths
+
+    def autofit_to_window(self) -> None:
+        """Distribute column widths evenly as percentages that sum to 100%.
+
+        Sets ``w:tblLayout w:type="autofit"``, writes
+        ``w:tblW w:type="pct" w:w="5000"`` (5000 fiftieths-of-a-percent = 100%),
+        and assigns every single-span ``w:tc/w:tcW`` the equal fractional
+        percentage (``5000 // n``). The ``w:gridCol/@w:w`` values are left
+        untouched; consumers compute layout from the ``pct`` values directly.
+        """
+        tblPr = self._tblPr
+        tblPr.get_or_add_tblLayout().type = "autofit"
+        tblPr.set_tblW(5000, "pct")
+        column_count = self._column_count
+        if column_count == 0:
+            return
+        per_col_pct = 5000 // column_count
+        for tr in self._tbl.tr_lst:
+            for tc in tr.tc_lst:
+                if (tc.grid_span or 1) != 1:
+                    continue
+                if tc.grid_offset < 0 or tc.grid_offset >= column_count:
+                    continue
+                tcPr = tc.get_or_add_tcPr()
+                tcW = tcPr.get_or_add_tcW()
+                tcW.type = "pct"
+                tcW.w = per_col_pct
+
+    def fixed_width_columns(self, widths: list[Length]) -> None:
+        """Write a fixed-layout table with explicit per-column widths.
+
+        Sets ``w:tblLayout w:type="fixed"`` and assigns each ``w:gridCol/@w:w``
+        plus the propagated ``w:tc/w:tcW`` to the given widths, in order. The
+        length of `widths` must match the table's current column count
+        (:attr:`_column_count`); pass |Emu|, |Twips|, |Inches|, etc. — any
+        |Length| subclass works.
+
+        Raises |ValueError| when the list length doesn't match the grid.
+        """
+        column_count = self._column_count
+        if len(widths) != column_count:
+            raise ValueError(
+                "widths length %d does not match column count %d"
+                % (len(widths), column_count)
+            )
+        self._tblPr.get_or_add_tblLayout().type = "fixed"
+        for col_idx, w in enumerate(widths):
+            self.columns[col_idx].width = w
 
     @property
     def preferred_width(self) -> Length | None:
