@@ -1972,3 +1972,126 @@ class DescribeField_as_toc:
         fldSimple = cast(CT_FldSimple, OxmlElement("w:fldSimple"))
         fldSimple.set(qn("w:instr"), "REF Ref1")
         assert Field.for_simple(fldSimple).as_toc is None
+
+
+class DescribeTocField_rebuild:
+    """`TocField.rebuild` populates the cached result from document headings."""
+
+    def it_populates_cached_result_with_every_heading_in_range(self):
+        import docx
+
+        document = docx.Document()
+        document.add_heading("Alpha", level=1)
+        document.add_heading("Beta", level=2)
+        document.add_heading("Gamma", level=3)
+        paragraph = document.add_paragraph()
+
+        toc = paragraph.add_toc()
+        toc.rebuild()
+
+        assert "Alpha" in toc.result_text
+        assert "Beta" in toc.result_text
+        assert "Gamma" in toc.result_text
+
+    def it_uses_the_placeholder_for_page_numbers(self):
+        import docx
+
+        document = docx.Document()
+        document.add_heading("Only", level=1)
+        paragraph = document.add_paragraph()
+        toc = paragraph.add_toc()
+        toc.rebuild()
+        # -- default placeholder is "?" --
+        assert toc.result_text == "Only\t?"
+
+    def it_respects_heading_range_switch(self):
+        import docx
+
+        document = docx.Document()
+        document.add_heading("H1", level=1)
+        document.add_heading("H2", level=2)
+        document.add_heading("H3", level=3)
+        paragraph = document.add_paragraph()
+        toc = paragraph.add_toc(heading_range=(1, 2))
+        toc.rebuild()
+        assert "H1" in toc.result_text
+        assert "H2" in toc.result_text
+        assert "H3" not in toc.result_text
+
+    def it_preserves_the_dirty_flag(self):
+        import docx
+
+        document = docx.Document()
+        document.add_heading("Alpha", level=1)
+        paragraph = document.add_paragraph()
+        toc = paragraph.add_toc()
+        assert toc.is_dirty is True
+        toc.rebuild()
+        assert toc.is_dirty is True
+
+    def it_accepts_a_custom_placeholder(self):
+        import docx
+
+        document = docx.Document()
+        document.add_heading("Alpha", level=1)
+        paragraph = document.add_paragraph()
+        toc = paragraph.add_toc()
+        toc.rebuild(page_number_placeholder="—")
+        assert toc.result_text == "Alpha\t—"
+
+    def it_writes_empty_result_when_document_has_no_headings(self):
+        import docx
+
+        document = docx.Document()
+        document.add_paragraph("just a body paragraph")
+        paragraph = document.add_paragraph()
+        toc = paragraph.add_toc()
+        toc.rebuild()
+        assert toc.result_text == ""
+
+
+class DescribeTableOfFiguresField_rebuild:
+    """`TableOfFiguresField.rebuild` populates the cached result from captions."""
+
+    def it_collects_caption_paragraphs_matching_the_label(self):
+        import docx
+
+        document = docx.Document()
+        document.add_paragraph("Figure 1: Alpha", style="Caption")
+        document.add_paragraph("Table 1: Not a figure", style="Caption")
+        document.add_paragraph("Figure 2: Beta", style="Caption")
+        paragraph = document.add_paragraph()
+
+        tof = paragraph.add_table_of_figures(caption_label="Figure")
+        tof.rebuild()
+
+        assert "Figure 1: Alpha" in tof.result_text
+        assert "Figure 2: Beta" in tof.result_text
+        assert "Table 1" not in tof.result_text
+
+
+class DescribeDocument_rebuild_tocs:
+    """`Document.rebuild_tocs` rebuilds every TOC-family field in the body."""
+
+    def it_rebuilds_every_TOC_and_returns_the_count(self):
+        import docx
+
+        document = docx.Document()
+        document.add_heading("One", level=1)
+        document.add_paragraph("Figure 1: Diagram", style="Caption")
+        document.add_heading("Two", level=1)
+
+        p_toc = document.add_paragraph()
+        p_toc.add_toc()
+        p_tof = document.add_paragraph()
+        p_tof.add_table_of_figures(caption_label="Figure")
+
+        count = document.rebuild_tocs()
+        assert count == 2
+
+        toc_field = document.fields[0].as_toc
+        tof_field = document.fields[1].as_toc
+        assert toc_field is not None and tof_field is not None
+        assert "One" in toc_field.result_text
+        assert "Two" in toc_field.result_text
+        assert "Figure 1: Diagram" in tof_field.result_text

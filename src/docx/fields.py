@@ -18,6 +18,7 @@ Both forms surface through the same :class:`Field` proxy.
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from docx.oxml.ns import qn
@@ -1609,6 +1610,86 @@ class TocField(Field):
         parsed = parse_toc_instruction(self.instruction)
         return letter.upper() in parsed.switches
 
+    # -- content rebuild ---------------------------------------------------
+
+    def rebuild(self, page_number_placeholder: str = "?") -> str:
+        """Recompute the TOC's cached result from the document's headings.
+
+        Walks the owning ``w:body`` ancestor, collects every paragraph whose
+        style matches ``"Heading N"`` (case-insensitive) with ``N`` inside
+        this field's :attr:`heading_range` (defaulting to ``(1, 9)`` when
+        the ``\\o`` switch is absent), and writes a tab-separated preview
+        between the ``separate`` and ``end`` markers — one line per heading,
+        ``"{heading text}\\t{page_number_placeholder}"``.
+
+        `page_number_placeholder` replaces the real page number that Word
+        would compute after layout. This is **unavoidable**: python-docx has
+        no layout engine, so accurate page numbers cannot be produced here.
+        The default ``"?"`` matches the placeholder Word itself shows for a
+        dirty TOC before the first refresh, which is exactly the state the
+        field is in after :meth:`Paragraph.add_toc` — `mark_dirty` is
+        preserved so Word recomputes real numbers on open.
+
+        Returns the newly-written cached result string (empty when the
+        document has no qualifying headings).
+
+        Subclasses override this to redefine "what counts as a heading" —
+        see :meth:`TableOfFiguresField.rebuild` for the caption-based variant.
+
+        .. versionadded:: 2026.05.10
+        """
+        entries = self._collect_entries()
+        result = self._format_entries(entries, page_number_placeholder)
+        self.update_result_text(result)
+        return result
+
+    # -- internals: rebuild helpers ----------------------------------------
+
+    def _collect_entries(self) -> "list[tuple[int, str]]":
+        """Return ``(level, text)`` pairs for headings targeted by this TOC.
+
+        Default implementation scans the document body for paragraphs
+        styled ``"Heading N"`` with ``N`` inside :attr:`heading_range`
+        (defaults to ``(1, 9)`` when no ``\\o`` switch is present).
+        """
+        heading_range = self.heading_range or (1, 9)
+        min_level, max_level = heading_range
+        entries: "list[tuple[int, str]]" = []
+        for p in self._iter_body_paragraphs():
+            level = _paragraph_heading_level(p)
+            if level is None:
+                continue
+            if level < min_level or level > max_level:
+                continue
+            text = _paragraph_text(p)
+            if not text:
+                continue
+            entries.append((level, text))
+        return entries
+
+    @staticmethod
+    def _format_entries(
+        entries: "list[tuple[int, str]]", placeholder: str
+    ) -> str:
+        """Join ``(level, text)`` entries into a tab-separated preview."""
+        return "\n".join(f"{text}\t{placeholder}" for _, text in entries)
+
+    def _iter_body_paragraphs(self):
+        """Yield every ``w:p`` descendant of the owning ``w:body``, in order."""
+        body = self._find_body_ancestor()
+        if body is None:
+            return
+        for p in body.xpath(".//w:p"):
+            yield p
+
+    def _find_body_ancestor(self):
+        """Return the nearest ``w:body`` ancestor of this field, or |None|."""
+        ancestor = self._element.getparent()
+        body_tag = qn("w:body")
+        while ancestor is not None and ancestor.tag != body_tag:
+            ancestor = ancestor.getparent()
+        return ancestor
+
 
 class TableOfFiguresField(TocField):
     """A :class:`TocField` specialised for ``TOC \\c "label"`` fields.
@@ -1623,7 +1704,29 @@ class TableOfFiguresField(TocField):
     .. versionadded:: 2026.05.10
     """
 
-    pass
+    def _collect_entries(self) -> "list[tuple[int, str]]":
+        """Return ``(0, text)`` pairs for caption paragraphs of this label.
+
+        Overrides :meth:`TocField._collect_entries` to match the *List of
+        Figures / Tables* semantics: every paragraph styled ``"Caption"``
+        (case-insensitive) whose text begins with the ``\\c`` caption
+        label (e.g. ``"Figure"`` or ``"Table"``) contributes an entry. The
+        level is reported as ``0`` since a list of figures is flat.
+        """
+        label = self.caption_label
+        entries: "list[tuple[int, str]]" = []
+        for p in self._iter_body_paragraphs():
+            if not _paragraph_is_caption(p):
+                continue
+            text = _paragraph_text(p)
+            if not text:
+                continue
+            if label is not None and not text.lower().startswith(
+                label.lower()
+            ):
+                continue
+            entries.append((0, text))
+        return entries
 
 
 class TableOfAuthoritiesField(TocField):
@@ -1681,3 +1784,53 @@ def _wrap_as_toc(field: "Field") -> "TocField | None":
     # -- TOF: bare "TOF" field type (rare; Word typically emits TOC \c
     #    instead, but ECMA-376 lists TOF as a separate field type too) --
     return TableOfFiguresField(kind, elm)
+
+
+# -- TOC-rebuild helpers ---------------------------------------------------
+
+# -- match both "Heading1" (the usual pStyle id Word emits for built-in
+#    styles — whitespace stripped from the display name) and
+#    "Heading 1" (the display name, which occasionally appears as the
+#    pStyle val for documents authored by other tooling) --
+_HEADING_STYLE_RE = re.compile(r"^heading\s*([1-9])$", re.IGNORECASE)
+
+
+def _paragraph_style_name(p: "BaseOxmlElement") -> str:
+    """Return the ``w:pPr/w:pStyle/@w:val`` of `p`, or the empty string."""
+    vals = p.xpath("./w:pPr/w:pStyle/@w:val")
+    if not vals:
+        return ""
+    return str(vals[0])
+
+
+def _paragraph_heading_level(p: "BaseOxmlElement") -> "int | None":
+    """Return the integer heading level of paragraph `p`, or |None|.
+
+    Matches a ``pStyle`` whose ``w:val`` spells ``"Heading N"`` (the
+    built-in English style IDs Word emits, regardless of the display
+    name's locale). ``N`` must fall in 1..9.
+    """
+    name = _paragraph_style_name(p)
+    if not name:
+        return None
+    match = _HEADING_STYLE_RE.match(name.strip())
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
+def _paragraph_is_caption(p: "BaseOxmlElement") -> bool:
+    """Return ``True`` when `p` is styled ``"Caption"`` (case-insensitive)."""
+    name = _paragraph_style_name(p)
+    return name.strip().lower() == "caption"
+
+
+def _paragraph_text(p: "BaseOxmlElement") -> str:
+    """Return the concatenated visible text of paragraph `p`.
+
+    Joins every ``w:t`` descendant — matches the string
+    :attr:`docx.text.paragraph.Paragraph.text` exposes, but avoids
+    constructing a :class:`Paragraph` proxy (which requires a parent).
+    """
+    parts = p.xpath(".//w:t")
+    return "".join(t.text or "" for t in parts)

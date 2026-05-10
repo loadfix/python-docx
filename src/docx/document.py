@@ -1485,6 +1485,37 @@ class Document(ElementProxy):
             result.extend(paragraph.fields)
         return result
 
+    def rebuild_tocs(self, page_number_placeholder: str = "?") -> int:
+        """Recompute every TOC field's cached result from current content.
+
+        Calls :meth:`docx.fields.TocField.rebuild` on every TOC-family
+        field in the document body — plain tables of contents, lists of
+        figures / tables (:class:`TableOfFiguresField`), and tables of
+        authorities (:class:`TableOfAuthoritiesField`). Each field's
+        cached result (the runs between the ``separate`` and ``end``
+        markers) is replaced with a tab-separated preview built from the
+        current document content.
+
+        `page_number_placeholder` fills in the column where Word would
+        show a real page number — ``"?"`` by default, matching the
+        placeholder Word itself displays for a dirty TOC before the first
+        refresh. python-docx has no layout engine, so accurate page
+        numbers cannot be produced; :meth:`Paragraph.add_toc` marks the
+        field dirty so Word recomputes the real numbers on open.
+
+        Returns the number of TOC-family fields rebuilt.
+
+        .. versionadded:: 2026.05.10
+        """
+        count = 0
+        for field in self.fields:
+            toc = field.as_toc
+            if toc is None:
+                continue
+            toc.rebuild(page_number_placeholder)
+            count += 1
+        return count
+
     @property
     def has_macros(self) -> bool:
         """True if this document contains a VBA project (macros).
