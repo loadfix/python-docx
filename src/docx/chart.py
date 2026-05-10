@@ -106,6 +106,32 @@ class ChartSeries:
         """
         return self._ser.cat_values
 
+    @property
+    def format(self):
+        """:class:`ooxml_chart.ChartFormat` proxy for this series' ``c:spPr``.
+
+        Provides typed access to the series' ``EG_FillProperties`` via
+        ``series.format.fill`` — including the 0.5.0 gradient-fill
+        accessors (``fill.gradient``, ``fill.apply_gradient``,
+        ``fill.type``). Example:
+
+        .. code-block:: python
+
+            series.format.fill.apply_gradient(
+                stops=[(0.0, "FF0000"), (1.0, "0000FF")],
+                angle=45.0,
+            )
+
+        Accessing this property creates a ``c:spPr`` child on the
+        underlying ``c:ser`` if one is not already present.
+
+        .. versionadded:: 2026.05.1
+           Adopted ``python-ooxml-chart`` 0.5 gradient-fill accessors.
+        """
+        from ooxml_chart import ChartFormat
+
+        return ChartFormat(self._ser)
+
 
 class Chart:
     """Read-only proxy for a chart embedded in a document.

@@ -693,6 +693,18 @@ document.save("out.docx")
 - `Chart.chart_type` / `Chart.title` / `Chart.has_legend` / `Chart.series` / `Chart.categories` — Reads. `[Added in 2026.05.0]`
 - `Chart.replace_data(categories, series_data)` — Rewrite all data in place. `[Added in 2026.05.0]`
 - `ChartSeries.name` / `.values` / `.categories` — Per-series reads. `[Added in 2026.05.0]`
+- `ChartSeries.format` — `ooxml_chart.ChartFormat` proxy over the
+  series' `c:spPr`. Authors DrawingML fill / gradient directly on the
+  chart series via the shared `python-ooxml-chart` 0.5 API:
+  `series.format.fill.apply_gradient(stops=[(0.0, "FF0000"), (1.0,
+  "0000FF")], angle=45.0)` writes a multi-stop `<a:gradFill>` that
+  survives `Document.save` / reopen. `ooxml-chart` 0.5 gradient-fill
+  support adopted: `FormatFill.gradient`, `FormatFill.apply_gradient`,
+  `GradientFill.stops` / `.angle` / `.type`, `FILL_TYPE`, and
+  `XL_GRADIENT_FILL_TYPE` are exported from `ooxml_chart`. The
+  shared `a:gradFill` / `a:gs` / `a:gsLst` / `a:lin` `CT_*` classes
+  are registered in docx's element-class lookup so read-back from a
+  saved chart part reconstructs typed proxies. `[Added in 2026.05.11]`
 - Enum: `docx.chart.WD_CHART_TYPE` (`BAR`, `BAR_STACKED`, `COLUMN`, `COLUMN_STACKED`, `LINE`, `PIE`).
 
 ---

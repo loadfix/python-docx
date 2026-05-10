@@ -86,6 +86,23 @@ register_element_cls("a:picLocks", CT_PictureLocking)
 register_element_cls("a:solidFill", CT_SolidColorFill)
 register_element_cls("a:srcRect", CT_RelativeRect)
 register_element_cls("a:xfrm", CT_Transform2D)
+
+# --- DrawingML gradient-fill CT_* classes from python-ooxml-shared-drawingml ---
+# Registering these in docx's element_class_lookup lets the shared
+# ``ooxml_chart.FormatFill`` proxy author / read gradient fills on
+# chart ``c:spPr`` children through docx's parser — R17-3 adoption of
+# ooxml-chart 0.5 gradient-fill accessors.
+from ooxml_shared_drawingml.fill import (
+    CT_GradientFillProperties as _ShrdCT_GradientFillProperties,
+    CT_GradientStop as _ShrdCT_GradientStop,
+    CT_GradientStopList as _ShrdCT_GradientStopList,
+    CT_LinearShadeProperties as _ShrdCT_LinearShadeProperties,
+)
+
+register_element_cls("a:gradFill", _ShrdCT_GradientFillProperties)
+register_element_cls("a:gs", _ShrdCT_GradientStop)
+register_element_cls("a:gsLst", _ShrdCT_GradientStopList)
+register_element_cls("a:lin", _ShrdCT_LinearShadeProperties)
 register_element_cls("pic:blipFill", CT_BlipFillProperties)
 register_element_cls("pic:cNvPicPr", CT_NonVisualPictureProperties)
 register_element_cls("pic:cNvPr", CT_NonVisualDrawingProps)
