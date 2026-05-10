@@ -913,6 +913,89 @@ class Document(ElementProxy):
             self._part, content, content_type, match_src=match_src
         )
 
+    def add_html_chunk(
+        self, html: str, match_src: bool | None = None
+    ) -> AltChunk:
+        """Append an ``altChunk`` carrying an XHTML payload (R14-5).
+
+        Convenience wrapper over :meth:`add_alt_chunk` that fixes the
+        content-type to ``application/xhtml+xml``. Word's HTML import
+        filter renders the payload on open; python-docx does not parse
+        the markup.
+
+        `html` is encoded as UTF-8. Pass `match_src=True` to write
+        ``w:altChunkPr/w:matchSrc`` asking Word to preserve the source's
+        character formatting during the import.
+
+        .. warning::
+            altChunk payloads execute fully inside Word's rendering
+            engine (scripts, external resource fetches, ActiveX
+            depending on the user's macro-security settings). Never
+            embed untrusted HTML without caller-side sanitisation.
+            See the project ``SECURITY.md`` for the full threat model.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.add_alt_chunk(
+            html, content_type="application/xhtml+xml", match_src=match_src
+        )
+
+    def add_text_chunk(
+        self,
+        text: str,
+        encoding: str = "utf-8",
+        match_src: bool | None = None,
+    ) -> AltChunk:
+        """Append an ``altChunk`` carrying a plain-text payload (R14-5).
+
+        Convenience wrapper over :meth:`add_alt_chunk` that fixes the
+        content-type to ``text/plain``. `text` is encoded with
+        `encoding` before being stored in the part (default ``utf-8``).
+
+        .. versionadded:: 2026.05.10
+        """
+        payload = text.encode(encoding)
+        return self.add_alt_chunk(
+            payload, content_type="text/plain", match_src=match_src
+        )
+
+    def add_rtf_chunk(
+        self, rtf: bytes, match_src: bool | None = None
+    ) -> AltChunk:
+        """Append an ``altChunk`` carrying an RTF payload (R14-5).
+
+        Convenience wrapper over :meth:`add_alt_chunk` that fixes the
+        content-type to ``application/rtf``. `rtf` must already be RTF
+        bytes (the helper does not validate the ``{\\rtf1}`` header).
+
+        .. warning::
+            RTF payloads can carry embedded OLE objects, external data
+            links, and control-word sequences that have been used as
+            remote-code-execution vectors in Word (CVE-2017-0199,
+            CVE-2023-21716, and similar). Never embed untrusted RTF —
+            see the project ``SECURITY.md`` for the threat model.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.add_alt_chunk(
+            rtf, content_type="application/rtf", match_src=match_src
+        )
+
+    def add_mhtml_chunk(
+        self, mhtml: bytes, match_src: bool | None = None
+    ) -> AltChunk:
+        """Append an ``altChunk`` carrying an MHTML payload (R14-5).
+
+        Convenience wrapper over :meth:`add_alt_chunk` that fixes the
+        content-type to ``message/rfc822`` (Word's dispatcher for
+        multi-part MHTML archives).
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.add_alt_chunk(
+            mhtml, content_type="message/rfc822", match_src=match_src
+        )
+
     @property
     def alt_chunks(self) -> list[AltChunk]:
         """List of |AltChunk| proxies for every ``w:altChunk`` in this document.

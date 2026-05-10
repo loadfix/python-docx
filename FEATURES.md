@@ -1951,10 +1951,29 @@ stored verbatim): `text/html`, `application/xhtml+xml`, `application/rtf`
 (MHTML) / `multipart/related`, and a WordprocessingML document fragment
 (`application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml`).
 
+Since `2026.05.10` (R14-5) four format-specific helpers wrap
+`add_alt_chunk()` with the right content-type pinned:
+
+```python
+document.add_html_chunk("<p>hello</p>")                  # application/xhtml+xml
+document.add_text_chunk("plain paragraph")               # text/plain
+document.add_rtf_chunk(b"{\\rtf1 ...}")                  # application/rtf
+document.add_mhtml_chunk(b"MIME-Version: 1.0\r\n...")    # message/rfc822
+```
+
+None of the helpers sanitise the payload. altChunks are rendered by
+Word's native import filters on open, which historically have been
+RCE vectors (CVE-2017-0199, CVE-2023-21716, and others). See
+[SECURITY.md](SECURITY.md) before embedding untrusted HTML or RTF.
+
 - `Run.add_ole_object(ole_path_or_stream, prog_id, icon_path_or_stream=None)` — Embed an OLE payload inline. `[Added in 2026.05.0]`
 - `Document.embedded_objects` / `Paragraph.embedded_objects` — Collections of `EmbeddedObject`. `[Added in 2026.05.0]`
 - `EmbeddedObject.blob` / `.embedded_partname` / `.prog_id` / `.r_id` / `.type` / `.paragraph`. `[Added in 2026.05.0]`
 - `Document.add_alt_chunk(content, content_type="text/html", match_src=None)` — Append a `w:altChunk`; pass `match_src=True` to write a `w:altChunkPr/w:matchSrc` child. `[Added in 2026.05.0]`
+- `Document.add_html_chunk(html, match_src=None)` — `w:altChunk` with `application/xhtml+xml`. `[Added in 2026.05.10]`
+- `Document.add_text_chunk(text, encoding="utf-8", match_src=None)` — `w:altChunk` with `text/plain`. `[Added in 2026.05.10]`
+- `Document.add_rtf_chunk(rtf, match_src=None)` — `w:altChunk` with `application/rtf`. `[Added in 2026.05.10]`
+- `Document.add_mhtml_chunk(mhtml, match_src=None)` — `w:altChunk` with `message/rfc822`. `[Added in 2026.05.10]`
 - `Document.alt_chunks` — List of `AltChunk` proxies. `[Added in 2026.05.0]`
 - `AltChunk.rId` / `.part` / `.content_type` / `.content` / `.match_src` (get/set). `[Added in 2026.05.0]`
 - `Document.attachments` — List of `Attachment` (same underlying `altChunk` elements, read-oriented). `[Added in 2026.05.0]`
