@@ -1635,6 +1635,63 @@ class Document(ElementProxy):
         """
         return self.reject_all_changes()
 
+    def accept_all_revisions(self) -> int:
+        """Bulk-accept every tracked revision in the document body.
+
+        Equivalent to :meth:`accept_all_changes`; provided under the
+        ECMA-376 "revision" spelling that matches
+        :attr:`Document.revisions`, :meth:`accept_revisions_by_author`, and
+        related accessors. Returns the number of change elements resolved.
+
+        .. versionadded:: 2026.05.13
+        """
+        return self.accept_all_changes()
+
+    def reject_all_revisions(self) -> int:
+        """Bulk-reject every tracked revision in the document body.
+
+        Equivalent to :meth:`reject_all_changes`; provided under the
+        ECMA-376 "revision" spelling that matches
+        :attr:`Document.revisions`, :meth:`reject_revisions_by_author`, and
+        related accessors. Returns the number of change elements resolved.
+
+        .. versionadded:: 2026.05.13
+        """
+        return self.reject_all_changes()
+
+    def accept_revisions_by_author(self, author: str) -> int:
+        """Accept every tracked revision whose ``w:author`` is `author`.
+
+        Resolves run-level (`w:ins`, `w:del`, `w:moveFrom`, `w:moveTo`),
+        cell-level (`w:cellIns`, `w:cellDel`), and formatting-level
+        (`w:rPrChange`, `w:pPrChange`, `w:sectPrChange`, `w:tcPrChange`,
+        `w:trPrChange`, `w:tblPrChange`) revisions whose ``@w:author`` matches
+        `author` exactly. Revisions with any other author survive untouched.
+
+        Returns the number of change elements resolved.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.tracked_changes import _resolve_all_changes
+
+        return _resolve_all_changes(
+            self._element.body, accept=True, author=author
+        )
+
+    def reject_revisions_by_author(self, author: str) -> int:
+        """Reject every tracked revision whose ``w:author`` is `author`.
+
+        Mirror of :meth:`accept_revisions_by_author`. Returns the number of
+        change elements resolved.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.tracked_changes import _resolve_all_changes
+
+        return _resolve_all_changes(
+            self._element.body, accept=False, author=author
+        )
+
     @property
     def revisions(self) -> "list":
         """All run-level revisions in the document body, in document order.
