@@ -513,6 +513,277 @@ class ShadowFormat:
             effectLst._remove_outerShdw()
 
 
+class ShapeLocks:
+    """Proxy for the ``a:picLocks`` shape-locking child of a picture.
+
+    Exposes every DrawingML ``AG_Locking`` flag plus the picture-specific
+    ``noCrop`` and the shape-specific ``noTextEdit`` / ``noUngrp``, giving
+    docx callers a cross-format vocabulary consistent with the pptx
+    ``ShapeLocks`` proxy.
+
+    Setter semantics:
+
+    * ``True`` sets the attribute on the live ``a:picLocks`` element,
+      creating the element if absent.
+    * ``False`` removes the attribute (spec-default is "unlocked"; writing
+      ``False`` explicitly would be redundant and bloat the XML).
+
+    The aggregate :meth:`lock_all` / :meth:`unlock_all` convenience
+    methods toggle every lock in one call. The :attr:`locked` property
+    is the boolean projection: ``True`` iff at least one lock attribute
+    is currently asserted.
+
+    .. versionadded:: 2026.05.10
+    """
+
+    # -- XML attribute names backing each public property. The order
+    #    matches the picture-lock subset of the pptx proxy's
+    #    ``_ATTR_NAMES`` so the two stay easy to eyeball side-by-side. --
+    _ATTRS: tuple[tuple[str, str], ...] = (
+        ("no_select", "noSelect"),
+        ("no_move", "noMove"),
+        ("no_resize", "noResize"),
+        ("no_rotate", "noRot"),
+        ("no_change_aspect", "noChangeAspect"),
+        ("no_edit_points", "noEditPoints"),
+        ("no_adjust_handles", "noAdjustHandles"),
+        ("no_change_arrowheads", "noChangeArrowheads"),
+        ("no_change_shape_type", "noChangeShapeType"),
+        ("no_group", "noGrp"),
+        ("no_ungroup", "noUngrp"),
+        ("no_text_edit", "noTextEdit"),
+    )
+
+    def __init__(self, cNvPicPr):
+        self._cNvPicPr = cNvPicPr
+
+    # -- internals -----------------------------------------------------
+
+    def _picLocks_or_none(self):
+        return getattr(self._cNvPicPr, "picLocks", None)
+
+    def _get_or_add_picLocks(self):
+        return self._cNvPicPr.get_or_add_picLocks()
+
+    def _get(self, xml_name: str) -> bool:
+        picLocks = self._picLocks_or_none()
+        if picLocks is None:
+            return False
+        return bool(getattr(picLocks, xml_name))
+
+    def _set(self, xml_name: str, value: bool) -> None:
+        # -- False removes the attribute; True materialises `a:picLocks` and
+        #    writes the attribute explicitly. --
+        if value:
+            picLocks = self._get_or_add_picLocks()
+            setattr(picLocks, xml_name, True)
+            return
+        picLocks = self._picLocks_or_none()
+        if picLocks is None:
+            return
+        if xml_name in picLocks.attrib:
+            del picLocks.attrib[xml_name]
+
+    # -- AG_Locking + picture-specific flags --------------------------
+
+    @property
+    def no_select(self) -> bool:
+        """Disable selecting the shape in the Word UI when ``True``.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._get("noSelect")
+
+    @no_select.setter
+    def no_select(self, value: bool) -> None:
+        self._set("noSelect", value)
+
+    @property
+    def no_move(self) -> bool:
+        """Disable the "move" edit operation when ``True``.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._get("noMove")
+
+    @no_move.setter
+    def no_move(self, value: bool) -> None:
+        self._set("noMove", value)
+
+    @property
+    def no_resize(self) -> bool:
+        """Disable the "resize" edit operation when ``True``.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._get("noResize")
+
+    @no_resize.setter
+    def no_resize(self, value: bool) -> None:
+        self._set("noResize", value)
+
+    @property
+    def no_rotate(self) -> bool:
+        """Disable rotation when ``True``.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._get("noRot")
+
+    @no_rotate.setter
+    def no_rotate(self, value: bool) -> None:
+        self._set("noRot", value)
+
+    @property
+    def no_change_aspect(self) -> bool:
+        """Constrain aspect ratio when ``True``.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._get("noChangeAspect")
+
+    @no_change_aspect.setter
+    def no_change_aspect(self, value: bool) -> None:
+        self._set("noChangeAspect", value)
+
+    @property
+    def no_edit_points(self) -> bool:
+        """Disable "Edit Points" for custom geometry when ``True``.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._get("noEditPoints")
+
+    @no_edit_points.setter
+    def no_edit_points(self, value: bool) -> None:
+        self._set("noEditPoints", value)
+
+    @property
+    def no_adjust_handles(self) -> bool:
+        """Disable yellow-diamond adjustment handles when ``True``.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._get("noAdjustHandles")
+
+    @no_adjust_handles.setter
+    def no_adjust_handles(self, value: bool) -> None:
+        self._set("noAdjustHandles", value)
+
+    @property
+    def no_change_arrowheads(self) -> bool:
+        """Disable arrow-head changes when ``True``.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._get("noChangeArrowheads")
+
+    @no_change_arrowheads.setter
+    def no_change_arrowheads(self, value: bool) -> None:
+        self._set("noChangeArrowheads", value)
+
+    @property
+    def no_change_shape_type(self) -> bool:
+        """Disable "Change Shape" for this shape when ``True``.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._get("noChangeShapeType")
+
+    @no_change_shape_type.setter
+    def no_change_shape_type(self, value: bool) -> None:
+        self._set("noChangeShapeType", value)
+
+    @property
+    def no_group(self) -> bool:
+        """Disable grouping this shape with others when ``True``.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._get("noGrp")
+
+    @no_group.setter
+    def no_group(self, value: bool) -> None:
+        self._set("noGrp", value)
+
+    @property
+    def no_ungroup(self) -> bool:
+        """Disable the "Ungroup" command on this shape when ``True``.
+
+        Schema-wise ``noUngrp`` belongs to ``CT_GroupLocking``, but Word's
+        reader is lenient about the attribute appearing on ``a:picLocks``;
+        round-trip fidelity is preserved either way.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._get("noUngrp")
+
+    @no_ungroup.setter
+    def no_ungroup(self, value: bool) -> None:
+        self._set("noUngrp", value)
+
+    @property
+    def no_text_edit(self) -> bool:
+        """Disable editing the shape's text frame when ``True``.
+
+        Schema-wise ``noTextEdit`` belongs to ``CT_ShapeLocking`` rather
+        than ``CT_PictureLocking``; Word tolerates the attribute here so
+        the cross-format proxy can surface it uniformly.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._get("noTextEdit")
+
+    @no_text_edit.setter
+    def no_text_edit(self, value: bool) -> None:
+        self._set("noTextEdit", value)
+
+    # -- aggregate --------------------------------------------------------
+
+    @property
+    def locked(self) -> bool:
+        """``True`` when at least one lock attribute is currently asserted.
+
+        Setting ``locked = True`` is equivalent to :meth:`lock_all`;
+        setting ``locked = False`` is equivalent to :meth:`unlock_all`.
+
+        .. versionadded:: 2026.05.10
+        """
+        return any(self._get(xml) for _, xml in self._ATTRS)
+
+    @locked.setter
+    def locked(self, value: bool) -> None:
+        if value:
+            self.lock_all()
+        else:
+            self.unlock_all()
+
+    def lock_all(self) -> None:
+        """Turn every lock on, materialising ``a:picLocks`` if needed.
+
+        .. versionadded:: 2026.05.10
+        """
+        picLocks = self._get_or_add_picLocks()
+        for _, xml in self._ATTRS:
+            setattr(picLocks, xml, True)
+
+    def unlock_all(self) -> None:
+        """Turn every lock off, removing each attribute from ``a:picLocks``.
+
+        The ``a:picLocks`` element is left in place if any other attribute
+        remains; this method only touches the twelve attributes surfaced
+        through :class:`ShapeLocks`.
+
+        .. versionadded:: 2026.05.10
+        """
+        picLocks = self._picLocks_or_none()
+        if picLocks is None:
+            return
+        for _, xml in self._ATTRS:
+            if xml in picLocks.attrib:
+                del picLocks.attrib[xml]
+
+
 class EffectsFormat:
     """Container for picture-level visual effects.
 
@@ -969,6 +1240,28 @@ class InlineShape:
     @lock_aspect_ratio.setter
     def lock_aspect_ratio(self, value: bool):
         _set_lock_aspect(self._cNvPicPr(), value)
+
+    @property
+    def locks(self) -> ShapeLocks:
+        """Per-shape locking proxy for ``pic:cNvPicPr/a:picLocks``.
+
+        Exposes twelve boolean lock attributes (``no_select``, ``no_move``,
+        ``no_resize``, ``no_rotate``, ``no_change_aspect``,
+        ``no_edit_points``, ``no_adjust_handles``, ``no_change_arrowheads``,
+        ``no_change_shape_type``, ``no_group``, ``no_ungroup``,
+        ``no_text_edit``) plus ``locked`` / :meth:`ShapeLocks.lock_all` /
+        :meth:`ShapeLocks.unlock_all` aggregates. Setting an attribute to
+        ``True`` materialises the ``a:picLocks`` element; setting to
+        ``False`` removes the attribute so it does not survive a round-trip.
+
+        Raises :class:`ValueError` when this shape is not a picture.
+
+        .. versionadded:: 2026.05.10
+        """
+        cNvPicPr = self._cNvPicPr()
+        if cNvPicPr is None:
+            raise ValueError("locks is only available on picture shapes")
+        return ShapeLocks(cNvPicPr)
 
     @property
     def image(self) -> Image:
@@ -1488,6 +1781,20 @@ class FloatingImage:
     @lock_aspect_ratio.setter
     def lock_aspect_ratio(self, value: bool):
         _set_lock_aspect(self._cNvPicPr(), value)
+
+    @property
+    def locks(self) -> ShapeLocks:
+        """Per-shape locking proxy for this floating picture.
+
+        See :attr:`InlineShape.locks` for the full attribute vocabulary.
+        Raises :class:`ValueError` when the anchor is not a picture.
+
+        .. versionadded:: 2026.05.10
+        """
+        cNvPicPr = self._cNvPicPr()
+        if cNvPicPr is None:
+            raise ValueError("locks is only available on picture anchors")
+        return ShapeLocks(cNvPicPr)
 
     @property
     def _pic(self) -> CT_Picture | None:
