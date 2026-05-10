@@ -589,6 +589,7 @@ document.save("out.docx")
 - `InlineShape.width` / `InlineShape.height` / `InlineShape.type` / `InlineShape.image` — Core picture data.
 - `InlineShape.alt_text` / `InlineShape.title` — Accessibility metadata. `[Added in 2026.05.0]`
 - `InlineShape.opacity` / `InlineShape.lock_aspect_ratio` — Visual controls. `[Added in 2026.05.0]`
+- `InlineShape.locks` / `FloatingImage.locks` — `ShapeLocks` proxy exposing `no_select`, `no_move`, `no_resize`, `no_rotate`, `no_change_aspect`, `no_edit_points`, `no_adjust_handles`, `no_change_arrowheads`, `no_change_shape_type`, `no_group`, `no_ungroup`, `no_text_edit`, aggregate `locked`, and `lock_all()` / `unlock_all()`. Writes to `pic:cNvPicPr/a:picLocks`; setting a lock to `False` removes the attribute so it does not survive a round-trip. `[Added in 2026.05.10]`
 - `InlineShape.outline` — `PictureOutline` (style, color, width, transparency). `[Added in 2026.05.0]`
 - `InlineShape.crop` — `PictureCrop` (left/top/right/bottom, `set(...)`). `[Added in 2026.05.0]`
 - `InlineShape.effects.shadow` — `ShadowFormat` (blur, distance, angle, color, `apply(...)`, `clear()`). `[Added in 2026.05.0]`

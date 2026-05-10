@@ -698,14 +698,60 @@ class CT_NonVisualDrawingProps(BaseOxmlElement):
 class CT_PictureLocking(BaseOxmlElement):
     """``<a:picLocks>`` element, picture-level locking attributes.
 
-    ``@noChangeAspect`` controls whether the picture's aspect ratio is
-    locked against user resize in Word.
+    Covers the full ``AG_Locking`` attribute group shared across the
+    DrawingML ``CT_*Locking`` complex types — ``noGrp``, ``noSelect``,
+    ``noRot``, ``noChangeAspect``, ``noMove``, ``noResize``,
+    ``noEditPoints``, ``noAdjustHandles``, ``noChangeArrowheads``,
+    ``noChangeShapeType`` — plus the picture-specific ``noCrop``
+    (ECMA-376 Part 1 §20.1.2.2.32).
+
+    ``noTextEdit`` and ``noUngrp`` are not part of ``CT_PictureLocking``
+    per the spec but Word tolerates the attributes when present; they
+    are accepted here so the :class:`docx.shape.ShapeLocks` proxy can
+    surface the full cross-format lock vocabulary through a single
+    element.
 
     .. versionadded:: 2026.05.0
     """
 
+    noGrp: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "noGrp", XsdBoolean
+    )
+    noSelect: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "noSelect", XsdBoolean
+    )
+    noRot: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "noRot", XsdBoolean
+    )
     noChangeAspect: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "noChangeAspect", XsdBoolean
+    )
+    noMove: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "noMove", XsdBoolean
+    )
+    noResize: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "noResize", XsdBoolean
+    )
+    noEditPoints: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "noEditPoints", XsdBoolean
+    )
+    noAdjustHandles: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "noAdjustHandles", XsdBoolean
+    )
+    noChangeArrowheads: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "noChangeArrowheads", XsdBoolean
+    )
+    noChangeShapeType: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "noChangeShapeType", XsdBoolean
+    )
+    noCrop: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "noCrop", XsdBoolean
+    )
+    noTextEdit: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "noTextEdit", XsdBoolean
+    )
+    noUngrp: bool | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "noUngrp", XsdBoolean
     )
 
 
