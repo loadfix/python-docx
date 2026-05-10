@@ -1274,8 +1274,11 @@ for p in document.paragraphs:
 print(document.revision_marks_text())
 
 # accept everything in one shot
-n = document.accept_all_changes()
-print(f"resolved {n} changes")
+n = document.accept_all_revisions()
+print(f"resolved {n} revisions")
+
+# or accept just one author's edits
+n = document.accept_revisions_by_author("Reviewer")
 
 document.save("out.docx")
 ```
@@ -1283,6 +1286,8 @@ document.save("out.docx")
 - `Document.tracked_changes(author, date=None)` — Context manager that wraps new runs in `w:ins`. `[Added in 2026.05.0]`
 - `Document.accept_all_changes()` / `Document.reject_all_changes()` — Resolve every change in the body. `[Added in 2026.05.0]`
 - `Document.accept_revisions()` / `Document.reject_revisions()` — ECMA-376-spelled aliases of the above. `[Added in 2026.05.11]`
+- `Document.accept_all_revisions()` / `Document.reject_all_revisions()` — Bulk-resolve spellings aligned with `Document.revisions`. Equivalent to `accept_all_changes` / `reject_all_changes`. `[Added in 2026.05.13]`
+- `Document.accept_revisions_by_author(author)` / `Document.reject_revisions_by_author(author)` — Selectively resolve the revisions whose `w:author` equals the given string; revisions by other authors survive. Covers run-level, cell-level, and formatting-level revisions. `[Added in 2026.05.13]`
 - `Document.revisions` / `Paragraph.revisions` / `Run.revisions` — Typed-proxy read of every run-level revision (`Insertion`, `Deletion`, `Move`) plus, on `Run`, the local `FormattingChange` from `w:rPrChange`. `[Added in 2026.05.11]`
 - `Document.revision_marks_text(open_ins="[+", close_ins="+]", open_del="[-", close_del="-]")` — Body-text preview with markers. `[Added in 2026.05.0]`
 - `Paragraph.tracked_changes` / `Paragraph.revision_marks_text(...)` / `Paragraph.formatting_change` — Per-paragraph reads. `[Added in 2026.05.0]`

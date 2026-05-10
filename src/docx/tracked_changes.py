@@ -380,7 +380,12 @@ def _append_container_text(
             parts.append(child.text or "")
 
 
-def _resolve_all_changes(root: BaseOxmlElement, *, accept: bool) -> int:
+def _resolve_all_changes(
+    root: BaseOxmlElement,
+    *,
+    accept: bool,
+    author: str | None = None,
+) -> int:
     """Accept or reject every tracked change beneath `root`.
 
     Processes run-level track changes (`w:ins`, `w:del`, `w:moveFrom`,
@@ -388,6 +393,10 @@ def _resolve_all_changes(root: BaseOxmlElement, *, accept: bool) -> int:
     `w:sectPrChange`, `w:tcPrChange`, `w:trPrChange`, `w:tblPrChange`), and
     cell-level revisions (`w:cellIns`, `w:cellDel`). Returns the count of
     change elements resolved.
+
+    When `author` is not |None| only change elements whose `@w:author` matches
+    the given string (exact compare) are resolved; the remaining revisions
+    survive untouched.
 
     Nested changes (e.g. a `w:ins` inside a `w:del`) are handled by processing
     innermost elements first so outer wrappers see stable children.
@@ -399,6 +408,11 @@ def _resolve_all_changes(root: BaseOxmlElement, *, accept: bool) -> int:
         reject_formatting_change,
     )
 
+    def _author_matches(elm: BaseOxmlElement) -> bool:
+        if author is None:
+            return True
+        return elm.get(qn("w:author")) == author
+
     run_changes: list[BaseOxmlElement] = root.xpath(
         ".//w:ins | .//w:del | .//w:moveFrom | .//w:moveTo"
     )
@@ -406,6 +420,8 @@ def _resolve_all_changes(root: BaseOxmlElement, *, accept: bool) -> int:
     count = 0
     for elm in run_changes:
         if elm.getparent() is None:
+            continue
+        if not _author_matches(elm):
             continue
         # -- CT_MoveFrom is a CT_Del and CT_MoveTo is a CT_Ins, so this check
         # -- covers all four element types without listing the move classes --
@@ -420,6 +436,8 @@ def _resolve_all_changes(root: BaseOxmlElement, *, accept: bool) -> int:
     for elm in cell_changes:
         if elm.getparent() is None:
             continue
+        if not _author_matches(elm):
+            continue
         count += _resolve_cell_change(elm, accept=accept)
 
     fmt_changes: list[BaseOxmlElement] = root.xpath(
@@ -428,6 +446,8 @@ def _resolve_all_changes(root: BaseOxmlElement, *, accept: bool) -> int:
     )
     for elm in fmt_changes:
         if elm.getparent() is None:
+            continue
+        if not _author_matches(elm):
             continue
         if accept:
             accept_formatting_change(elm)

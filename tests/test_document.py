@@ -920,6 +920,146 @@ class DescribeDocument:
         assert count == 1
         assert document_elm.xpath(".//w:ins") == []
 
+    def it_bulk_accepts_revisions_across_all_change_kinds(
+        self, document_part_: Mock
+    ):
+        # -- insertion + deletion + run-prop change + paragraph-prop change --
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/("
+                "w:p/("
+                "w:pPr/(w:jc{w:val=center},"
+                "w:pPrChange{w:id=3,w:author=A}/w:pPr/w:jc{w:val=left}),"
+                'w:r/(w:rPr/(w:b,w:rPrChange{w:id=4,w:author=A}/w:rPr),w:t"keep "),'
+                'w:ins{w:id=1,w:author=A}/w:r/w:t"added"),'
+                "w:p/("
+                'w:del{w:id=2,w:author=B}/w:r/w:delText"removed",w:r/w:t" end")'
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.accept_all_revisions()
+
+        assert count == 4
+        # -- all markers removed --
+        assert document_elm.xpath(".//w:ins") == []
+        assert document_elm.xpath(".//w:del") == []
+        assert document_elm.xpath(".//w:rPrChange") == []
+        assert document_elm.xpath(".//w:pPrChange") == []
+        # -- final content reflects accepted state --
+        paragraphs = document_elm.xpath(".//w:p")
+        assert "".join(
+            t.text for t in paragraphs[0].xpath(".//w:t")
+        ) == "keep added"
+        assert "".join(
+            t.text for t in paragraphs[1].xpath(".//w:t")
+        ) == " end"
+        # -- current formatting preserved (center, not left) --
+        jc = paragraphs[0].xpath(".//w:pPr/w:jc")
+        assert len(jc) == 1
+        assert jc[0].get(
+            "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val"
+        ) == "center"
+
+    def it_bulk_rejects_revisions_restoring_original_content(
+        self, document_part_: Mock
+    ):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/("
+                "w:p/("
+                "w:pPr/(w:jc{w:val=center},"
+                "w:pPrChange{w:id=3,w:author=A}/w:pPr/w:jc{w:val=left}),"
+                'w:r/w:t"keep ",'
+                'w:ins{w:id=1,w:author=A}/w:r/w:t"added"),'
+                "w:p/("
+                'w:del{w:id=2,w:author=B}/w:r/w:delText"removed",w:r/w:t" end")'
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.reject_all_revisions()
+
+        assert count == 3
+        assert document_elm.xpath(".//w:ins") == []
+        assert document_elm.xpath(".//w:del") == []
+        assert document_elm.xpath(".//w:delText") == []
+        assert document_elm.xpath(".//w:pPrChange") == []
+        # -- original content restored --
+        paragraphs = document_elm.xpath(".//w:p")
+        assert "".join(
+            t.text for t in paragraphs[0].xpath(".//w:t")
+        ) == "keep "
+        assert "".join(
+            t.text for t in paragraphs[1].xpath(".//w:t")
+        ) == "removed end"
+        # -- prior formatting restored (left, not center) --
+        jc = paragraphs[0].xpath(".//w:pPr/w:jc")
+        assert len(jc) == 1
+        assert jc[0].get(
+            "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val"
+        ) == "left"
+
+    def it_accepts_revisions_selectively_by_author(self, document_part_: Mock):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/("
+                "w:p/("
+                'w:r/w:t"a ",'
+                'w:ins{w:id=1,w:author=Alice}/w:r/w:t"A1",'
+                'w:ins{w:id=2,w:author=Bob}/w:r/w:t"B1"'
+                "),"
+                "w:p/("
+                'w:del{w:id=3,w:author=Alice}/w:r/w:delText"delA",'
+                'w:del{w:id=4,w:author=Bob}/w:r/w:delText"delB",'
+                'w:r/w:t" end"'
+                ")"
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.accept_revisions_by_author("Alice")
+
+        # -- two Alice changes resolved, two Bob changes survive --
+        assert count == 2
+        remaining_authors = sorted(
+            e.get(
+                "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}author"
+            )
+            for e in document_elm.xpath(".//w:ins | .//w:del")
+        )
+        assert remaining_authors == ["Bob", "Bob"]
+
+    def it_rejects_revisions_selectively_by_author(self, document_part_: Mock):
+        document_elm = cast(
+            CT_Document,
+            element(
+                "w:document/w:body/"
+                "w:p/("
+                'w:r/w:t"a ",'
+                'w:ins{w:id=1,w:author=Alice}/w:r/w:t"A1",'
+                'w:ins{w:id=2,w:author=Bob}/w:r/w:t"B1"'
+                ")"
+            ),
+        )
+        document = Document(document_elm, document_part_)
+
+        count = document.reject_revisions_by_author("Alice")
+
+        assert count == 1
+        # -- Alice's insertion removed; Bob's survives --
+        surviving = document_elm.xpath(".//w:ins")
+        assert len(surviving) == 1
+        assert surviving[0].get(
+            "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}author"
+        ) == "Bob"
+
     def it_exposes_revisions_as_typed_proxies(self, document_part_: Mock):
         document_elm = cast(
             CT_Document,
