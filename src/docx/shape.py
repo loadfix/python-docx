@@ -550,10 +550,10 @@ class InlineShapes(Parented):
             msg = "inline shape index [%d] out of range" % idx
             raise IndexError(msg)
 
-        return InlineShape(inline)
+        return InlineShape(inline, self.part)
 
     def __iter__(self):
-        return (InlineShape(inline) for inline in self._inline_lst)
+        return (InlineShape(inline, self.part) for inline in self._inline_lst)
 
     def __len__(self):
         return len(self._inline_lst)
@@ -730,6 +730,50 @@ class InlineShape:
         if uri == nsmap["dgm"]:
             return WD_INLINE_SHAPE.SMART_ART
         return WD_INLINE_SHAPE.NOT_IMPLEMENTED
+
+    @property
+    def is_smart_art(self) -> bool:
+        """|True| when this inline shape wraps a SmartArt diagram.
+
+        Detection is by ``a:graphicData/@uri``: a SmartArt graphic's
+        ``a:graphicData`` declares the DrawingML diagram URI
+        (``http://schemas.openxmlformats.org/drawingml/2006/diagram``).
+        Structural only — no companion part resolution is attempted, so
+        this is cheap and never raises.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self._inline.graphic.graphicData.uri == nsmap["dgm"]
+
+    @property
+    def smart_art(self):
+        """A :class:`~docx.smart_art.SmartArt` proxy, or |None| when not SmartArt.
+
+        Returns |None| when :attr:`is_smart_art` is |False|. When the
+        ``dgm:relIds`` is present but the four companion parts cannot
+        be resolved from the owning :class:`StoryPart`, the returned
+        :class:`SmartArt` still carries the relationships but reports
+        an empty node list and |None| for :attr:`SmartArt.color_transform`
+        / :attr:`SmartArt.style_transform`.
+
+        Raises :class:`ValueError` when this :class:`InlineShape` has
+        no part reference (e.g. it was constructed directly from XML)
+        — a part is required to resolve the four companion
+        relationships.
+
+        .. versionadded:: 2026.05.10
+        """
+        if not self.is_smart_art:
+            return None
+        if self._part is None:
+            raise ValueError(
+                "InlineShape.smart_art requires a part reference; "
+                "construct the shape via InlineShapes[..] or by walking "
+                "Document.inline_shapes"
+            )
+        from docx.smart_art import smart_art_for_inline
+
+        return smart_art_for_inline(self._inline, self._part)
 
     @property
     def width(self):

@@ -1845,15 +1845,38 @@ class Document(ElementProxy):
 
         .. versionadded:: 2026.05.0
         """
+        return list(self.iter_smart_arts())
+
+    @property
+    def smart_arts(self) -> list[SmartArt]:
+        """Plural alias for :attr:`smart_art`.
+
+        Returns the same materialised list of |SmartArt| proxies. Provided
+        so call sites that iterate naturally with plural naming read more
+        cleanly — ``for sa in document.smart_arts: ...`` — while keeping
+        the historical :attr:`smart_art` attribute stable.
+
+        .. versionadded:: 2026.05.10
+        """
+        return self.smart_art
+
+    def iter_smart_arts(self):
+        """Yield each |SmartArt| proxy in the document body in document order.
+
+        Streams the same sequence as :attr:`smart_arts` / :attr:`smart_art`
+        without materialising a list. Useful for documents carrying many
+        SmartArt diagrams (e.g. long research reports) where the caller
+        only needs the first matching diagram.
+
+        .. versionadded:: 2026.05.10
+        """
         from docx.drawing import Drawing
 
-        result: list[SmartArt] = []
         for d in self._element.body.xpath(".//w:drawing"):
             drawing = Drawing(d, self._body)
             sa = drawing.smart_art
             if sa is not None:
-                result.append(sa)
-        return result
+                yield sa
 
     def to_html(
         self,

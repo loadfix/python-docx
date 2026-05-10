@@ -737,7 +737,25 @@ for diagram in document.smart_art:
   (case-insensitive). `[Added in 2026.05.8]`
 - `SmartArt.add_node(text)` — Append a top-level content node and return
   its `SmartArtNode`. `[Added in 2026.05.8]`
-- `Document.smart_art` — List of `SmartArt`. `[Added in 2026.05.0]`
+- `Document.smart_art` / `Document.smart_arts` — List of `SmartArt` (plural
+  alias added in 2026.05.10). `[Added in 2026.05.0]`
+- `Document.iter_smart_arts()` — Generator yielding every `SmartArt` in
+  document order. `[Added in 2026.05.10]`
+- `InlineShape.is_smart_art` — |True| when the shape wraps a DrawingML
+  diagram (``a:graphicData/@uri`` matches the SmartArt URI). `[Added in
+  2026.05.10]`
+- `InlineShape.smart_art` — `SmartArt` proxy when
+  `is_smart_art` is |True|; |None| otherwise. `[Added in 2026.05.10]`
+- `SmartArt.color_transform` / `SmartArt.style_transform` — Typed read-
+  side proxies over the companion `diagrams/colorsN.xml` /
+  `diagrams/quickStyleN.xml` parts, routed through `python-ooxml-smartart`
+  0.3. |None| when the corresponding companion part is not resolvable.
+  `[Added in 2026.05.10]`
+- `SmartArt.graphic_frame_xml` — Raw bytes of the wrapping `w:drawing`
+  element for consumers that want to migrate a SmartArt graphic to
+  python-pptx without round-tripping through the docx writer. |None|
+  when the SmartArt was constructed without a host drawing. `[Added in
+  2026.05.10]`
 - `SmartArt.data_partname` / `SmartArt.dm_rId` / `SmartArt.nodes` / `SmartArt.text`. `[Added in 2026.05.0]`
 - `SmartArtNode.text` / `.level` / `.model_id` / `.children`. `[Added in 2026.05.0]`
 

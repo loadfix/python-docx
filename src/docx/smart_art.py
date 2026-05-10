@@ -36,6 +36,10 @@ from docx.oxml.smart_art import (
 )
 
 if TYPE_CHECKING:
+    from ooxml_smartart.oxml.color_transform import CT_ColorTransform
+    from ooxml_smartart.oxml.style_def import CT_StyleDefinition
+    from ooxml_smartart.transforms import ColorTransform, StyleTransform
+
     from docx.document import Document
     from docx.oxml.drawing import CT_Drawing
     from docx.parts.smart_art import DiagramDataPart
@@ -114,9 +118,75 @@ class SmartArt:
         self,
         relIds: CT_RelIds,
         data_part: DiagramDataPart | None,
+        *,
+        colors_element: "CT_ColorTransform | None" = None,
+        style_element: "CT_StyleDefinition | None" = None,
+        drawing: "CT_Drawing | None" = None,
     ):
         self._relIds = relIds
         self._data_part = data_part
+        self._colors_element = colors_element
+        self._style_element = style_element
+        self._drawing = drawing
+
+    @property
+    def color_transform(self) -> "ColorTransform | None":
+        """Typed proxy over the companion ``diagrams/colorsN.xml`` root.
+
+        Returns ``None`` when the ``r:cs`` relationship could not be
+        resolved to a :class:`~docx.parts.smart_art.DiagramColorsPart`
+        (missing rId, unexpected part type, etc.). The returned proxy
+        is a shared :class:`ooxml_smartart.transforms.ColorTransform`
+        routed through ``python-ooxml-smartart`` 0.3 — read-only, so
+        round-trip fidelity of the ``colorsN.xml`` part is preserved.
+
+        .. versionadded:: 2026.05.10
+        """
+        if self._colors_element is None:
+            return None
+        from ooxml_smartart.transforms import ColorTransform as _ColorTransform
+
+        return _ColorTransform(self._colors_element)
+
+    @property
+    def style_transform(self) -> "StyleTransform | None":
+        """Typed proxy over the companion ``diagrams/quickStyleN.xml`` root.
+
+        Returns ``None`` when the ``r:qs`` relationship could not be
+        resolved to a :class:`~docx.parts.smart_art.DiagramStylePart`.
+        The returned proxy is a shared
+        :class:`ooxml_smartart.transforms.StyleTransform` routed through
+        ``python-ooxml-smartart`` 0.3 — read-only, so round-trip
+        fidelity of the ``quickStyleN.xml`` part is preserved.
+
+        .. versionadded:: 2026.05.10
+        """
+        if self._style_element is None:
+            return None
+        from ooxml_smartart.transforms import StyleTransform as _StyleTransform
+
+        return _StyleTransform(self._style_element)
+
+    @property
+    def graphic_frame_xml(self) -> bytes | None:
+        """Raw XML bytes of the wrapping ``w:drawing`` element, or ``None``.
+
+        Returns ``None`` when this :class:`SmartArt` was constructed
+        without a reference to its host ``w:drawing`` element (for
+        example, the test-only ``SmartArt(relIds, data_part)`` entry
+        point used by synthetic fixtures). When a drawing was supplied
+        the return value is the re-serialised bytes of the full
+        ``w:drawing`` subtree — useful for consumers migrating a
+        SmartArt graphic to python-pptx without round-tripping through
+        the docx writer.
+
+        .. versionadded:: 2026.05.10
+        """
+        if self._drawing is None:
+            return None
+        from lxml import etree as _etree
+
+        return cast(bytes, _etree.tostring(self._drawing))
 
     @property
     def data_partname(self) -> str | None:
@@ -292,6 +362,86 @@ def _count_direct_children(data_model: CT_DataModel, parent_id: str) -> int:
     return count
 
 
+def smart_art_for_inline(
+    inline,
+    document_part,
+) -> SmartArt | None:
+    """Return a :class:`SmartArt` for *inline* (a ``wp:inline``) or |None|.
+
+    Same contract as :func:`smart_art_for_drawing`, but starts from the
+    ``wp:inline`` element carried by :class:`~docx.shape.InlineShape`
+    rather than from a ``w:drawing``. Walks up to the enclosing
+    ``w:drawing`` ancestor (when present) so
+    :attr:`SmartArt.graphic_frame_xml` has the full wrapper to
+    re-serialise; falls back to building a synthetic wrapper
+    subtree-equivalent search when the inline is detached.
+
+    .. versionadded:: 2026.05.10
+    """
+    # -- locate the enclosing w:drawing so the extra-tree inspection
+    # -- below (and graphic_frame_xml) can re-serialise the wrapper. --
+    current = inline
+    drawing = None
+    drawing_tag = qn("w:drawing")
+    while current is not None:
+        if current.tag == drawing_tag:
+            drawing = current
+            break
+        current = current.getparent()
+
+    if drawing is not None:
+        return smart_art_for_drawing(cast("CT_Drawing", drawing), document_part)
+
+    # -- detached inline: find relIds via the graphicData under the
+    # -- inline directly so InlineShape.smart_art still works on bare
+    # -- XML. graphic_frame_xml will be None in this path. --
+    matches = inline.xpath("./a:graphic/a:graphicData/dgm:relIds")
+    if not matches:
+        return None
+    relIds = cast(CT_RelIds, matches[0])
+
+    from docx.parts.smart_art import (
+        DiagramColorsPart,
+        DiagramDataPart,
+        DiagramStylePart,
+    )
+
+    data_part: DiagramDataPart | None = None
+    if relIds.dm_rId:
+        try:
+            candidate = document_part.related_parts[relIds.dm_rId]
+        except (KeyError, AttributeError):
+            candidate = None
+        if isinstance(candidate, DiagramDataPart):
+            data_part = candidate
+
+    colors_element = None
+    if relIds.cs_rId:
+        try:
+            candidate = document_part.related_parts[relIds.cs_rId]
+        except (KeyError, AttributeError):
+            candidate = None
+        if isinstance(candidate, DiagramColorsPart):
+            colors_element = candidate.element
+
+    style_element = None
+    if relIds.qs_rId:
+        try:
+            candidate = document_part.related_parts[relIds.qs_rId]
+        except (KeyError, AttributeError):
+            candidate = None
+        if isinstance(candidate, DiagramStylePart):
+            style_element = candidate.element
+
+    return SmartArt(
+        relIds,
+        data_part,
+        colors_element=colors_element,  # pyright: ignore[reportArgumentType]
+        style_element=style_element,  # pyright: ignore[reportArgumentType]
+        drawing=None,
+    )
+
+
 def smart_art_for_drawing(
     drawing: CT_Drawing,
     document_part,
@@ -305,9 +455,25 @@ def smart_art_for_drawing(
     but the referenced data part cannot be resolved (missing, wrong type,
     etc.) a :class:`SmartArt` is still returned, with an empty node list.
 
+    In addition to the data part (``r:dm``), this helper also resolves
+    the ``r:cs`` / ``r:qs`` relationships when present and threads the
+    resulting :class:`~docx.parts.smart_art.DiagramColorsPart` and
+    :class:`~docx.parts.smart_art.DiagramStylePart` root elements through
+    the :class:`SmartArt` constructor so
+    :attr:`SmartArt.color_transform` / :attr:`SmartArt.style_transform`
+    are populated. The host ``w:drawing`` element is retained so
+    :attr:`SmartArt.graphic_frame_xml` can re-serialise the wrapper.
+
     .. versionadded:: 2026.05.0
+    .. versionchanged:: 2026.05.10
+       Resolve ``r:cs`` / ``r:qs`` into typed colour / style transforms
+       and retain the host ``w:drawing`` for ``graphic_frame_xml``.
     """
-    from docx.parts.smart_art import DiagramDataPart
+    from docx.parts.smart_art import (
+        DiagramColorsPart,
+        DiagramDataPart,
+        DiagramStylePart,
+    )
 
     relIds = dgm_relIds_from_drawing(drawing)
     if relIds is None:
@@ -323,7 +489,37 @@ def smart_art_for_drawing(
         if isinstance(candidate, DiagramDataPart):
             data_part = candidate
 
-    return SmartArt(relIds, data_part)
+    # -- resolve r:cs (colours) and r:qs (quickStyle) to their root
+    # -- elements so the shared-package transform proxies can be
+    # -- constructed lazily on access. Each is None when the
+    # -- relationship cannot be resolved to the expected part class. --
+    colors_element = None
+    cs_rId = relIds.cs_rId
+    if cs_rId:
+        try:
+            candidate = document_part.related_parts[cs_rId]
+        except (KeyError, AttributeError):
+            candidate = None
+        if isinstance(candidate, DiagramColorsPart):
+            colors_element = candidate.element
+
+    style_element = None
+    qs_rId = relIds.qs_rId
+    if qs_rId:
+        try:
+            candidate = document_part.related_parts[qs_rId]
+        except (KeyError, AttributeError):
+            candidate = None
+        if isinstance(candidate, DiagramStylePart):
+            style_element = candidate.element
+
+    return SmartArt(
+        relIds,
+        data_part,
+        colors_element=colors_element,  # pyright: ignore[reportArgumentType]
+        style_element=style_element,  # pyright: ignore[reportArgumentType]
+        drawing=drawing,
+    )
 
 
 _SUPPORTED_LAYOUTS = ("list", "cycle", "process")
@@ -405,7 +601,13 @@ def add_smart_art_to_document(
     # -- reach into the drawing to pull the dgm:relIds back out as a proxy --
     relIds = dgm_relIds_from_drawing(drawing)
     assert relIds is not None
-    return SmartArt(relIds, data_part)
+    return SmartArt(
+        relIds,
+        data_part,
+        colors_element=colors_part.element,  # pyright: ignore[reportArgumentType]
+        style_element=qs_part.element,  # pyright: ignore[reportArgumentType]
+        drawing=drawing,
+    )
 
 
 __all__ = [
@@ -413,4 +615,5 @@ __all__ = [
     "SmartArtNode",
     "add_smart_art_to_document",
     "smart_art_for_drawing",
+    "smart_art_for_inline",
 ]
