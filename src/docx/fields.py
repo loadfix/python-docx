@@ -18,6 +18,7 @@ Both forms surface through the same :class:`Field` proxy.
 
 from __future__ import annotations
 
+import ast
 import re
 from typing import TYPE_CHECKING
 
@@ -999,6 +1000,97 @@ def _evaluate_if(
 
 _ALLOWED_FORMULA_CHARS = set("0123456789.+-*/%() \t")
 
+# -- AST node types permitted in ``=`` field expressions. Exponentiation
+# -- (``ast.Pow``) is deliberately omitted: the per-character whitelist
+# -- accepts two adjacent ``*`` chars, so ``9**9**9**9`` would otherwise
+# -- slip through and pin CPU doing bignum arithmetic. --
+_ALLOWED_FORMULA_NODES: tuple[type, ...] = (
+    ast.Expression,
+    ast.BinOp,
+    ast.UnaryOp,
+    ast.Constant,
+)
+# -- ``ast.Num`` is a deprecated alias for ``ast.Constant`` that was
+# -- removed in Python 3.14. Include it only when the running interpreter
+# -- still ships the class. --
+if hasattr(ast, "Num"):  # pragma: no cover - branch depends on Py version
+    _ALLOWED_FORMULA_NODES = _ALLOWED_FORMULA_NODES + (ast.Num,)
+_ALLOWED_FORMULA_OPS = (
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.Mod,
+    ast.USub,
+    ast.UAdd,
+)
+
+
+def _evaluate_formula_ast(expr: str) -> "int | float | None":
+    """Safely evaluate `expr` as a small arithmetic expression.
+
+    Returns the numeric result, or |None| if the expression contains any
+    construct not in :data:`_ALLOWED_FORMULA_NODES` /
+    :data:`_ALLOWED_FORMULA_OPS`. Rejects ``ast.Pow`` explicitly so the
+    classic ``9**9**9**9`` bignum-DoS can never occur, regardless of what
+    the character-class pre-filter accepts.
+    """
+    try:
+        tree = ast.parse(expr, mode="eval")
+    except (SyntaxError, ValueError):
+        return None
+
+    for node in ast.walk(tree):
+        if isinstance(node, _ALLOWED_FORMULA_NODES):
+            pass
+        elif isinstance(node, _ALLOWED_FORMULA_OPS):
+            pass
+        else:
+            return None
+
+    def _eval(node):  # -- type: ignore[no-untyped-def] --
+        if isinstance(node, ast.Expression):
+            return _eval(node.body)
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, (int, float)):
+                return node.value
+            return None
+        # -- ``ast.Num`` is only present on Py<3.14; gate both check and use
+        # -- on ``hasattr`` so the static analyzer doesn't warn on Py 3.14+. --
+        if hasattr(ast, "Num") and isinstance(node, ast.Num):  # pragma: no cover
+            return node.n  # type: ignore[attr-defined]
+        if isinstance(node, ast.UnaryOp):
+            operand = _eval(node.operand)
+            if operand is None:
+                return None
+            if isinstance(node.op, ast.USub):
+                return -operand
+            if isinstance(node.op, ast.UAdd):
+                return +operand
+            return None
+        if isinstance(node, ast.BinOp):
+            left = _eval(node.left)
+            right = _eval(node.right)
+            if left is None or right is None:
+                return None
+            try:
+                if isinstance(node.op, ast.Add):
+                    return left + right
+                if isinstance(node.op, ast.Sub):
+                    return left - right
+                if isinstance(node.op, ast.Mult):
+                    return left * right
+                if isinstance(node.op, ast.Div):
+                    return left / right
+                if isinstance(node.op, ast.Mod):
+                    return left % right
+            except (ZeroDivisionError, ArithmeticError, ValueError):
+                return None
+            return None
+        return None
+
+    return _eval(tree)
+
 
 def _evaluate_formula(
     instruction: str, context: "dict[str, object]"
@@ -1008,8 +1100,15 @@ def _evaluate_formula(
     Nested ``{MERGEFIELD name}`` references are substituted from `context`
     first, then the resulting expression is checked against a small
     character-class whitelist (digits, the four basic operators, ``%``,
-    parens, whitespace) and evaluated with :func:`eval` in an empty
-    namespace. Returns the string form of the result, or |None| on error.
+    parens, whitespace) *and* parsed to an :mod:`ast`, allowing only the
+    node types in :data:`_ALLOWED_FORMULA_NODES`. Returns the string form
+    of the result, or |None| on error.
+
+    .. versionchanged:: 2026.05.11
+       Replaced :func:`eval` with a whitelisted AST walker; ``ast.Pow``
+       is explicitly rejected so the classic ``9**9**9**9`` bignum DoS
+       cannot occur, regardless of what the character-class pre-filter
+       accepts.
     """
     stripped = instruction.strip()
     if not stripped.startswith("="):
@@ -1041,15 +1140,14 @@ def _evaluate_formula(
         i += 1
     substituted = "".join(parts)
 
-    # -- whitelist check --
+    # -- whitelist check (retained as an inexpensive first line of defence) --
     for ch in substituted:
         if ch not in _ALLOWED_FORMULA_CHARS:
             return None
     if not substituted.strip():
         return None
-    try:
-        value = eval(substituted, {"__builtins__": {}}, {})  # noqa: S307
-    except Exception:
+    value = _evaluate_formula_ast(substituted)
+    if value is None:
         return None
     if isinstance(value, float) and value.is_integer():
         value = int(value)

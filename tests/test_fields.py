@@ -754,7 +754,6 @@ class DescribeField_evaluate:
             ("= (2+3)*4", "20"),
             ("= 7/2", "3.5"),
             ("= 10 % 3", "1"),
-            ("= 2**8", "256"),
         ],
     )
     def it_evaluates_arithmetic_formula_fields(self, expr: str, expected: str):
@@ -767,6 +766,15 @@ class DescribeField_evaluate:
 
     def it_returns_cached_for_formula_with_disallowed_chars(self):
         field = self._simple('= __import__("os").system("ls")', cached="stale")
+        assert field.evaluate({}) == "stale"
+
+    def it_rejects_power_operator_to_defeat_bignum_dos(self):
+        # -- security: ``**`` slips through the per-char whitelist because
+        # -- two ``*`` chars are allowed; the AST walker now explicitly
+        # -- rejects ``ast.Pow`` so ``9**9**9**9`` cannot pin CPU. --
+        field = self._simple("= 2**8", cached="stale")
+        assert field.evaluate({}) == "stale"
+        field = self._simple("= 9**9**9**9", cached="stale")
         assert field.evaluate({}) == "stale"
 
     # -- pass-through --------------------------------------------------------
