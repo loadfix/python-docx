@@ -186,8 +186,10 @@ class ItemPropsPart(Part):
         """The ``{GUID}`` value from ``ds:datastoreItem/@ds:itemID``, or |None|."""
         from lxml import etree
 
+        # -- hardened parser (resolve_entities=False, no_network=True) guards
+        # -- against XXE / SSRF via attacker-supplied bibliography props. --
         try:
-            root = etree.fromstring(self.blob)
+            root = parse_xml(self.blob)
         except etree.XMLSyntaxError:
             return None
         ds_ns = "http://schemas.openxmlformats.org/officeDocument/2006/customXml"

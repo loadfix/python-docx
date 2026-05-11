@@ -23,6 +23,7 @@ from ooxml_customxml.oxml import parse_xml as _parse_datastore_xml
 
 from docx.opc.constants import CONTENT_TYPE as CT
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.oxml.parser import parse_xml
 
 if TYPE_CHECKING:
     from docx.opc.part import Part
@@ -78,7 +79,9 @@ class CustomXmlPart:
         .. versionadded:: 2026.05.0
         """
         try:
-            return etree.fromstring(self.blob)
+            # -- use hardened parser (resolve_entities=False, no_network=True) to
+            # -- prevent XXE / SSRF via attacker-controlled customXml data parts.
+            return parse_xml(self.blob)
         except etree.XMLSyntaxError:
             return None
 

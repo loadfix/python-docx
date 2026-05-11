@@ -29,6 +29,8 @@ from typing import IO, BinaryIO, Union
 from zipfile import ZipFile
 
 from lxml import etree
+
+from docx.oxml.parser import parse_xml
 from ooxml_opc.flat_opc import (  # noqa: F401 -- re-exports
     PKG_BINDATA,
     PKG_NS,
@@ -107,8 +109,11 @@ def write_flat_opc(pkg_file: Union[str, IO[bytes]], zip_blob: bytes) -> None:
                     f"{{{PKG_NS}}}contentType", content_type or _xml_content_type(member)
                 )
                 xmldata = etree.SubElement(part_elm, PKG_XMLDATA, nsmap=nsmap)
+                # -- hardened parser (resolve_entities=False, no_network=True)
+                # -- so an attacker-crafted .docx zipped into Flat-OPC cannot
+                # -- exfiltrate local files or touch the network. --
                 try:
-                    inner = etree.fromstring(data)
+                    inner = parse_xml(data)
                     xmldata.append(inner)
                 except etree.XMLSyntaxError:
                     # -- Fall back to binary embedding for junk we can't parse.

@@ -96,6 +96,7 @@ class DocumentPart(StoryPart):
         from lxml import etree
 
         from docx.oxml.bibliography import CT_Sources
+        from docx.oxml.parser import parse_xml
 
         b_sources_tag = qn("b:Sources")
 
@@ -109,11 +110,11 @@ class DocumentPart(StoryPart):
             blob = getattr(target, "blob", b"")
             if not blob:
                 continue
-            # -- peek at the root element name without a full parse that
-            # -- would blow up on bibliography parts that use the default
-            # -- namespace declaration. `etree.fromstring` is tolerant. --
+            # -- peek at the root element name using the hardened parser
+            # -- (resolve_entities=False, no_network=True) so malicious
+            # -- customXml data parts cannot exfiltrate files via XXE. --
             try:
-                root = etree.fromstring(blob)
+                root = parse_xml(blob)
             except etree.XMLSyntaxError:
                 continue
             if root.tag != b_sources_tag:
@@ -659,6 +660,8 @@ class DocumentPart(StoryPart):
         """Return True when ``rel`` targets a ``<b:Sources>`` part with >=1 child."""
         from lxml import etree
 
+        from docx.oxml.parser import parse_xml
+
         try:
             target = rel.target_part
         except ValueError:
@@ -666,8 +669,10 @@ class DocumentPart(StoryPart):
         blob = getattr(target, "blob", b"")
         if not blob:
             return False
+        # -- hardened parser (resolve_entities=False, no_network=True) stops
+        # -- XXE / SSRF via attacker-supplied bibliography customXml parts.
         try:
-            root = etree.fromstring(blob)
+            root = parse_xml(blob)
         except etree.XMLSyntaxError:
             return False
         if root.tag != qn("b:Sources"):
