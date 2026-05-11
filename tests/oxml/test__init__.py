@@ -133,12 +133,19 @@ class DescribeParseXmlHugeTree:
             parse_xml(xml.encode("utf-8"))
 
     def it_parses_attvalue_over_10mb_when_huge_tree_active(self):
+        import warnings as _warnings
+
         from docx.oxml.parser import huge_tree_mode
 
         big = "x" * (12 * 1024 * 1024)
         xml = '<root a="%s"/>' % big
-        with huge_tree_mode():
-            element = parse_xml(xml.encode("utf-8"))
+        # -- huge_tree mode emits a one-shot UserWarning on first use;
+        # -- suppress it here so the pytest `filterwarnings = ["error"]`
+        # -- policy doesn't trip on a signal we added deliberately. --
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("ignore", UserWarning)
+            with huge_tree_mode():
+                element = parse_xml(xml.encode("utf-8"))
         assert element is not None
         assert element.get("a") == big
 
@@ -150,10 +157,14 @@ class DescribeParseXmlHugeTree:
         assert _huge_tree_state.active is False
 
     def it_composes_with_recovery_mode(self):
+        import warnings as _warnings
+
         from docx.oxml.parser import huge_tree_mode, recovery_mode
 
-        with huge_tree_mode(), recovery_mode() as warnings:
-            element = parse_xml(b"<w:p>unclosed")
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("ignore", UserWarning)
+            with huge_tree_mode(), recovery_mode() as warnings:
+                element = parse_xml(b"<w:p>unclosed")
         # -- malformed + huge-tree must still recover, not crash --
         assert element is not None
         assert isinstance(warnings, list)

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import warnings
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Iterator, cast
 
@@ -95,6 +96,33 @@ class _HugeTreeState:
 _huge_tree_state = _HugeTreeState()
 
 
+# -- emit a UserWarning the FIRST time the huge-tree parser is actually used,
+# -- so a pipeline that flipped ``huge_tree=True`` on untrusted uploads is
+# -- visible in logs. Guarded by a module-level flag so we don't spam. --
+_huge_tree_warned = False
+
+
+def _warn_huge_tree_once() -> None:
+    """Emit a one-shot ``UserWarning`` the first time ``huge_tree=True`` fires.
+
+    The huge-tree parser lifts libxml2's AttValue and nesting-depth
+    safeguards. Legitimate callers usually set the flag once on trusted
+    input; a pipeline that accepts attacker-supplied bytes should see a
+    visible marker the first time the relaxed parser actually runs.
+    """
+    global _huge_tree_warned
+    if _huge_tree_warned:
+        return
+    _huge_tree_warned = True
+    warnings.warn(
+        "docx.oxml.parser: huge_tree=True parser activated. libxml2's "
+        "XML-bomb safeguards (10 MB AttValue cap, 256-deep nesting) are "
+        "disabled for this document. Only use on trusted input.",
+        UserWarning,
+        stacklevel=2,
+    )
+
+
 @contextmanager
 def recovery_mode() -> Iterator[list[str]]:
     """Context manager enabling recovery parsing for the duration of the block.
@@ -146,6 +174,8 @@ def parse_xml(xml: str | bytes, recover: bool | None = None) -> "BaseOxmlElement
     """
     use_recover = recover if recover is not None else _recovery_state.active
     use_huge = _huge_tree_state.active
+    if use_huge:
+        _warn_huge_tree_once()
     if not use_recover:
         parser = _huge_tree_parser if use_huge else oxml_parser
         return cast("BaseOxmlElement", etree.fromstring(xml, parser))
