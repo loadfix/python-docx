@@ -23,7 +23,11 @@ classifiers = [
 ]
 dependencies = [
     "defusedxml>=0.7.0",
-    "lxml>=4.9.1",
+    # ``lxml>=4.9.4`` closes CVE-2024-27322 (libxml2 XPath issue shipped
+    # through lxml's bundled libxml2). Earlier 4.9.x releases on common
+    # wheel builds carried the vulnerable libxml2; bump the floor so
+    # ``pip install python-docx`` cannot land one of those versions.
+    "lxml>=4.9.4",
     # Shared OPC primitives (PackURI, Strict→Transitional translator,
     # ReproducibleZipWriter, content-type + relationship-type registry,
     # EMU unit classes). Not yet on PyPI; pinned to the master branch
