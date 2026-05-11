@@ -70,6 +70,44 @@ If the payload originated outside your trust boundary:
   guidance — this mitigates opening altChunks from untrusted origins,
   but does not eliminate the risk.
 
+## Document protection password hash is SHA-1 — not a confidentiality control
+
+``settings.xml`` carries a ``<w:documentProtection>`` element whose
+``@w:hash`` attribute holds a hash of the editor-restriction password.
+The hashing algorithm (``@w:cryptAlgorithmSid="4"``) is **SHA-1** with a
+small per-document salt and an iteration count; the algorithm is
+spec-mandated by ECMA-376 §17.15.1.29 and Microsoft's
+[MS-OFFCRYPTO §2.3.7.1](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-offcrypto/).
+python-docx writes whatever the spec requires — not what a modern
+password-hashing policy would prefer — because Word refuses to verify
+hashes produced with any other algorithm.
+
+### What this protects
+
+``DocumentProtection`` prevents casual, in-UI editing of a document
+opened in Microsoft Word. That is all. It is a **user-experience
+guardrail**, not a cryptographic access-control mechanism:
+
+- The hash and salt live in plaintext inside ``settings.xml`` — any
+  tool that can read the package bytes (including python-docx itself)
+  can remove the element and drop the protection.
+- SHA-1 collision / preimage attacks are well-documented; brute-forcing
+  the original password against the stored hash is feasible for weak
+  passwords on commodity hardware.
+- The document body is **not encrypted**. Only password-based AES
+  encryption (``python-docx[encryption]``, handled by
+  ``python-ooxml-crypto`` under MS-OFFCRYPTO §2.3.4) provides actual
+  confidentiality.
+
+### What callers should do
+
+- Treat ``DocumentProtection`` as a UI hint, not a secret.
+- For confidentiality, use whole-package encryption
+  (``Document.save(..., password="…")``), which applies AES under the
+  MS-OFFCRYPTO Agile profile.
+- Never store a high-value password in the protection hash — assume
+  anyone who opens the file can see / crack it.
+
 ## Reporting a vulnerability in python-docx itself
 
 If you find a security issue in the loadfix fork (parser
