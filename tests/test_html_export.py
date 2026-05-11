@@ -232,6 +232,76 @@ class DescribeXssEscape:
         assert "&quot;malicious&quot;" in html
 
 
+# -- scheme allow-list on hyperlinks ----------------------------------------
+
+
+class DescribeHyperlinkSchemeFiltering:
+    """Unsafe URL schemes in hyperlinks are rewritten to ``"#"`` so
+    ``Document.to_html()`` cannot carry stored XSS into web renderers."""
+
+    @pytest.mark.parametrize(
+        "malicious_url",
+        [
+            "javascript:alert(1)",
+            "JaVaScRiPt:alert(1)",
+            "data:text/html,<script>alert(1)</script>",
+            "vbscript:msgbox(1)",
+            "file:///etc/passwd",
+            "jar:http://evil.com/x.jar!/",
+        ],
+    )
+    def it_rewrites_unsafe_schemes_to_hash(self, malicious_url):
+        doc = _new_doc()
+        p = doc.add_paragraph()
+        p.add_hyperlink(malicious_url, "click", style=None)
+        html = doc.to_html(include_styles=False)
+        # -- the payload scheme must not appear in the final href --
+        assert "javascript:" not in html.lower()
+        assert "data:text/html" not in html.lower()
+        assert "vbscript:" not in html.lower()
+        assert "file://" not in html.lower()
+        assert "jar:" not in html.lower()
+        # -- hyperlink text must still render (anchor is preserved) --
+        assert "click" in html
+
+    @pytest.mark.parametrize(
+        "safe_url",
+        [
+            "http://ok.example",
+            "https://ok.example/path?x=1",
+            "mailto:x@y.z",
+            "#anchor",
+            "",
+        ],
+    )
+    def it_preserves_safe_urls(self, safe_url):
+        doc = _new_doc()
+        p = doc.add_paragraph()
+        p.add_hyperlink(safe_url, "click", style=None)
+        html = doc.to_html(include_styles=False)
+        if safe_url:
+            # -- html.escape may encode the anchor body but the substring
+            # -- stays intact; "http" / "https" / "mailto" / "#" survive. --
+            if safe_url.startswith("#"):
+                assert 'href="#anchor"' in html
+            elif safe_url.startswith("mailto:"):
+                assert 'href="mailto:x@y.z"' in html
+            else:
+                assert f'href="{safe_url}"' in html
+
+    def it_exposes_the_sanitizer_as_a_module_level_helper(self):
+        # -- callers may want to reuse the allow-list without touching the
+        # -- exporter plumbing. Pin the public-ish helper name. --
+        from docx.html_export import _sanitize_href
+
+        assert _sanitize_href("javascript:alert(1)") == "#"
+        assert _sanitize_href("https://ok") == "https://ok"
+        assert _sanitize_href("#a") == "#a"
+        assert _sanitize_href("") == ""
+        assert _sanitize_href("/relative/path") == "/relative/path"
+        assert _sanitize_href("no-scheme-just-text") == "no-scheme-just-text"
+
+
 # -- style block -------------------------------------------------------------
 
 

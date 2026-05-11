@@ -47,6 +47,46 @@ if TYPE_CHECKING:
     from docx.text.paragraph import Paragraph
 
 
+# -- allow-list of URL schemes permitted in exported `<a href="...">`. Any
+# -- other scheme (``javascript:``, ``data:``, ``vbscript:``, ``file:``, ...)
+# -- is rewritten to ``"#"`` so ``Document.to_html()`` cannot carry an XSS
+# -- payload through a document's hyperlinks into downstream web renderers. --
+_ALLOWED_HREF_SCHEMES = frozenset({"http", "https", "mailto"})
+
+
+def _sanitize_href(url: str) -> str:
+    """Return `url` unchanged when safe, else ``"#"``.
+
+    Empty strings and intra-document anchors (``#frag``) are preserved.
+    Scheme-relative URLs (``//example.com``) and path-relative URLs
+    (``/foo``, ``foo/bar``) have no scheme prefix and are allowed
+    through. Anything else is matched against
+    :data:`_ALLOWED_HREF_SCHEMES` case-insensitively.
+    """
+    if not url:
+        return ""
+    if url.startswith("#"):
+        return url
+    # -- a scheme is the prefix up to the first ``":"`` **not preceded by**
+    # -- ``"/"``, ``"?"``, ``"#"``. This matches RFC 3986's URI grammar
+    # -- well enough for the small set we care about. --
+    colon = url.find(":")
+    if colon == -1:
+        return url  # -- no scheme, not attacker-weaponisable via href. --
+    slash = url.find("/")
+    qmark = url.find("?")
+    hmark = url.find("#")
+    # -- if any of those appear before ``":"``, the text before ``":"`` is
+    # -- not a scheme (e.g. ``"/foo:bar"``). --
+    for sep in (slash, qmark, hmark):
+        if 0 <= sep < colon:
+            return url
+    scheme = url[:colon].lower()
+    if scheme in _ALLOWED_HREF_SCHEMES:
+        return url
+    return "#"
+
+
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
@@ -308,8 +348,14 @@ class _HtmlRenderer:
             # -- internal / anchor-only links: fall back to a fragment --
             anchor = hyperlink.fragment
             url = f"#{anchor}" if anchor else ""
-        escaped_url = html.escape(url, quote=True)
-        if url:
+        # -- second-layer defence: scheme allow-list. `html.escape` escapes
+        # -- HTML metachars but leaves ``javascript:`` / ``data:`` / ``vbscript:``
+        # -- URIs intact in the `href`, which becomes stored XSS in downstream
+        # -- apps rendering ``Document.to_html()``. Rewrite anything not in the
+        # -- allow-list to ``"#"`` before escaping. --
+        safe_url = _sanitize_href(url)
+        escaped_url = html.escape(safe_url, quote=True)
+        if safe_url:
             return f'<a href="{escaped_url}">{runs_html}</a>'
         return f"<a>{runs_html}</a>"
 
