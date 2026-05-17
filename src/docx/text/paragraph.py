@@ -912,6 +912,32 @@ class Paragraph(StoryChild):
             self._p.append(element)
         return _from_element(element)
 
+    def add_math_from_latex(self, latex: str) -> MathExpr:
+        """Translate a LaTeX math body to OMML and append it to this paragraph.
+
+        *latex* is the math body only — ``$$…$$`` / ``\\[…\\]`` / ``\\(…\\)``
+        wrappers are **not** part of the input. Supported subset:
+        variables, digit literals, ``+-*/``, ``^`` / ``_`` scripts,
+        ``\\frac{a}{b}``, ``\\sqrt{x}``, parentheses, common Greek
+        letters (``\\alpha``, ``\\beta``, …), and ``\\begin{align}...\\end{align}``
+        equation arrays. Out-of-scope input raises
+        :class:`NotImplementedError`. See :mod:`docx.latex_math` for the
+        full grammar.
+
+        Returns the :class:`~docx.math.MathExpr` proxy for the inserted
+        expression. The returned proxy is safe to mutate further with
+        the :mod:`docx.math` operator tree.
+
+        .. versionadded:: 2026.05.11
+        """
+        from ooxml_math import from_element as _from_element
+
+        from docx.latex_math import latex_to_omml
+
+        element = latex_to_omml(latex)
+        self._p.append(element)
+        return _from_element(element)
+
     def add_shape(
         self,
         shape_type,
