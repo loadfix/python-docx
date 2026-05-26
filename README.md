@@ -99,6 +99,21 @@ pip install Sphinx furo
 python -m sphinx -b html docs docs/_build/html
 ```
 
+## Round-trip support
+
+A central design goal of this fork is **round-trip fidelity** — load a
+real-world `.docx`, mutate a few elements, save, and have nothing else
+change. Charts, comments, custom XML parts, math, ink, signatures,
+bibliography, and the rest of the loadfix-extended feature surface
+must all survive.
+
+The cross-monorepo round-trip gate lives at
+[`tests/round_trip/`](../tests/round_trip/README.md) and runs as the
+`round-trip-fidelity` CI job. The full per-feature support matrix
+(what's "fully preserved" / "preserved with caveats" / "lossy")
+across all four parent formats lives at
+[`docs/round-trip-fidelity.md`](../docs/round-trip-fidelity.md).
+
 ## Status
 
 Unstable. Not yet published to PyPI. Current version: `2026.05.10`
