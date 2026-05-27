@@ -3,6 +3,21 @@
 Release History
 ---------------
 
+Unreleased — Hyperlink ergonomics
++++++++++++++++++++++++++++++++++
+
+- **``Paragraph.add_link_to(target, ...)``** is a polymorphic wrapper
+  for internal hyperlinks (#69). ``target`` accepts a |Bookmark|, a
+  heading |Paragraph| (any paragraph whose style name starts with
+  ``"Heading "``; a covering bookmark is auto-allocated when one
+  doesn't already exist), or a bare bookmark-name string. Visible text
+  defaults to the target's text; ``style=`` and a new ``tooltip=``
+  keyword work the same as on :meth:`Paragraph.add_hyperlink`.
+- **``Paragraph.add_hyperlink(..., tooltip=...)``** writes the
+  ``w:hyperlink/@w:tooltip`` attribute (the popup text Word renders on
+  hover). The new attribute round-trips through save/load. The
+  matching read accessor :attr:`Hyperlink.tooltip` is read/write.
+
 2026.05.10 — Password-protected read + write
 ++++++++++++++++++++++++++++++++++++++++++++
 

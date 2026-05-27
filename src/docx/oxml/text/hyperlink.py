@@ -27,6 +27,9 @@ class CT_Hyperlink(BaseOxmlElement):
     anchor: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:anchor", ST_String
     )
+    tooltip: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
+        "w:tooltip", ST_String
+    )
     history: bool = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "w:history", ST_OnOff, default=True
     )

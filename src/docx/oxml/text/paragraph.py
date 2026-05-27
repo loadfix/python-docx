@@ -192,7 +192,12 @@ class CT_P(BaseOxmlElement):
     )
 
     def add_hyperlink(
-        self, rId: str | None, anchor: str | None, text: str, rPr: CT_RPr | None
+        self,
+        rId: str | None,
+        anchor: str | None,
+        text: str,
+        rPr: CT_RPr | None,
+        tooltip: str | None = None,
     ) -> CT_Hyperlink:
         """Return a newly appended `CT_Hyperlink` child element.
 
@@ -200,6 +205,8 @@ class CT_P(BaseOxmlElement):
         `anchor` is a bookmark name for internal links (or None for external links).
         `text` is the visible text of the hyperlink.
         `rPr` is an optional run-properties element to apply to the hyperlink run.
+        `tooltip` is an optional ``w:tooltip`` attribute (the popup text Word
+        displays on hover).
         """
         from docx.oxml.text.hyperlink import CT_Hyperlink
 
@@ -208,6 +215,8 @@ class CT_P(BaseOxmlElement):
             hyperlink.rId = rId
         if anchor is not None:
             hyperlink.anchor = anchor
+        if tooltip is not None:
+            hyperlink.tooltip = tooltip
         hyperlink.history = True
         r = hyperlink.add_r()
         if rPr is not None:

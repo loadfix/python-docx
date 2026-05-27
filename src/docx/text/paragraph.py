@@ -191,6 +191,7 @@ class Paragraph(StoryChild):
         text: str | None = None,
         style: str | CharacterStyle | None = "Hyperlink",
         anchor: str | None = None,
+        tooltip: str | None = None,
     ) -> Hyperlink:
         """Append a hyperlink to this paragraph and return a |Hyperlink| object.
 
@@ -198,10 +199,14 @@ class Paragraph(StoryChild):
         `text` is the visible link text; defaults to `url` or `anchor` when not provided.
         `style` is the character style for the hyperlink run, defaulting to "Hyperlink".
         `anchor` is a bookmark name for an internal document link.
+        `tooltip` is the optional hover-text written to the ``w:tooltip``
+        attribute on the ``w:hyperlink`` element.
 
         Either `url` or `anchor` must be provided, but not both.
 
         .. versionadded:: 2026.05.0
+        .. versionchanged:: 2026.05.12
+           Added the ``tooltip`` keyword argument.
         """
         if url is None and anchor is None:
             raise ValueError("Either url or anchor must be provided")
@@ -226,8 +231,63 @@ class Paragraph(StoryChild):
                 rStyle.set(qn("w:val"), style_id)
                 rPr.append(rStyle)
 
-        hyperlink_elm = self._p.add_hyperlink(rId, anchor, display_text, rPr)
+        hyperlink_elm = self._p.add_hyperlink(
+            rId, anchor, display_text, rPr, tooltip=tooltip
+        )
         return Hyperlink(hyperlink_elm, self)
+
+    def add_link_to(
+        self,
+        target: "Bookmark | Paragraph | str",
+        text: str | None = None,
+        style: str | CharacterStyle | None = "Hyperlink",
+        tooltip: str | None = None,
+    ) -> Hyperlink:
+        """Append an internal hyperlink pointing at `target` and return it.
+
+        `target` accepts:
+
+        * A :class:`~docx.bookmarks.Bookmark` — the link points at the
+          bookmark's ``@w:name``. The visible text defaults to the bookmark's
+          ``.text`` when present, otherwise to its name.
+        * A heading |Paragraph| — any paragraph whose
+          :attr:`~docx.text.paragraph.Paragraph.style` name starts with
+          ``"Heading"``. When the heading does not yet have a bookmark
+          targeted by this method, one is auto-created with a stable name
+          derived from the heading text. The visible text defaults to the
+          heading paragraph's text.
+        * A bare ``str`` — treated as a bookmark name (equivalent to
+          ``add_hyperlink(anchor=target)``).
+
+        `text` overrides the visible link text. `style` is the character
+        style applied to the link's run (default ``"Hyperlink"``). `tooltip`
+        becomes the ``w:tooltip`` attribute on the link.
+
+        .. versionadded:: 2026.05.12
+        """
+        from docx.bookmarks import Bookmark
+
+        if isinstance(target, Bookmark):
+            anchor_name = target.name
+            display_text = text if text is not None else (target.text or target.name)
+        elif isinstance(target, Paragraph):
+            anchor_name, display_text_default = _ensure_heading_anchor(target)
+            display_text = text if text is not None else display_text_default
+        elif isinstance(target, str):
+            anchor_name = target
+            display_text = text if text is not None else target
+        else:
+            raise TypeError(
+                "target must be a Bookmark, Paragraph, or str — got %r"
+                % type(target).__name__
+            )
+
+        return self.add_hyperlink(
+            anchor=anchor_name,
+            text=display_text,
+            style=style,
+            tooltip=tooltip,
+        )
 
     def insert_hyperlink_at(
         self,
@@ -2384,3 +2444,71 @@ def _previous_block_sibling(
             return Paragraph(sibling, parent)
         sibling = sibling.getprevious()
     return None
+
+
+# -- hyperlink ergonomics (issue #69) ----------------------------------------
+
+import re as _re
+
+_HEADING_STYLE_PREFIX = "Heading "
+
+
+def _ensure_heading_anchor(target: "Paragraph") -> "tuple[str, str]":
+    """Return ``(anchor_name, default_text)`` for a heading-paragraph link target.
+
+    A bookmark covering the whole heading paragraph is created when one does
+    not already exist. The bookmark name is derived from the heading text
+    (Word-style: spaces → underscores, restricted to ``[A-Za-z0-9_]``,
+    truncated to 40 chars, prefixed with ``_link_`` to avoid colliding with
+    Word's auto-allocated ``_Toc...`` / ``_Ref...`` names) and is unique
+    within the document body.
+    """
+    style = target.style
+    style_name = style.name if style is not None else None
+    if not style_name or not style_name.startswith(_HEADING_STYLE_PREFIX):
+        # -- not a heading; fall back to bare-string treatment by raising --
+        raise ValueError(
+            "Paragraph target must have a style whose name starts with "
+            "'Heading ' (got %r)" % style_name
+        )
+
+    body = target._get_body()
+    heading_text = (target.text or "").strip()
+
+    # -- if the heading already carries a bookmark wrapping its content,
+    # -- reuse that bookmark name rather than creating another. --
+    p_elm = target._p
+    existing = p_elm.xpath("./w:bookmarkStart")
+    if existing:
+        from docx.oxml.bookmarks import CT_BookmarkStart
+
+        bookmark_start = existing[0]
+        if isinstance(bookmark_start, CT_BookmarkStart):
+            return bookmark_start.name, heading_text or bookmark_start.name
+
+    # -- otherwise allocate a fresh bookmark covering the heading paragraph --
+    base = _re.sub(r"[^A-Za-z0-9]+", "_", heading_text).strip("_")[:40]
+    if not base:
+        base = "Heading"
+    candidate = "_link_" + base
+    existing_names = {
+        bs.get(qn_w_name())
+        for bs in body.xpath(".//w:bookmarkStart")
+    }
+    name = candidate
+    suffix = 2
+    while name in existing_names:
+        name = f"{candidate}_{suffix}"
+        suffix += 1
+
+    target.add_bookmark(name)
+    return name, heading_text or name
+
+
+def qn_w_name() -> str:
+    """Return the Clark-form for ``w:name`` (cached lazy import)."""
+    from docx.oxml.ns import qn
+
+    return qn("w:name")
+
+
