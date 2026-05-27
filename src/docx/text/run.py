@@ -750,6 +750,40 @@ class Run(StoryChild):
     def underline(self, value: bool | WD_UNDERLINE | None):
         self.font.underline = value
 
+    # -- Fluent chainable helpers (issue #77) -------------------------------
+    # The Paragraph-level fluent surface (Paragraph.bold / italic /
+    # underline / color) covers the documented chain example in the
+    # issue. On Run we only add ``color()`` here because adding callable
+    # ``bold()`` / ``italic()`` / ``underline()`` methods would shadow
+    # the existing tri-state properties of the same name (``run.bold is
+    # True``, ``run.bold = False``, etc.) and break the substantial body
+    # of upstream tests that rely on that property surface. Callers who
+    # want a chainable Run-level setter for those flags can either chain
+    # through the paragraph (recommended for the issue's use case) or
+    # use the existing verbose form ``run.font.bold = True``.
+
+    def color(self, hex_or_rgb: "str | object") -> "Run":
+        """Set the run's font color and return ``self`` for chaining.
+
+        `hex_or_rgb` may be an RGB hex string (``"#RRGGBB"`` /
+        ``"RRGGBB"``; the 3-char short form ``"#F0A"`` is also accepted)
+        or an :class:`~docx.shared.RGBColor` instance. The argument is
+        normalised through :meth:`RGBColor.from_string` and assigned to
+        ``run.font.color.rgb``, so the spelling matches the existing
+        verbose surface.
+
+        .. versionadded:: 2026.05.12
+        """
+        from docx.shared import RGBColor as _RGB
+
+        rgb = (
+            hex_or_rgb
+            if isinstance(hex_or_rgb, _RGB)
+            else _RGB.from_string(str(hex_or_rgb))
+        )
+        self.font.color.rgb = rgb
+        return self
+
 
 class _Text:
     """Proxy object wrapping `<w:t>` element."""

@@ -1158,6 +1158,144 @@ class Paragraph(StoryChild):
     def alignment(self, value: WD_PARAGRAPH_ALIGNMENT):
         self._p.alignment = value
 
+    # -- Fluent chainable helpers (issue #77) -------------------------------
+    # Each helper mutates the paragraph (or its runs) via the existing
+    # verbose surface and returns ``self`` so calls can chain. The
+    # helpers are intentionally thin sugar — they never introduce new
+    # behaviour, just a more readable single-line shape:
+    #
+    #     doc.h1("Q1 Review").p("Revenue grew 8.7% YoY").bold().align("center")
+
+    def bold(self, value: bool = True) -> "Paragraph":
+        """Set bold on every run in this paragraph and return ``self``.
+
+        Iterates :attr:`runs` and assigns ``run.bold = value``. When the
+        paragraph has no runs yet, the paragraph-mark formatting (the
+        ``w:pPr/w:rPr`` chain) is updated instead so a subsequent
+        :meth:`add_run` inherits the setting. Pass ``value=False`` to
+        force-disable bold rather than inherit.
+
+        .. versionadded:: 2026.05.12
+        """
+        runs = self.runs
+        if runs:
+            for run in runs:
+                run.bold = value
+        else:
+            self.font.bold = value
+        return self
+
+    def italic(self, value: bool = True) -> "Paragraph":
+        """Set italic on every run in this paragraph and return ``self``.
+
+        Mirror of :meth:`bold` for italics. See :meth:`bold` for the
+        empty-paragraph fall-through to ``w:pPr/w:rPr``.
+
+        .. versionadded:: 2026.05.12
+        """
+        runs = self.runs
+        if runs:
+            for run in runs:
+                run.italic = value
+        else:
+            self.font.italic = value
+        return self
+
+    def underline(self, value: bool = True) -> "Paragraph":
+        """Set underline on every run in this paragraph and return ``self``.
+
+        Mirror of :meth:`bold` for underlines. ``value`` may be |True|
+        / |False| or a :class:`~docx.enum.text.WD_UNDERLINE` member for
+        richer underline styles. See :meth:`bold` for the
+        empty-paragraph fall-through to ``w:pPr/w:rPr``.
+
+        .. versionadded:: 2026.05.12
+        """
+        runs = self.runs
+        if runs:
+            for run in runs:
+                run.underline = value
+        else:
+            self.font.underline = value
+        return self
+
+    def align(self, value: "str | WD_PARAGRAPH_ALIGNMENT") -> "Paragraph":
+        """Set this paragraph's alignment and return ``self`` for chaining.
+
+        `value` may be a :class:`~docx.enum.text.WD_PARAGRAPH_ALIGNMENT`
+        member or one of the case-insensitive strings ``"left"``,
+        ``"center"`` (also ``"centre"``), ``"right"``, ``"justify"`` /
+        ``"both"``, ``"start"``, ``"end"``, or ``"distribute"``. The
+        string spelling is converted to the matching enum member;
+        unknown spellings raise :class:`ValueError`.
+
+        Equivalent to assigning :attr:`alignment` on the existing
+        verbose surface.
+
+        .. versionadded:: 2026.05.12
+        """
+        from docx.enum.text import WD_PARAGRAPH_ALIGNMENT as _WD_ALIGN
+
+        if isinstance(value, _WD_ALIGN):
+            self.alignment = value
+            return self
+        if not isinstance(value, str):
+            raise TypeError(
+                "align() requires a WD_PARAGRAPH_ALIGNMENT member or string, "
+                "got %r" % type(value).__name__
+            )
+        key = value.strip().lower()
+        # -- accept the common alias "centre" (en-GB) for "center" --
+        if key == "centre":
+            key = "center"
+        # -- accept "both" (XML form) as a synonym for "justify" --
+        alias_map = {
+            "left": _WD_ALIGN.LEFT,
+            "center": _WD_ALIGN.CENTER,
+            "right": _WD_ALIGN.RIGHT,
+            "justify": _WD_ALIGN.JUSTIFY,
+            "both": _WD_ALIGN.JUSTIFY,
+            "start": _WD_ALIGN.START,
+            "end": _WD_ALIGN.END,
+            "distribute": _WD_ALIGN.DISTRIBUTE,
+        }
+        try:
+            self.alignment = alias_map[key]
+        except KeyError as exc:
+            raise ValueError(
+                "unknown alignment %r; expected one of %s"
+                % (value, sorted(alias_map))
+            ) from exc
+        return self
+
+    def color(self, hex_or_rgb: "str | object") -> "Paragraph":
+        """Set the font color on every run in this paragraph and return ``self``.
+
+        `hex_or_rgb` may be an RGB hex string (``"#RRGGBB"`` /
+        ``"RRGGBB"``; the 3-char short form ``"#F0A"`` is also accepted)
+        or an :class:`~docx.shared.RGBColor` instance. The argument is
+        normalised through :meth:`RGBColor.from_string` and assigned to
+        ``run.font.color.rgb`` for each run. Empty paragraphs fall
+        through to :attr:`font` (the paragraph-mark ``w:pPr/w:rPr``)
+        so a subsequent :meth:`add_run` inherits the colour.
+
+        .. versionadded:: 2026.05.12
+        """
+        from docx.shared import RGBColor as _RGB
+
+        rgb = (
+            hex_or_rgb
+            if isinstance(hex_or_rgb, _RGB)
+            else _RGB.from_string(str(hex_or_rgb))
+        )
+        runs = self.runs
+        if runs:
+            for run in runs:
+                run.font.color.rgb = rgb
+        else:
+            self.font.color.rgb = rgb
+        return self
+
     def clear(self):
         """Return this same paragraph after removing all its content.
 

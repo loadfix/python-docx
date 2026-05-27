@@ -311,6 +311,77 @@ class Document(ElementProxy):
         style = "Title" if level == 0 else "Heading %d" % level
         return self.add_paragraph(text, style)
 
+    # -- Fluent chainable shortcuts (issue #77) -----------------------------
+    # Sugar over :meth:`add_heading` / :meth:`add_paragraph`. Each
+    # returns the freshly-appended Paragraph so the caller can keep
+    # chaining (e.g. ``doc.h1("Title").bold().align("center")``).
+
+    def h1(self, text: str = "") -> "Paragraph":
+        """Append an ``Heading 1`` paragraph and return it.
+
+        Thin wrapper over :meth:`add_heading` with ``level=1``.
+
+        .. versionadded:: 2026.05.12
+        """
+        return self.add_heading(text, level=1)
+
+    def h2(self, text: str = "") -> "Paragraph":
+        """Append an ``Heading 2`` paragraph and return it.
+
+        Thin wrapper over :meth:`add_heading` with ``level=2``.
+
+        .. versionadded:: 2026.05.12
+        """
+        return self.add_heading(text, level=2)
+
+    def h3(self, text: str = "") -> "Paragraph":
+        """Append an ``Heading 3`` paragraph and return it.
+
+        Thin wrapper over :meth:`add_heading` with ``level=3``.
+
+        .. versionadded:: 2026.05.12
+        """
+        return self.add_heading(text, level=3)
+
+    def h4(self, text: str = "") -> "Paragraph":
+        """Append an ``Heading 4`` paragraph and return it.
+
+        Thin wrapper over :meth:`add_heading` with ``level=4``.
+
+        .. versionadded:: 2026.05.12
+        """
+        return self.add_heading(text, level=4)
+
+    def h5(self, text: str = "") -> "Paragraph":
+        """Append an ``Heading 5`` paragraph and return it.
+
+        Thin wrapper over :meth:`add_heading` with ``level=5``.
+
+        .. versionadded:: 2026.05.12
+        """
+        return self.add_heading(text, level=5)
+
+    def h6(self, text: str = "") -> "Paragraph":
+        """Append an ``Heading 6`` paragraph and return it.
+
+        Thin wrapper over :meth:`add_heading` with ``level=6``.
+
+        .. versionadded:: 2026.05.12
+        """
+        return self.add_heading(text, level=6)
+
+    def p(self, text: str = "") -> "Paragraph":
+        """Append a body paragraph and return it.
+
+        Thin wrapper over :meth:`add_paragraph` (no style applied) so
+        the fluent chain reads naturally::
+
+            doc.h1("Q1 Review").p("Revenue grew 8.7% YoY").bold().align("center")
+
+        .. versionadded:: 2026.05.12
+        """
+        return self.add_paragraph(text)
+
     def add_page_break(self) -> Paragraph:
         """Return newly |Paragraph| object containing only a page break."""
         paragraph = self.add_paragraph()
