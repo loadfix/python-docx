@@ -28,6 +28,22 @@ Unreleased — Hyperlink ergonomics
   and appends them in document order (#70). Trailing sentence
   punctuation (``.``, ``,``, ``;``, ``!``, ``?``, ``)``, …) is stripped
   off URL matches and stays in the surrounding plain run.
+- **``Document.outline()``** returns a hierarchical heading-tree
+  snapshot of the body (#71) — the docx parallel of pptx's
+  ``deck.summarize()`` / ``skeleton()``. Each
+  :class:`docx.outline.OutlineNode` carries ``level``, ``text``,
+  ``paragraph_index``, a stable 8-char ``id``, ``word_count`` for
+  the section's body text, and a list of nested ``children``. The
+  wrapper :class:`docx.outline.Outline` exposes ``walk()`` for
+  depth-first traversal, ``find(heading)`` for text lookup, and
+  ``to_dict()`` for JSON-serialisable output. Page numbers are
+  intentionally omitted — python-docx has no layout engine — but the
+  document-wide ``total_pages_estimated`` reads Word's cached
+  ``docProps/app.xml`` ``<Pages>`` value when present.
+  ``Document.slice(start, end)`` returns a new |Document| containing
+  the paragraphs of one heading-bounded section, copied via
+  :meth:`append_paragraph` so image / hyperlink / style references
+  are rewired into the slice. ``[Added in 2026.05.7]``
 
 2026.05.10 — Password-protected read + write
 ++++++++++++++++++++++++++++++++++++++++++++

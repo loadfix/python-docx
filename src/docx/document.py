@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     from docx.ink import InkAnnotation
     from ooxml_math import MathExpr
     from docx.oxml.content_controls import CT_Sdt
+    from docx.outline import Outline, OutlineNode
     from docx.oxml.document import CT_Body, CT_Document
     from docx.oxml.table import CT_Tbl
     from docx.parts.document import DocumentPart
@@ -2692,6 +2693,71 @@ class Document(ElementProxy):
     def sections(self) -> Sections:
         """|Sections| object providing access to each section in this document."""
         return Sections(self._element, self._part)
+
+    def outline(self) -> "Outline":
+        """Return a hierarchical heading-tree snapshot of this document.
+
+        Walks :attr:`paragraphs` once. Paragraphs styled ``Title`` map to
+        outline level 0; ``Heading 1``..``Heading 9`` map to levels 1..9.
+        Each heading becomes an :class:`~docx.outline.OutlineNode` carrying
+        its ``text``, ``paragraph_index`` (position in
+        :attr:`paragraphs`), a stable 8-char ``id``, the section's
+        ``word_count`` (whitespace-token count of the heading and the
+        body paragraphs that follow it up to the next same-or-shallower
+        heading), and a list of nested ``children``.
+
+        The wrapper :class:`~docx.outline.Outline` exposes
+        ``walk()`` for depth-first traversal, ``to_dict()`` for
+        JSON-serialisable output, and ``find(heading)`` for
+        text-based lookup. ``Outline.title`` is sourced from the
+        first ``Title``-styled paragraph, falling back to the
+        document's core-properties title.
+
+        ``Outline.total_pages_estimated`` reads the cached ``<Pages>``
+        value from ``docProps/app.xml`` (Word's last-saved page count);
+        python-docx has no layout engine so individual heading page
+        numbers are intentionally **not** computed. Callers that need
+        approximate page positions can fall back to the cached count
+        for the whole document.
+
+        Use this as a compact map of structure before mutating a long
+        document — particularly useful for LLM agents that would
+        otherwise need to ingest the full body.
+
+        .. versionadded:: 2026.05.7
+        """
+        from docx.outline import build_outline
+
+        return build_outline(self)
+
+    def slice(
+        self,
+        start: "str | OutlineNode",
+        end: "str | OutlineNode | None" = None,
+    ) -> "Document":
+        """Return a new |Document| containing one heading-bounded section.
+
+        `start` is a heading's exact text (matched against
+        :attr:`OutlineNode.text`) or an
+        :class:`~docx.outline.OutlineNode` returned by
+        :meth:`Outline.find` / :meth:`Outline.walk`. The slice runs
+        from `start`'s paragraph (inclusive) to but not including
+        `end`'s paragraph; when `end` is |None| the slice runs to the
+        end of the document.
+
+        The new document inherits python-docx's bundled default
+        template; copied paragraphs are inserted via
+        :meth:`append_paragraph`, which rewires image, hyperlink, and
+        style references the same way :meth:`append_document` does.
+
+        Raises :class:`ValueError` when `start` or `end` does not
+        match any heading.
+
+        .. versionadded:: 2026.05.7
+        """
+        from docx.outline import slice_document
+
+        return slice_document(self, start, end)
 
     def validate_heading_structure(self) -> list[HeadingIssue]:
         """Return a list of |HeadingIssue| objects describing heading problems.

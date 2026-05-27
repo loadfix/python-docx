@@ -54,6 +54,7 @@ other item is inherited from the upstream base.
 - [Glossary (building blocks)](#glossary-building-blocks)
 - [Digital signatures](#digital-signatures)
 - [Accessibility](#accessibility)
+- [Document outline](#document-outline)
 - [Document statistics](#document-statistics)
 - [Search and replace](#search-and-replace)
 - [Cross-document operations](#cross-document-operations)
@@ -2233,6 +2234,46 @@ for issue in issues:
 - `HeadingIssue` — `code`, `message`, `paragraph_index`, `heading_level`, `heading_text`. `[Added in 2026.05.0]`
 - `InlineShape.alt_text` / `.title` / `FloatingImage.alt_text` / `.title` — Accessibility metadata. `[Added in 2026.05.0]`
 - `Table.alt_text` / `Table.alt_description` — Table alt text. `[Added in 2026.05.0]`
+
+---
+
+## Document outline
+
+`Document.outline()` returns a hierarchical heading-tree snapshot of the body
+— the docx parallel of pptx's `deck.summarize()` / `skeleton()`. Each
+`OutlineNode` carries `level` (0 for `Title`, 1..9 for `Heading N`), `text`,
+`paragraph_index` (position in `Document.paragraphs`), a stable 8-char `id`,
+the section's `word_count`, and a list of nested `children`. Page numbers
+are intentionally omitted because python-docx has no layout engine; the
+document-wide `total_pages_estimated` reads Word's cached
+`docProps/app.xml` `<Pages>` value when present.
+`Document.slice(start, end)` returns a new `Document` containing one
+heading-bounded section, copied via `append_paragraph` so image / hyperlink
+/ style references are rewired into the slice. `[Added in 2026.05.7]`.
+
+```python
+from docx import Document
+
+document = Document("report.docx")
+outline = document.outline()
+
+# pretty-print the structure
+for node in outline.walk():
+    print("  " * node.level + node.text)
+
+# JSON-serialisable (for LLM tools)
+import json
+print(json.dumps(outline.to_dict(), indent=2))
+
+# pull a single section out as its own .docx
+methodology = document.slice(start="Methodology", end="Results")
+methodology.save("methodology.docx")
+```
+
+- `Document.outline()` — `Outline` with `sections`, `title`, `total_paragraphs`, `total_pages_estimated`. `[Added in 2026.05.7]`
+- `Outline.walk()` / `__iter__` / `__len__` / `find(heading)` / `to_dict()`. `[Added in 2026.05.7]`
+- `OutlineNode.walk()` / `to_dict()` — `level`, `text`, `paragraph_index`, `id`, `word_count`, `children`. `[Added in 2026.05.7]`
+- `Document.slice(start, end=None)` — Returns a new `Document` for one heading-bounded section. `[Added in 2026.05.7]`
 
 ---
 
