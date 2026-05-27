@@ -1010,11 +1010,13 @@ _ALLOWED_FORMULA_NODES: tuple[type, ...] = (
     ast.UnaryOp,
     ast.Constant,
 )
-# -- ``ast.Num`` is a deprecated alias for ``ast.Constant`` that was
-# -- removed in Python 3.14. Include it only when the running interpreter
-# -- still ships the class. --
-if hasattr(ast, "Num"):  # pragma: no cover - branch depends on Py version
-    _ALLOWED_FORMULA_NODES = _ALLOWED_FORMULA_NODES + (ast.Num,)
+# -- ``ast.Num`` was the legacy node type for numeric literals on Py<3.8;
+# -- since 3.8 ``ast.parse`` emits ``ast.Constant`` for every literal, and
+# -- the only thing ``ast.Num`` itself offers is a deprecated alias that
+# -- emits ``DeprecationWarning`` on attribute access (Py 3.12+) and is
+# -- removed entirely in Py 3.14. Our compat floor is 3.9, so
+# -- ``ast.Constant`` already covers every literal we'll encounter and
+# -- we don't need to whitelist the alias. --
 _ALLOWED_FORMULA_OPS = (
     ast.Add,
     ast.Sub,
@@ -1055,10 +1057,10 @@ def _evaluate_formula_ast(expr: str) -> "int | float | None":
             if isinstance(node.value, (int, float)):
                 return node.value
             return None
-        # -- ``ast.Num`` is only present on Py<3.14; gate both check and use
-        # -- on ``hasattr`` so the static analyzer doesn't warn on Py 3.14+. --
-        if hasattr(ast, "Num") and isinstance(node, ast.Num):  # pragma: no cover
-            return node.n  # type: ignore[attr-defined]
+        # -- ``ast.Num`` (legacy numeric-literal node) is unreachable on
+        # -- Py 3.9+: ``ast.parse`` only emits ``ast.Constant``. The alias
+        # -- itself emits ``DeprecationWarning`` on attribute access on
+        # -- Py 3.12+ and is removed in 3.14, so we don't reference it. --
         if isinstance(node, ast.UnaryOp):
             operand = _eval(node.operand)
             if operand is None:
