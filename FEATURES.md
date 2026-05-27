@@ -347,11 +347,24 @@ from docx import Document
 
 document = Document()
 p = document.add_paragraph("Visit ")
-link = p.add_hyperlink(url="https://example.com/#intro", text="our site")
+link = p.add_hyperlink(url="https://example.com/#intro", text="our site",
+                       tooltip="example homepage")
 p.add_run(".")
 
-# internal anchor
+# external URL with the ergonomic wrapper (mailto/tel/http auto-prepended)
+document.add_paragraph().add_url("alice@example.com")          # -> mailto:
+document.add_paragraph().add_url("+1 555 0100")                # -> tel:
+document.add_paragraph().add_url("www.example.com")            # -> http://
+
+# autolink: split free text on URL/email matches
+document.add_paragraph().add_text_with_links(
+    "See https://example.com or email alice@example.com for more."
+)
+
+# internal anchor (string, Bookmark, or heading Paragraph)
 document.add_paragraph().add_hyperlink(anchor="chapter-1", text="Chapter 1")
+heading = document.add_heading("Q1 Review")
+document.add_paragraph().add_link_to(heading, text="back to Q1")
 
 # wrap part of an existing run as a hyperlink
 r = document.add_paragraph().add_run("click here to read more")
@@ -361,11 +374,15 @@ p2.insert_hyperlink_at(r, url="https://docs.example", start=0, end=10)
 document.save("out.docx")
 ```
 
-- `Paragraph.add_hyperlink(url=None, text=None, style="Hyperlink", anchor=None)` — Append a new hyperlink. `[Added in 2026.05.0]`
+- `Paragraph.add_hyperlink(url=None, text=None, style="Hyperlink", anchor=None, tooltip=None)` — Append a new hyperlink. `[Added in 2026.05.0]`. `tooltip` arg `[Added in 2026.05.12]`.
+- `Paragraph.add_link_to(target, text=None, style="Hyperlink", tooltip=None)` — Internal-link wrapper accepting a `Bookmark`, a heading `Paragraph` (auto-bookmarks the heading), or a bookmark-name string. `[Added in 2026.05.12]`.
+- `Paragraph.add_url(url, text=None, style="Hyperlink", tooltip=None)` — External-link wrapper that auto-prepends `mailto:` / `tel:` / `http://` for email-shape, phone-shape, and `www.` arguments. `[Added in 2026.05.12]`.
+- `Paragraph.add_text_with_links(text, style="Hyperlink")` — Append `text` and auto-detect URLs / emails as hyperlinks. Returns the new runs and hyperlinks in document order. `[Added in 2026.05.12]`.
 - `Paragraph.insert_hyperlink_at(run, url=None, anchor=None, start=None, end=None)` — Wrap (part of) an existing run in a hyperlink, splitting as needed. `[Added in 2026.05.0]`
 - `Run.make_hyperlink(url=None, anchor=None)` — Wrap a run as a hyperlink. `[Added in 2026.05.0]`
 - `Paragraph.hyperlinks` — List of `Hyperlink` in document order.
 - `Hyperlink.url` / `Hyperlink.address` / `Hyperlink.fragment` — URL parts; `address`/`fragment` are editable.
+- `Hyperlink.tooltip` — Read/write `w:tooltip` attribute (the popup hover text). `[Added in 2026.05.12]`.
 - `Hyperlink.runs` / `Hyperlink.text` / `Hyperlink.contains_page_break` / `Hyperlink.add_run(...)` — Content access and extension.
 
 ---

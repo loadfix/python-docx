@@ -99,6 +99,25 @@ class Hyperlink(Parented):
         return bool(self._hyperlink.lastRenderedPageBreaks)
 
     @property
+    def tooltip(self) -> str | None:
+        """The hover-text Word displays when the mouse pauses over the link, or |None|.
+
+        Wraps the ``w:hyperlink/@w:tooltip`` attribute. Word renders this
+        string in the link's screentip popup, replacing the default
+        ``<address>`` rendering. Returns |None| when no tooltip is set.
+
+        Assigning a non-empty string sets the attribute; assigning |None| or
+        an empty string removes it.
+
+        .. versionadded:: 2026.05.12
+        """
+        return self._hyperlink.tooltip
+
+    @tooltip.setter
+    def tooltip(self, value: str | None) -> None:
+        self._hyperlink.tooltip = value if value else None
+
+    @property
     def fragment(self) -> str:
         """Reference like `#glossary` at end of URL that refers to a sub-resource.
 
