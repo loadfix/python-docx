@@ -40,9 +40,11 @@ if TYPE_CHECKING:
     from ooxml_math import MathExpr
     from docx.bookmarks import Bookmark
     from docx.content_controls import ContentControl, ContentControlType
+    from docx.endnotes import Endnote
     from docx.enum.text import WD_FRAME_DROP_CAP, WD_PARAGRAPH_ALIGNMENT
     from docx.embedded_objects import EmbeddedObject
     from docx.equations import Equation
+    from docx.footnotes import Footnote
     from docx.ink import InkAnnotation
     from docx.oxml.content_controls import CT_Sdt
     from docx.oxml.document import CT_Body
@@ -445,6 +447,70 @@ class Paragraph(StoryChild):
             return Run(cast(CT_R, r), self)
         # -- no existing run; create one and set its text --
         return self.add_run(text)
+
+    def add_footnote(self, text: str = "") -> Footnote:
+        """Append a footnote reference to this paragraph and return the |Footnote|.
+
+        A new run is appended to this paragraph carrying the footnote reference
+        mark (styled with the ``"FootnoteReference"`` character style). A new
+        ``w:footnote`` element is created in the document's footnotes part with
+        a single ``"FootnoteText"`` paragraph; when ``text`` is non-empty, that
+        text is added as a run after the reference mark in the new footnote's
+        body.
+
+        This is the ergonomic counterpart to
+        :meth:`docx.footnotes.Footnotes.add` — the latter remains available for
+        callers that already hold a |Run| anchor and need precise control over
+        which run carries the reference. ``add_footnote`` shapes the common
+        case of "append the reference to the end of *this* paragraph" into one
+        call.
+
+        Returns the newly created |Footnote| so the caller can append further
+        runs / paragraphs / tables to its body for richer footnote content.
+
+        Raises ``RuntimeError`` when called on a paragraph that lives outside
+        the main document story (e.g. inside the footnotes or endnotes parts
+        themselves) — Word does not support nested footnotes.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.parts.endnotes import EndnotesPart
+        from docx.parts.footnotes import FootnotesPart
+
+        if isinstance(self.part, (FootnotesPart, EndnotesPart)):
+            raise RuntimeError(
+                "footnotes cannot be added inside footnote/endnote paragraphs"
+            )
+
+        document_part = self.part._document_part  # pyright: ignore[reportPrivateUsage]
+        anchor_run = self.add_run()
+        return document_part.footnotes.add(anchor_run, text=text)
+
+    def add_endnote(self, text: str = "") -> Endnote:
+        """Append an endnote reference to this paragraph and return the |Endnote|.
+
+        Mirror of :meth:`add_footnote` for endnotes. A new run is appended to
+        this paragraph carrying the endnote reference mark (styled with the
+        ``"EndnoteReference"`` character style). A new ``w:endnote`` element is
+        created in the document's endnotes part with a single ``"EndnoteText"``
+        paragraph; when ``text`` is non-empty, that text is added as a run
+        after the reference mark in the new endnote's body.
+
+        Returns the newly created |Endnote| for further population.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.parts.endnotes import EndnotesPart
+        from docx.parts.footnotes import FootnotesPart
+
+        if isinstance(self.part, (FootnotesPart, EndnotesPart)):
+            raise RuntimeError(
+                "endnotes cannot be added inside footnote/endnote paragraphs"
+            )
+
+        document_part = self.part._document_part  # pyright: ignore[reportPrivateUsage]
+        anchor_run = self.add_run()
+        return document_part.endnotes.add(anchor_run, text=text)
 
     def add_content_control(
         self,

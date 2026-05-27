@@ -59,6 +59,82 @@ class Endnotes:
 
         return endnote
 
+    # -- shorthand numbering / restart accessors per issue #42 --------------------------
+
+    def _document_settings(self):
+        """Return the |Settings| object for the document owning this endnotes part."""
+        package = self._endnotes_part.package
+        assert package is not None
+        from docx.parts.document import DocumentPart
+
+        document_part = package.main_document_part
+        assert isinstance(document_part, DocumentPart)
+        return document_part.settings
+
+    @property
+    def numbering(self) -> WD_NUMBER_FORMAT | None:
+        """The endnote-numbering format (a |WD_NUMBER_FORMAT| member) or |None|.
+
+        Read/write convenience over
+        :attr:`docx.endnotes.EndnoteProperties.number_format` reachable from the
+        document's settings. Setter accepts either a |WD_NUMBER_FORMAT| member or
+        a shorthand string (``"1, 2, 3"``, ``"i, ii, iii"``,
+        ``"*, dagger, double-dagger"``, ``"arabic"``, ``"chicago"``, …) or any
+        raw OOXML ``ST_NumberFormat`` token (``"lowerRoman"``).
+
+        Setting to |None| removes the ``w:numFmt`` child but leaves the
+        ``w:endnotePr`` element in place.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.footnotes import _resolve_numbering  # noqa: F401  (kept for symmetry)
+
+        props = self._document_settings().endnote_properties
+        return None if props is None else props.number_format
+
+    @numbering.setter
+    def numbering(self, value: WD_NUMBER_FORMAT | str | None) -> None:
+        from docx.footnotes import _resolve_numbering
+
+        resolved = _resolve_numbering(value)
+        settings = self._document_settings()
+        if resolved is None:
+            props = settings.endnote_properties
+            if props is not None:
+                props.number_format = None
+            return
+        props = settings.add_endnote_properties()
+        props.number_format = resolved
+
+    @property
+    def restart(self) -> WD_FOOTNOTE_RESTART | None:
+        """When endnote numbering restarts (a |WD_FOOTNOTE_RESTART| member) or |None|.
+
+        Setter accepts ``"continuous"``, ``"section"`` (or ``"each_section"``),
+        a |WD_FOOTNOTE_RESTART| member, or any raw OOXML ``ST_RestartNumber``
+        token. Note that only ``CONTINUOUS`` and ``EACH_SECTION`` are
+        meaningful for endnotes; ``EACH_PAGE`` is accepted but Word will treat
+        endnotes as continuous in practice.
+
+        .. versionadded:: 2026.05.13
+        """
+        props = self._document_settings().endnote_properties
+        return None if props is None else props.restart_rule
+
+    @restart.setter
+    def restart(self, value: WD_FOOTNOTE_RESTART | str | None) -> None:
+        from docx.footnotes import _resolve_restart
+
+        resolved = _resolve_restart(value)
+        settings = self._document_settings()
+        if resolved is None:
+            props = settings.endnote_properties
+            if props is not None:
+                props.restart_rule = None
+            return
+        props = settings.add_endnote_properties()
+        props.restart_rule = resolved
+
 
 class Endnote(BlockItemContainer):
     """Proxy for a single endnote in the document.

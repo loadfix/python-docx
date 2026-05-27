@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 from collections.abc import Iterator
 
 from docx.blkcntnr import BlockItemContainer
@@ -14,6 +14,88 @@ if TYPE_CHECKING:
     from docx.styles.style import ParagraphStyle
     from docx.text.paragraph import Paragraph
     from docx.text.run import Run
+
+
+# -- shorthand string -> WD_NUMBER_FORMAT used by `Footnotes.numbering` and
+# -- `Endnotes.numbering` setters; mirrors the issue-#42 spec. Keys are
+# -- normalised (lowercased, whitespace-collapsed). Multiple aliases map to
+# -- the same enum member so callers can pick the spelling that reads best.
+_NUMBERING_SHORTHANDS: dict[str, WD_NUMBER_FORMAT] = {
+    # decimal / arabic
+    "1, 2, 3": WD_NUMBER_FORMAT.DECIMAL,
+    "1,2,3": WD_NUMBER_FORMAT.DECIMAL,
+    "decimal": WD_NUMBER_FORMAT.DECIMAL,
+    "arabic": WD_NUMBER_FORMAT.DECIMAL,
+    # lower roman
+    "i, ii, iii": WD_NUMBER_FORMAT.LOWER_ROMAN,
+    "i,ii,iii": WD_NUMBER_FORMAT.LOWER_ROMAN,
+    "lowerroman": WD_NUMBER_FORMAT.LOWER_ROMAN,
+    "lower roman": WD_NUMBER_FORMAT.LOWER_ROMAN,
+    # upper roman
+    "i, ii, iii (upper)": WD_NUMBER_FORMAT.UPPER_ROMAN,
+    "upperroman": WD_NUMBER_FORMAT.UPPER_ROMAN,
+    "upper roman": WD_NUMBER_FORMAT.UPPER_ROMAN,
+    # lower / upper letter
+    "a, b, c": WD_NUMBER_FORMAT.LOWER_LETTER,
+    "a,b,c": WD_NUMBER_FORMAT.LOWER_LETTER,
+    "lowerletter": WD_NUMBER_FORMAT.LOWER_LETTER,
+    "lower letter": WD_NUMBER_FORMAT.LOWER_LETTER,
+    "a, b, c (upper)": WD_NUMBER_FORMAT.UPPER_LETTER,
+    "upperletter": WD_NUMBER_FORMAT.UPPER_LETTER,
+    "upper letter": WD_NUMBER_FORMAT.UPPER_LETTER,
+    # symbols (Chicago)
+    "*, dagger, double-dagger": WD_NUMBER_FORMAT.CHICAGO,
+    "*, dagger, doubledagger": WD_NUMBER_FORMAT.CHICAGO,
+    "chicago": WD_NUMBER_FORMAT.CHICAGO,
+    "symbols": WD_NUMBER_FORMAT.CHICAGO,
+}
+
+_RESTART_SHORTHANDS: dict[str, WD_FOOTNOTE_RESTART] = {
+    "continuous": WD_FOOTNOTE_RESTART.CONTINUOUS,
+    "section": WD_FOOTNOTE_RESTART.EACH_SECTION,
+    "each_section": WD_FOOTNOTE_RESTART.EACH_SECTION,
+    "eachsection": WD_FOOTNOTE_RESTART.EACH_SECTION,
+    "page": WD_FOOTNOTE_RESTART.EACH_PAGE,
+    "each_page": WD_FOOTNOTE_RESTART.EACH_PAGE,
+    "eachpage": WD_FOOTNOTE_RESTART.EACH_PAGE,
+}
+
+
+def _resolve_numbering(
+    value: Union[str, WD_NUMBER_FORMAT, None],
+) -> Union[WD_NUMBER_FORMAT, None]:
+    """Normalise a `numbering` setter value to a |WD_NUMBER_FORMAT| or |None|."""
+    if value is None or isinstance(value, WD_NUMBER_FORMAT):
+        return value
+    key = " ".join(value.strip().lower().split())
+    try:
+        return _NUMBERING_SHORTHANDS[key]
+    except KeyError:
+        # -- accept raw OOXML token (`upperRoman`, `decimal`, …) too --
+        try:
+            return WD_NUMBER_FORMAT.from_xml(value)
+        except (KeyError, ValueError) as exc:  # pragma: no cover - defensive
+            raise ValueError(
+                f"unrecognised numbering shorthand: {value!r}"
+            ) from exc
+
+
+def _resolve_restart(
+    value: Union[str, WD_FOOTNOTE_RESTART, None],
+) -> Union[WD_FOOTNOTE_RESTART, None]:
+    """Normalise a `restart` setter value to a |WD_FOOTNOTE_RESTART| or |None|."""
+    if value is None or isinstance(value, WD_FOOTNOTE_RESTART):
+        return value
+    key = value.strip().lower().replace("-", "_")
+    try:
+        return _RESTART_SHORTHANDS[key]
+    except KeyError:
+        try:
+            return WD_FOOTNOTE_RESTART.from_xml(value)
+        except (KeyError, ValueError) as exc:  # pragma: no cover - defensive
+            raise ValueError(
+                f"unrecognised restart shorthand: {value!r}"
+            ) from exc
 
 
 class Footnotes:
@@ -58,6 +140,75 @@ class Footnotes:
             first_para.add_run(text)
 
         return footnote
+
+    # -- shorthand numbering / restart accessors per issue #42 --------------------------
+
+    def _document_settings(self):
+        """Return the |Settings| object for the document owning this footnotes part."""
+        package = self._footnotes_part.package
+        assert package is not None
+        from docx.parts.document import DocumentPart
+
+        document_part = package.main_document_part
+        assert isinstance(document_part, DocumentPart)
+        return document_part.settings
+
+    @property
+    def numbering(self) -> WD_NUMBER_FORMAT | None:
+        """The footnote-numbering format (a |WD_NUMBER_FORMAT| member) or |None|.
+
+        Read/write convenience over
+        :attr:`docx.footnotes.FootnoteProperties.number_format` reachable from the
+        document's settings. Setter accepts either a |WD_NUMBER_FORMAT| member or
+        a shorthand string from issue #42 (``"1, 2, 3"``, ``"i, ii, iii"``,
+        ``"*, dagger, double-dagger"``, ``"arabic"``, ``"chicago"``, …) or any
+        raw OOXML ``ST_NumberFormat`` token (``"upperRoman"``).
+
+        Setting to |None| removes the ``w:numFmt`` child but leaves the
+        ``w:footnotePr`` element in place.
+
+        .. versionadded:: 2026.05.13
+        """
+        props = self._document_settings().footnote_properties
+        return None if props is None else props.number_format
+
+    @numbering.setter
+    def numbering(self, value: WD_NUMBER_FORMAT | str | None) -> None:
+        resolved = _resolve_numbering(value)
+        settings = self._document_settings()
+        if resolved is None:
+            props = settings.footnote_properties
+            if props is not None:
+                props.number_format = None
+            return
+        props = settings.add_footnote_properties()
+        props.number_format = resolved
+
+    @property
+    def restart(self) -> WD_FOOTNOTE_RESTART | None:
+        """When footnote numbering restarts (a |WD_FOOTNOTE_RESTART| member) or |None|.
+
+        Setter accepts ``"continuous"``, ``"section"`` (or ``"each_section"``),
+        ``"page"`` (or ``"each_page"``), a |WD_FOOTNOTE_RESTART| member, or any
+        raw OOXML ``ST_RestartNumber`` token. Setting to |None| removes the
+        ``w:numRestart`` child.
+
+        .. versionadded:: 2026.05.13
+        """
+        props = self._document_settings().footnote_properties
+        return None if props is None else props.restart_rule
+
+    @restart.setter
+    def restart(self, value: WD_FOOTNOTE_RESTART | str | None) -> None:
+        resolved = _resolve_restart(value)
+        settings = self._document_settings()
+        if resolved is None:
+            props = settings.footnote_properties
+            if props is not None:
+                props.restart_rule = None
+            return
+        props = settings.add_footnote_properties()
+        props.restart_rule = resolved
 
 
 class Footnote(BlockItemContainer):

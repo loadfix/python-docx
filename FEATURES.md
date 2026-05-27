@@ -1079,6 +1079,16 @@ r = p.add_run(".")
 fn = document.footnotes.add(r, text="This is the footnote text.")
 print(fn.footnote_id, fn.text)
 
+# ergonomic one-call form (Added in 2026.05.7) — appends a reference run
+# to `p` and seeds the new footnote with the given text in a single step.
+p.add_footnote("Source: AWS Annual Review 2026, p.42")
+p.add_endnote("Collected at end of document instead of bottom of page.")
+
+# friendly shorthand for numbering / restart on the document collection
+document.footnotes.numbering = "i, ii, iii"   # WD_NUMBER_FORMAT.LOWER_ROMAN
+document.footnotes.restart = "section"        # WD_FOOTNOTE_RESTART.EACH_SECTION
+document.endnotes.numbering = "*, dagger, double-dagger"  # WD_NUMBER_FORMAT.CHICAGO
+
 # document-wide restart at each section, Roman numerals
 props = document.add_footnote_properties()
 props.number_format = WD_NUMBER_FORMAT.LOWER_ROMAN
@@ -1105,6 +1115,8 @@ document.save("out.docx")
 
 - `Document.footnotes` / `Document.endnotes` — `Footnotes` / `Endnotes` collections. `[Added in 2026.05.0]`
 - `Footnotes.add(run, text="")` / `Endnotes.add(run, text="")` / iteration / `len()`. `[Added in 2026.05.0]`
+- `Paragraph.add_footnote(text="")` / `Paragraph.add_endnote(text="")` — ergonomic one-call authoring. Appends a reference run to the paragraph and seeds a fresh `w:footnote` / `w:endnote` body with `text`; returns the new `Footnote` / `Endnote` for further population. Refuses to nest a note inside another note. `[Added in 2026.05.7]`
+- `Footnotes.numbering` / `Footnotes.restart` (and the matching `Endnotes` setters) — shorthand pass-throughs to `FootnoteProperties.number_format` / `.restart_rule` accepting friendly strings (`"1, 2, 3"`, `"i, ii, iii"`, `"*, dagger, double-dagger"`, `"arabic"`, `"chicago"`, `"section"`, `"page"`, …), `WD_NUMBER_FORMAT` / `WD_FOOTNOTE_RESTART` enum members, or raw OOXML tokens. Auto-create the `w:footnotePr` / `w:endnotePr` element on first set. `[Added in 2026.05.7]`
 - `Footnote.text` / `.footnote_id` / `.add_paragraph(...)` / `.clear()` / `.delete()` — and analogous `Endnote` members. `[Added in 2026.05.0]`
 - `Document.footnote_properties` / `Document.add_footnote_properties()` / `Document.endnote_properties` / `Document.add_endnote_properties()` — Document-level (`w:settings/w:footnotePr` etc.). `[Added in 2026.05.0]`
 - `Section.footnote_properties` / `Section.endnote_properties` / `Section.add_*` / `Section.remove_*` — Section-level overrides (`w:sectPr/w:footnotePr` etc.). `[Added in 2026.05.0]`

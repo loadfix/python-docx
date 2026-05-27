@@ -44,6 +44,20 @@ Unreleased — Hyperlink ergonomics
   the paragraphs of one heading-bounded section, copied via
   :meth:`append_paragraph` so image / hyperlink / style references
   are rewired into the slice. ``[Added in 2026.05.7]``
+- **``Paragraph.add_footnote(text="")`` / ``Paragraph.add_endnote(text="")``**
+  ergonomic authoring API (#42) [Added in 2026.05.7]. Appends a reference
+  run to the paragraph, allocates a fresh ``w:footnote`` / ``w:endnote``
+  in the corresponding part, and seeds the new note with ``text``.
+  Returns the |Footnote| / |Endnote| so the caller can append further
+  paragraphs, runs, or tables. Refuses to nest a note inside another
+  note. Companion shorthand setters
+  ``Document.footnotes.numbering = "i, ii, iii"`` and
+  ``Document.footnotes.restart = "section"`` (plus the matching
+  ``Document.endnotes`` setters) accept friendly strings (``"arabic"``,
+  ``"chicago"``, ``"*, dagger, double-dagger"``, …), |WD_NUMBER_FORMAT|
+  / |WD_FOOTNOTE_RESTART| enum members, or raw OOXML tokens, and write
+  through to ``w:footnotePr`` / ``w:endnotePr`` in the settings part.
+  Round-trips cleanly with the existing read API.
 
 2026.05.10 — Password-protected read + write
 ++++++++++++++++++++++++++++++++++++++++++++
