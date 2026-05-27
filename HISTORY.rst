@@ -17,6 +17,17 @@ Unreleased — Hyperlink ergonomics
   ``w:hyperlink/@w:tooltip`` attribute (the popup text Word renders on
   hover). The new attribute round-trips through save/load. The
   matching read accessor :attr:`Hyperlink.tooltip` is read/write.
+- **``Paragraph.add_url(url, ...)``** is the external-hyperlink
+  counterpart (#70). Auto-prepends ``mailto:`` when ``url`` looks like
+  an email but has no scheme, ``tel:`` for phone-shape strings, and
+  ``http://`` for ``www.`` shortcuts. Visible text defaults to the
+  caller's literal ``url`` argument so the displayed text matches what
+  was passed in.
+- **``Paragraph.add_text_with_links(text, ...)``** scans `text` for
+  URLs and emails, splits the input into plain runs and hyperlinks,
+  and appends them in document order (#70). Trailing sentence
+  punctuation (``.``, ``,``, ``;``, ``!``, ``?``, ``)``, …) is stripped
+  off URL matches and stays in the surrounding plain run.
 
 2026.05.10 — Password-protected read + write
 ++++++++++++++++++++++++++++++++++++++++++++

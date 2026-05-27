@@ -1,7 +1,8 @@
 """Unit tests for the hyperlink ergonomics added in 2026.05.12.
 
 Covers issue #69 (``Paragraph.add_link_to`` + ``tooltip`` plumbing on
-``Paragraph.add_hyperlink`` / :class:`Hyperlink`).
+``Paragraph.add_hyperlink`` / :class:`Hyperlink`) and issue #70
+(``Paragraph.add_url`` + ``Paragraph.add_text_with_links``).
 """
 
 from __future__ import annotations
@@ -15,7 +16,12 @@ from docx import Document
 from docx.oxml.text.paragraph import CT_P
 from docx.parts.story import StoryPart
 from docx.text.hyperlink import Hyperlink
-from docx.text.paragraph import Paragraph
+from docx.text.paragraph import (
+    Paragraph,
+    _autolink_text,
+    _normalise_url_scheme,
+)
+from docx.text.run import Run
 
 from ..unitutil.cxml import element
 from ..unitutil.mock import instance_mock
@@ -195,3 +201,209 @@ class DescribeParagraph_AddLinkTo:
 
         with pytest.raises(TypeError, match="Bookmark, Paragraph, or str"):
             paragraph.add_link_to(42)  # type: ignore[arg-type]
+
+
+class DescribeNormaliseUrlScheme:
+    """``_normalise_url_scheme`` auto-prepends mailto: / tel: / http:// (#70)."""
+
+    def it_leaves_an_already_schemed_url_unchanged(self):
+        assert _normalise_url_scheme("https://example.com") == "https://example.com"
+        assert _normalise_url_scheme("ftp://example.com") == "ftp://example.com"
+        assert _normalise_url_scheme("mailto:a@b.com") == "mailto:a@b.com"
+
+    def it_prepends_mailto_for_an_email_shape(self):
+        assert _normalise_url_scheme("alice@example.com") == "mailto:alice@example.com"
+
+    def it_prepends_tel_for_a_telephone_shape(self):
+        assert _normalise_url_scheme("+1 555 0100") == "tel:+15550100"
+        assert _normalise_url_scheme("(555) 010-0100") == "tel:5550100100"
+
+    def it_prepends_http_for_a_www_shortcut(self):
+        assert _normalise_url_scheme("www.example.com") == "http://www.example.com"
+
+    def it_returns_a_bare_token_unchanged_when_unrecognised(self):
+        assert _normalise_url_scheme("just-text") == "just-text"
+
+
+class DescribeParagraph_AddUrl:
+    """``Paragraph.add_url`` ergonomic wrapper for external links (#70)."""
+
+    def it_appends_an_http_hyperlink(self):
+        d = Document()
+        para = d.add_paragraph()
+
+        hyperlink = para.add_url("https://example.com", style=None)
+
+        assert isinstance(hyperlink, Hyperlink)
+        assert hyperlink.url == "https://example.com"
+        # -- text defaults to the original URL string --
+        assert hyperlink.text == "https://example.com"
+
+    def it_auto_prepends_mailto_for_an_email_target(self):
+        d = Document()
+        para = d.add_paragraph()
+
+        hyperlink = para.add_url("alice@example.com", style=None)
+
+        assert hyperlink.url == "mailto:alice@example.com"
+        # -- visible text shows the bare email, not the scheme --
+        assert hyperlink.text == "alice@example.com"
+
+    def it_auto_prepends_tel_for_a_phone_number(self):
+        d = Document()
+        para = d.add_paragraph()
+
+        hyperlink = para.add_url("+1 555 0100", style=None)
+
+        assert hyperlink.url == "tel:+15550100"
+        assert hyperlink.text == "+1 555 0100"
+
+    def it_writes_a_tooltip_when_provided(
+        self, request: pytest.FixtureRequest
+    ):
+        parent, _ = _fake_parent_with_part(request)
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, parent)
+
+        hyperlink = paragraph.add_url(
+            "https://example.com", tooltip="popup", style=None
+        )
+
+        assert hyperlink.tooltip == "popup"
+
+    def it_raises_on_an_empty_url(self, request: pytest.FixtureRequest):
+        parent, _ = _fake_parent_with_part(request)
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, parent)
+
+        with pytest.raises(ValueError, match="non-empty"):
+            paragraph.add_url("", style=None)
+
+
+class DescribeParagraph_AddTextWithLinks:
+    """``Paragraph.add_text_with_links`` — autolink helper (#70)."""
+
+    def it_returns_only_a_run_for_text_with_no_matches(
+        self, request: pytest.FixtureRequest
+    ):
+        parent, _ = _fake_parent_with_part(request)
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, parent)
+
+        pieces = paragraph.add_text_with_links("just plain text", style=None)
+
+        assert len(pieces) == 1
+        assert isinstance(pieces[0], Run)
+        assert paragraph.text == "just plain text"
+
+    def it_splits_around_a_url_match(self):
+        d = Document()
+        para = d.add_paragraph()
+
+        pieces = para.add_text_with_links(
+            "See https://example.com for info", style=None
+        )
+
+        assert [type(x).__name__ for x in pieces] == [
+            "Run", "Hyperlink", "Run"
+        ]
+        # -- pyright happy on the union narrowing --
+        link = pieces[1]
+        assert isinstance(link, Hyperlink)
+        assert link.url == "https://example.com"
+        assert para.text == "See https://example.com for info"
+
+    def it_strips_trailing_punctuation_from_a_url(self):
+        d = Document()
+        para = d.add_paragraph()
+
+        pieces = para.add_text_with_links(
+            "Visit https://example.com.", style=None
+        )
+
+        link = pieces[1]
+        assert isinstance(link, Hyperlink)
+        assert link.url == "https://example.com"
+        # -- the trailing "." stays in the plain-text run --
+        tail = pieces[2]
+        assert isinstance(tail, Run)
+        assert tail.text == "."
+
+    def it_emits_a_mailto_for_an_email_match(self):
+        d = Document()
+        para = d.add_paragraph()
+
+        pieces = para.add_text_with_links(
+            "Contact alice@example.com today", style=None
+        )
+
+        link = pieces[1]
+        assert isinstance(link, Hyperlink)
+        assert link.url == "mailto:alice@example.com"
+        assert link.text == "alice@example.com"
+
+    def it_handles_text_starting_with_a_match(
+        self, request: pytest.FixtureRequest
+    ):
+        parent, _ = _fake_parent_with_part(request)
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, parent)
+
+        pieces = paragraph.add_text_with_links(
+            "https://example.com is cool", style=None
+        )
+
+        # -- no leading run, just hyperlink + trailing run --
+        assert [type(x).__name__ for x in pieces] == ["Hyperlink", "Run"]
+
+    def it_handles_text_ending_with_a_match(
+        self, request: pytest.FixtureRequest
+    ):
+        parent, _ = _fake_parent_with_part(request)
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, parent)
+
+        pieces = paragraph.add_text_with_links(
+            "ping alice@example.com", style=None
+        )
+
+        assert [type(x).__name__ for x in pieces] == ["Run", "Hyperlink"]
+
+    def it_finds_multiple_matches(self, request: pytest.FixtureRequest):
+        parent, _ = _fake_parent_with_part(request)
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, parent)
+
+        pieces = paragraph.add_text_with_links(
+            "See https://a.example or email b@example.com", style=None
+        )
+
+        kinds = [type(x).__name__ for x in pieces]
+        assert kinds == ["Run", "Hyperlink", "Run", "Hyperlink"]
+
+    def it_normalises_a_www_shortcut_with_http(self):
+        d = Document()
+        para = d.add_paragraph()
+
+        pieces = para.add_text_with_links(
+            "Hit www.example.com please", style=None
+        )
+
+        link = pieces[1]
+        assert isinstance(link, Hyperlink)
+        assert link.url == "http://www.example.com"
+
+
+class DescribeAutolinkText_HelperDirect:
+    """Direct-call coverage of the ``_autolink_text`` helper (#70)."""
+
+    def it_returns_an_empty_list_for_an_empty_string(
+        self, request: pytest.FixtureRequest
+    ):
+        parent, _ = _fake_parent_with_part(request)
+        p = cast(CT_P, element("w:p"))
+        paragraph = Paragraph(p, parent)
+
+        pieces = _autolink_text(paragraph, "", style=None)
+
+        assert pieces == []

@@ -289,6 +289,72 @@ class Paragraph(StoryChild):
             tooltip=tooltip,
         )
 
+    def add_url(
+        self,
+        url: str,
+        text: str | None = None,
+        style: str | CharacterStyle | None = "Hyperlink",
+        tooltip: str | None = None,
+    ) -> Hyperlink:
+        """Append an external hyperlink to `url` and return it.
+
+        `url` is the target. When it looks like an email address (matches
+        ``[\\w.+-]+@[\\w-]+\\.[\\w.-]+``) and lacks a scheme, ``mailto:`` is
+        prepended automatically. When it consists only of telephone-shape
+        characters (digits, ``+``, ``-``, spaces, parentheses) and lacks a
+        scheme, ``tel:`` is prepended. ``www.example.com`` is rewritten as
+        ``http://www.example.com``.
+
+        `text` is the visible link text; defaults to the bare `url` (without
+        the auto-prepended scheme so the displayed text matches the original
+        argument). `style` is the character style applied to the link's run
+        (default ``"Hyperlink"``). `tooltip` becomes the ``w:tooltip``
+        attribute on the link.
+
+        .. versionadded:: 2026.05.12
+        """
+        if not isinstance(url, str) or not url:
+            raise ValueError("url must be a non-empty string")
+
+        original = url
+        normalised = _normalise_url_scheme(url)
+        display_text = text if text is not None else original
+
+        return self.add_hyperlink(
+            url=normalised,
+            text=display_text,
+            style=style,
+            tooltip=tooltip,
+        )
+
+    def add_text_with_links(
+        self,
+        text: str,
+        style: str | CharacterStyle | None = "Hyperlink",
+    ) -> "list[Run | Hyperlink]":
+        """Append `text`, auto-detecting URLs and emails as hyperlinks.
+
+        Walks `text` left-to-right, splitting it into plain-text segments
+        and hyperlink-worthy matches:
+
+        * ``http://...`` or ``https://...`` URLs (greedy up to the next whitespace,
+          with trailing punctuation like ``.``/``,``/``;``/``!``/``?``/``)``
+          stripped off the match)
+        * ``www.<host>...`` URLs (auto-prepended with ``http://``)
+        * Emails matching ``[\\w.+-]+@[\\w-]+\\.[\\w.-]+`` (auto-wrapped in
+          ``mailto:``)
+
+        Plain segments become :class:`~docx.text.run.Run` objects via
+        :meth:`add_run`; matches become :class:`~docx.text.hyperlink.Hyperlink`
+        objects via :meth:`add_url`. Returns the list of newly created runs
+        and hyperlinks in document order. Phone numbers are deliberately
+        not auto-detected — international formats are too messy for a
+        regex (use :meth:`add_url` directly when you have a phone number).
+
+        .. versionadded:: 2026.05.12
+        """
+        return _autolink_text(self, text, style=style)
+
     def insert_hyperlink_at(
         self,
         run: Run,
@@ -2512,3 +2578,101 @@ def qn_w_name() -> str:
     return qn("w:name")
 
 
+# -- hyperlink ergonomics (issue #70) ----------------------------------------
+# Module-level so the regex compile cost is paid once.
+
+# -- URL match: http(s):// or www. — we deliberately keep this simple. --
+_URL_RE = _re.compile(
+    r"https?://[^\s<>]+|www\.[^\s<>]+", _re.IGNORECASE
+)
+# -- Email match: practical RFC-5322 subset, not pedantically complete. --
+_EMAIL_RE = _re.compile(
+    r"[\w.+\-]+@[\w\-]+\.[\w.\-]+"
+)
+# -- combined autolink scanner: order alternations URL-first so
+# --   "http://foo.example.com/path" wins over the embedded "foo.example.com" --
+_AUTOLINK_RE = _re.compile(
+    r"(?P<url>https?://[^\s<>]+|www\.[^\s<>]+)"
+    r"|(?P<email>[\w.+\-]+@[\w\-]+\.[\w.\-]+)",
+    _re.IGNORECASE,
+)
+# -- characters we strip from the trailing edge of a URL match: common sentence
+# --   punctuation that is almost certainly not part of the URL itself. --
+_URL_TRAILING_STRIP = ".,;:!?)]}>\"'"
+# -- characters acceptable in a "telephone-shape" string (no scheme, no @).
+# -- Permits a leading "+", "(", or digit followed by 4+ phone-glyph chars; --
+# -- the digits-only count is sanity-checked by the caller. --
+_TEL_RE = _re.compile(r"^[+0-9(][0-9+\-().\s]{4,}$")
+
+
+def _normalise_url_scheme(url: str) -> str:
+    """Return `url` with an obvious missing scheme prepended.
+
+    * ``alice@example.com`` → ``mailto:alice@example.com``
+    * ``+1 555 0100`` → ``tel:+15550100``
+    * ``www.example.com`` → ``http://www.example.com``
+    * already-schemed values (``mailto:``, ``tel:``, ``http://``, ``https://``,
+      ``ftp://``, ``file:``…) are returned unchanged.
+    """
+    stripped = url.strip()
+    if not stripped:
+        return url
+    # -- already has a scheme? leave it alone --
+    if _re.match(r"^[a-zA-Z][a-zA-Z0-9+\-.]*:", stripped):
+        return stripped
+    # -- email shape gets mailto: --
+    if _EMAIL_RE.fullmatch(stripped):
+        return "mailto:" + stripped
+    # -- telephone shape gets tel: with whitespace stripped --
+    if _TEL_RE.match(stripped):
+        compact = _re.sub(r"[\s().\-]", "", stripped)
+        if compact.startswith("+") or compact.isdigit():
+            return "tel:" + compact
+    # -- www-shortcut gets http:// --
+    if stripped.lower().startswith("www."):
+        return "http://" + stripped
+    return stripped
+
+
+def _autolink_text(
+    paragraph: "Paragraph",
+    text: str,
+    style: "str | CharacterStyle | None",
+) -> "list[Run | Hyperlink]":
+    """Append `text` to `paragraph`, splitting on URL / email matches.
+
+    Plain segments are emitted as :class:`Run` objects via
+    :meth:`Paragraph.add_run`; matches become :class:`Hyperlink` objects via
+    :meth:`Paragraph.add_url`. Returns the new children in document order.
+    """
+    pieces: list[Run | Hyperlink] = []
+    cursor = 0
+    for match in _AUTOLINK_RE.finditer(text):
+        start, end = match.span()
+        # -- strip trailing punctuation (URL only — emails don't usually
+        # -- end in '.' followed by whitespace in practice but the same
+        # -- principle applies; we keep the strip URL-only to avoid
+        # -- accidentally chopping legitimate email-domain dots). --
+        if match.group("url"):
+            raw = match.group("url")
+            while raw and raw[-1] in _URL_TRAILING_STRIP:
+                raw = raw[:-1]
+                end -= 1
+            if not raw:
+                continue
+            url_value = raw
+            display = raw
+        else:
+            url_value = match.group("email")
+            display = url_value
+
+        if start > cursor:
+            pieces.append(paragraph.add_run(text[cursor:start]))
+        pieces.append(
+            paragraph.add_url(url_value, text=display, style=style)
+        )
+        cursor = end
+
+    if cursor < len(text):
+        pieces.append(paragraph.add_run(text[cursor:]))
+    return pieces
