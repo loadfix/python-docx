@@ -19,35 +19,18 @@ new runtime dependencies; the flag exists as a versioning hook so
 future kit issues can declare deps without touching the core dependency
 list).
 
-The first kit submodule, :mod:`docx.kit.front_matter`, exposes seven
-helpers for the conventional front-matter sections of a long-form
-document:
+Available kit submodules:
 
-* :func:`~docx.kit.front_matter.add_title_page` — title / subtitle /
-  author / date, each in its own styled paragraph, followed by a page
-  break.
-* :func:`~docx.kit.front_matter.add_copyright_page` — copyright holder
-  + year + edition + optional rights notice.
-* :func:`~docx.kit.front_matter.add_dedication` — centred italic
-  dedication paragraph.
-* :func:`~docx.kit.front_matter.add_preface` — heading + body
-  paragraphs; accepts ``body`` as a string (split on blank lines) or a
-  list of paragraph strings.
-* :func:`~docx.kit.front_matter.add_table_of_contents` — wraps
-  :meth:`docx.document.Document.add_table_of_contents` with an optional
-  preceding heading.
-* :func:`~docx.kit.front_matter.add_list_of_figures` — TOC field
-  filtered to ``Figure`` SEQ entries.
-* :func:`~docx.kit.front_matter.add_list_of_tables` — TOC field
-  filtered to ``Table`` SEQ entries.
+* :mod:`docx.kit.front_matter` — title / copyright / dedication /
+  preface / TOC / list-of-figures / list-of-tables helpers.
+* :mod:`docx.kit.chapter` — chapter opener pages (large title +
+  decorative image + drop cap).
 
-Each helper appends a **section** of paragraphs at the end of the
-document body and returns the list of paragraphs it created so the
-caller can post-process them (e.g. tweak alignment, attach bookmarks).
+.. versionadded:: 2026.05.29
 """
 
 from __future__ import annotations
 
-from docx.kit import front_matter
+from docx.kit import chapter, front_matter
 
-__all__ = ["front_matter"]
+__all__ = ["chapter", "front_matter"]

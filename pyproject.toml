@@ -169,17 +169,17 @@ encryption = [
     # ``python-ooxml-crypto>=0.3.0``.
     "python-ooxml-crypto @ git+https://github.com/loadfix/python-ooxml-crypto@master",
 ]
-# Opt-in extra reserving a slot for the in-tree ``docx.kit`` namespace —
-# high-level authoring helpers (chapter openers, callout boxes, KPI rows,
+# Opt-in extra for the ``docx.kit`` submodule — opinionated authoring
+# helpers (front matter, chapter openers, callout boxes, KPI rows,
 # etc.) that compose primitive python-docx APIs into common
 # document-authoring shapes. The kit currently has zero extra runtime
 # dependencies; the flag exists so that future kit-only deps (e.g. a
 # Markdown front-end) can be opted into without forcing them on the
 # base install. Per the Wave 4 scoping decision (kit code lands as
-# in-tree submodules, not as new sibling packages — see
-# ``audits/`` and project memory for the rationale).
+# in-tree submodules, not as new sibling packages — see ``audits/``
+# and project memory for the rationale).
 #
-#   pip install -e '.[kit]'
+#   pip install 'python-docx[kit]'
 #
 kit = []
 

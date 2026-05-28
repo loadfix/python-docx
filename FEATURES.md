@@ -2846,6 +2846,43 @@ styles (`Title`, `Subtitle`, `Quote`) and silently fall back to
 `Normal` when a custom template lacks them — the spirit of a kit is
 "works out of the box, customise as you like".
 
+### Chapter opener pages
+
+`docx.kit.chapter.add_chapter_opener` emits a section break followed by
+the canonical chapter-start layout: a small "Chapter N" line, a large
+`Heading 1` title, an italic centered epigraph, an optional decorative
+image, and an optional 3-line `w:framePr` drop cap on the first letter
+of the chapter body. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import chapter
+
+doc = Document()
+
+chapter.add_chapter_opener(
+    doc,
+    chapter_number="Chapter 1",
+    title="The First Light",
+    epigraph='"In the beginning, there was..." -- Genesis 1:1',
+    drop_cap=True,
+    image="chapter1-opener.png",
+    color="primary",
+)
+
+# Page break is automatic; the next add_paragraph after this starts the
+# chapter body. When drop_cap=True, the first paragraph is split into a
+# 1-character framePr drop-cap paragraph plus a body paragraph holding
+# the remainder, matching Word's "Insert -> Drop Cap (Dropped)" output.
+doc.add_paragraph("It was a dark and stormy night...")
+```
+
+`color` accepts a named preset (`"primary"`, `"secondary"`, `"accent"`,
+`"muted"`, `"black"`), an `RGBColor`, or a 6-character hex string. All
+non-required arguments (`chapter_number`, `epigraph`, `image`,
+`drop_cap`, `color`) are optional; the helper degrades gracefully for
+documents that only need a subset of the layout.
+
 ---
 
 ## API concepts

@@ -103,10 +103,12 @@ Summary of areas extended beyond upstream `1.2.0`:
 - Themes, web settings, font table (with font embedding), glossary,
   digital-signature detection
 - High-level authoring helpers under `docx.kit` — pattern-level
-  compositions over the primitive APIs. Currently ships
+  compositions over the primitive APIs. Ships
   `docx.kit.front_matter` (title page, copyright page, dedication,
-  preface, table of contents, list of figures, list of tables). Lives
-  under the optional `[kit]` extras flag (`pip install python-docx[kit]`).
+  preface, table of contents, list of figures, list of tables) and
+  `docx.kit.chapter.add_chapter_opener` (section break + Heading 1 title
+  + epigraph + decorative image + drop cap). Lives under the optional
+  `[kit]` extras flag (`pip install python-docx[kit]`).
 
 API and user-guide documentation lives under `docs/` and builds with
 Sphinx. The theme is Furo.
