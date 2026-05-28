@@ -1,17 +1,5 @@
 """Document-lint framework + heading-hierarchy rules (issue #57).
 
-Provides :class:`LintFinding` (dataclass with ``severity``,
-``paragraph_index``, ``rule_id``, and ``message``) plus :func:`lint`
-which walks a |Document| body and yields findings according to a list
-of rule callables. The heading-hierarchy ruleset ships preconfigured;
-callers can pass their own list to extend or restrict the checks.
-
-This is the minimal viable lint surface — meant to give authors and
-review tooling a structured way to flag accessibility / readability
-issues that would otherwise live in human review notes. New rules are
-ordinary callables ``(paragraphs) -> Iterable[LintFinding]`` so adding
-one is as easy as a function.
-
 .. versionadded:: 2026.05.13
 """
 
@@ -41,11 +29,7 @@ __all__ = [
 
 
 class Severity(str):
-    """String subclass exposing the supported severity tokens.
-
-    Stored as plain strings (``"error"`` / ``"warning"`` / ``"info"``)
-    so JSON-style consumers don't need to translate an enum.
-    """
+    """Severity tokens used by :class:`LintFinding`."""
 
     ERROR = "error"
     WARNING = "warning"
@@ -56,12 +40,9 @@ class Severity(str):
 class LintFinding:
     """Structured lint result.
 
-    ``severity`` is one of ``"error"`` / ``"warning"`` / ``"info"``.
-    ``paragraph_index`` is the zero-based index into ``document.paragraphs``
-    (top-level body paragraphs only); |None| when the finding is
-    document-level (e.g. "no Heading 1 anywhere"). ``rule_id`` is the
-    machine-readable identifier (kebab-case) and ``message`` is the
-    human-readable description.
+    ``severity`` is ``"error"`` / ``"warning"`` / ``"info"``; ``rule_id``
+    is the machine-readable kebab-case identifier; ``paragraph_index``
+    is |None| for document-level findings.
     """
 
     severity: str
@@ -71,12 +52,7 @@ class LintFinding:
 
 
 def _heading_level(paragraph: "Paragraph") -> Optional[int]:
-    """Return the 1-9 heading level for ``paragraph`` or |None|.
-
-    ``"Title"`` and aliases (``"Heading"`` without trailing digit) are
-    treated as level 1 for hierarchy purposes; styles whose names don't
-    match the ``"Heading N"`` shape return |None|.
-    """
+    """Return the 1-9 heading level for ``paragraph`` or |None|."""
     style = paragraph.style
     if style is None:
         return None
@@ -95,14 +71,7 @@ def _heading_level(paragraph: "Paragraph") -> Optional[int]:
 
 
 def _looks_like_heading(paragraph: "Paragraph") -> bool:
-    """Heuristic: paragraph is short, bold, and not styled as a heading.
-
-    Used by ``heading-direct-formatting`` and ``heading-without-style``
-    rules. A "looks like" heading is a body-styled paragraph whose
-    visible runs are entirely bold *or* whose font size is larger than
-    14 pt, and whose text is a single short line (≤ 80 chars, no
-    trailing period).
-    """
+    """Heuristic: short body-styled paragraph that is bold or has large font."""
     if _heading_level(paragraph) is not None:
         return False
     text = (paragraph.text or "").strip()
@@ -140,11 +109,7 @@ def _looks_like_heading(paragraph: "Paragraph") -> bool:
 
 
 def rule_heading_skip(paragraphs: Sequence["Paragraph"]) -> Iterable[LintFinding]:
-    """Flag a heading whose level jumps by more than 1 from the prior.
-
-    For example, an ``H1`` followed by an ``H3`` is reported because
-    screen-readers rely on contiguous heading levels.
-    """
+    """Flag a heading whose level jumps by more than 1 (e.g. H1 -> H3)."""
     last_level: Optional[int] = None
     for idx, paragraph in enumerate(paragraphs):
         level = _heading_level(paragraph)
@@ -298,14 +263,11 @@ def lint_document(
     document: "Document",
     rules: Optional[Sequence] = None,
 ) -> List[LintFinding]:
-    """Run ``rules`` against the body of ``document`` and return findings.
+    """Run ``rules`` against ``document``'s body and return findings.
 
-    ``rules`` may be |None| (uses :data:`DEFAULT_RULES`), a sequence of
-    rule callables, or a sequence of rule-id strings. Callable rules
-    receive the list of top-level body paragraphs and return an
-    iterable of :class:`LintFinding` instances. Findings appear in
-    ``(paragraph_index, rule_id)`` order, with document-level findings
-    (no paragraph index) sorted last.
+    ``rules`` may be |None| (defaults), a sequence of callables, or a
+    sequence of rule-id strings. Findings sort by
+    ``(paragraph_index, rule_id)``, doc-level findings last.
     """
     paragraphs = list(document.paragraphs)
     selected = DEFAULT_RULES if rules is None else [_resolve_rule(r) for r in rules]

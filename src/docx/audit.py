@@ -1,28 +1,4 @@
-"""Style audit + style consolidation helpers (issue #59).
-
-`Document.audit_styles()` produces a :class:`StyleAudit` carrying:
-
-- ``summary`` — counts of detected issues by category
-- ``issues`` — list of structured :class:`StyleIssue` records
-- ``consolidate_styles(canonical, drop=[...])`` — rewrite every
-  paragraph that uses a style in ``drop`` to use ``canonical`` instead,
-  then delete the redundant style definitions.
-
-The audit detects:
-
-- ``duplicate-styles`` (info) — styles whose UI names are similar (e.g.
-  ``"Heading 1"`` vs ``"heading 1"`` vs ``"H1"``) and whose font
-  properties match
-- ``direct-formatting`` (info) — paragraphs whose direct font
-  formatting is identical to an existing named style
-- ``mixed-fonts`` (warning) — paragraphs with runs in ≥ 2 different
-  font families
-- ``unstyled-paragraph`` (info) — paragraphs using the default
-  ``Normal`` style (no explicit style assigned)
-- ``heading-without-style`` (error) — body-styled paragraph that
-  visually looks like a heading (delegates to the same heuristic as
-  ``docx.lint.rule_heading_direct_formatting``)
-- ``orphan-style`` (info) — paragraph styles defined but unused
+"""Style audit + consolidation helpers (issue #59).
 
 .. versionadded:: 2026.05.13
 """
@@ -52,12 +28,9 @@ __all__ = [
 class StyleIssue:
     """One finding in a :class:`StyleAudit`.
 
-    ``severity`` is one of ``"error"``, ``"warning"``, ``"info"``.
-    ``rule_id`` is the kebab-case identifier (e.g.
-    ``"duplicate-styles"``). ``paragraph_index`` is the zero-based
-    index into the document's body paragraphs, or |None| for
-    document-level findings (orphan / duplicate style entries).
-    ``style_names`` is the list of styles the finding refers to.
+    ``severity`` is ``"error"`` / ``"warning"`` / ``"info"``;
+    ``rule_id`` is the kebab-case identifier; ``paragraph_index`` is
+    |None| for document-level findings.
     """
 
     severity: str
@@ -103,12 +76,7 @@ def _font_signature(style: "BaseStyle") -> tuple:
 
 
 def _paragraph_font_signature(paragraph: "Paragraph") -> Optional[tuple]:
-    """Aggregate a paragraph's run-level direct formatting into a signature.
-
-    Returns |None| when the paragraph has no direct formatting (every
-    run defers entirely to the style). When runs disagree on a property
-    that property contributes |None| to the tuple.
-    """
+    """Aggregate run-level direct formatting into a signature; |None| when none."""
     runs = list(paragraph.runs)
     if not runs:
         return None
@@ -147,12 +115,7 @@ def _paragraph_font_signature(paragraph: "Paragraph") -> Optional[tuple]:
 
 @dataclass
 class StyleAudit:
-    """Audit result returned by :meth:`Document.audit_styles`.
-
-    Iterating yields the :class:`StyleIssue` entries; ``len()`` returns
-    the issue count. Plus :meth:`consolidate_styles` for round-trip
-    safe deduplication.
-    """
+    """Audit result returned by :meth:`Document.audit_styles`."""
 
     issues: List[StyleIssue] = field(default_factory=list)
     summary: dict = field(default_factory=dict)
@@ -173,15 +136,11 @@ class StyleAudit:
         canonical: str,
         drop: Sequence[str] = (),
     ) -> int:
-        """Rewrite paragraphs to use ``canonical`` and delete styles in ``drop``.
+        """Rewrite body paragraphs using a style in ``drop`` to use ``canonical``.
 
-        For every top-level body paragraph whose style is in ``drop``,
-        rewrite the style assignment to ``canonical``. Then delete
-        every style in ``drop`` from the styles part. Returns the number
-        of paragraphs rewritten.
-
-        Round-trip safe: callers should re-save after calling. Raises
-        :class:`KeyError` when ``canonical`` is not defined.
+        Then delete the dropped styles. Returns the number of paragraphs
+        rewritten. Raises :class:`KeyError` when ``canonical`` is not
+        defined. Round-trip safe.
         """
         if self.document is None:
             raise RuntimeError(

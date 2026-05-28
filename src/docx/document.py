@@ -801,43 +801,29 @@ class Document(ElementProxy):
     ):
         """Return a context manager that scopes content to a fresh section.
 
-        Body content added inside the ``with`` block lives in a new
-        section whose page setup is configured by the keyword arguments;
-        on exit, an implicit section break is appended that reverts to
-        the previously-active section's setup::
+        On enter, a continuous section break is appended and the
+        keyword-supplied page setup applied to the new section; on exit,
+        a second break is appended that reverts to the prior layout::
 
             with doc.section(orientation='landscape', margins='narrow'):
                 doc.add_paragraph("Wide table follows")
                 doc.add_table(rows=2, cols=12)
-            # implicit section break here -- subsequent content is back
-            # to portrait / prior margins
 
-        ``orientation`` accepts ``"portrait"`` / ``"landscape"``
-        (case-insensitive) or a :class:`WD_ORIENTATION` member; flipping
-        orientation swaps ``page_width`` and ``page_height`` to match
-        Word's convention.
+        ``orientation`` accepts ``"portrait"`` / ``"landscape"`` or a
+        :class:`WD_ORIENTATION` member. ``margins`` accepts presets
+        (``"narrow"`` / ``"normal"`` / ``"moderate"`` / ``"wide"``), a
+        4-tuple ``(top, right, bottom, left)``, or a dict.
+        ``page_size`` accepts presets (``"letter"`` / ``"legal"`` /
+        ``"a4"`` / ``"a3"`` / ``"tabloid"``), a 2-tuple, or a dict.
+        ``page_numbering`` is a dict with ``style`` / ``start`` /
+        ``restart`` keys. ``columns`` is an int or dict forwarded to
+        :meth:`Section.set_columns`. ``line_numbering`` is a bool or
+        dict forwarded to :meth:`Section.set_line_numbering`.
+        ``header`` / ``footer`` are plain text strings.
 
-        ``margins`` accepts a preset name (``"narrow"`` / ``"normal"`` /
-        ``"moderate"`` / ``"wide"``), a 4-tuple ``(top, right, bottom,
-        left)`` of |Length| or numeric inches, or a dict with any subset
-        of those keys.
-
-        ``page_size`` accepts a preset (``"letter"`` / ``"legal"`` /
-        ``"a4"`` / ``"a3"`` / ``"tabloid"``), a 2-tuple ``(width,
-        height)``, or a dict.
-
-        ``page_numbering`` is a dict with optional ``style`` (alias for
-        ``fmt`` — :class:`WD_NUMBER_FORMAT`), ``start`` (int), and
-        ``restart`` (bool/int) keys. ``columns`` is an int or dict
-        forwarded to :meth:`Section.set_columns`. ``line_numbering`` is
-        a bool or dict forwarded to :meth:`Section.set_line_numbering`.
-        ``header`` / ``footer`` are plain strings written to the new
-        section's first header/footer paragraph. Unspecified properties
-        inherit from the prior section.
-
-        Raises :class:`docx.exceptions.NestedSectionError` when invoked
-        while another :meth:`section` context is already active —
-        OOXML sections cannot nest.
+        Raises :class:`docx.exceptions.NestedSectionError` when entered
+        inside another active section context — OOXML sections cannot
+        nest.
 
         .. versionadded:: 2026.05.13
         """
@@ -858,30 +844,10 @@ class Document(ElementProxy):
     def audit_styles(self):
         """Audit the document's styles and return a :class:`StyleAudit`.
 
-        Runs every audit pass over the body and surfaces structured
-        :class:`docx.audit.StyleIssue` records. Each issue carries
-        ``severity``, ``rule_id``, ``message``, plus optional
-        ``paragraph_index`` and ``style_names`` fields.
-
-        Detected issues:
-
-        - ``duplicate-styles`` (info) — styles whose names are similar
-          (case-insensitive, with the ``H1``/``Heading 1`` alias) and
-          whose font properties match
-        - ``direct-formatting`` (info) — paragraph with direct
-          formatting that matches an existing style
-        - ``mixed-fonts`` (warning) — paragraph with runs in ≥ 2
-          different font families
-        - ``unstyled-paragraph`` (info) — non-empty paragraph using
-          the default Normal style
-        - ``heading-without-style`` (error) — body-styled paragraph
-          that visually looks like a heading
-        - ``orphan-style`` (info) — custom paragraph style defined
-          but unused
-
-        Use :meth:`StyleAudit.consolidate_styles` to rewrite all
-        references to a deprecated style and drop the redundant
-        definitions in one shot::
+        Issues surfaced: ``duplicate-styles``, ``direct-formatting``,
+        ``mixed-fonts``, ``unstyled-paragraph``, ``heading-without-style``,
+        ``orphan-style``. Use :meth:`StyleAudit.consolidate_styles` to
+        rewrite paragraphs and drop redundant style definitions::
 
             audit = doc.audit_styles()
             audit.consolidate_styles("Heading 1", drop=["H1", "Heading1"])
@@ -893,27 +859,12 @@ class Document(ElementProxy):
         return audit_styles(self)
 
     def lint(self, rules=None):
-        """Run a set of structural / accessibility lint rules over the body.
+        """Run lint rules and return a list of :class:`LintFinding`.
 
-        Returns a list of :class:`docx.lint.LintFinding` (severity,
-        paragraph_index, rule_id, message). The default rule-set
-        focuses on heading-hierarchy quality::
-
-            for finding in document.lint():
-                print(finding.rule_id, finding.message)
-
-        Rules ship with stable ids:
-
-        - ``heading-skip`` (error) — H1 → H3 with no H2
-        - ``heading-multiple-h1`` (warning) — more than one Heading 1
-        - ``heading-no-h1`` (info) — document has no Heading 1
-        - ``heading-direct-formatting`` (warning) — body paragraph
-          looks like a heading via bold / large font
-        - ``heading-empty`` (error) — heading with no visible text
-        - ``heading-too-long`` (warning) — heading > 120 chars
-
-        ``rules`` may be |None| (use defaults), a sequence of rule-id
-        strings, or a sequence of rule callables. Custom rules are
+        Default rules: ``heading-skip``, ``heading-multiple-h1``,
+        ``heading-no-h1``, ``heading-direct-formatting``,
+        ``heading-empty``, ``heading-too-long``. ``rules`` may be |None|
+        (defaults), a list of rule-id strings, or a list of callables
         ``(paragraphs) -> Iterable[LintFinding]``.
 
         .. versionadded:: 2026.05.13

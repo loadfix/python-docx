@@ -1,24 +1,5 @@
 """Context-manager helpers for ergonomic section authoring (issue #79).
 
-The OOXML section model encodes per-region page setup (orientation,
-margins, columns, headers/footers) by attaching a ``w:sectPr`` to the
-*last paragraph* of the region. Authoring this by hand is error-prone:
-the caller has to remember to take a snapshot of the previous section,
-mutate the new ``sectPr``, and then add a fresh section break afterward
-to revert. :func:`Document.section` exposes a context manager that
-orchestrates that dance.
-
-Usage::
-
-    with doc.section(orientation='landscape', margins='narrow'):
-        doc.add_paragraph(...)
-        doc.add_table(...)
-    # implicit section break here, returns to portrait
-
-OOXML sections do not nest. Attempting to enter a section context while
-another is already active raises :class:`NestedSectionError` with a
-clear message.
-
 .. versionadded:: 2026.05.13
 """
 
@@ -48,13 +29,7 @@ _MARGIN_PRESETS: dict[str, tuple[float, float, float, float]] = {
 def _resolve_margins(
     spec: Union[str, dict, tuple, list, None],
 ) -> "Optional[dict[str, Length]]":
-    """Translate a margin spec into a ``{edge: Length}`` mapping.
-
-    Accepts a preset name (``"narrow"`` / ``"normal"`` / ``"moderate"`` /
-    ``"wide"``), a 4-tuple of ``Length``-or-float-inches, or a dict with
-    ``top``/``right``/``bottom``/``left`` keys (any subset). Returns
-    |None| when ``spec`` is |None|.
-    """
+    """Translate a margin spec (preset / 4-tuple / dict) into ``{edge: Length}``."""
     if spec is None:
         return None
     if isinstance(spec, str):
@@ -106,12 +81,7 @@ def _coerce_length(value: Any) -> Length:
 def _resolve_page_size(
     spec: Union[str, tuple, list, dict, None],
 ) -> "Optional[tuple[Length, Length]]":
-    """Translate a page-size spec into a ``(width, height)`` pair.
-
-    Accepts a preset name (``"letter"`` / ``"legal"`` / ``"a4"`` /
-    ``"a3"``), a 2-tuple ``(width, height)``, or a dict with ``width``
-    and ``height`` keys. Returns |None| when ``spec`` is |None|.
-    """
+    """Translate a page-size spec (preset / 2-tuple / dict) into ``(w, h)``."""
     if spec is None:
         return None
     presets: dict[str, tuple[float, float]] = {
@@ -148,18 +118,7 @@ def _resolve_page_size(
 
 
 class _SectionContext:
-    """Context manager returned by :meth:`Document.section`.
-
-    On enter, appends a section break and applies the requested
-    properties to the *new* section. On exit, appends a second section
-    break that reverts to whatever section was active before — letting
-    callers nest content under custom orientation/margins/columns
-    without manually managing the section graph.
-
-    OOXML does not allow nested sections, so this context tracks an
-    activation flag on the parent document; entering while another
-    context is active raises :class:`NestedSectionError`.
-    """
+    """Context manager returned by :meth:`Document.section`."""
 
     def __init__(
         self,
@@ -192,26 +151,16 @@ class _SectionContext:
                 "context (`with doc.section(...)`) before opening another"
             )
         self._document._in_section_context = True  # type: ignore[attr-defined]
-
-        # -- end the *prior* section here (turning the current sentinel
-        # -- into a paragraph-anchored sectPr) and obtain a fresh sentinel
-        # -- which now controls the inner region.
         section = self._document.add_section(WD_SECTION.CONTINUOUS)
         self._apply_properties(section)
         self._inner_section = section
         return section
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        # -- Append a second section break that reverts the trailing
+        # -- sentinel to the page setup that was active before __enter__.
         try:
-            # -- Close the inner region by anchoring its sectPr at the
-            # -- last paragraph and starting a fresh section that reverts
-            # -- to the prior layout. We look up the *second-last* section
-            # -- (the one that existed before __enter__) and copy its
-            # -- relevant page-setup attributes onto the new sentinel.
             sections = self._document.sections
-            # -- before __enter__: N sections; after __enter__: N+1.
-            # -- Now adding another break makes it N+2; the new sentinel
-            # -- should match section N-1 (the one before our inner).
             prior = sections[-2] if len(sections) >= 2 else None
             new_section = self._document.add_section(WD_SECTION.CONTINUOUS)
             if prior is not None:
@@ -320,11 +269,7 @@ class _SectionContext:
 
     @staticmethod
     def _copy_page_setup(src: "Section", dst: "Section") -> None:
-        """Copy the page-setup attributes that the context tweaks.
-
-        Used on exit to revert the trailing section to whatever was in
-        effect before the context entered.
-        """
+        """Copy page-setup attrs from ``src`` to ``dst`` (used on exit)."""
         for attr in (
             "orientation",
             "page_width",
@@ -352,12 +297,7 @@ def open_section(
     columns: Union[int, dict, None] = None,
     line_numbering: Union[bool, dict, None] = None,
 ) -> _SectionContext:
-    """Build a :class:`_SectionContext` bound to ``document``.
-
-    Thin factory used by :meth:`Document.section`. Kept module-level so
-    the context-manager type stays importable for callers that want to
-    type-annotate their own helpers.
-    """
+    """Factory used by :meth:`Document.section`."""
     return _SectionContext(
         document,
         orientation=orientation,
