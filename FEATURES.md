@@ -2947,6 +2947,41 @@ instance — callers further mutate it (add a header via
 `docx.kit.letterhead.set_letterhead`, append more sections, etc.)
 or save via `Document.save(...)`.
 
+### Mail-merge engine
+
+`docx.kit.mail_merge.merge` bulk-renders one personalised `Document`
+per record from a single template, composing the
+smart-placeholder machinery from the
+[smart placeholders](#smart-placeholders) section with an
+ergonomic one-line API. `[Added in 2026.05.29]`
+
+```python
+from docx.kit.mail_merge import merge
+
+records = [
+    {"first_name": "Alice", "role": "Engineer", "salary": "$120k"},
+    {"first_name": "Bob",   "role": "Manager",  "salary": "$140k"},
+]
+
+# In-memory: returns a list[Document] in record order.
+docs = merge(template="offer-letter-template.docx", records=records)
+for doc, record in zip(docs, records):
+    doc.save(f"offer-{record['first_name']}.docx")
+
+# Direct-to-disk: pass output_dir + filename_template.
+paths = merge(
+    template="offer-letter-template.docx",
+    records=records,
+    output_dir="out/",
+    filename_template="offer-{first_name}.docx",
+)
+```
+
+`template` accepts a path, an open binary file-like object, or an
+already-loaded `Document`. The `{i}` token resolves to the current
+0-based row index inside both document text and the filename
+template.
+
 ---
 
 ## API concepts

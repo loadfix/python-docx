@@ -37,13 +37,25 @@ Available kit submodules:
   (``nda`` / ``msa`` / ``sow`` / ``contractor_agreement``) with
   AUS-default boilerplate. Output is a *starting point only* — the
   module docstring carries an explicit "not legal advice" disclaimer.
+* :mod:`docx.kit.mail_merge` — bulk render N personalised documents
+  from a single template + iterable of records, composing the
+  smart-placeholder machinery from #68 with an ergonomic
+  one-line API.
 
 .. versionadded:: 2026.05.29
 """
 
 from __future__ import annotations
 
-from docx.kit import back_matter, chapter, contracts, front_matter, letterhead, resume
+from docx.kit import (
+    back_matter,
+    chapter,
+    contracts,
+    front_matter,
+    letterhead,
+    mail_merge,
+    resume,
+)
 
 __all__ = [
     "back_matter",
@@ -51,5 +63,6 @@ __all__ = [
     "contracts",
     "front_matter",
     "letterhead",
+    "mail_merge",
     "resume",
 ]

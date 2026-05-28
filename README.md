@@ -109,10 +109,14 @@ Summary of areas extended beyond upstream `1.2.0`:
   `docx.kit.chapter.add_chapter_opener` (section break + Heading 1 title
   + epigraph + decorative image + drop cap),
   `docx.kit.letterhead.set_letterhead` (branded header + footer with
-  three styles), and `docx.kit.resume`
+  three styles), `docx.kit.resume`
   (`resume_chronological` / `resume_functional` / `resume_technical`
   factories returning fully-styled CV documents in three visual
-  styles — `modern` / `classic` / `minimal`). Lives under the optional
+  styles — `modern` / `classic` / `minimal`), and
+  `docx.kit.mail_merge.merge` (bulk-render N personalised documents
+  from a single template + iterable of records, composing the
+  smart-placeholder machinery from #68 with an ergonomic one-line
+  API). Lives under the optional
   `[kit]` extras flag (`pip install python-docx[kit]`).
 
 API and user-guide documentation lives under `docs/` and builds with
