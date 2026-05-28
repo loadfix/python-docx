@@ -27,12 +27,15 @@ Available kit submodules:
   decorative image + drop cap).
 * :mod:`docx.kit.back_matter` — appendix / glossary / index /
   bibliography helpers.
+* :mod:`docx.kit.letterhead` — branded header (logo + return address)
+  and footer (phone / email / website) with three built-in styles
+  (``modern`` / ``classic`` / ``minimal``).
 
 .. versionadded:: 2026.05.29
 """
 
 from __future__ import annotations
 
-from docx.kit import back_matter, chapter, front_matter
+from docx.kit import back_matter, chapter, front_matter, letterhead
 
-__all__ = ["back_matter", "chapter", "front_matter"]
+__all__ = ["back_matter", "chapter", "front_matter", "letterhead"]
