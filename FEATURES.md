@@ -56,6 +56,7 @@ other item is inherited from the upstream base.
 - [Accessibility](#accessibility)
 - [Document outline](#document-outline)
 - [Document statistics](#document-statistics)
+- [Readability metrics](#readability-metrics)
 - [Search and replace](#search-and-replace)
 - [Cross-document operations](#cross-document-operations)
 - [Packaging and I/O options](#packaging-and-io-options)
@@ -2314,6 +2315,36 @@ print("pages:     ", stats.pages)  # may be None
 ```
 
 - `Document.statistics` — `DocumentStatistics(paragraphs, words, characters, characters_no_spaces, pages)`. `[Added in 2026.05.0]`
+
+---
+
+## Readability metrics
+
+`Document.readability()` returns a `ReadabilityReport` with the six standard
+readability scores (Flesch Reading Ease, Flesch-Kincaid Grade, Gunning Fog,
+SMOG, Coleman-Liau, Automated Readability Index) plus the underlying word /
+sentence / syllable / character / complex-word counts, both for the whole
+body and broken down per `Heading 1` section. Body text before the first
+`Heading 1` is grouped under a synthetic `Introduction` section.
+Tokenisation uses a stdlib-only heuristic (vowel-group syllable counting,
+regex sentence splitting) so no extra dependency is added. `[Added in 2026.05.12]`.
+
+```python
+from docx import Document
+
+metrics = Document("paper.docx").readability()
+print(metrics.overall.flesch_reading_ease)       # 62.3
+print(metrics.overall.flesch_kincaid_grade)      # 9.4
+print(metrics.overall.gunning_fog)               # 11.2
+print(metrics.overall.word_count)                # 4231
+for section in metrics.sections:
+    print(section.title, section.flesch_kincaid_grade, section.word_count)
+```
+
+- `Document.readability()` — `ReadabilityReport(overall, sections)`. `[Added in 2026.05.12]`
+- `ReadabilityReport.to_dict()` — JSON-serialisable snapshot. `[Added in 2026.05.12]`
+- `ReadabilityScores` — `flesch_reading_ease`, `flesch_kincaid_grade`, `gunning_fog`, `smog`, `coleman_liau`, `automated_readability`, `word_count`, `sentence_count`, `syllable_count`, `character_count`, `complex_word_count`, `avg_words_per_sentence`, `avg_syllables_per_word`. `[Added in 2026.05.12]`
+- `SectionScores` — `title`, `paragraph_index`, `scores` plus pass-through accessors for every metric and count. `[Added in 2026.05.12]`
 
 ---
 

@@ -57,6 +57,7 @@ if TYPE_CHECKING:
     from docx.settings import DocumentProtection, Settings
     from docx.signatures import SignatureInfo
     from docx.smart_art import SmartArt
+    from docx.readability import ReadabilityReport
     from docx.statistics import DocumentStatistics
     from docx.styles.style import ParagraphStyle, _TableStyle
     from docx.table import Table
@@ -3137,6 +3138,32 @@ class Document(ElementProxy):
         .. versionadded:: 2026.05.10
         """
         self.settings.disable_protection()
+
+    def readability(self) -> "ReadabilityReport":
+        """Return a |ReadabilityReport| of standard readability metrics.
+
+        Computes Flesch Reading Ease, Flesch-Kincaid Grade, Gunning Fog,
+        SMOG, Coleman-Liau, and Automated Readability Index for the
+        whole body story, plus the underlying word, sentence, syllable,
+        character, and complex-word counts. The report's ``sections``
+        list partitions the body by ``Heading 1`` boundaries -- body
+        text before the first ``Heading 1`` becomes a synthetic
+        ``Introduction`` section. ``Title`` and ``Heading 2..9``
+        paragraphs are folded into the surrounding section so the
+        breakdown stays compact.
+
+        Tokenisation uses a stdlib-only heuristic (no ``nltk`` /
+        ``textstat`` dependency): vowel-group syllable counting,
+        regex-based sentence splitting on ``[.!?]+``. Scores agree
+        with published values to within a few percent for natural
+        prose -- good enough for the Word "Readability Statistics"
+        dialog use case the formulas were designed for.
+
+        .. versionadded:: 2026.05.12
+        """
+        from docx.readability import build_report
+
+        return build_report(self)
 
     @property
     def statistics(self) -> DocumentStatistics:
