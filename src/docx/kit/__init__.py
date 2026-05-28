@@ -76,6 +76,13 @@ Available kit submodules:
   Subjective / Objective / Assessment / Plan structure, structured
   vitals table, and an explicit "template only — not a medical record"
   disclaimer rendered into every output document.
+* :mod:`docx.kit.brand` — :class:`~docx.kit.brand.BrandAssets`,
+  a YAML-driven manifest loader for corporate brand colours
+  (RGB triples), font pairs (heading / body), logo path variants
+  (full-colour / monochrome / reverse), and conventional spacing
+  values. Composes with the rest of the kit (``set_letterhead`` /
+  ``add_chapter_opener`` / ``invoice``) so an organisation declares
+  its brand once and reuses it across every authored document.
 
 .. versionadded:: 2026.05.29
 """
@@ -84,6 +91,7 @@ from __future__ import annotations
 
 from docx.kit import (
     back_matter,
+    brand,
     chapter,
     contracts,
     dividers,
@@ -101,6 +109,7 @@ from docx.kit import (
 
 __all__ = [
     "back_matter",
+    "brand",
     "chapter",
     "contracts",
     "dividers",

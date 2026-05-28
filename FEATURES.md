@@ -3257,6 +3257,80 @@ either a string or a `{"name", "dose", "frequency", "duration"}`
 mapping (missing fields are elided). Every factory raises `ValueError`
 when `patient` or `provider`/`referrer` is missing or has no `name`.
 
+### Brand asset manager (YAML-driven)
+
+`docx.kit.brand.BrandAssets` loads a corporate brand-asset bundle —
+colours, fonts, logo path variants, conventional spacing values — from
+a YAML manifest and exposes it as a typed, attribute-accessible object
+so kit helpers and ad-hoc authoring code can compose against a single
+source of truth. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit.brand import BrandAssets
+from docx.kit.letterhead import set_letterhead
+
+brand = BrandAssets.load("aws-brand.yaml")
+
+doc = Document()
+doc.add_picture(brand.logos.full_color)
+para = doc.add_paragraph("AWS")
+para.runs[0].font.color.rgb = brand.colors.primary  # AWS Smile Orange
+para.runs[0].font.name = brand.fonts.heading
+
+# Brand-aware kit composition:
+set_letterhead(
+    doc,
+    logo=brand.logos.full_color,
+    return_address="410 Terry Ave N\nSeattle WA 98109",
+)
+```
+
+The YAML schema is permissive — every block is optional, and unknown
+keys are preserved on each sub-view's `extras` mapping rather than
+dropped or rejected:
+
+```yaml
+name: AWS
+colors:
+  primary: '#FF9900'      # AWS Smile Orange
+  secondary: '#232F3E'    # Squid Ink
+  accent: '#0073BB'       # Lightning Blue
+  background: '#FAFAFA'
+fonts:
+  heading: 'Amazon Ember Display'
+  body: 'Amazon Ember'
+logos:
+  full_color: 'logos/aws-full-color.png'
+  monochrome: 'logos/aws-mono.png'
+  reverse: 'logos/aws-reverse.png'         # for dark backgrounds
+spacing:
+  paragraph: 12pt
+  section: 24pt
+```
+
+Resolution rules:
+
+- Colours parse as `RGBColor` from any of `"#FF9900"`, `"FF9900"`,
+  `"#F90"`, `"F90"`, an existing `RGBColor`, or a 3-int list/tuple.
+- Logo paths resolve against the YAML file's directory at load time,
+  so a brand kit that ships `aws-brand.yaml` alongside a `logos/`
+  directory works regardless of the caller's CWD. Absolute paths in
+  the manifest are passed through verbatim.
+- Spacing parses as `Length` with the unit suffix in the value
+  (`12pt`, `0.5in`, `24mm`, `3cm`, `914400emu`, `720twips`); bare
+  numbers / numeric strings are interpreted as points.
+- Fonts are font-family name strings — the kit doesn't embed fonts;
+  the caller is responsible for ensuring the named family is
+  available in the rendering environment.
+
+`BrandAssets.from_dict(data, base_dir=...)` constructs the same
+object from an already-parsed mapping for callers who load the
+manifest from a non-YAML source (TOML / JSON / env-var harness) or
+who want to construct a brand programmatically. PyYAML is required
+only for `BrandAssets.load(yaml_path)`; opt in via the
+`[brand]` extras flag (`pip install 'python-docx[brand]'`).
+
 ---
 
 ## API concepts

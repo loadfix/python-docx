@@ -182,6 +182,16 @@ encryption = [
 #   pip install 'python-docx[kit]'
 #
 kit = []
+# Opt-in extra for ``docx.kit.brand.BrandAssets`` — the YAML-driven
+# brand-asset manifest loader (issue #90). PyYAML is widely installed
+# but not a hard dependency of python-docx, so callers who want
+# ``BrandAssets.load(yaml_path)`` opt in via
+# ``pip install 'python-docx[brand]'``. ``BrandAssets.from_dict()``
+# works without PyYAML for callers who already have a parsed mapping.
+#
+#   pip install 'python-docx[brand]'
+#
+brand = ["pyyaml>=6.0"]
 
 [project.urls]
 Changelog = "https://github.com/python-openxml/python-docx/blob/master/HISTORY.rst"
