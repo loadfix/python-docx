@@ -784,3 +784,475 @@ class DescribeContentControlType_extended:
     def it_has_values_matching_the_marker_tag_local_names(self):
         assert ContentControlType.REPEATING_SECTION.value == "repeatingSection"
         assert ContentControlType.BUILDING_BLOCK.value == "docPartObj"
+
+
+# ---------------------------------------------------------------------------
+# Ergonomic authoring API (`build_text_control`, `add_text_control`,
+# `add_repeating_section`)
+
+
+class DescribeBuildTextControl:
+    """Unit-test suite for :func:`docx.content_controls.build_text_control`."""
+
+    def it_resolves_text_kind_string_to_PLAIN_TEXT(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("text", name="x")
+        assert sdt.type_marker_tag() == "w:text"
+
+    def it_resolves_rich_text_kind_string(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("rich-text", name="x")
+        assert sdt.type_marker_tag() is None
+
+    def it_resolves_dropdown_kind_string(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("dropdown", name="x")
+        assert sdt.type_marker_tag() == "w:dropDownList"
+
+    def it_resolves_combo_kind_string(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("combo", name="x")
+        assert sdt.type_marker_tag() == "w:comboBox"
+
+    def it_resolves_date_kind_string(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("date", name="x")
+        assert sdt.type_marker_tag() == "w:date"
+
+    def it_resolves_checkbox_kind_string(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("checkbox", name="x")
+        assert sdt.type_marker_tag() == "w14:checkbox"
+
+    def it_resolves_picture_kind_string(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("picture", name="x")
+        assert sdt.type_marker_tag() == "w:picture"
+
+    def it_resolves_repeating_section_kind_string(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("repeating-section", name="x")
+        assert sdt.type_marker_tag() == "w15:repeatingSection"
+
+    def it_accepts_a_ContentControlType_member_directly(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control(ContentControlType.DATE, name="x")
+        assert sdt.type_marker_tag() == "w:date"
+
+    def it_raises_ValueError_for_unknown_kind(self):
+        from docx.content_controls import build_text_control
+
+        try:
+            build_text_control("widget")
+        except ValueError as exc:
+            assert "widget" in str(exc)
+        else:
+            raise AssertionError("expected ValueError")
+
+    def it_assigns_the_name_to_the_tag_val(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("text", name="customer_name")
+        assert sdt.tag_val == "customer_name"
+
+    def it_uses_placeholder_as_alias_when_no_title_supplied(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("text", name="x", placeholder="Customer Name")
+        assert sdt.alias_val == "Customer Name"
+
+    def it_prefers_explicit_title_over_placeholder(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control(
+            "text", name="x", placeholder="Pl", title="MyTitle"
+        )
+        assert sdt.alias_val == "MyTitle"
+
+    def it_seeds_inline_content_with_value(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("text", name="x", value="Acme", inline=True)
+        text = sdt.text
+        assert text == "Acme"
+
+    def it_seeds_block_content_with_value(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control(
+            "rich-text", name="x", value="Hello", inline=False
+        )
+        assert sdt.text == "Hello"
+
+    def it_seeds_with_placeholder_when_no_value(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control(
+            "text", name="x", placeholder="Type here", inline=True
+        )
+        assert sdt.text == "Type here"
+
+    def it_uses_kind_specific_default_placeholder_when_unset(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("text", name="x", inline=True)
+        assert "text" in sdt.text.lower()  # "Click or tap here to enter text."
+
+    def it_writes_lock_when_locked_True(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("text", name="x", locked=True)
+        assert sdt.lock_val == "sdtLocked"
+
+    def it_omits_lock_when_locked_False(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("text", name="x", locked=False)
+        assert sdt.lock_val is None
+
+    def it_accepts_an_explicit_lock_string(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("text", name="x", locked="contentLocked")
+        assert sdt.lock_val == "contentLocked"
+
+    def it_writes_a_data_binding_for_a_bare_property_name(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control(
+            "text", name="customer_name", bind_to="CustomerName"
+        )
+        cc = ContentControl.proxy_for(sdt)
+        assert cc.data_binding is not None
+        assert "CustomerName" in cc.data_binding.xpath
+        assert cc.data_binding.prefix_mappings  # non-empty mappings emitted
+
+    def it_writes_a_data_binding_for_a_verbatim_xpath(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control(
+            "text", name="x", bind_to="/ns0:foo[1]/ns0:bar[1]"
+        )
+        cc = ContentControl.proxy_for(sdt)
+        assert cc.data_binding is not None
+        assert cc.data_binding.xpath == "/ns0:foo[1]/ns0:bar[1]"
+
+    def it_seeds_a_checkbox_value_as_a_check_state(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("checkbox", name="approved", value=True)
+        assert ContentControl.proxy_for(sdt).checked is True
+
+    def it_seeds_dropdown_items_from_items_kw(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control(
+            "dropdown", name="priority", items=["Low", "Med", "High"]
+        )
+        cc = ContentControl.proxy_for(sdt)
+        assert cc.items == ["Low", "Med", "High"]  # type: ignore[union-attr]
+
+
+class DescribeBuildTextControl_RoundTrip:
+    """Round-trip fidelity for :func:`build_text_control` output.
+
+    Each kind is built, dropped into a fresh :class:`docx.Document`, the
+    document is saved to a stream, and the stream is reopened. The
+    expectation is that every kind survives load → save → load
+    byte-identically (the conformance harness's contract — relaxed only
+    when Word's own emission deliberately drifts).
+    """
+
+    @staticmethod
+    def _round_trip(populate):
+        import io
+
+        from docx import Document
+
+        doc = Document()
+        populate(doc)
+        buf = io.BytesIO()
+        doc.save(buf)
+        buf.seek(0)
+        doc2 = Document(buf)
+        buf2 = io.BytesIO()
+        doc2.save(buf2)
+        # -- read once more and confirm bytes don't drift --
+        return doc2, buf.getvalue() == buf2.getvalue()
+
+    def it_round_trips_a_text_control(self):
+        def populate(doc):
+            doc.add_paragraph("intro").add_text_control(
+                name="customer", placeholder="Name", value="Acme"
+            )
+
+        doc, identical = self._round_trip(populate)
+        assert identical
+        cc = doc.paragraphs[0].content_controls[0]
+        assert cc.tag == "customer"
+        assert cc.text == "Acme"
+
+    def it_round_trips_a_rich_text_block_control(self):
+        def populate(doc):
+            doc.add_text_control(
+                kind="rich-text", name="exec_summary", placeholder="…"
+            )
+
+        doc, identical = self._round_trip(populate)
+        assert identical
+        cc = doc.content_controls[0]
+        assert cc.tag == "exec_summary"
+        assert cc.type is ContentControlType.RICH_TEXT
+
+    def it_round_trips_a_dropdown_with_items(self):
+        def populate(doc):
+            doc.add_paragraph().add_text_control(
+                kind="dropdown",
+                name="priority",
+                items=["Low", "Medium", "High"],
+                value="Medium",
+            )
+
+        doc, identical = self._round_trip(populate)
+        assert identical
+        cc = doc.paragraphs[0].content_controls[0]
+        assert cc.type is ContentControlType.DROPDOWN
+        assert cc.items == ["Low", "Medium", "High"]  # type: ignore[union-attr]
+
+    def it_round_trips_a_combo_box(self):
+        def populate(doc):
+            doc.add_paragraph().add_text_control(
+                kind="combo",
+                name="region",
+                items=["EU", "US"],
+            )
+
+        doc, identical = self._round_trip(populate)
+        assert identical
+        cc = doc.paragraphs[0].content_controls[0]
+        assert cc.type is ContentControlType.COMBO_BOX
+
+    def it_round_trips_a_date_control(self):
+        def populate(doc):
+            doc.add_paragraph().add_text_control(kind="date", name="due")
+
+        doc, identical = self._round_trip(populate)
+        assert identical
+        cc = doc.paragraphs[0].content_controls[0]
+        assert cc.type is ContentControlType.DATE
+
+    def it_round_trips_a_checkbox(self):
+        def populate(doc):
+            doc.add_paragraph().add_text_control(
+                kind="checkbox", name="approved", value=True
+            )
+
+        doc, identical = self._round_trip(populate)
+        assert identical
+        cc = doc.paragraphs[0].content_controls[0]
+        assert cc.type is ContentControlType.CHECKBOX
+        assert cc.checked is True
+
+    def it_round_trips_a_picture_control(self):
+        def populate(doc):
+            doc.add_paragraph().add_text_control(kind="picture", name="logo")
+
+        doc, identical = self._round_trip(populate)
+        assert identical
+        cc = doc.paragraphs[0].content_controls[0]
+        assert cc.type is ContentControlType.PICTURE
+
+    def it_round_trips_a_repeating_section(self):
+        def populate(doc):
+            sec = doc.add_repeating_section(
+                name="line_items",
+                schema={"description": "text", "quantity": "number"},
+            )
+            sec.add({"description": "Widget", "quantity": "5"})
+            sec.add({"description": "Gadget", "quantity": "3"})
+
+        doc, identical = self._round_trip(populate)
+        assert identical
+        cc = doc.content_controls[0]
+        assert cc.type is ContentControlType.REPEATING_SECTION
+        # -- two repeating-section item rows survived --
+        assert len(cc.rows) == 2  # type: ignore[union-attr]
+
+    def it_round_trips_a_locked_control(self):
+        def populate(doc):
+            doc.add_paragraph().add_text_control(
+                name="x", value="locked", locked=True
+            )
+
+        doc, identical = self._round_trip(populate)
+        assert identical
+        cc = doc.paragraphs[0].content_controls[0]
+        assert cc.lock == "sdtLocked"
+
+    def it_round_trips_a_bound_control(self):
+        def populate(doc):
+            doc.add_paragraph().add_text_control(
+                name="customer", bind_to="CustomerName"
+            )
+
+        doc, identical = self._round_trip(populate)
+        assert identical
+        cc = doc.paragraphs[0].content_controls[0]
+        assert cc.data_binding is not None
+        assert "CustomerName" in cc.data_binding.xpath
+
+
+class DescribeParagraph_add_text_control:
+    """Unit-test suite for :meth:`docx.text.paragraph.Paragraph.add_text_control`."""
+
+    def it_appends_an_inline_sdt(self):
+        from docx import Document
+
+        doc = Document()
+        para = doc.add_paragraph("Dear ")
+        cc = para.add_text_control(
+            name="customer_name", placeholder="Customer", value="Acme"
+        )
+        assert isinstance(cc, ContentControl)
+        assert cc.tag == "customer_name"
+        assert cc.text == "Acme"
+        assert len(para.content_controls) == 1
+
+    def it_supports_chaining_after_an_add_run(self):
+        from docx import Document
+
+        doc = Document()
+        para = doc.add_paragraph("Dear ")
+        para.add_text_control(name="customer_name", value="Acme")
+        para.add_run(",")
+        # -- verify run order: <w:r>"Dear "</w:r> <w:sdt> <w:r>","</w:r> --
+        children = [c.tag for c in para._p]  # type: ignore[attr-defined]
+        from docx.oxml.ns import qn
+
+        assert children.count(qn("w:r")) == 2
+        assert qn("w:sdt") in children
+
+    def it_supports_lock_True_to_block_deletion(self):
+        from docx import Document
+
+        doc = Document()
+        para = doc.add_paragraph()
+        cc = para.add_text_control(name="x", value="v", locked=True)
+        assert cc.lock == "sdtLocked"
+
+    def it_supports_bind_to_keyword(self):
+        from docx import Document
+
+        doc = Document()
+        para = doc.add_paragraph()
+        cc = para.add_text_control(name="x", bind_to="CustomerName")
+        assert cc.data_binding is not None
+
+
+class DescribeDocument_add_text_control:
+    """Unit-test suite for :meth:`docx.document.Document.add_text_control`."""
+
+    def it_appends_a_block_level_sdt(self):
+        from docx import Document
+
+        doc = Document()
+        cc = doc.add_text_control(
+            kind="rich-text", name="exec_summary", placeholder="…"
+        )
+        assert cc.tag == "exec_summary"
+        assert cc in doc.content_controls or doc.content_controls
+
+    def it_defaults_to_rich_text_kind(self):
+        from docx import Document
+
+        doc = Document()
+        cc = doc.add_text_control(name="x")
+        assert cc.type is ContentControlType.RICH_TEXT
+
+
+class DescribeDocument_add_repeating_section:
+    """Unit-test suite for :meth:`Document.add_repeating_section`."""
+
+    def it_creates_a_block_repeating_section_sdt(self):
+        from docx import Document
+
+        doc = Document()
+        sec = doc.add_repeating_section(name="line_items")
+        assert isinstance(sec, RepeatingSectionControl)
+        assert sec.tag == "line_items"
+        assert sec.type is ContentControlType.REPEATING_SECTION
+
+    def it_writes_a_section_title_when_supplied(self):
+        from docx import Document
+
+        doc = Document()
+        sec = doc.add_repeating_section(
+            name="li", section_title="Line Items"
+        )
+        assert sec.section_title == "Line Items"
+
+    def it_appends_rows_via_add_with_a_schema(self):
+        from docx import Document
+
+        doc = Document()
+        sec = doc.add_repeating_section(
+            name="li",
+            schema={"description": "text", "quantity": "number"},
+        )
+        sec.add({"description": "Widget", "quantity": "5"})
+        sec.add({"description": "Gadget", "quantity": "3"})
+        assert len(sec.rows) == 2
+
+    def it_appends_rows_via_add_without_a_schema(self):
+        from docx import Document
+
+        doc = Document()
+        sec = doc.add_repeating_section(name="li")
+        sec.add("Widget")
+        sec.add("Gadget")
+        assert len(sec.rows) == 2
+
+
+class DescribeRepeatingSectionControl_add:
+    """Unit-test suite for the ergonomic ``add()`` and ``set_schema()``
+    methods patched onto :class:`RepeatingSectionControl`.
+    """
+
+    def it_seeds_per_field_inner_sdts_when_a_schema_is_set(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("repeating-section", name="li", inline=False)
+        cc = ContentControl.proxy_for(sdt)
+        assert isinstance(cc, RepeatingSectionControl)
+        cc.set_schema({"name": "text", "qty": "number"})  # type: ignore[attr-defined]
+        cc.add({"name": "Foo", "qty": "1"})  # type: ignore[attr-defined]
+        # -- one outer row plus two inner per-field SDTs in the row's <w:p> --
+        rows = cc.rows
+        assert len(rows) == 1
+        # -- each row contains a paragraph holding two inner sdts --
+        row_sdt = rows[0].element
+        from docx.oxml.ns import qn
+
+        inner_p = row_sdt.find(qn("w:sdtContent")).find(qn("w:p"))
+        inner_sdts = inner_p.findall(qn("w:sdt"))
+        assert len(inner_sdts) == 2
+
+    def it_falls_back_to_a_text_run_when_no_schema_is_set(self):
+        from docx.content_controls import build_text_control
+
+        sdt = build_text_control("repeating-section", name="li", inline=False)
+        cc = ContentControl.proxy_for(sdt)
+        assert isinstance(cc, RepeatingSectionControl)
+        cc.add("Hello")  # type: ignore[attr-defined]
+        rows = cc.rows
+        assert len(rows) == 1
+        assert "Hello" in rows[0].text

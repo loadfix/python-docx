@@ -1482,6 +1482,9 @@ document.save("out.docx")
 
 - `Document.add_content_control(type, tag=None, title=None)` — Block-level SDT. `[Added in 2026.05.0]`
 - `Paragraph.add_content_control(type, tag=None, title=None)` — Inline SDT. `[Added in 2026.05.0]`
+- `Document.add_text_control(kind="rich-text", name=None, placeholder=None, value=None, locked=None, bind_to=None, items=None, title=None)` — Ergonomic block-level SDT authoring; accepts `"text"` / `"rich-text"` / `"dropdown"` / `"combo"` / `"date"` / `"checkbox"` / `"picture"` / `"repeating-section"` strings or `ContentControlType` members. `[Added in 2026.05.13]`
+- `Paragraph.add_text_control(kind="text", ...)` — Inline ergonomic counterpart. `[Added in 2026.05.13]`
+- `Document.add_repeating_section(name=None, section_title=None, schema=None, locked=None)` — Schema-aware repeating-section authoring; the returned `RepeatingSectionControl` exposes `.set_schema(...)` and `.add(item)` for templated row stamping. `[Added in 2026.05.13]`
 - `Document.content_controls` / `Paragraph.content_controls` — Collections. `[Added in 2026.05.0]`
 - `ContentControl.type` / `.tag` / `.title` / `.sdt_id` / `.text` / `.checked` / `.element`. `[Added in 2026.05.0]`
 - `ContentControl.data_binding` / `.set_data_binding(xpath, prefix_mappings="", store_item_id=None)` / `.remove_data_binding()`. `[Added in 2026.05.0]`

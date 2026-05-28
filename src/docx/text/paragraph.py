@@ -532,6 +532,65 @@ class Paragraph(StoryChild):
         self._p.append(sdt)
         return ContentControl.proxy_for(sdt)
 
+    def add_text_control(
+        self,
+        kind: "str | ContentControlType" = "text",
+        name: str | None = None,
+        placeholder: str | None = None,
+        value: str | None = None,
+        locked: "bool | str | None" = None,
+        bind_to: str | None = None,
+        items: "list[str] | None" = None,
+        title: str | None = None,
+    ) -> "ContentControl":
+        """Append an inline content control of `kind` to this paragraph.
+
+        Ergonomic counterpart to :meth:`add_content_control` — designed for
+        the common templating shape::
+
+            para.add_text_control(name="customer_name",
+                                  placeholder="Customer Name",
+                                  value="Acme Corp")
+
+        `kind` is one of ``"text"`` (default), ``"rich-text"``,
+        ``"dropdown"``, ``"combo"``, ``"date"``, ``"checkbox"``,
+        ``"picture"``, or a :class:`ContentControlType` member. `name`
+        becomes the programmatic tag, `placeholder` becomes the
+        user-visible alias *and* the prompt shown when the control has no
+        value, and `value` overrides the prompt with an initial value.
+
+        For checkbox controls, `value` is interpreted as a boolean
+        check-state instead of body text. For dropdown / combo box
+        controls, pass `items=[...]` to populate the list options.
+
+        `locked=True` writes ``<w:lock w:val="sdtLocked"/>`` so the user
+        cannot delete the control (content remains editable). Pass an
+        explicit ST_Lock string (``"sdtContentLocked"`` /
+        ``"contentLocked"``) for finer-grained control.
+
+        `bind_to` adds a ``<w:dataBinding>`` pointing at a custom property
+        of that name (or, when prefixed with ``"/"``, a verbatim XPath).
+
+        Returns the typed |ContentControl| proxy.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.content_controls import ContentControl, build_text_control
+
+        sdt = build_text_control(
+            kind,
+            name=name,
+            placeholder=placeholder,
+            value=value,
+            locked=locked,
+            bind_to=bind_to,
+            items=items,
+            title=title,
+            inline=True,
+        )
+        self._p.append(sdt)
+        return ContentControl.proxy_for(sdt)
+
     def add_citation_reference(
         self,
         tag: str,
