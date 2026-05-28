@@ -2747,6 +2747,55 @@ class Document(ElementProxy):
             self, include_styles=include_styles, embed_images=embed_images
         )
 
+    def to_markdown(self) -> str:
+        r"""Return a GitHub-Flavoured-Markdown rendering of this document as a string.
+
+        A minimal, preview-grade exporter. Maps the main structural
+        elements to GFM constructs:
+
+        * ``Heading 1`` .. ``Heading 6`` -> ``#`` .. ``######``
+        * Bold runs                       -> ``**text**``
+        * Italic runs                     -> ``_text_``
+        * Inline code (``Code`` /         -> backtick-wrapped text
+          ``HTMLCode`` style, or
+          monospace font)
+        * Hyperlinks                      -> ``[text](url)``
+        * Bullet list items               -> ``- ``
+        * Numbered list items             -> ``1. ``
+        * Tables                          -> GFM ``| col | col |``
+        * Block quotes                    -> ``> ``
+        * Inline pictures                 -> ``![alt](archive-path)``
+          where the path is the .docx
+          zip-relative location (e.g.
+          ``word/media/image1.png``)
+        * Page breaks                     -> ``---``
+        * Footnotes / endnotes            -> ``[^N]`` references with
+          ``[^N]: text`` blocks at the
+          end
+
+        Lossy conversions (Markdown is a strict subset of Word's
+        expressiveness):
+
+        * Run-level fonts, sizes, and colours collapse -- only bold,
+          italic, and inline-code survive.
+        * Paragraph alignment, indentation, and spacing collapse to
+          plain paragraph breaks.
+        * Drawing anchors, text boxes, OMML equations, fields, and
+          SmartArt are skipped.
+        * Tables flatten multi-paragraph cells to space-joined text --
+          GFM cells cannot carry block content.
+        * Image bytes are *not* embedded; the reference is the archive
+          path. Consumers that need the raw bytes should extract them
+          from the .docx zip alongside the Markdown output.
+
+        Not round-trippable: there is no Markdown -> docx import path.
+
+        .. versionadded:: 2026.05.29
+        """
+        from docx.markdown_export import document_to_markdown
+
+        return document_to_markdown(self)
+
     def diff(self, other: "Document", level: str = "content"):
         """Return a :class:`~docx.semantic_diff.SemanticDiff` against `other`.
 

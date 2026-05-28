@@ -2671,6 +2671,80 @@ Example PR-comment-friendly Markdown output:
 
 ---
 
+## Markdown export (`Document.to_markdown()`)
+
+A minimal, preview-grade GitHub-Flavoured-Markdown exporter. Walks the
+document body and emits a GFM string suitable for handoff to PR
+comments, issue trackers, static-site generators, and LLM ingestion
+pipelines. Not round-trippable: there is no Markdown -> docx import
+path. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+
+doc = Document("q1-review.docx")
+print(doc.to_markdown())
+# # Q1 Review
+#
+# **Revenue grew 8.7% YoY**
+#
+# - AMER: $14.2B
+# - APAC: $8.1B
+#
+# [full report](https://example.com/report) with _emphasis_.
+#
+# > a wise quote
+#
+# | Region | Revenue |
+# | --- | --- |
+# | AMER | $14.2B |
+#
+# ---
+#
+# Important claim[^1].
+#
+# [^1]: Source: 2024 study.
+```
+
+Mapping:
+- `Heading 1` .. `Heading 6` -> `#` .. `######`
+- bold runs -> `**text**`, italic -> `_text_`, monospace runs / `Code`
+  / `HTMLCode` style -> `` `text` ``
+- hyperlinks -> `[text](url)`, with `(` / `)` percent-encoded so a
+  Wikipedia-style URL like `Foo_(bar)` survives intact.
+- bullet lists -> `- `, decimal lists -> `1. `, with nested levels
+  indented by two spaces per level.
+- tables -> GFM `| col | col |` (header row + separator). `|`
+  characters inside cells are escaped, paragraph breaks within a cell
+  collapse to a single space.
+- block quotes (paragraphs styled `Quote` / `Intense Quote` /
+  `BlockQuote`) -> `> `.
+- inline pictures -> `![alt](path)` where `path` is the .docx
+  zip-relative archive path (e.g. `word/media/image1.png`).
+- hard page breaks -> a thematic-break `---` line.
+- footnote / endnote references -> `[^N]` markers with a `[^N]: text`
+  block at the end of the document. The same footnote referenced
+  twice reuses its index.
+
+Lossy conversions (Markdown is a strict subset of Word's
+expressiveness):
+- run-level fonts, sizes, and colours collapse — only bold, italic,
+  inline-code survive.
+- paragraph alignment, indentation, and spacing collapse.
+- drawing anchors, text boxes, OMML equations, fields, and SmartArt
+  are skipped.
+- multi-paragraph cells flatten to space-joined text.
+- image bytes are not embedded; the path is the in-zip archive
+  reference.
+
+API:
+- `Document.to_markdown()` — Returns a GFM string. `[Added in 2026.05.29]`
+- `docx.markdown_export.document_to_markdown(document)` — Module-level
+  entry point if you want to compose the renderer outside the
+  `Document` class.
+
+---
+
 ## Packaging and I/O options
 
 `Document.save()` supports:
