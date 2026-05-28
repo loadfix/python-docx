@@ -540,6 +540,7 @@ class Paragraph(StoryChild):
         value: str | None = None,
         locked: "bool | str | None" = None,
         bind_to: str | None = None,
+        bind_source: str | None = None,
         items: "list[str] | None" = None,
         title: str | None = None,
     ) -> "ContentControl":
@@ -570,6 +571,11 @@ class Paragraph(StoryChild):
 
         `bind_to` adds a ``<w:dataBinding>`` pointing at a custom property
         of that name (or, when prefixed with ``"/"``, a verbatim XPath).
+        ``bind_source`` names a data source previously registered with
+        :meth:`docx.document.Document.bind_data_source`; when supplied, the
+        emitted ``<w:dataBinding>`` is anchored to that source's store-item
+        id and ``bind_to`` is treated as an XPath into the source's payload
+        (closes #80).
 
         Returns the typed |ContentControl| proxy.
 
@@ -588,8 +594,66 @@ class Paragraph(StoryChild):
             title=title,
             inline=True,
         )
+        if bind_source is not None and bind_to is not None:
+            self._anchor_sdt_binding_to_source(sdt, bind_source, bind_to)
         self._p.append(sdt)
         return ContentControl.proxy_for(sdt)
+
+    def _anchor_sdt_binding_to_source(
+        self, sdt, source_name: str, xpath: str
+    ) -> None:
+        """Wire ``<w:dataBinding>`` on ``sdt`` to a named data source.
+
+        Mirror of :meth:`docx.document.Document._anchor_sdt_binding_to_source`
+        for inline (paragraph-level) controls — the document part is reached
+        via ``self.part`` so the same logic works whether the paragraph lives
+        in the body or in a header / footer / cell.
+        """
+        from docx.content_controls import ContentControl
+        from docx.data_sources import (
+            _replace_sdt_content,
+            iter_bound_sources,
+        )
+
+        document_part = self.part
+        # -- when the paragraph lives in a header/footer/cell, ``self.part``
+        #    returns the owning XmlPart; bindings are stored on the main
+        #    document part. Walk to the document part via the package. --
+        from docx.parts.document import DocumentPart
+
+        if not isinstance(document_part, DocumentPart):
+            package = document_part.package
+            if package is not None:
+                document_part = package.main_document_part
+        sources = {src.name: src for src in iter_bound_sources(document_part)}
+        if source_name not in sources:
+            raise KeyError(
+                f"data source {source_name!r} has not been bound; "
+                "call Document.bind_data_source() first"
+            )
+        source = sources[source_name]
+        proxy = ContentControl.proxy_for(sdt)
+        ns_uri: "str | None" = None
+        root = source.root_element
+        if root is not None and isinstance(root.tag, str) and root.tag.startswith("{"):
+            ns_uri = root.tag[1 : root.tag.index("}")]
+        prefix_mappings = f"xmlns:ns0='{ns_uri}'" if ns_uri else ""
+        proxy.set_data_binding(
+            xpath,
+            prefix_mappings=prefix_mappings,
+            store_item_id=source.store_item_id,
+        )
+        try:
+            from ooxml_customxml import CustomXmlMapping, resolve_binding
+
+            db = proxy.data_binding
+            if db is not None and root is not None:
+                mapping = CustomXmlMapping(db.element)
+                value = resolve_binding(mapping, root)
+                if value is not None:
+                    _replace_sdt_content(sdt, value)
+        except Exception:
+            pass
 
     def add_citation_reference(
         self,

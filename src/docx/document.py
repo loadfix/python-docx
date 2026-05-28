@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from docx.comments import Comment, Comments
     from docx.content_controls import ContentControl, ContentControlType
     from docx.custom_properties import CustomProperties
+    from docx.data_sources import DataSource
     from docx.extended_properties import ExtendedProperties
     from docx.custom_xml import CustomXmlPart
     from docx.drawing import Canvas
@@ -660,6 +661,7 @@ class Document(ElementProxy):
         value: str | None = None,
         locked: "bool | str | None" = None,
         bind_to: str | None = None,
+        bind_source: str | None = None,
         items: "Sequence[str] | None" = None,
         title: str | None = None,
     ) -> ContentControl:
@@ -675,6 +677,11 @@ class Document(ElementProxy):
         summaries, signature blocks, etc.) where the user can edit a region
         of multi-paragraph rich content. Use :meth:`Paragraph.add_text_control`
         for inline controls.
+
+        ``bind_source`` names a data source previously registered with
+        :meth:`bind_data_source`; when supplied, the emitted ``<w:dataBinding>``
+        is anchored to that source's store-item id and ``bind_to`` is treated
+        as an XPath into the source's payload.
 
         Returns the typed |ContentControl| proxy (e.g. :class:`PlainTextControl`,
         :class:`DateControl`).
@@ -694,8 +701,112 @@ class Document(ElementProxy):
             title=title,
             inline=False,
         )
+        if bind_source is not None and bind_to is not None:
+            self._anchor_sdt_binding_to_source(sdt, bind_source, bind_to)
         self._body._body._insert_sdt(sdt)  # pyright: ignore[reportPrivateUsage]
         return ContentControl.proxy_for(sdt)
+
+    def bind_data_source(
+        self,
+        path: "str | bytes | os.PathLike[str] | IO[bytes]",
+        name: str,
+        schema: "str | bytes | os.PathLike[str] | IO[bytes] | None" = None,
+    ) -> "DataSource":
+        """Attach (or replace) a custom-XML data source under logical id ``name``.
+
+        Loads ``path`` (a filesystem path, bytes, or open binary file-like)
+        as the payload of a fresh ``/customXml/item{N}.xml`` part and pairs
+        it with a sibling ``itemProps{N}.xml`` properties part carrying a
+        ``{GUID}`` store-item id. Subsequent
+        :meth:`Paragraph.add_text_control` /
+        :meth:`Document.add_text_control` calls reference the source via
+        ``bind_source=name``.
+
+        Re-binding with the same ``name`` overwrites the existing payload
+        in-place — the data part, props part, and store-item id are all
+        preserved, so SDTs already wired to the source continue to resolve
+        against the new payload on the next save. This is the *replace
+        underlying part* contract from issue #80.
+
+        When ``schema`` is supplied the payload is validated against the XSD
+        via :func:`ooxml_customxml.validate` *before* the rewrite. A
+        validation failure raises :class:`docx.data_sources.DataSourceValidationError`
+        and leaves the prior payload intact.
+
+        Returns the :class:`DataSource` describing the bound source.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.data_sources import bind_data_source as _bind
+
+        return _bind(self._part, path, name, schema=schema)
+
+    @property
+    def data_sources(self) -> "list[DataSource]":
+        """List of |DataSource| proxies for every bound custom-XML source.
+
+        Empty when the document has not yet bound any sources via
+        :meth:`bind_data_source`. Plain ``customXml`` parts loaded from a
+        package (bibliography sources, Power BI datasets, etc.) without a
+        logical-name marker are not surfaced here — use
+        :attr:`custom_xml_parts` for the read-only inventory.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.data_sources import iter_bound_sources
+
+        return iter_bound_sources(self._part)
+
+    def _anchor_sdt_binding_to_source(
+        self, sdt: "CT_Sdt", source_name: str, xpath: str
+    ) -> None:
+        """Wire a ``<w:dataBinding>`` on ``sdt`` to the named data source.
+
+        Looks up the source's store-item id, rewrites the SDT's
+        ``<w:dataBinding>`` to point at it (with the canonical
+        ``xmlns:ns0`` prefix mapping for the payload's default namespace),
+        and inlines the resolved value into the SDT's ``<w:sdtContent>``.
+
+        Raises :class:`KeyError` when ``source_name`` has not been bound.
+        """
+        from docx.content_controls import ContentControl
+        from docx.data_sources import _replace_sdt_content
+        from docx.oxml.ns import nsmap
+
+        sources = {src.name: src for src in self.data_sources}
+        if source_name not in sources:
+            raise KeyError(
+                f"data source {source_name!r} has not been bound; "
+                "call bind_data_source() first"
+            )
+        source = sources[source_name]
+
+        proxy = ContentControl.proxy_for(sdt)
+        ns_uri: str | None = None
+        root = source.root_element
+        if root is not None and isinstance(root.tag, str) and root.tag.startswith("{"):
+            ns_uri = root.tag[1 : root.tag.index("}")]
+        prefix_mappings = (
+            f"xmlns:ns0='{ns_uri}'" if ns_uri else ""
+        )
+        proxy.set_data_binding(
+            xpath,
+            prefix_mappings=prefix_mappings,
+            store_item_id=source.store_item_id,
+        )
+        # -- inline current resolved value (best-effort) --
+        try:
+            from ooxml_customxml import CustomXmlMapping, resolve_binding
+
+            db = proxy.data_binding
+            if db is not None and root is not None:
+                mapping = CustomXmlMapping(db.element)
+                value = resolve_binding(mapping, root)
+                if value is not None:
+                    _replace_sdt_content(sdt, value)
+        except Exception:
+            # -- best-effort; the save-time resolver will retry --
+            _ = nsmap  # silence unused import in py3.9 pyflakes
 
     def add_repeating_section(
         self,

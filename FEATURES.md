@@ -1500,6 +1500,9 @@ document.save("out.docx")
   - `BuildingBlockControl` (`.gallery`, `.category`, `.unique`). `[Added in 2026.05.10]`
   - `RepeatingSectionControl` (`.section_title`, `.rows`, `.add_row()`). `[Added in 2026.05.10]`
 - `Document.custom_xml_parts` — Read-only list of bound `CustomXmlPart` data sources. `[Added in 2026.05.0]`
+- `Document.bind_data_source(path, name, schema=None)` — Attach (or replace) a custom-XML data source under a logical id. Re-binding with the same `name` swaps the underlying payload while preserving the store-item id, so SDTs already wired to the source resolve against the new payload on the next save. Optional `schema` validates the payload via `python-ooxml-customxml`; failures raise `DataSourceValidationError`. `[Added in 2026.05.13]`
+- `Document.data_sources` — List of |DataSource| proxies for every bound source. `[Added in 2026.05.13]`
+- `Paragraph.add_text_control(..., bind_source=name)` / `Document.add_text_control(..., bind_source=name)` — When `bind_source` is supplied alongside `bind_to`, the emitted `<w:dataBinding>` is anchored to that source's store-item id and the resolved value is inlined into the SDT (closes #80). `[Added in 2026.05.13]`
 
 ---
 
