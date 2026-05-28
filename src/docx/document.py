@@ -855,6 +855,43 @@ class Document(ElementProxy):
             line_numbering=line_numbering,
         )
 
+    def audit_styles(self):
+        """Audit the document's styles and return a :class:`StyleAudit`.
+
+        Runs every audit pass over the body and surfaces structured
+        :class:`docx.audit.StyleIssue` records. Each issue carries
+        ``severity``, ``rule_id``, ``message``, plus optional
+        ``paragraph_index`` and ``style_names`` fields.
+
+        Detected issues:
+
+        - ``duplicate-styles`` (info) — styles whose names are similar
+          (case-insensitive, with the ``H1``/``Heading 1`` alias) and
+          whose font properties match
+        - ``direct-formatting`` (info) — paragraph with direct
+          formatting that matches an existing style
+        - ``mixed-fonts`` (warning) — paragraph with runs in ≥ 2
+          different font families
+        - ``unstyled-paragraph`` (info) — non-empty paragraph using
+          the default Normal style
+        - ``heading-without-style`` (error) — body-styled paragraph
+          that visually looks like a heading
+        - ``orphan-style`` (info) — custom paragraph style defined
+          but unused
+
+        Use :meth:`StyleAudit.consolidate_styles` to rewrite all
+        references to a deprecated style and drop the redundant
+        definitions in one shot::
+
+            audit = doc.audit_styles()
+            audit.consolidate_styles("Heading 1", drop=["H1", "Heading1"])
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.audit import audit_styles
+
+        return audit_styles(self)
+
     def lint(self, rules=None):
         """Run a set of structural / accessibility lint rules over the body.
 
