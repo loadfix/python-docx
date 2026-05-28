@@ -108,6 +108,9 @@ Summary of areas extended beyond upstream `1.2.0`:
   preface, table of contents, list of figures, list of tables),
   `docx.kit.chapter.add_chapter_opener` (section break + Heading 1 title
   + epigraph + decorative image + drop cap),
+  `docx.kit.dividers` (`add_divider` / `add_fleuron` / `add_three_stars`
+  / `add_chapter_break` for section dividers and chapter ornaments —
+  fleurons, three-stars, dashed/dotted/wave/line breaks),
   `docx.kit.letterhead.set_letterhead` (branded header + footer with
   three styles), `docx.kit.resume`
   (`resume_chronological` / `resume_functional` / `resume_technical`

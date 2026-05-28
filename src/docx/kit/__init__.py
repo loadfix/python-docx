@@ -25,6 +25,10 @@ Available kit submodules:
   preface / TOC / list-of-figures / list-of-tables helpers.
 * :mod:`docx.kit.chapter` — chapter opener pages (large title +
   decorative image + drop cap).
+* :mod:`docx.kit.dividers` — section-divider / chapter-ornament
+  helpers (``add_divider`` / ``add_fleuron`` / ``add_three_stars`` /
+  ``add_chapter_break``) for inserting fleurons and decorative
+  breaks between long-form-document sections.
 * :mod:`docx.kit.back_matter` — appendix / glossary / index /
   bibliography helpers.
 * :mod:`docx.kit.letterhead` — branded header (logo + return address)
@@ -64,6 +68,7 @@ from docx.kit import (
     back_matter,
     chapter,
     contracts,
+    dividers,
     front_matter,
     letterhead,
     mail_merge,
@@ -77,6 +82,7 @@ __all__ = [
     "back_matter",
     "chapter",
     "contracts",
+    "dividers",
     "front_matter",
     "letterhead",
     "mail_merge",

@@ -2883,6 +2883,44 @@ non-required arguments (`chapter_number`, `epigraph`, `image`,
 `drop_cap`, `color`) are optional; the helper degrades gracefully for
 documents that only need a subset of the layout.
 
+### Section dividers and chapter ornaments
+
+`docx.kit.dividers` exposes four small composition helpers for
+inserting fleurons (Unicode ornament glyphs), three-star asterisms,
+dashed / dotted / wave glyph rows, short underline rules, and full
+chapter breaks (vertical-whitespace + ornament + vertical-whitespace)
+between long-form-document sections. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit.dividers import (
+    add_divider,
+    add_fleuron,
+    add_three_stars,
+    add_chapter_break,
+)
+from docx.shared import Pt
+
+doc = Document()
+doc.add_paragraph("End of scene one.")
+
+add_divider(doc, kind="line")           # short underlined rule
+add_divider(doc, kind="dashed")         # nine em-dashes
+add_divider(doc, kind="dots")           # seven em-spaced middle dots
+add_divider(doc, kind="wave")           # nine tildes
+
+add_fleuron(doc, glyph="❦")             # FLORAL HEART (default)
+add_three_stars(doc)                     # ✦ ✦ ✦
+
+add_chapter_break(doc, ornament="line", spacing=Pt(36))
+```
+
+Every helper appends a single centred paragraph (or, for
+`add_chapter_break`, three paragraphs — leading gap, ornament,
+trailing gap) and returns the appended paragraph(s). `add_chapter_break`
+accepts any of the four `add_divider` kinds *plus* `"fleuron"` and
+`"stars"`, and forwards an optional `glyph=` to the underlying helper.
+
 ### Resume / CV template family
 
 `docx.kit.resume` ships three template factories that build a fully
