@@ -54,6 +54,13 @@ Available kit submodules:
   applying each venue's structural skeleton (IEEE two-column compact,
   ACM ``sigconf``, APA double-spaced single column, Nature compact
   display style).
+* :mod:`docx.kit.legal` — legal industry template family
+  (``court_paper`` / ``brief`` / ``declaration`` / ``table_of_authorities``)
+  with Federal Court of Australia / NSW Supreme Court front-sheet
+  layout, Word built-in line numbering (``w:sectPr/w:lnNumType``),
+  and a live ``TOA`` complex field. Output is a *starting point only*
+  — the module docstring carries an explicit "not legal advice"
+  disclaimer.
 
 .. versionadded:: 2026.05.29
 """
@@ -65,6 +72,7 @@ from docx.kit import (
     chapter,
     contracts,
     front_matter,
+    legal,
     letterhead,
     mail_merge,
     memos,
@@ -78,6 +86,7 @@ __all__ = [
     "chapter",
     "contracts",
     "front_matter",
+    "legal",
     "letterhead",
     "mail_merge",
     "memos",
