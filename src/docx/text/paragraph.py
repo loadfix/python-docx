@@ -21,6 +21,11 @@ from docx.fields import (
     build_toc_field_instruction,
 )
 from docx.form_fields import FormField
+from docx.linked_content import (
+    LinkedTarget,
+    UNRESOLVED_PLACEHOLDER,
+    build_includetext_instruction,
+)
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml.drawing import CT_Drawing
 from docx.oxml.shape import CT_Anchor
@@ -1048,6 +1053,52 @@ class Paragraph(StoryChild):
         if mark_dirty:
             toa.mark_dirty()
         return toa
+
+    def link_to(
+        self,
+        target_url: str,
+        cached_result: str | None = None,
+        mark_dirty: bool = True,
+    ) -> LinkedTarget:
+        """Append an ``INCLUDETEXT`` link to `target_url` and return it.
+
+        Word treats ``INCLUDETEXT`` as a complex field whose result is
+        re-resolved at open time. python-docx uses it to model
+        cross-format linked content — three URL shapes are recognised
+        and round-tripped through :class:`docx.linked_content.LinkedTarget`:
+
+        * ``"workbook.xlsx#Sheet1!B5"`` — Excel cell reference
+        * ``"workbook.xlsx#TableName[ColumnName]"`` — Excel table column
+        * ``"deck.pptx#slide-3"`` — PowerPoint slide
+
+        URLs that don't match any of these shapes are still linked, but
+        their :attr:`~LinkedTarget.kind` is reported as
+        ``"unknown"`` and :meth:`Document.update_links` will leave the
+        cached result alone.
+
+        `cached_result` is the rendered text inserted between the
+        ``separate`` and ``end`` markers. When |None|, a placeholder
+        sentinel is written so a Word reader without the linked file
+        sees something useful instead of the raw URL until the first
+        :meth:`Document.update_links` / Word refresh.
+
+        `mark_dirty` (the default) sets ``@w:dirty="true"`` on the
+        ``begin`` marker so Word recomputes the field on open. Pass
+        ``mark_dirty=False`` to suppress — the field will display the
+        cached result without a refresh.
+
+        .. versionadded:: 2026.05.13
+        """
+        if not isinstance(target_url, str) or not target_url:
+            raise ValueError("target_url must be a non-empty string")
+        instruction = build_includetext_instruction(target_url)
+        result_text = (
+            cached_result if cached_result is not None else UNRESOLVED_PLACEHOLDER
+        )
+        field = self.add_complex_field(instruction, result_text)
+        if mark_dirty:
+            field.mark_dirty()
+        return LinkedTarget(field)
 
     def add_form_field(
         self,
