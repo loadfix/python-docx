@@ -65,7 +65,8 @@ Summary of areas extended beyond upstream `1.2.0`:
 - Watermarks, captions, ink annotations, embedded OLE objects, alt-chunks
 - Tables (borders, shading, margins, autofit, merged-cell helpers, style
   flags, caption/description, indent, row height, header rows,
-  cross-document copy, CRUD on rows/columns/cells)
+  cross-document copy, CRUD on rows/columns/cells, `Document.add_dataframe`
+  styled DataFrame import with optional `pandas`)
 - Sections (page borders, line numbering, document grid, paper source,
   columns, text direction, odd/even and first-page header/footer,
   copy between sections)

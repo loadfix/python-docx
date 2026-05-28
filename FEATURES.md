@@ -463,6 +463,29 @@ document.save("out.docx")
 - `_Row.height` / `_Row.height_rule` / `_Row.is_header` / `_Row.allow_break_across_pages` — Row-level properties. `height` setter, `is_header`, `allow_break_across_pages` are `[Added in 2026.05.0]`.
 - `TableBorders` — `top` / `bottom` / `left` / `right` / `inside_h` / `inside_v` → `BorderElement.style` / `.width` / `.color` / `.space`. `[Added in 2026.05.0]`
 - `CellBorders`, `CellShading`, `CellMargins`, `TableCellMargins`, `TableStyleFlags` — Helper proxies. `[Added in 2026.05.0]`
+- `Document.add_dataframe(df, style="executive", alternating_rows=None, header_color=None, header_text_color=None, autofit=True, align=None, number_format=None, show_total_row=False, table_style=None)` — Append a `pandas.DataFrame` as a styled Word table. Built-in styles: `executive` (bold header bar in theme primary, alternating row tint, total row at bottom), `minimal` (header underline only, no fills, monospace numbers), `boxed` (full grid borders, light header tint), `striped` (zebra rows, no borders). Number-format DSL accepts the standard Python format-spec mini-language (`$,.1f`, `0.0%`, `,d` …) for numeric columns plus a small DSL for date columns (`MMM YYYY`, `YYYY-MM-DD HH:mm:ss` …). Total-row aggregator accepts `True` / `"sum"` / `"mean"` / `"count"` / `"none"` or a per-column `{col: op}` mapping. `pandas` is **not** a hard dependency — DataFrame input is sniffed at runtime and the helper raises `ImportError` when pandas is missing. `[Added in 2026.05.13]`
+
+```python
+import pandas as pd
+from docx import Document
+
+df = pd.DataFrame(
+    {
+        "Region": ["AMER", "APAC", "EMEA"],
+        "Revenue": [1234.5, 987.6, 654.3],
+        "Growth": [0.087, 0.121, -0.034],
+    }
+)
+doc = Document()
+doc.add_dataframe(
+    df,
+    style="executive",
+    alternating_rows=True,
+    align={"Revenue": "right", "Region": "left"},
+    number_format={"Revenue": "$,.1f", "Growth": ".1%"},
+    show_total_row=True,
+)
+```
 
 ---
 

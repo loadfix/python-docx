@@ -9,7 +9,7 @@ import datetime as dt
 import os
 import re
 from typing import IO, TYPE_CHECKING, cast
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_SECTION
@@ -983,6 +983,99 @@ class Document(ElementProxy):
             show_values=show_values,
             show_legend=show_legend,
             secondary_axis=secondary_axis,
+        )
+
+    def add_dataframe(
+        self,
+        df: t.Any,
+        *,
+        style: str = "executive",
+        alternating_rows: bool | None = None,
+        header_color: "RGBColor | str | None" = None,
+        header_text_color: "RGBColor | str | None" = None,
+        autofit: bool = True,
+        align: "Mapping[str, str] | None" = None,
+        number_format: "Mapping[str, str] | None" = None,
+        show_total_row: "bool | str | Mapping[str, str]" = False,
+        table_style: str | None = None,
+    ) -> "Table":
+        """Append a ``pandas.DataFrame`` to this document as a styled Word table.
+
+        Provides four built-in presets (``executive`` / ``minimal`` /
+        ``boxed`` / ``striped``) plus per-column alignment, per-column
+        number-format DSL, theme-aware header colours, and an optional
+        total row.
+
+        ``df``
+            A :class:`pandas.DataFrame`. Pandas is **NOT** a hard
+            dependency of python-docx — this method imports it lazily
+            and raises :class:`ImportError` with an actionable message
+            when it is missing. The DataFrame argument itself is
+            sniffed via duck-typing (matching the pattern used by
+            :meth:`add_chart_inline`).
+
+        ``style``
+            One of ``"executive"`` (bold header bar in theme primary,
+            alternating row tint, total row at bottom), ``"minimal"``
+            (header underline only, no fills, monospace numbers),
+            ``"boxed"`` (full grid borders, light header tint), or
+            ``"striped"`` (zebra rows, no borders).
+
+        ``alternating_rows``
+            Force-on / force-off alternating row tints. |None|
+            (default) defers to the preset.
+
+        ``header_color`` / ``header_text_color``
+            Override the header row's fill and text colour. Accept an
+            :class:`docx.shared.RGBColor` or a ``"RRGGBB"`` hex string.
+            Pull straight from the active theme via
+            ``document.theme.colors.accent_1`` /
+            ``document.theme.colors.light_1``.
+
+        ``autofit``
+            Forwarded to :attr:`Table.autofit`.
+
+        ``align``
+            ``{column_name: "left"|"right"|"center"|"justify"}``.
+            Numeric columns default to right-aligned, everything else
+            left-aligned.
+
+        ``number_format``
+            ``{column_name: format_spec}``. Accepts the standard Python
+            mini-language for numeric values (``"$,.1f"``, ``"0.0%"``,
+            ``",d"`` …) plus a small DSL for date columns
+            (``"MMM YYYY"``, ``"YYYY-MM-DD"`` …) modelled on the
+            sibling ``python-xlsx`` number-format helpers.
+
+        ``show_total_row``
+            |False| (default) for no total row; |True| / ``"sum"`` to
+            sum every numeric column; ``"mean"``, ``"count"``, or
+            ``"none"`` for the corresponding aggregation; or a mapping
+            ``{column_name: aggregator}`` for explicit per-column
+            overrides.
+
+        ``table_style``
+            Optional Word table style name (e.g. ``"Light Grid"``)
+            applied before the preset's inline formatting.
+
+        Closes #40.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.dataframe import add_dataframe as _impl
+
+        return _impl(
+            self,
+            df,
+            style=style,
+            alternating_rows=alternating_rows,
+            header_color=header_color,
+            header_text_color=header_text_color,
+            autofit=autofit,
+            align=align,
+            number_format=number_format,
+            show_total_row=show_total_row,
+            table_style=table_style,
         )
 
     def add_shape(
