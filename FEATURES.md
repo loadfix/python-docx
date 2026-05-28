@@ -2982,6 +2982,59 @@ already-loaded `Document`. The `{i}` token resolves to the current
 0-based row index inside both document text and the filename
 template.
 
+### Scientific paper templates (IEEE / ACM / APA / Nature)
+
+`docx.kit.scientific` ships four template factories that build a
+fully-shaped scientific-paper draft in one call —
+`ieee_paper`, `acm_paper`, `apa_paper`, `nature_paper`. Each captures
+the venue's structural skeleton (title block, author list, abstract,
+keywords / index terms, body sections, references) and applies the
+matching layout (IEEE and Nature switch the body to a two-column
+section via a continuous section break; APA stays single-column with
+double line spacing; ACM stays single-column at draft time and lets
+the `acmart` stylesheet do the camera-ready two-column rendering).
+`[Added in 2026.05.29]`
+
+```python
+from docx.kit.scientific import (
+    ieee_paper,
+    acm_paper,
+    apa_paper,
+    nature_paper,
+)
+
+doc = ieee_paper(
+    title="A Distributed Consensus Algorithm",
+    authors=[
+        {"name": "Alice", "affiliation": "Acme Corp",
+         "email": "alice@acme.com"},
+        {"name": "Bob",   "affiliation": "Beta Labs",
+         "email": "bob@beta.io"},
+    ],
+    abstract="We present a distributed consensus algorithm.",
+    keywords=["consensus", "distributed systems"],
+    sections=[
+        {"heading": "Introduction", "body": "..."},
+        {"heading": "Algorithm",    "body": "..."},
+        {"heading": "Conclusion",   "body": "..."},
+    ],
+    references=[
+        {"authors": "Lamport, L.",
+         "title":   "The Part-Time Parliament",
+         "venue":   "TOCS",
+         "year":    1998},
+    ],
+)
+doc.save("paper.docx")
+```
+
+Every factory raises `ValueError` when `title` is empty or any author
+or section entry is malformed. Reference and section bodies accept
+either a single string (one paragraph) or a sequence of strings (one
+paragraph per item). `nature_paper` omits keywords by Nature house
+style; `acm_paper` exposes a `ccs_concepts` kwarg for the CCS-Concepts
+block ACM camera-ready rendering requires.
+
 ---
 
 ## API concepts

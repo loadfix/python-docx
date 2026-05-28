@@ -119,12 +119,16 @@ Summary of areas extended beyond upstream `1.2.0`:
   `contractor_agreement` boilerplate factories — *starting points
   only, not legal advice*), `docx.kit.memos` (`investment_memo`
   with McKinsey-style SCQA executive summary, and `business_case`
-  with options-analysis table), and `docx.kit.templates`
+  with options-analysis table), `docx.kit.templates`
   (`brief` / `coe` / `rfp_response` / `white_paper` document-template
   registry covering short briefs, Centre of Excellence charters,
   RFP responses with a pricing table, and white papers with abstract
-  and references). Lives under the optional `[kit]` extras flag
-  (`pip install python-docx[kit]`).
+  and references), and `docx.kit.scientific`
+  (`ieee_paper` / `acm_paper` / `apa_paper` / `nature_paper`
+  scientific-paper template factories — IEEE / Nature switch the body
+  to two-column layout, APA applies double line spacing, ACM stays
+  single-column for the `acmart` stylesheet). Lives under the optional
+  `[kit]` extras flag (`pip install python-docx[kit]`).
 
 API and user-guide documentation lives under `docs/` and builds with
 Sphinx. The theme is Furo.
