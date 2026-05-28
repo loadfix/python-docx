@@ -190,6 +190,33 @@ The matching keyword is also accepted by the sibling `python-pptx`,
 `python-xlsx`, and `python-vsdx` parents so cross-format build
 pipelines share a single idiom (issue #150).
 
+## Older-Word compatibility mode
+
+`Document.save(path, compatibility="Word 2003")` opts into Word's
+"compatibility mode" by stamping `compatibilityMode` on
+`settings.xml/w:compat` and best-effort filtering features the older
+client cannot render:
+
+```python
+from docx import Document
+
+doc = Document()
+doc.add_paragraph("Compatible with Word 2003.")
+doc.save("legacy.docx", compatibility="Word 2003")  # val=11
+doc.save("modern.docx", compatibility="Word 2016")  # val=16
+```
+
+Accepted labels: `"Word 2003"` → 11, `"Word 2007"` → 12, `"Word 2010"`
+→ 14, `"Word 2013"` → 15, `"Word 2016"` → 16 (raw ints are also
+accepted). Targeting Word 2003 / 2007 strips the modern threaded-
+comments parts (`commentsIds.xml`, `commentsExtensible.xml`,
+`commentsExtended.xml`); newer targets only write the
+`compatibilityMode` setting. **The flag is best-effort:** it tells
+Word to open the file as if it had been authored under the older
+release, but features the older client cannot render (SmartArt, OMML
+equations, content controls, …) are left in the package and may show
+as placeholders. Closes #94.
+
 ## Round-trip support
 
 A central design goal of this fork is **round-trip fidelity** — load a

@@ -3197,6 +3197,7 @@ class Document(ElementProxy):
         reproducible: bool = False,
         password: str | None = None,
         strict: bool | None = None,
+        compatibility: str | int | None = None,
     ):
         """Save this document to `path_or_stream`.
 
@@ -3236,12 +3237,29 @@ class Document(ElementProxy):
         disk are always Transitional — python-docx does not currently
         perform Transitional → Strict byte-level translation on emit.
 
+        `compatibility` opts the saved document into older-Word
+        compatibility mode by stamping
+        ``settings.xml/w:compat/w:compatSetting[@w:name="compatibilityMode"]``
+        with the corresponding integer (``"Word 2003"`` → 11,
+        ``"Word 2007"`` → 12, ``"Word 2010"`` → 14, ``"Word 2013"`` →
+        15, ``"Word 2016"`` → 16). Raw integers in that set are also
+        accepted. When the target predates Word 2010 the modern
+        threaded-comments parts (``commentsIds.xml`` /
+        ``commentsExtensible.xml`` / ``commentsExtended.xml``) are
+        stripped so the older client opens the file without parser
+        errors. Filtering is best-effort: a compat-mode save is *not*
+        a guarantee Word will render the document pixel-perfectly,
+        only that it will not error on opening. See
+        :mod:`docx.compatibility` for the full list. Closes #94.
+
         .. versionadded:: 2026.05.0
            The `flat_opc` and `reproducible` parameters.
         .. versionadded:: 2026.05.10
            The `password` parameter.
         .. versionadded:: 2026.05.11
            The `strict` parameter.
+        .. versionadded:: 2026.05.dev0
+           The `compatibility` parameter.
         """
         # -- resolve smart-placeholder bind tokens (#68) immediately
         # -- before handing off to the part-level save so every text
@@ -3254,6 +3272,20 @@ class Document(ElementProxy):
             _apply_bind_tokens(self)
         except Exception:  # pragma: no cover - defensive guard
             pass
+
+        # -- apply compatibility-mode targeting (#94) before serialisation
+        # -- so the compatibilityMode setting and the older-Word feature
+        # -- filter both land in the saved bytes. Validation happens here
+        # -- so an invalid label raises before we touch the package. --
+        if compatibility is not None:
+            from docx.compatibility import (
+                apply_compatibility as _apply_compatibility,
+                resolve_compatibility as _resolve_compatibility,
+            )
+
+            level = _resolve_compatibility(compatibility)
+            assert level is not None  # -- only None when input is None --
+            _apply_compatibility(self, level)
 
         if flat_opc:
             if password is not None:
