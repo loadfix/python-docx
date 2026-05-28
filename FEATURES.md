@@ -57,6 +57,7 @@ other item is inherited from the upstream base.
 - [Document outline](#document-outline)
 - [Document statistics](#document-statistics)
 - [Search and replace](#search-and-replace)
+- [CSS-selector queries](#css-selector-queries)
 - [Cross-document operations](#cross-document-operations)
 - [Packaging and I/O options](#packaging-and-io-options)
 - [API concepts](#api-concepts)
@@ -2354,6 +2355,53 @@ document.save("out.docx")
 - `Document.replace_regex(pattern, replacement, flags=0)` / `Document.replace_regex_all(...)` — Regex replacement. `[Added in 2026.05.0]`
 - `SearchMatch.paragraph` / `.paragraph_index` / `.run_indices` / `.start` / `.end` / `.location` — Match metadata; `location` identifies the story. `[Added in 2026.05.0]`
 - Story location strings include `"body"`, `"table:0:row:1:col:2"`, `"header:section0:primary"`, `"footnote:2"`, `"endnote:3"`, `"comment:5"`.
+
+---
+
+## CSS-selector queries
+
+`Document.select(selector)` and `Document.select_one(selector)` return
+proxy objects matching a CSS-style selector. The grammar is a small,
+zero-dependency subset of CSS that maps onto the python-docx proxy
+graph: eight element kinds (`p`, `r`, `tbl`, `tr`, `td`, `hyperlink`,
+`bookmark`, `comment`), the four attribute operators
+(`=` / `^=` / `$=` / `*=` plus bare `[name]`), descendant / child
+(`>`) / adjacent-sibling (`+`) combinators, and the
+`:first-child` / `:last-child` / `:nth-child(N)` / `:not(...)`
+pseudo-classes. `[Added in 2026.05.13]` (closes #78).
+
+```python
+from docx import Document
+
+doc = Document("report.docx")
+
+# Every H1
+for p in doc.select('p[style="Heading 1"]'):
+    print(p.text)
+
+# Bold runs anywhere under a heading
+for run in doc.select('p[style^="Heading "] r[bold]'):
+    print(run.text)
+
+# Cells in the second column of every table
+cells = doc.select('tbl tr td:nth-child(2)')
+
+# First paragraph immediately after each heading
+intros = doc.select('p[style^="Heading "] + p')
+
+# All external hyperlinks
+links = doc.select('hyperlink[address^="https://"]')
+```
+
+- `Document.select(selector)` — Return a list of matching proxies in document order. `[Added in 2026.05.13]`
+- `Document.select_one(selector)` — Return the first match or `None`. `[Added in 2026.05.13]`
+- `docx.selectors.compile_selector(text)` — Parse once, reuse the AST on hot paths. `[Added in 2026.05.13]`
+- `docx.selectors.SelectorSyntaxError` — Raised for malformed selectors. `[Added in 2026.05.13]`
+
+See the `docx.selectors` module docstring for the full cheatsheet,
+including the supported attribute names per element kind (`style`,
+`text`, `name`, `id`, `address`, `tooltip`, `author`, `level`, plus the
+boolean run flags `bold` / `italic` / `underline` / `hidden`).
 
 ---
 
