@@ -91,6 +91,7 @@ Summary of areas extended beyond upstream `1.2.0`:
   Flat-OPC read/write, reproducible save, `huge_tree` opt-in, recover
   mode, `Document.repair()` best-effort recovery for damaged packages,
   password-protected read/write via optional `python-ooxml-crypto`,
+  `Document.stream()` bounded-memory reader for very large documents,
   `os.PathLike` support)
 - Settings and metadata (compat flags, view, mail merge,
   `Document.extended_properties`, doc vars, page stats, spell/grammar
