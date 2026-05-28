@@ -111,6 +111,29 @@ pip install Sphinx furo
 python -m sphinx -b html docs docs/_build/html
 ```
 
+## Reproducible builds
+
+`Document.save(path, reproducible=True)` produces a byte-identical
+`.docx` for byte-identical inputs across machines and runs:
+
+```python
+from docx import Document
+
+doc = Document()
+doc.add_paragraph("Hello")
+doc.save("out.docx", reproducible=True)
+```
+
+The flag stamps every zip-member with the fixed 1980-01-01 timestamp,
+emits members in sorted order, normalises external file attributes,
+and disables the rsid-family churn attributes that Word otherwise
+mints on every save — the four sources of cross-machine and cross-
+session nondeterminism. Use it for source-control-friendly diffs,
+fixture regeneration, and content-addressable artefact pipelines.
+The matching keyword is also accepted by the sibling `python-pptx`,
+`python-xlsx`, and `python-vsdx` parents so cross-format build
+pipelines share a single idiom (issue #150).
+
 ## Round-trip support
 
 A central design goal of this fork is **round-trip fidelity** — load a
