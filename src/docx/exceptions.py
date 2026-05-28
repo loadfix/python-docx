@@ -33,6 +33,18 @@ class EncryptedDocumentError(PythonDocxError):
     """
 
 
+class NestedSectionError(PythonDocxError):
+    """Raised when entering a section context inside another active one.
+
+    The OOXML model encodes sections by attaching a ``w:sectPr`` to the
+    last paragraph of a region. Sections cannot nest — every paragraph
+    belongs to exactly one section. :meth:`docx.Document.section`
+    surfaces this constraint at the API layer.
+
+    .. versionadded:: 2026.05.13
+    """
+
+
 class RmsProtectedDocumentError(EncryptedDocumentError):
     """Raised when opening a .docx wrapped in Azure RMS / AIP / IRM protection.
 

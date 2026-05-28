@@ -787,6 +787,74 @@ class Document(ElementProxy):
         new_sectPr.start_type = start_type
         return Section(new_sectPr, self._part)
 
+    def section(
+        self,
+        *,
+        orientation=None,
+        margins=None,
+        page_size=None,
+        page_numbering=None,
+        header=None,
+        footer=None,
+        columns=None,
+        line_numbering=None,
+    ):
+        """Return a context manager that scopes content to a fresh section.
+
+        Body content added inside the ``with`` block lives in a new
+        section whose page setup is configured by the keyword arguments;
+        on exit, an implicit section break is appended that reverts to
+        the previously-active section's setup::
+
+            with doc.section(orientation='landscape', margins='narrow'):
+                doc.add_paragraph("Wide table follows")
+                doc.add_table(rows=2, cols=12)
+            # implicit section break here -- subsequent content is back
+            # to portrait / prior margins
+
+        ``orientation`` accepts ``"portrait"`` / ``"landscape"``
+        (case-insensitive) or a :class:`WD_ORIENTATION` member; flipping
+        orientation swaps ``page_width`` and ``page_height`` to match
+        Word's convention.
+
+        ``margins`` accepts a preset name (``"narrow"`` / ``"normal"`` /
+        ``"moderate"`` / ``"wide"``), a 4-tuple ``(top, right, bottom,
+        left)`` of |Length| or numeric inches, or a dict with any subset
+        of those keys.
+
+        ``page_size`` accepts a preset (``"letter"`` / ``"legal"`` /
+        ``"a4"`` / ``"a3"`` / ``"tabloid"``), a 2-tuple ``(width,
+        height)``, or a dict.
+
+        ``page_numbering`` is a dict with optional ``style`` (alias for
+        ``fmt`` — :class:`WD_NUMBER_FORMAT`), ``start`` (int), and
+        ``restart`` (bool/int) keys. ``columns`` is an int or dict
+        forwarded to :meth:`Section.set_columns`. ``line_numbering`` is
+        a bool or dict forwarded to :meth:`Section.set_line_numbering`.
+        ``header`` / ``footer`` are plain strings written to the new
+        section's first header/footer paragraph. Unspecified properties
+        inherit from the prior section.
+
+        Raises :class:`docx.exceptions.NestedSectionError` when invoked
+        while another :meth:`section` context is already active —
+        OOXML sections cannot nest.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.section_context import open_section
+
+        return open_section(
+            self,
+            orientation=orientation,
+            margins=margins,
+            page_size=page_size,
+            page_numbering=page_numbering,
+            header=header,
+            footer=footer,
+            columns=columns,
+            line_numbering=line_numbering,
+        )
+
     def add_table_of_contents(
         self, levels: tuple[int, int] = (1, 3)
     ) -> Paragraph:
