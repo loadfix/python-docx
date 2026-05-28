@@ -117,10 +117,14 @@ Summary of areas extended beyond upstream `1.2.0`:
   from a single template + iterable of records),
   `docx.kit.contracts` (`nda` / `msa` / `sow` /
   `contractor_agreement` boilerplate factories — *starting points
-  only, not legal advice*), and `docx.kit.memos` (`investment_memo`
+  only, not legal advice*), `docx.kit.memos` (`investment_memo`
   with McKinsey-style SCQA executive summary, and `business_case`
-  with options-analysis table). Lives under the optional `[kit]`
-  extras flag (`pip install python-docx[kit]`).
+  with options-analysis table), and `docx.kit.templates`
+  (`brief` / `coe` / `rfp_response` / `white_paper` document-template
+  registry covering short briefs, Centre of Excellence charters,
+  RFP responses with a pricing table, and white papers with abstract
+  and references). Lives under the optional `[kit]` extras flag
+  (`pip install python-docx[kit]`).
 
 API and user-guide documentation lives under `docs/` and builds with
 Sphinx. The theme is Furo.

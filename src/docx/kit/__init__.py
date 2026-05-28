@@ -45,6 +45,10 @@ Available kit submodules:
   family (``investment_memo`` / ``business_case``) with McKinsey-style
   SCQA (Situation / Complication / Question / Answer) structure for
   memos and an options-analysis table for business cases.
+* :mod:`docx.kit.templates` — generic document template registry
+  (``brief`` / ``coe`` / ``rfp_response`` / ``white_paper``) covering
+  short briefs, Centre of Excellence charters, RFP responses with a
+  pricing table, and white papers with abstract and references.
 
 .. versionadded:: 2026.05.29
 """
@@ -60,6 +64,7 @@ from docx.kit import (
     mail_merge,
     memos,
     resume,
+    templates,
 )
 
 __all__ = [
@@ -71,4 +76,5 @@ __all__ = [
     "mail_merge",
     "memos",
     "resume",
+    "templates",
 ]
