@@ -1229,6 +1229,25 @@ class _Cell(BlockItemContainer):
         """
         return super().add_paragraph(text, style)
 
+    def add_markdown(self, md: str) -> "Paragraph":
+        """Render `md` into this cell as a fresh paragraph (and siblings).
+
+        The first parsed block becomes a new paragraph appended to the
+        end of the cell's content. Subsequent blocks (additional list
+        items, blank-line separators, …) become further paragraphs in
+        document order. The first paragraph created is returned.
+
+        See :meth:`docx.text.paragraph.Paragraph.add_markdown` for the
+        Markdown subset and round-trip caveats. The cell-scoped variant
+        differs only in that it always appends fresh paragraph(s)
+        rather than starting from an existing one.
+
+        .. versionadded:: 2026.05.0
+        """
+        from docx.text.markdown import apply_markdown_to_cell
+
+        return apply_markdown_to_cell(self, md)
+
     def add_picture(
         self,
         image_path_or_stream: "str | os.PathLike[str] | IO[bytes]",

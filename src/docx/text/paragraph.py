@@ -394,6 +394,46 @@ class Paragraph(StoryChild):
 
         return target_run.make_hyperlink(url=url, anchor=anchor)
 
+    def add_markdown(self, md: str) -> "Paragraph":
+        """Render `md` starting from this paragraph, appending siblings as needed.
+
+        Supports the inline-Markdown subset called out in issue #23:
+
+        * inline emphasis: ``**bold**`` / ``__bold__``, ``*italic*`` /
+          ``_italic_``, inline code (``` `code` ``)
+        * inline links: ``[text](url)`` — rendered as ``w:hyperlink``
+          with an external HYPERLINK relationship and the ``Hyperlink``
+          character style
+        * bullet lists (``-`` / ``*``) → ``style="List Bullet"`` siblings
+        * numbered lists (``1.`` …) → ``style="List Number"`` siblings
+        * ATX headings (``#`` … ``######``) — only at the **top** of the
+          input; rendered with ``style="Heading N"``. Subsequent
+          headings are treated as plain paragraph lines beginning with
+          ``#``.
+        * blank-line paragraph separator → empty sibling paragraph
+        * single ``\\n`` inside a block becomes a soft line-break
+          (``w:br``)
+
+        NOT supported (escape-hatch: pass the raw text through
+        :meth:`add_run`): tables, images, fenced code blocks,
+        footnotes, blockquotes, horizontal rules.
+
+        **Round-trip is one-way.** The Markdown source string is *not*
+        preserved on the document. After ``add_markdown`` returns, the
+        document holds the equivalent OOXML and a subsequent read does
+        not recover the original markdown. This matches every other
+        author-time helper in python-docx.
+
+        Returns ``self`` (the *first* paragraph affected) to support
+        chaining.
+
+        .. versionadded:: 2026.05.0
+        """
+        from docx.text.markdown import apply_markdown_to_paragraph
+
+        apply_markdown_to_paragraph(self, md)
+        return self
+
     def add_run(
         self,
         text: str | None = None,

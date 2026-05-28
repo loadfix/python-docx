@@ -6,6 +6,23 @@ Release History
 Unreleased — Hyperlink ergonomics
 +++++++++++++++++++++++++++++++++
 
+- **``Paragraph.add_markdown(md)`` / ``_Cell.add_markdown(md)``** —
+  inline Markdown rendering for paragraphs and table cells (#23).
+  Supported subset: bold (``**...**`` / ``__...__``), italic
+  (``*...*`` / ``_..._``), inline code (``` `...` ``), inline links
+  (``[text](url)``), bullet lists (``-`` / ``*``) → ``List Bullet``
+  paragraphs, numbered lists (``1.`` …) → ``List Number`` paragraphs,
+  ATX headings (``#`` … ``######``, top-of-input only) →
+  ``Heading N`` paragraphs, blank-line paragraph separator, and
+  single-``\n`` soft line-breaks (``w:br``). Tables, images, fenced
+  code blocks, footnotes, blockquotes, and horizontal rules are out
+  of scope (escape-hatch: pass raw text via :meth:`add_run`). The
+  Markdown source is *not* preserved on the document — after
+  ``add_markdown`` returns, the paragraph holds the equivalent OOXML
+  and a subsequent read does not recover the original markdown.
+  Implementation is a small hand-rolled tokenizer (no new runtime
+  dep). Closes #23.
+
 - **``Document.add_paragraph(text, bind_to=record)`` /
   ``Document.bind(record=...)``** smart-placeholder fields (#68). Token
   strings such as ``{customer.name}``, ``{customer.address.line1}``,
