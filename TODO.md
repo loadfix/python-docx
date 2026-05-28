@@ -73,6 +73,17 @@ shipped surface.
   ~0.0007 ms/access at N=5 000 paragraphs. See `SCALE_NOTES.md` for
   methodology and post-fix numbers.
 
+### Authoring features (2026.05.dev0)
+
+- **Older-Word compatibility mode (#94).** `Document.save(path,
+  compatibility="Word 2003"|"Word 2007"|"Word 2010"|"Word 2013"|"Word
+  2016")` — stamps `settings.xml/w:compat/w:compatSetting[@w:name=
+  "compatibilityMode"]` with the matching integer (11/12/14/15/16) and
+  best-effort filters known-incompatible features (modern threaded
+  comments stripped when targeting Word 2003 or 2007). See
+  `docx.compatibility` and `FEATURES.md` § "Opening and saving
+  documents". Closed 2026-05-29.
+
 ### Authoring features (2026.05.8)
 
 - **Bibliography / citation support.** `Document.bibliography`
