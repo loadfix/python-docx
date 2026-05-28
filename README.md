@@ -153,6 +153,11 @@ Summary of areas extended beyond upstream `1.2.0`:
   flag (`pip install python-docx[kit]`); `BrandAssets.load` additionally
   needs PyYAML, which the optional `[brand]` extras pulls in
   (`pip install 'python-docx[brand]'`).
+  (`validate_brand` brand-guideline linter that walks a document and
+  returns `BrandFinding` records covering font / colour / logo /
+  heading-style / spacing drift against a YAML, dict, or
+  `BrandAssets`-shaped palette). Lives under the optional
+  `[kit]` extras flag (`pip install python-docx[kit]`).
 
 API and user-guide documentation lives under `docs/` and builds with
 Sphinx. The theme is Furo.

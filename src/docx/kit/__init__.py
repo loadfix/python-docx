@@ -31,6 +31,12 @@ Available kit submodules:
   breaks between long-form-document sections.
 * :mod:`docx.kit.back_matter` — appendix / glossary / index /
   bibliography helpers.
+* :mod:`docx.kit.brand` — :func:`~docx.kit.brand.validate_brand` brand-
+  guideline linter. Walks a document and surfaces a list of
+  :class:`~docx.kit.brand.BrandFinding` records covering five rules
+  (``font-not-on-brand`` / ``color-not-on-brand`` / ``wrong-logo`` /
+  ``heading-style-mismatch`` / ``inconsistent-spacing``) against a
+  YAML / dict / ``BrandAssets``-shaped palette.
 * :mod:`docx.kit.letterhead` — branded header (logo + return address)
   and footer (phone / email / website) with three built-in styles
   (``modern`` / ``classic`` / ``minimal``).

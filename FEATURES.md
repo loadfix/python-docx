@@ -3330,6 +3330,39 @@ manifest from a non-YAML source (TOML / JSON / env-var harness) or
 who want to construct a brand programmatically. PyYAML is required
 only for `BrandAssets.load(yaml_path)`; opt in via the
 `[brand]` extras flag (`pip install 'python-docx[brand]'`).
+### Brand-guideline validator
+
+`docx.kit.brand.validate_brand` lints a document against a brand palette
+and returns a list of `BrandFinding` records (`severity` / `location` /
+`rule` / `message`). Five rules are checked: `font-not-on-brand`
+(warning) — paragraph or run uses a font outside the palette;
+`color-not-on-brand` (warning) — text colour not in the palette
+(`#000000` is surfaced as the canonical "text-default" mismatch);
+`wrong-logo` (error) — inline image looks like a logo but is not
+registered under `brand.logos`; `heading-style-mismatch` (warning) —
+heading paragraph drifts even when body text is correct;
+`inconsistent-spacing` (info) — paragraph format diverges from
+`brand.spacing`. The validator is read-only and never mutates the
+document. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit.brand import validate_brand
+
+doc = Document("draft.docx")
+findings = validate_brand(doc, rules="aws-brand.yaml")
+for f in findings:
+    print(f.severity, f.location, f.rule, f.message)
+# warning paragraph 5 font-not-on-brand: 'Times New Roman' (allowed: ...)
+# error   image 'logo.jpg' wrong-logo: image looks like a logo ...
+```
+
+`rules` accepts a YAML path, a pre-loaded `dict`, or any
+`BrandAssets`-shaped object that exposes `fonts` / `colors` / `logos` /
+`spacing`. Colours may be supplied either as a list of hex strings or a
+`{hex: human-name}` mapping; logos may be supplied as a `path`, a
+`sha1` digest, or both. PyYAML is loaded lazily — when unavailable, a
+small built-in subset parser handles the schemas the issue documents.
 
 ---
 
