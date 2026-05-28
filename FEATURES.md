@@ -2746,6 +2746,70 @@ API:
 
 ---
 
+## PDF/A archival export (`Document.save_as_pdf_a()`)
+
+A best-effort PDF/A (ISO 19005) archival exporter. Renders the
+document body to a self-describing PDF with an XMP metadata packet
+declaring the requested PDF/A conformance level. Suitable for
+long-term archival pipelines where the requirement is "an
+archive-ready PDF that opens in any reader" rather than a strict
+spec-validating output. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+
+doc = Document("report.docx")
+doc.save_as_pdf_a("report.pdf", level="3a")
+# other accepted levels: "1a", "1b", "2a", "2b", "3a", "3b"
+```
+
+Rendering covers:
+- Paragraphs (with `Heading 1` .. `Heading 6` styles promoted to
+  larger font sizes that step from 22pt down to 12pt).
+- Inline runs (`bold` / `italic` / `underline` survive; font name,
+  colour, and size collapse to the renderer defaults).
+- Tables — basic grid with even column widths and space-joined cell
+  text.
+- Inline images (`w:drawing` with a resolvable `r:embed` rId placed at
+  the paragraph flow position; anchored drawings, EMF / WMF, and bare
+  SVG are skipped).
+- Hard page breaks (`run.add_break(WD_BREAK.PAGE)` -> fresh PDF page).
+- Bullet / numbered list items rendered with leading marker and
+  per-level indentation.
+- XMP metadata stream declaring `pdfaid:part` and `pdfaid:conformance`
+  matching the requested level, plus `dc:title` / `xmp:CreatorTool` /
+  `pdf:Producer`.
+
+Out of scope (skipped silently; future work):
+- **Font embedding fidelity** — uses ReportLab's stock Helvetica
+  family rather than a fully-embedded Unicode TTF. Strict PDF/A
+  validators flag this; ship a bundled Liberation Sans / DejaVu Sans
+  in a future revision.
+- **Output intent (sRGB ICC profile)** — not declared.
+- **Footnotes, endnotes, equations, fields, drawings beyond inline
+  pictures, change-tracking marks, section headers / footers / page
+  numbers** — silently skipped.
+- **Hyperlinks** lose their target URL (text only).
+- **Spec validation** — running output through a PDF/A validator
+  (veraPDF, Acrobat Pro Preflight) will surface conformance errors.
+
+Backed by the optional `[pdfa]` extra (pulls in `reportlab`):
+
+```
+pip install 'python-docx[pdfa]'
+```
+
+When `reportlab` is not importable, `save_as_pdf_a()` raises an
+`ImportError` pointing at the extra.
+
+API:
+- `Document.save_as_pdf_a(path_or_stream, level="3a")` — Render to
+  the supplied path or file-like object. `[Added in 2026.05.29]`
+- `docx.pdf_a_export.document_to_pdf_a(document, path_or_stream, level)`
+  — Module-level entry point. `[Added in 2026.05.29]`
+
+---
+
 ## Packaging and I/O options
 
 `Document.save()` supports:

@@ -2796,6 +2796,66 @@ class Document(ElementProxy):
 
         return document_to_markdown(self)
 
+    def save_as_pdf_a(
+        self,
+        path_or_stream: "str | IO[bytes]",
+        level: str = "3a",
+    ) -> None:
+        """Render this document to a PDF/A archival PDF at `path_or_stream`.
+
+        PDF/A (ISO 19005) is the long-term archival flavour of PDF: a
+        self-describing rendition with all fonts embedded, no
+        JavaScript, no external references, and an XMP metadata
+        packet declaring conformance.
+
+        ``level`` is the PDF/A conformance label: one of ``"1a"``,
+        ``"1b"``, ``"2a"``, ``"2b"``, ``"3a"`` (default), or ``"3b"``.
+        ``a`` levels mandate an accessible / tagged structure tree;
+        ``b`` levels are visual-fidelity-only. Values outside this set
+        raise :class:`ValueError`.
+
+        Rendering is **best-effort archival** rather than a strict
+        spec-validating exporter:
+
+        * Paragraphs render with their inline runs (bold / italic /
+          underline survive). ``Heading 1`` .. ``Heading 6`` paragraphs
+          step through larger font sizes (22pt -> 12pt).
+        * Tables render as a basic grid with even column widths and
+          space-joined cell text.
+        * Inline images (``w:drawing`` with a resolvable ``r:embed``
+          rId) are placed inline at their paragraph position; anchored
+          drawings, EMF / WMF, and bare SVG are skipped.
+        * Hard page breaks (``run.add_break(WD_BREAK.PAGE)``) start a
+          fresh PDF page.
+        * The catalog's XMP metadata stream declares
+          ``pdfaid:part`` and ``pdfaid:conformance``.
+
+        Out of scope (skipped silently; future work):
+
+        * Fonts: uses ReportLab's bundled Helvetica family rather than
+          a fully-embedded Unicode TTF.
+        * Output intent (sRGB ICC profile) is not declared.
+        * Footnotes, endnotes, equations, fields, drawings beyond
+          inline pictures, change-tracking marks, and section
+          headers / footers / page numbers.
+        * Hyperlinks lose their target URL (text only).
+
+        Raises :class:`ImportError` when ``reportlab`` is not
+        installed; pull it in via ``pip install 'python-docx[pdfa]'``.
+
+        Example::
+
+            from docx import Document
+
+            doc = Document("report.docx")
+            doc.save_as_pdf_a("report.pdf", level="3a")
+
+        .. versionadded:: 2026.05.29
+        """
+        from docx.pdf_a_export import document_to_pdf_a
+
+        document_to_pdf_a(self, path_or_stream, level=level)
+
     def diff(self, other: "Document", level: str = "content"):
         """Return a :class:`~docx.semantic_diff.SemanticDiff` against `other`.
 

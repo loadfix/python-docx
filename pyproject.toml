@@ -192,6 +192,15 @@ kit = []
 #   pip install 'python-docx[brand]'
 #
 brand = ["pyyaml>=6.0"]
+# Opt-in extra for ``Document.save_as_pdf_a()`` — best-effort PDF/A
+# archival export (issue #73). reportlab is widely installed in
+# document-pipeline environments but not a hard dependency of
+# python-docx; only callers who export to PDF/A need the extra
+# installed.
+#
+#   pip install 'python-docx[pdfa]'
+#
+pdfa = ["reportlab>=4.0"]
 
 [project.urls]
 Changelog = "https://github.com/python-openxml/python-docx/blob/master/HISTORY.rst"

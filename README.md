@@ -98,6 +98,11 @@ Summary of areas extended beyond upstream `1.2.0`:
   `Document.stream()` bounded-memory reader for very large documents,
   `Document.from_html()` / `from_html_string()` HTML import, `os.PathLike`
   support)
+- Exporters (`Document.to_html()` minimal HTML5,
+  `Document.to_markdown()` GitHub-Flavoured Markdown,
+  `Document.save_as_pdf_a(path, level="3a")` best-effort PDF/A
+  archival export with XMP `pdfaid` metadata — opt-in via
+  `pip install 'python-docx[pdfa]'`)
 - Settings and metadata (compat flags, view, mail merge,
   `Document.extended_properties`, doc vars, page stats, spell/grammar
   toggles, auto-hyphenation, timezone-aware comments)
