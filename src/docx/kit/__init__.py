@@ -25,12 +25,14 @@ Available kit submodules:
   preface / TOC / list-of-figures / list-of-tables helpers.
 * :mod:`docx.kit.chapter` — chapter opener pages (large title +
   decorative image + drop cap).
+* :mod:`docx.kit.back_matter` — appendix / glossary / index /
+  bibliography helpers.
 
 .. versionadded:: 2026.05.29
 """
 
 from __future__ import annotations
 
-from docx.kit import chapter, front_matter
+from docx.kit import back_matter, chapter, front_matter
 
-__all__ = ["chapter", "front_matter"]
+__all__ = ["back_matter", "chapter", "front_matter"]
