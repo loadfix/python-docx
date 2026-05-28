@@ -5,6 +5,9 @@ from __future__ import annotations
 import functools
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 from collections.abc import Callable, Iterator
+
+from docx.exceptions import InvalidColorError
+
 if TYPE_CHECKING:
     import docx.types as t
     from docx.opc.part import XmlPart
@@ -120,7 +123,16 @@ class RGBColor(tuple[int, int, int]):
             if not isinstance(val, int):  # pyright: ignore[reportUnnecessaryIsInstance]
                 raise TypeError(msg)
             if val < 0 or val > 255:
-                raise ValueError(msg)
+                raise InvalidColorError(
+                    msg,
+                    suggestion=(
+                        f"Component {val!r} is outside 0-255; clamp values "
+                        "(`max(0, min(255, v))`) or pass a hex string via "
+                        "`RGBColor.from_string('rrggbb')`."
+                    ),
+                    location=f"RGBColor({r!r}, {g!r}, {b!r})",
+                    operation="RGBColor.__new__",
+                )
         return super(RGBColor, cls).__new__(cls, (r, g, b))
 
     def __repr__(self):
@@ -148,9 +160,15 @@ class RGBColor(tuple[int, int, int]):
             # -- expand each hex digit: "F0A" -> "FF00AA" --
             rgb_hex_str = "".join(ch * 2 for ch in rgb_hex_str)
         if len(rgb_hex_str) != 6:
-            raise ValueError(
+            raise InvalidColorError(
                 "RGBColor.from_string() requires a 3- or 6-character hex "
-                "string, got %r" % (rgb_hex_str,)
+                "string, got %r" % (rgb_hex_str,),
+                suggestion=(
+                    "Pass a 3- or 6-digit hex string (with optional leading "
+                    "'#'), e.g. '3C2F80' or '#F0A'."
+                ),
+                location=f"RGBColor.from_string({rgb_hex_str!r})",
+                operation="RGBColor.from_string",
             )
         r = int(rgb_hex_str[:2], 16)
         g = int(rgb_hex_str[2:4], 16)

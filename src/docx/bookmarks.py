@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
+from docx.exceptions import BookmarkNotFoundError, _did_you_mean
 from docx.oxml.bookmarks import CT_BookmarkStart
 from docx.oxml.ns import qn
 
@@ -54,7 +55,13 @@ class Bookmarks:
         """
         bm = self.get(name)
         if bm is None:
-            raise KeyError(name)
+            available = [bs.name for bs in self._body.xpath(".//w:bookmarkStart")]
+            raise BookmarkNotFoundError(
+                "no bookmark named %r in document" % (name,),
+                suggestion=_did_you_mean(name, available),
+                location=f"document.bookmarks[{name!r}]",
+                operation="Bookmarks.__getitem__",
+            )
         return bm
 
     def get(self, name: str) -> Bookmark | None:
@@ -158,7 +165,13 @@ class Bookmarks:
         """
         bm = self.get(name)
         if bm is None:
-            raise KeyError(name)
+            available = [bs.name for bs in self._body.xpath(".//w:bookmarkStart")]
+            raise BookmarkNotFoundError(
+                "no bookmark named %r in document" % (name,),
+                suggestion=_did_you_mean(name, available),
+                location=f"document.bookmarks.remove({name!r})",
+                operation="Bookmarks.remove",
+            )
         bm.delete()
 
 

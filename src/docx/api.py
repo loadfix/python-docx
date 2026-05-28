@@ -10,6 +10,7 @@ import os
 from importlib import resources
 from typing import IO, TYPE_CHECKING, cast
 
+from docx.exceptions import NotAWordFileError, NotAWordTemplateError
 from docx.opc.constants import CONTENT_TYPE as CT
 from docx.package import Package
 
@@ -112,8 +113,16 @@ def Document(
     )
     document_part = cast("DocumentPart", package.main_document_part)
     if document_part.content_type not in _WORD_CONTENT_TYPES:
-        raise ValueError(
-            f"file '{docx}' is not a Word file, content type is '{document_part.content_type}'"
+        raise NotAWordFileError(
+            f"file '{docx}' is not a Word file, content type is "
+            f"'{document_part.content_type}'",
+            suggestion=(
+                "Open .docx, .docm, .dotx, or .dotm files only. For .pptx /"
+                " .xlsx use python-pptx / python-xlsx; the content type was "
+                f"{document_part.content_type!r}."
+            ),
+            location=f"Document({docx!r})",
+            operation="docx.Document",
         )
     document = document_part.document
     if not include_metadata:
@@ -144,8 +153,15 @@ def from_template(template: str | IO[bytes]) -> DocumentObject:
     elif source_ct == CT.WML_TEMPLATE_MACRO:
         document_part.content_type = CT.WML_DOCUMENT_MACRO
     else:
-        raise ValueError(
-            f"file '{template}' is not a Word template, content type is '{source_ct}'"
+        raise NotAWordTemplateError(
+            f"file '{template}' is not a Word template, content type is "
+            f"'{source_ct}'",
+            suggestion=(
+                "from_template() requires a .dotx or .dotm template package. "
+                "Use Document() for a regular .docx / .docm document."
+            ),
+            location=f"from_template({template!r})",
+            operation="docx.from_template",
         )
     return document_part.document
 

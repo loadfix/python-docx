@@ -7,6 +7,7 @@ from collections.abc import Iterator, Sequence
 
 from docx.blkcntnr import BlockItemContainer
 from docx.enum.section import WD_HEADER_FOOTER
+from docx.exceptions import OutOfRangeError, ValueOutOfRangeError, _did_you_mean
 from docx.oxml.ns import nsdecls, qn
 from docx.oxml.parser import parse_xml
 from docx.oxml.text.paragraph import CT_P
@@ -128,9 +129,16 @@ class Section:
             columns.separator = separator
         if widths is not None:
             if len(widths) != count:
-                raise ValueError(
+                raise ValueOutOfRangeError(
                     "widths must have exactly `count` entries; got %d widths for "
-                    "count=%d" % (len(widths), count)
+                    "count=%d" % (len(widths), count),
+                    code="COLUMN_WIDTHS_LENGTH",
+                    suggestion=(
+                        f"Pass exactly {count} entries in `widths`, or omit "
+                        "`widths` to use equal-width columns."
+                    ),
+                    location="Section.set_columns",
+                    operation="Section.set_columns",
                 )
             columns.set_widths(widths)
         return columns
@@ -601,8 +609,14 @@ class Section:
         .. versionadded:: 2026.05.0
         """
         if side not in ("top", "bottom", "left", "right"):
-            raise ValueError(
-                "side must be one of 'top', 'bottom', 'left', 'right'; got %r" % side
+            raise ValueOutOfRangeError(
+                "side must be one of 'top', 'bottom', 'left', 'right'; got %r" % side,
+                code="BORDER_SIDE_INVALID",
+                suggestion=_did_you_mean(
+                    str(side), ("top", "bottom", "left", "right")
+                ),
+                location=f"Section.set_page_border(side={side!r}, ...)",
+                operation="Section.set_page_border",
             )
         border = getattr(self.page_borders, side)
         if style is not None:
@@ -1048,8 +1062,14 @@ class Section:
         if color is None:
             color = RGBColor(0xC0, 0xC0, 0xC0)
         if layout not in ("diagonal", "horizontal"):
-            raise ValueError(
-                "layout must be 'diagonal' or 'horizontal', got %r" % layout
+            raise ValueOutOfRangeError(
+                "layout must be 'diagonal' or 'horizontal', got %r" % layout,
+                code="WATERMARK_LAYOUT_INVALID",
+                suggestion=_did_you_mean(
+                    str(layout), ("diagonal", "horizontal")
+                ),
+                location=f"Section.add_text_watermark(..., layout={layout!r})",
+                operation="Section.add_text_watermark",
             )
 
         # -- ensure the section has a non-linked header ---
@@ -1267,7 +1287,16 @@ class Sections(Sequence[Section]):
         if index < 0:
             index += n
         if not 0 <= index < n:
-            raise IndexError("section index out of range")
+            raise OutOfRangeError(
+                f"section index {index} out of range (have {n} sections)",
+                code="SECTION_INDEX",
+                suggestion=(
+                    f"Use an index in 0..{n - 1}" if n
+                    else "Document has no sections to pop."
+                ),
+                location=f"Sections.pop({index!r})",
+                operation="Sections.pop",
+            )
         section = Section(sectPrs[index], self._document_part)
         section.delete()
         return section

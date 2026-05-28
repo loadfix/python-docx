@@ -111,6 +111,7 @@ document.save("out.xml", flat_opc=True)
 - `docx.exceptions.EncryptedDocumentError` — Raised when opening a password-protected `.docx` without a correct password, or when `python-ooxml-crypto` is required but not installed. `[Added in 2026.05.0]`
 - `docx.exceptions.RmsProtectedDocumentError` — Subclass of `EncryptedDocumentError`, raised when opening a file wrapped in Azure RMS / AIP / IRM protection (not decryptable with a password). `[Added in 2026.05.10]`
 - `docx.exceptions.PythonDocxError` / `InvalidSpanError` / `InvalidXmlError` — Library-specific exceptions.
+- `docx.exceptions.DocxError` — Structured, LLM-friendly base error carrying machine-readable `code`, human `message`, fuzzy-match `suggestion`, conceptual `location`, and `operation` name. Subclasses (`StyleNotFoundError`, `StyleDuplicateError`, `StyleTypeMismatchError`, `LatentStyleNotFoundError`, `BuiltinStyleNotFoundError`, `BookmarkNotFoundError`, `FontNotFoundError`, `FontFamilyInvalidError`, `FontEmbedEmptyError`, `ThemeTokenInvalidError`, `InvalidColorError`, `InvalidBrightnessError`, `OutOfRangeError`, `ValueOutOfRangeError`, `NotAWordFileError`, `NotAWordTemplateError`) multi-inherit from the legacy built-in (`KeyError` / `ValueError` / `IndexError`) so existing `except` blocks continue to catch them. `__all_codes__` enumerates every stable error code; `to_dict()` returns a JSON-serialisable view for LLM repair loops. `[Added in 2026.05.13]` — closes #12.
 
 ---
 

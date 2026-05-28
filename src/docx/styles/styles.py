@@ -8,6 +8,13 @@ from typing import TYPE_CHECKING, Iterable
 from warnings import warn
 
 from docx.enum.style import WD_BUILTIN_STYLE, WD_STYLE_TYPE
+from docx.exceptions import (
+    BuiltinStyleNotFoundError,
+    StyleDuplicateError,
+    StyleNotFoundError,
+    StyleTypeMismatchError,
+    _did_you_mean,
+)
 from docx.oxml.parser import parse_xml
 from docx.oxml.styles import CT_Styles
 from docx.shared import ElementProxy
@@ -87,7 +94,14 @@ class Styles(ElementProxy):
             warn(msg, UserWarning, stacklevel=2)
             return StyleFactory(style_elm)
 
-        raise KeyError("no style with name '%s'" % key)
+        names = [s.name_val for s in self._element.style_lst if s.name_val]
+        ui_names = [BabelFish.internal2ui(n) for n in names]
+        raise StyleNotFoundError(
+            "no style with name %r" % (key,),
+            suggestion=_did_you_mean(str(key), ui_names),
+            location=f"document.styles[{key!r}]",
+            operation="Styles.__getitem__",
+        )
 
     def __iter__(self):
         return (StyleFactory(style) for style in self._element.style_lst)
@@ -102,7 +116,15 @@ class Styles(ElementProxy):
         argument.
         """
         if name in self:
-            raise ValueError("document already contains style '%s'" % name)
+            raise StyleDuplicateError(
+                "document already contains style %r" % (name,),
+                suggestion=(
+                    "Pick a unique name or update the existing style via "
+                    "`document.styles[name]` instead of adding a duplicate."
+                ),
+                location=f"document.styles.add_style({name!r}, ...)",
+                operation="Styles.add_style",
+            )
         style_name = BabelFish.ui2internal(name)
         style = self._element.add_style_of_type(style_name, style_type, builtin)
         return StyleFactory(style)
@@ -239,7 +261,17 @@ class Styles(ElementProxy):
         default_styles = _default_template_styles()
         source_elm = default_styles._element.get_by_name(BabelFish.ui2internal(name))
         if source_elm is None:
-            raise KeyError(name)
+            available = [
+                BabelFish.internal2ui(s.name_val)
+                for s in default_styles._element.style_lst
+                if s.name_val
+            ]
+            raise BuiltinStyleNotFoundError(
+                "no built-in style %r in the bundled defaults" % (name,),
+                suggestion=_did_you_mean(name, available),
+                location=f"Styles.import_builtin({name!r})",
+                operation="Styles.import_builtin",
+            )
         return self.import_style(source_elm)
 
     @property
@@ -275,7 +307,15 @@ class Styles(ElementProxy):
         Raises |ValueError| if style is not of `style_type`.
         """
         if style.type != style_type:
-            raise ValueError("assigned style is type %s, need type %s" % (style.type, style_type))
+            raise StyleTypeMismatchError(
+                "assigned style is type %s, need type %s" % (style.type, style_type),
+                suggestion=(
+                    f"The style {style.name!r} is a {style.type!s} style; pass a "
+                    f"{style_type!s} style instead."
+                ),
+                location=f"style {style.name!r}",
+                operation="Styles._get_style_id_from_style",
+            )
         if style == self.default(style_type):
             return None
         return style.style_id
