@@ -157,6 +157,27 @@ def from_template(template: str | IO[bytes]) -> DocumentObject:
 Document.from_template = from_template  # type: ignore[attr-defined]
 
 
+# -- expose `repair` as `Document.repair(...)`. Imported lazily to avoid a
+# -- circular import: `docx.repair` ultimately calls back into this module's
+# -- `Document(...)` factory through ``docx.api.Document``. --
+def _repair(  # noqa: D401 -- attribute, not a top-level function
+    docx_arg: "str | os.PathLike[str] | IO[bytes]",
+    strategy: str = "best-effort",
+):
+    """Best-effort recovery loader. See :func:`docx.repair.repair` for full docs.
+
+    Returns a ``(Document, RepairReport)`` tuple.
+
+    .. versionadded:: 2026.05.13
+    """
+    from docx.repair import repair as _repair_impl
+
+    return _repair_impl(docx_arg, strategy=strategy)
+
+
+Document.repair = _repair  # type: ignore[attr-defined]
+
+
 def _default_docx_stream() -> io.BytesIO:
     """Return a `BytesIO` of the built-in default .docx package.
 

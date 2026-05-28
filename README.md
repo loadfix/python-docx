@@ -86,8 +86,9 @@ Summary of areas extended beyond upstream `1.2.0`:
   PR workflows)
 - Packaging (`.dotx` / `.dotm` templates, Strict OOXML translation,
   Flat-OPC read/write, reproducible save, `huge_tree` opt-in, recover
-  mode, password-protected read/write via optional
-  `python-ooxml-crypto`, `os.PathLike` support)
+  mode, `Document.repair()` best-effort recovery for damaged packages,
+  password-protected read/write via optional `python-ooxml-crypto`,
+  `os.PathLike` support)
 - Settings and metadata (compat flags, view, mail merge,
   `Document.extended_properties`, doc vars, page stats, spell/grammar
   toggles, auto-hyphenation, timezone-aware comments)

@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from docx.api import Document, from_template
+from docx.repair import RepairError, RepairReport, repair
 
 if TYPE_CHECKING:
     from docx.opc.part import Part
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
 __version__ = "2026.05.12"
 
 
-__all__ = ["Document", "from_template"]
+__all__ = ["Document", "RepairError", "RepairReport", "from_template", "repair"]
 
 
 # -- register custom Part classes with opc package reader --
