@@ -135,12 +135,16 @@ Summary of areas extended beyond upstream `1.2.0`:
   (`ieee_paper` / `acm_paper` / `apa_paper` / `nature_paper`
   scientific-paper template factories — IEEE / Nature switch the body
   to two-column layout, APA applies double line spacing, ACM stays
-  single-column for the `acmart` stylesheet), and `docx.kit.legal`
+  single-column for the `acmart` stylesheet), `docx.kit.legal`
   (`court_paper` / `brief` / `declaration` / `table_of_authorities`
   legal industry template factories with Federal Court of Australia /
   NSW Supreme Court front-sheet layout, Word built-in line numbering
   via `w:sectPr/w:lnNumType`, and a live `TOA` complex field —
-  *starting points only, not legal advice*). Lives under the optional
+  *starting points only, not legal advice*), and `docx.kit.medical`
+  (`soap_note` / `discharge_summary` / `referral_letter`
+  clinical-note template factories with Subjective / Objective /
+  Assessment / Plan structure and a structured vitals table —
+  *template only, not a medical record*). Lives under the optional
   `[kit]` extras flag (`pip install python-docx[kit]`).
 
 API and user-guide documentation lives under `docs/` and builds with

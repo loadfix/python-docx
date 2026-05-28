@@ -71,6 +71,11 @@ Available kit submodules:
   and a live ``TOA`` complex field. Output is a *starting point only*
   — the module docstring carries an explicit "not legal advice"
   disclaimer.
+* :mod:`docx.kit.medical` — medical clinical-note template family
+  (``soap_note`` / ``discharge_summary`` / ``referral_letter``) with a
+  Subjective / Objective / Assessment / Plan structure, structured
+  vitals table, and an explicit "template only — not a medical record"
+  disclaimer rendered into every output document.
 
 .. versionadded:: 2026.05.29
 """
@@ -87,6 +92,7 @@ from docx.kit import (
     legal,
     letterhead,
     mail_merge,
+    medical,
     memos,
     resume,
     scientific,
@@ -103,6 +109,7 @@ __all__ = [
     "legal",
     "letterhead",
     "mail_merge",
+    "medical",
     "memos",
     "resume",
     "scientific",

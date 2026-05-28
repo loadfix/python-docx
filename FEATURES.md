@@ -3201,6 +3201,61 @@ so Word includes every category. Every factory raises `ValueError`
 when its required argument is missing or malformed — `parties` for
 `court_paper`, `matter` and `counsel` for `brief`, `declarant` for
 `declaration`, citation `case` for `table_of_authorities`.
+### Medical clinical-note templates (SOAP / discharge / referral)
+
+`docx.kit.medical` ships three template factories that build a
+clinical-document draft in one call — `soap_note`,
+`discharge_summary`, `referral_letter`. Each renders the conventional
+section structure for its document type (SOAP uses Subjective /
+Objective / Assessment / Plan; discharge summaries use Admission /
+Investigations / Procedures / Discharge medications / Follow-up;
+referral letters use a salutation / clinical question / history /
+examination / requested action / closing). When a `vitals` mapping is
+supplied, the helper renders a structured "Parameter / Value" table
+with one row per recognised vital (`bp`, `hr`, `temp`, `rr`, `spo2`,
+`weight`, `height`, `bmi`, `pain`); unrecognised keys round-trip
+verbatim. Every output document carries an explicit "template only —
+not a medical record / not legal advice" disclaimer rendered into the
+first page. `[Added in 2026.05.29]`
+
+```python
+from docx.kit.medical import (
+    soap_note,
+    discharge_summary,
+    referral_letter,
+)
+
+doc = soap_note(
+    patient={"name": "John Doe", "dob": "1980-05-15", "mrn": "1234567"},
+    encounter_date="2026-03-15",
+    provider={"name": "Dr. Alice Smith", "role": "GP",
+              "practice": "Sydney Medical Centre"},
+    subjective="Patient reports persistent cough for 3 weeks.",
+    objective={
+        "vitals": {"bp": "120/80", "hr": 72, "temp": 36.8,
+                   "rr": 18, "spo2": 98},
+        "examination": "Chest clear, no rales.",
+        "labs": ["FBC: WNL", "CRP: 12 mg/L"],
+    },
+    assessment=[
+        {"text": "Acute bronchitis", "code": "J20.9"},
+        "Hypertension stable",
+    ],
+    plan=[
+        "Amoxicillin 500mg TDS for 7 days",
+        "Review in 1 week",
+        "Continue current antihypertensive regimen",
+    ],
+)
+doc.save("doe-john-2026-03-15.docx")
+```
+
+Diagnoses accept either a string (rendered verbatim) or a
+`{"text": ..., "code": ...}` mapping (rendered as
+`"text (CODE)"` matching ICD-10-AM presentation). Medications accept
+either a string or a `{"name", "dose", "frequency", "duration"}`
+mapping (missing fields are elided). Every factory raises `ValueError`
+when `patient` or `provider`/`referrer` is missing or has no `name`.
 
 ---
 
