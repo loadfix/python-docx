@@ -33,12 +33,23 @@ Available kit submodules:
 * :mod:`docx.kit.resume` — resume / CV template family
   (``resume_chronological`` / ``resume_functional`` / ``resume_technical``)
   with three built-in styles (``modern`` / ``classic`` / ``minimal``).
+* :mod:`docx.kit.contracts` — contract / NDA template family
+  (``nda`` / ``msa`` / ``sow`` / ``contractor_agreement``) with
+  AUS-default boilerplate. Output is a *starting point only* — the
+  module docstring carries an explicit "not legal advice" disclaimer.
 
 .. versionadded:: 2026.05.29
 """
 
 from __future__ import annotations
 
-from docx.kit import back_matter, chapter, front_matter, letterhead, resume
+from docx.kit import back_matter, chapter, contracts, front_matter, letterhead, resume
 
-__all__ = ["back_matter", "chapter", "front_matter", "letterhead", "resume"]
+__all__ = [
+    "back_matter",
+    "chapter",
+    "contracts",
+    "front_matter",
+    "letterhead",
+    "resume",
+]
