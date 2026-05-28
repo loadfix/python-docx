@@ -6,6 +6,19 @@ Release History
 Unreleased — Hyperlink ergonomics
 +++++++++++++++++++++++++++++++++
 
+- **``Document.add_paragraph(text, bind_to=record)`` /
+  ``Document.bind(record=...)``** smart-placeholder fields (#68). Token
+  strings such as ``{customer.name}``, ``{customer.address.line1}``,
+  ``{date:short}``, ``{date:'MMM d, yyyy'}``, ``{property:Title}``,
+  and ``{i}`` (iteration index) are resolved at every
+  :meth:`Document.save` against the bound record / document
+  properties. The original token-source string is preserved in a
+  fork-scoped ``<lfxbind:src>`` child of each affected ``<w:r>`` so
+  that ``load -> bind -> save`` cycles re-resolve cleanly against
+  the new record instead of carrying the previously-resolved
+  literal forward. Mirrors the page-token mechanism shipped on
+  python-pptx for issue #38; same machinery, docx namespace.
+  ``[Added in 2026.05.13]``
 - **``Document.diff(other, level="content")``** computes a semantic
   diff between two documents (#75) — paragraph add / remove / modify,
   table mutations, image presence, and (at ``level="formatting"``)

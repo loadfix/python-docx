@@ -49,6 +49,14 @@ nsmap = {
     "dcterms": "http://purl.org/dc/terms/",
     "dgm": "http://schemas.openxmlformats.org/drawingml/2006/diagram",
     "inkml": "http://www.w3.org/2003/InkML",
+    # -- ``lfxbind`` (loadfix bind tokens) is a fork-defined namespace used
+    # -- to preserve the original token string of a save-time-resolved
+    # -- text run (e.g. ``"Dear {customer.name}"``) so that subsequent
+    # -- ``load -> bind -> save`` cycles re-resolve against the new
+    # -- record instead of the previously-stamped literal. Word and
+    # -- every other consumer follow the "preserve but ignore unknown
+    # -- children" convention. See :mod:`docx.bind_tokens` (issue #68).
+    "lfxbind": "https://loadfix.dev/docx/bind-tokens",
     "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
     "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
     "o": "urn:schemas-microsoft-com:office:office",

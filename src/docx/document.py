@@ -394,6 +394,7 @@ class Document(ElementProxy):
         text: str = "",
         style: str | ParagraphStyle | None = None,
         track_author: str | None = None,
+        bind_to: object | None = None,
     ) -> Paragraph:
         """Return paragraph newly added to the end of the document.
 
@@ -411,6 +412,17 @@ class Document(ElementProxy):
         author of the innermost context; pass ``track_author=""`` explicitly
         if you need to opt out of the active context for one call.
 
+        If `bind_to` is supplied, ``text`` is treated as a smart-placeholder
+        template. Tokens such as ``{customer.name}``, ``{date:short}`` or
+        ``{property:Title}`` are resolved against the bound record on every
+        :meth:`save` (closes #68). The original token-source string is
+        preserved in a fork-scoped ``<lfxbind:src>`` child element so that
+        ``load -> bind -> save`` cycles re-resolve cleanly instead of
+        carrying the previously-resolved literal forward. ``bind_to`` also
+        sets the document-level bound record (overriding any prior call to
+        :meth:`bind`), so subsequent ``add_paragraph(text)`` calls without
+        an explicit ``bind_to`` still resolve against the same record.
+
         If the previously-added paragraph had a style whose ``w:next`` pointed
         at another style, and `style` is |None| on this call, that "next"
         style is applied automatically — mirroring the behaviour Word exhibits
@@ -420,6 +432,8 @@ class Document(ElementProxy):
 
         .. versionadded:: 2026.05.0
            Added ``track_author`` keyword argument.
+        .. versionadded:: 2026.05.13
+           Added ``bind_to`` keyword argument for smart-placeholder fields (#68).
         """
         effective_style = style
         if effective_style is None and self._pending_next_style is not None:
@@ -434,6 +448,21 @@ class Document(ElementProxy):
                 text, effective_style, track_author=track_author
             )
 
+        # -- bind-token wiring (#68): record the supplied record, stamp
+        # -- the source marker on the freshly-created run, and let the
+        # -- save-time resolver render the live values. --
+        if bind_to is not None:
+            from docx.bind_tokens import has_token, reseat_token_source, set_bound_record
+
+            set_bound_record(self, bind_to)
+            if text and has_token(text):
+                # -- locate the freshly-added run carrying ``text`` and
+                # -- stamp it. ``add_paragraph`` produces at most one run
+                # -- when text is non-empty.
+                runs = paragraph._p.xpath("./w:r")
+                for r in runs:
+                    reseat_token_source(r, text)
+
         # -- queue the `w:next` style, if any, for the subsequent call --
         if effective_style is not None:
             next_style_id = self._resolve_next_style_id(effective_style)
@@ -441,6 +470,39 @@ class Document(ElementProxy):
                 self._pending_next_style = next_style_id
 
         return paragraph
+
+    def bind(
+        self,
+        record: object | None = None,
+        iteration: int | None = None,
+    ) -> "Document":
+        """Bind ``record`` to this document for smart-placeholder resolution.
+
+        Every ``{token}`` written into a paragraph via
+        :meth:`add_paragraph(text, bind_to=...)` is preserved in
+        the OOXML as a ``<lfxbind:src>`` source marker. On the next
+        :meth:`save`, those markers are walked and the displayed text
+        re-resolved against ``record`` — so a single saved document
+        can be re-bound to a different record by:
+
+        .. code-block:: python
+
+            doc = Document("template.docx")
+            doc.bind(record=customer)
+            doc.save("out.docx")
+
+        Returns ``self`` for method chaining.
+
+        ``iteration`` (default |None|) is the value made available to
+        the ``{i}`` token, intended for callers driving a mail-merge
+        loop where ``i`` reports the current row index.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.bind_tokens import set_bound_record
+
+        set_bound_record(self, record, iteration=iteration)
+        return self
 
     def _resolve_next_style_id(self, style: str | ParagraphStyle) -> str | None:
         """Return the ``w:styleId`` of `style`'s ``w:next`` style, if any.
@@ -2796,6 +2858,18 @@ class Document(ElementProxy):
         .. versionadded:: 2026.05.11
            The `strict` parameter.
         """
+        # -- resolve smart-placeholder bind tokens (#68) immediately
+        # -- before handing off to the part-level save so every text
+        # -- run carrying ``{customer.name}`` / ``{date:short}`` /
+        # -- ``{property:Title}`` etc. picks up the live bound record.
+        # -- Best-effort by contract: a failure must not block save.
+        try:
+            from docx.bind_tokens import apply_bind_tokens as _apply_bind_tokens
+
+            _apply_bind_tokens(self)
+        except Exception:  # pragma: no cover - defensive guard
+            pass
+
         if flat_opc:
             if password is not None:
                 raise ValueError(

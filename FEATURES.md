@@ -144,7 +144,8 @@ p.add_bookmark("chapter-1")
 document.save("out.docx")
 ```
 
-- `Document.add_paragraph(text="", style=None, track_author=None)` — Append a new paragraph. `track_author` wraps the inserted run in `w:ins`. `[Added in 2026.05.0]` for `track_author` and `w:next` auto-style handling.
+- `Document.add_paragraph(text="", style=None, track_author=None, bind_to=None)` — Append a new paragraph. `track_author` wraps the inserted run in `w:ins`. `bind_to` records a smart-placeholder record so `{customer.name}`, `{date:short}`, `{property:Title}`, `{i}`, and `{customer.address.line1}` tokens in `text` resolve at every save against the bound record / document properties / iteration index, while preserving the source string for round-trip re-binding (#68). `[Added in 2026.05.0]` for `track_author` and `w:next` auto-style handling. `[Added in 2026.05.13]` for `bind_to`.
+- `Document.bind(record=None, iteration=None)` — Bind / re-bind a record to the document for smart-placeholder resolution. Returns `self` for chaining; subsequent `save()` re-resolves every previously-stamped token against the new record. `[Added in 2026.05.13]`
 - `Document.add_heading(text, level=1)` — Shortcut for `add_paragraph` with `"Heading N"` / `"Title"` style.
 - `Document.add_page_break()` — Append a paragraph containing only a page break.
 - `Document.add_caption(text, label="Figure", style="Caption")` — Append a numbered `SEQ`-field caption paragraph. `[Added in 2026.05.0]`
