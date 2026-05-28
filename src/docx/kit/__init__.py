@@ -41,6 +41,12 @@ Available kit submodules:
   (``nda`` / ``msa`` / ``sow`` / ``contractor_agreement``) with
   AUS-default boilerplate. Output is a *starting point only* — the
   module docstring carries an explicit "not legal advice" disclaimer.
+* :mod:`docx.kit.invoices` — invoice / quote / statement template
+  family (``invoice`` / ``quote`` / ``statement``) with AUS GST
+  defaults (10%, override per-line via ``gst_rate=0`` for
+  international callers), auto-computed subtotal / GST / grand total,
+  and a right-aligned line-item table. Output complies with ATO
+  tax-invoice rules when the seller carries an ABN.
 * :mod:`docx.kit.mail_merge` — bulk render N personalised documents
   from a single template + iterable of records, composing the
   smart-placeholder machinery from #68 with an ergonomic
@@ -77,6 +83,7 @@ from docx.kit import (
     contracts,
     dividers,
     front_matter,
+    invoices,
     legal,
     letterhead,
     mail_merge,
@@ -92,6 +99,7 @@ __all__ = [
     "contracts",
     "dividers",
     "front_matter",
+    "invoices",
     "legal",
     "letterhead",
     "mail_merge",

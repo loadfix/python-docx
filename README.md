@@ -120,7 +120,12 @@ Summary of areas extended beyond upstream `1.2.0`:
   from a single template + iterable of records),
   `docx.kit.contracts` (`nda` / `msa` / `sow` /
   `contractor_agreement` boilerplate factories — *starting points
-  only, not legal advice*), `docx.kit.memos` (`investment_memo`
+  only, not legal advice*), `docx.kit.invoices` (`invoice` /
+  `quote` / `statement` factories with AUS GST defaults — 10% GST,
+  override per-line via `gst_rate=0` for international callers,
+  auto-computed subtotal / GST / grand total, right-aligned line-item
+  table; output complies with ATO tax-invoice rules when the seller
+  carries an ABN), `docx.kit.memos` (`investment_memo`
   with McKinsey-style SCQA executive summary, and `business_case`
   with options-analysis table), `docx.kit.templates`
   (`brief` / `coe` / `rfp_response` / `white_paper` document-template

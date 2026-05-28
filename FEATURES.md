@@ -3020,6 +3020,76 @@ already-loaded `Document`. The `{i}` token resolves to the current
 0-based row index inside both document text and the filename
 template.
 
+### Invoice / quote / statement templates (AUS GST)
+
+`docx.kit.invoices` ships three template factories — `invoice`,
+`quote`, `statement` — that build complete billing documents with
+ATO-compliant tax-invoice layout and auto-computed subtotal / GST /
+grand total. `[Added in 2026.05.29]`
+
+```python
+from docx.kit.invoices import invoice, quote, statement
+
+doc = invoice(
+    invoice_number="INV-2026-0042",
+    issue_date="2026-03-15",
+    due_date="2026-04-14",
+    seller={
+        "name": "Acme Corp",
+        "abn": "12 345 678 901",
+        "address": "123 Pitt Street\nSydney NSW 2000",
+        "phone": "+61 2 1234 5678",
+        "email": "billing@acme.com",
+    },
+    buyer={"name": "Beta Pty Ltd", "abn": "98 765 432 109"},
+    items=[
+        {"description": "Consulting (March)",
+         "quantity": 40, "unit_price": 250, "gst_rate": 0.10},
+        {"description": "Travel reimbursement",
+         "quantity": 1,  "unit_price": 580, "gst_rate": 0.10},
+    ],
+    payment_terms="Net 30",
+    bank_details={"bsb": "062-001", "account": "1234 5678",
+                  "name": "Acme Corp Pty Ltd"},
+)
+doc.save("INV-2026-0042.docx")
+
+quote(quote_number="QU-2026-0099",
+      issue_date="2026-03-15",
+      valid_until="2026-04-15",
+      seller={"name": "Acme Corp", "abn": "12 345 678 901"},
+      buyer={"name": "Beta Pty Ltd"},
+      items=[{"description": "Discovery", "quantity": 1, "unit_price": 5000}])
+
+statement(period_start="2026-03-01",
+          period_end="2026-03-31",
+          buyer={"name": "Beta Pty Ltd"},
+          invoices=[
+              {"invoice_number": "INV-001", "date": "2026-03-05",
+               "amount": 1000, "balance": 0,    "status": "Paid"},
+              {"invoice_number": "INV-002", "date": "2026-03-15",
+               "amount": 2000, "balance": 2000, "status": "Outstanding"},
+          ])
+```
+
+Defaults follow ATO tax-invoice rules: a 10% GST rate is applied to
+any line item that omits `gst_rate`; the header reads "Tax Invoice"
+when at least one line carries GST and falls back to plain "Invoice"
+when every line is GST-free. International callers opt out by passing
+`default_gst_rate=0` (or per-line `gst_rate=0`); pass
+`default_gst_rate=0.15` for an NZ-style 15% GST.
+
+Each factory auto-computes `subtotal`, `gst_total`, and
+`grand_total`, renders money values as `"$1,234.56"` (two decimals,
+comma thousands), and right-aligns every numeric column in the
+line-item table so the currency columns read cleanly. `quote` labels
+its grand total "Estimated Total" so the reader doesn't treat it as
+a binding bill; `statement` aggregates the supplied invoices into a
+"Total Balance Owing" row at the foot. Every factory raises
+`ValueError` on missing required identifiers, malformed line items
+(non-numeric `unit_price`/`quantity`/`amount`, out-of-range
+`gst_rate`), or non-mapping rows.
+
 ### Scientific paper templates (IEEE / ACM / APA / Nature)
 
 `docx.kit.scientific` ships four template factories that build a
