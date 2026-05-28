@@ -728,6 +728,48 @@ document.save("out.docx")
   are registered in docx's element-class lookup so read-back from a
   saved chart part reconstructs typed proxies. `[Added in 2026.05.11]`
 - Enum: `docx.chart.WD_CHART_TYPE` (`BAR`, `BAR_STACKED`, `COLUMN`, `COLUMN_STACKED`, `LINE`, `PIE`).
+- `Document.add_chart_inline(kind, data, x=None, y=None, title=None, subtitle=None, size=None, show_values=False, show_legend="auto", secondary_axis=None)` — Ergonomic chart authoring with three input shapes (dict, list-of-dicts, `pandas.DataFrame`) and 13 chart kinds: `bar`, `column`, `line`, `area`, `pie`, `donut`, `scatter`, `bubble`, `combo`, `stacked-bar`, `stacked-column`, `stacked-area`, `sparkline` (plus `grouped-bar` / `grouped-column` aliases). `pandas` is **not** a hard dependency — DataFrame input is sniffed at runtime. `secondary_axis=[<series-name>, ...]` plots the named series against a right-hand value-axis (typically used with `kind="combo"`). `[Added in 2026.05.13]`
+
+```python
+from docx import Document
+
+document = Document()
+document.add_chart_inline(
+    kind="bar",
+    data={"AMER": 14.2, "APAC": 8.1, "EMEA": 9.0},
+    title="Q1 Revenue by Region",
+    subtitle="($B)",
+    size=(6.0, 4.0),
+)
+
+# Multi-series with secondary axis (pandas optional)
+document.add_chart_inline(
+    kind="combo",
+    data=[
+        {"r": "AMER", "rev": 100.0, "mar": 18.0},
+        {"r": "APAC", "rev": 80.0, "mar": 22.0},
+    ],
+    x="r",
+    y=["rev", "mar"],
+    secondary_axis=["mar"],
+)
+
+document.save("out.docx")
+```
+
+Chart-kind decision tree (also in the `docx.chart_inline` module docstring):
+
+| Goal | Kind |
+| --- | --- |
+| Compare values across categories | `bar` / `column` |
+| Same, totals share a band | `stacked-bar` / `stacked-column` |
+| Trend over a continuous x | `line` / `area` |
+| Trend with totals stacked | `stacked-area` |
+| Whole-of-100% breakdown | `pie` / `donut` |
+| Two numeric variables, no time order | `scatter` |
+| Three numeric variables (x, y, size) | `bubble` |
+| Different y-scales on the same chart | `combo` (with `secondary_axis`) |
+| Tiny in-line trend, no axes / labels | `sparkline` |
 
 ---
 

@@ -907,6 +907,84 @@ class Document(ElementProxy):
 
         return Chart(chart_part)
 
+    def add_chart_inline(
+        self,
+        kind: str = "column",
+        data: t.Any = None,
+        *,
+        x: str | None = None,
+        y: str | Sequence[str] | None = None,
+        title: str | None = None,
+        subtitle: str | None = None,
+        size: t.Any = None,
+        show_values: bool = False,
+        show_legend: bool | str = "auto",
+        secondary_axis: Sequence[str] | None = None,
+    ) -> Chart:
+        """Append an inline chart with ergonomic data-shape input.
+
+        Wraps :meth:`add_chart` with three input shapes (dict, list-of-dicts,
+        ``pandas.DataFrame``) and the v1 chart-kind catalogue documented in
+        :mod:`docx.chart_inline` — ``bar``, ``column``, ``line``, ``area``,
+        ``pie``, ``donut``, ``scatter``, ``bubble``, ``combo``,
+        ``stacked-bar``, ``stacked-column``, ``stacked-area``, ``sparkline``
+        (plus ``grouped-bar`` / ``grouped-column`` aliases).
+
+        ``data``
+            One of: ``Mapping[str, float]`` (single-series, keys are
+            categories), ``Sequence[Mapping[str, Any]]`` (list-of-dicts,
+            ``x`` / ``y`` keys select columns), or a ``pandas.DataFrame``.
+            ``pandas`` is **not** a hard dependency — DataFrame input is
+            sniffed at runtime.
+
+        ``x`` / ``y``
+            Required for list-of-dicts and DataFrame input.  ``y`` may be a
+            sequence of column names for a multi-series chart.
+
+        ``title`` / ``subtitle``
+            Rendered into ``c:title/c:tx/c:rich``; subtitle ships as a
+            second paragraph at 12pt.
+
+        ``size``
+            Optional ``(width, height)`` pair (|Length| or float-inches).
+            Defaults to 6" x 4".
+
+        ``show_values``
+            Reserved hook for per-point data labels.  Currently a no-op;
+            wire to ``ChartFormat`` once the v2 helpers land.
+
+        ``show_legend``
+            ``"auto"`` (default) — legend on multi-series only.  Booleans
+            force on / off.
+
+        ``secondary_axis``
+            Sequence of series names to plot against a secondary value-axis
+            (right-hand side).  Combined with ``kind="combo"`` for the
+            classic column + line dual-axis chart.
+
+        Closes upstream#76.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.chart_inline import add_chart_inline as _impl
+
+        if data is None:
+            raise TypeError("add_chart_inline() missing required argument: 'data'")
+
+        return _impl(
+            self,
+            kind=kind,
+            data=data,
+            x=x,
+            y=y,
+            title=title,
+            subtitle=subtitle,
+            size=size,
+            show_values=show_values,
+            show_legend=show_legend,
+            secondary_axis=secondary_axis,
+        )
+
     def add_shape(
         self,
         shape_type,
