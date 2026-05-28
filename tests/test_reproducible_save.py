@@ -14,10 +14,15 @@ W8-B addressed:
    under ``src/docx/templates/default-docx-template/``; this test
    catches drift between that tree and the zipped blob that
    :func:`docx.api.Document` actually loads.
+
+Also covers the issue #150 acceptance contract — the unified
+``reproducible=`` keyword shared with the sibling pptx / xlsx / vsdx
+parents must produce byte-identical output for byte-identical inputs.
 """
 
 from __future__ import annotations
 
+import io
 import re
 import zipfile
 from pathlib import Path
@@ -204,3 +209,65 @@ class DescribeDefaultTemplateNamespaces:
         assert not extra_on_disk, (
             f"files in default-docx-template/ not in default.docx: {extra_on_disk}"
         )
+
+
+class DescribeReproducibleSaveAcceptance:
+    """Issue #150 acceptance contract for ``Document.save(reproducible=True)``.
+
+    Mirrors the parallel suites under ``python-pptx``, ``python-xlsx``,
+    and ``python-vsdx`` so the unified API behaves the same in every
+    parent.
+    """
+
+    def it_is_byte_identical_across_two_fresh_authoring_runs(self):
+        def build() -> bytes:
+            doc = Document()
+            doc.add_paragraph("Hello")
+            buf = io.BytesIO()
+            doc.save(buf, reproducible=True)
+            return buf.getvalue()
+
+        assert build() == build()
+
+    def it_is_byte_identical_across_load_and_resave_round_trips(self, tmp_path):
+        seed = tmp_path / "seed.docx"
+        doc = Document()
+        doc.add_paragraph("Hello")
+        doc.save(str(seed), reproducible=True)
+
+        def reload() -> bytes:
+            buf = io.BytesIO()
+            Document(str(seed)).save(buf, reproducible=True)
+            return buf.getvalue()
+
+        assert reload() == reload()
+
+    def it_stamps_every_zip_member_with_the_fixed_timestamp(self):
+        doc = Document()
+        doc.add_paragraph("Hello")
+        buf = io.BytesIO()
+        doc.save(buf, reproducible=True)
+
+        with zipfile.ZipFile(io.BytesIO(buf.getvalue())) as z:
+            timestamps = {info.date_time for info in z.infolist()}
+        assert timestamps == {(1980, 1, 1, 0, 0, 0)}
+
+    def it_emits_zip_members_in_sorted_order(self):
+        doc = Document()
+        doc.add_paragraph("Hello")
+        buf = io.BytesIO()
+        doc.save(buf, reproducible=True)
+
+        with zipfile.ZipFile(io.BytesIO(buf.getvalue())) as z:
+            names = z.namelist()
+        assert names == sorted(names)
+
+    def but_it_does_not_force_a_fixed_timestamp_when_reproducible_is_False(self):
+        doc = Document()
+        doc.add_paragraph("Hello")
+        buf = io.BytesIO()
+        doc.save(buf)  # default: reproducible=False
+
+        with zipfile.ZipFile(io.BytesIO(buf.getvalue())) as z:
+            timestamps = {info.date_time for info in z.infolist()}
+        assert timestamps != {(1980, 1, 1, 0, 0, 0)}
