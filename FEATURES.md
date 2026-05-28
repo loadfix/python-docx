@@ -105,6 +105,7 @@ document.save("out.xml", flat_opc=True)
 - `Document.close()` — Drop transient state (tracked-changes contexts). Safe to call more than once. `[Added in 2026.05.0]`
 - `Document.__enter__` / `Document.__exit__` — Context-manager support. `[Added in 2026.05.0]`
 - `Document.recovery_warnings` — List of parser warnings collected when `recover=True` was used. `[Added in 2026.05.0]`
+- `Document.repair(path_or_stream, strategy='best-effort')` — Best-effort recovery loader for damaged packages. Returns a `(Document, RepairReport)` tuple. `strategy='best-effort'` (default) drops unparseable parts, fixes common XML defects (orphan `w:bookmarkEnd`, bad encoding declarations, illegal control bytes), reconstructs truncated zips, and prunes dangling rel targets; `strategy='strict'` matches the existing `Document(...)` factory and raises on the first defect; `strategy='truncate'` keeps everything that parses and discards the rest. `RepairReport.repaired` / `unrecoverable` / `parts_dropped` enumerate what happened. `[Added in 2026.05.13]` — closes #92.
 - `docx.exceptions.EncryptedDocumentError` — Raised when opening a password-protected `.docx` without a correct password, or when `python-ooxml-crypto` is required but not installed. `[Added in 2026.05.0]`
 - `docx.exceptions.RmsProtectedDocumentError` — Subclass of `EncryptedDocumentError`, raised when opening a file wrapped in Azure RMS / AIP / IRM protection (not decryptable with a password). `[Added in 2026.05.10]`
 - `docx.exceptions.PythonDocxError` / `InvalidSpanError` / `InvalidXmlError` — Library-specific exceptions.
@@ -2567,6 +2568,11 @@ Opening supports:
 - Flat-OPC input auto-detected. `[Added in 2026.05.0]`
 - `recover=True` tolerating malformed XML with warnings on
   `Document.recovery_warnings`. `[Added in 2026.05.0]`
+- `Document.repair(path, strategy='best-effort')` — full-fat
+  recovery loader for damaged `.docx` files (truncated zip, orphan
+  bookmarks, illegal control bytes, dangling rel targets, bad
+  encoding declarations). Returns `(Document, RepairReport)`.
+  `[Added in 2026.05.13]`
 - `huge_tree=True` relaxing lxml's XML-bomb safety limits.
   `[Added in 2026.05.0]`
 - `include_metadata=False` stripping the default template's core /
@@ -2597,6 +2603,19 @@ macro.save("macros-out.docm")
 with open("bad.docx", "rb") as f:
     broken = Document(f, recover=True)
 print(broken.recovery_warnings)
+
+# best-effort repair (returns the salvaged document + a structured report)
+doc, report = Document.repair("corrupted.docx")            # default = "best-effort"
+print(report.repaired)            # ['/word/document.xml: closed orphan w:bookmarkStart id=42', ...]
+print(report.parts_dropped)       # ['/word/junk.xml: unparseable XML — dropped', ...]
+print(report.unrecoverable)       # []
+doc.save("repaired.docx")
+
+# strict mode mirrors the default Document(...) factory and raises on first defect
+doc, report = Document.repair("clean.docx", strategy="strict")
+
+# truncate mode keeps every part that parses, drops everything from the first defect on
+doc, report = Document.repair("partial.docx", strategy="truncate")
 
 # password-protected (requires optional `python-ooxml-crypto`)
 doc = Document()
