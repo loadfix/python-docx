@@ -102,6 +102,11 @@ Summary of areas extended beyond upstream `1.2.0`:
   toggles, auto-hyphenation, timezone-aware comments)
 - Themes, web settings, font table (with font embedding), glossary,
   digital-signature detection
+- High-level authoring helpers under `docx.kit` — pattern-level
+  compositions over the primitive APIs. Currently ships
+  `docx.kit.front_matter` (title page, copyright page, dedication,
+  preface, table of contents, list of figures, list of tables). Lives
+  under the optional `[kit]` extras flag (`pip install python-docx[kit]`).
 
 API and user-guide documentation lives under `docs/` and builds with
 Sphinx. The theme is Furo.

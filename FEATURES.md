@@ -2790,6 +2790,64 @@ before opening such files with python-docx. `[Added in 2026.05.10]`
 
 ---
 
+## docx.kit — high-level authoring helpers
+
+The `docx.kit` namespace bundles small, opinionated pattern helpers that
+compose the primitive python-docx APIs into common authoring shapes.
+Pure in-tree (no new packages, no new mandatory dependencies); ships
+under the `[kit]` extras flag so future kit-only deps can be opted in
+without inflating the base install.
+
+```bash
+pip install 'python-docx[kit]'
+```
+
+### Front-matter helpers
+
+`docx.kit.front_matter` exposes seven helpers for the conventional
+front-matter sections of a long-form document (title page, copyright
+page, dedication, preface, table of contents, list of figures, list of
+tables). Each helper appends its section at the end of the document
+body and returns the list of paragraphs it created (in document order,
+including a trailing page-break paragraph by default) so the caller can
+post-process them. `[Added in 2026.05.dev0]`
+
+```python
+from docx import Document
+from docx.kit import front_matter
+
+doc = Document()
+
+front_matter.add_title_page(
+    doc,
+    title="Annual Report 2026",
+    subtitle="Underlying performance",
+    author="Acme Corp",
+    date="March 2026",
+)
+front_matter.add_copyright_page(
+    doc, holder="Acme Corp", year=2026, edition="First Edition"
+)
+front_matter.add_dedication(doc, text="To everyone who shipped on time.")
+front_matter.add_preface(
+    doc, title="Preface", body="This document outlines the year's results."
+)
+front_matter.add_table_of_contents(doc)        # uses existing TOC machinery
+front_matter.add_list_of_figures(doc)          # TOC field filtered to "Figure" SEQ
+front_matter.add_list_of_tables(doc)           # TOC field filtered to "Table" SEQ
+
+doc.save("annual-report.docx")
+```
+
+Each helper accepts `page_break=False` to suppress the trailing page
+break (useful when stitching helpers into a custom layout). The
+title-page / copyright-page / dedication helpers prefer Word's built-in
+styles (`Title`, `Subtitle`, `Quote`) and silently fall back to
+`Normal` when a custom template lacks them — the spirit of a kit is
+"works out of the box, customise as you like".
+
+---
+
 ## API concepts
 
 `python-docx` is organised in three layers:
