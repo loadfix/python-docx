@@ -178,6 +178,34 @@ def _repair(  # noqa: D401 -- attribute, not a top-level function
 Document.repair = _repair  # type: ignore[attr-defined]
 
 
+# -- expose ``stream`` as ``Document.stream(...)``. The streaming reader is
+# -- a separate type (``StreamingDocument``) with a strictly read-only
+# -- contract — see :mod:`docx.streaming` for the full decision tree. --
+def _stream(
+    source: "str | os.PathLike[str] | IO[bytes] | bytes",
+):
+    """Bounded-memory read-only loader. See :class:`docx.streaming.StreamingDocument`.
+
+    Returns a :class:`StreamingDocument` usable as a context manager. The
+    body of ``word/document.xml`` is iterated via ``lxml.iterparse`` and
+    paragraphs / tables are released as soon as the consumer has yielded,
+    so peak memory stays bounded even for multi-GB documents::
+
+        with Document.stream("big.docx") as doc:
+            for para in doc.paragraphs:
+                if para.style.name == "Heading 1":
+                    print(para.text)
+
+    .. versionadded:: 2026.05.13
+    """
+    from docx.streaming import StreamingDocument
+
+    return StreamingDocument(source)
+
+
+Document.stream = _stream  # type: ignore[attr-defined]
+
+
 def _default_docx_stream() -> io.BytesIO:
     """Return a `BytesIO` of the built-in default .docx package.
 
