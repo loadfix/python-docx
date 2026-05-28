@@ -222,6 +222,69 @@ def _stream(
 Document.stream = _stream  # type: ignore[attr-defined]
 
 
+# -- expose `from_html` / `from_html_string` as `Document.from_html(...)` and
+# -- `Document.from_html_string(...)`. The HTML importer lives in
+# -- `docx.html_import` and is the read-side companion to
+# -- `docx.html_export.document_to_html` (`Document.to_html()`). LaTeX
+# -- import is intentionally out of scope for this module — the Math /
+# -- equation authoring API in `docx.math` is the lower-level lever a
+# -- future LaTeX importer would build on top of. --
+def _from_html(  # noqa: D401 -- attribute, not a top-level function
+    source: "str | os.PathLike[str] | IO[bytes] | IO[str]",
+    clean: bool = True,
+) -> "DocumentObject":
+    """Build a |Document| from an HTML file or stream.
+
+    See :func:`docx.html_import.from_html` for the full contract.
+
+    Element mapping (preview-grade):
+
+    * ``<h1>`` … ``<h6>``     → ``Heading 1`` … ``Heading 6``
+    * ``<p>``                 → body paragraph
+    * ``<strong>`` / ``<b>``  → bold runs
+    * ``<em>`` / ``<i>``      → italic runs
+    * ``<u>``                 → underlined runs
+    * ``<a href>``            → hyperlinks (``http`` / ``https`` /
+                                ``mailto`` only)
+    * ``<ul>`` / ``<ol>``     → ``List Bullet`` / ``List Number`` items
+    * ``<table>``             → Word table
+    * ``<img>``               → embedded picture (``data:`` URLs only;
+                                remote URLs degrade to alt-text)
+    * ``<blockquote>``        → ``Quote`` style paragraph
+    * ``<code>`` / ``<pre>``  → monospace runs / paragraphs
+
+    With ``clean=True`` (the default) ``<script>``, ``<style>``, and
+    HTML comments are stripped, and ``class`` / ``id`` attributes are
+    dropped. ``style`` attributes are honoured only for ``color``
+    (best-effort).
+
+    LaTeX import is **not** supported by this method; future-work
+    candidate. Use :class:`docx.math.OMath` to author equations
+    programmatically today.
+
+    .. versionadded:: 2026.05.14
+    """
+    from docx.html_import import from_html as _from_html_impl
+
+    return _from_html_impl(source, clean=clean)
+
+
+def _from_html_string(html_text: str, clean: bool = True) -> "DocumentObject":
+    """Build a |Document| from an HTML string.
+
+    See :func:`docx.html_import.from_html_string` for the full contract.
+
+    .. versionadded:: 2026.05.14
+    """
+    from docx.html_import import from_html_string as _impl
+
+    return _impl(html_text, clean=clean)
+
+
+Document.from_html = _from_html  # type: ignore[attr-defined]
+Document.from_html_string = _from_html_string  # type: ignore[attr-defined]
+
+
 def _default_docx_stream() -> io.BytesIO:
     """Return a `BytesIO` of the built-in default .docx package.
 

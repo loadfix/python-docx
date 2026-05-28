@@ -6,6 +6,24 @@ Release History
 Unreleased — Hyperlink ergonomics
 +++++++++++++++++++++++++++++++++
 
+- **``Document.from_html(source, clean=True)`` /
+  ``Document.from_html_string(html, clean=True)``** — read-side
+  companion to ``Document.to_html()`` (#95). Stdlib-only HTML parser
+  (``html.parser``) — no ``BeautifulSoup`` dependency. Maps the major
+  block + inline structural elements (``<h1>``-``<h6>``, ``<p>``,
+  ``<strong>``/``<b>``, ``<em>``/``<i>``, ``<u>``, ``<a href>``,
+  ``<ul>``/``<ol>``/``<li>``, ``<table>``, ``<img>``, ``<blockquote>``,
+  ``<code>``, ``<pre>``) onto Word equivalents. ``clean=True`` (the
+  default) strips ``<script>``/``<style>``/comments and drops
+  ``class``/``id`` attributes; ``style`` attributes are honoured only
+  for ``color: <hex>`` (best-effort). Hyperlink and image schemes are
+  restricted to ``http``/``https``/``mailto`` so a round-trip
+  ``from_html`` → ``to_html`` cannot promote attacker-controlled
+  schemes. Remote ``<img src>`` URLs are *not* fetched — they degrade
+  to alt-text — only ``data:`` URLs are decoded and embedded as
+  pictures. LaTeX import is intentionally out of scope; use
+  ``docx.math.OMath`` for programmatic equations. Closes #95.
+
 - **``Paragraph.add_markdown(md)`` / ``_Cell.add_markdown(md)``** —
   inline Markdown rendering for paragraphs and table cells (#23).
   Supported subset: bold (``**...**`` / ``__...__``), italic
