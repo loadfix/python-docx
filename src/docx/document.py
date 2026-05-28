@@ -1301,10 +1301,17 @@ class Document(ElementProxy):
         Default rules: ``heading-skip``, ``heading-multiple-h1``,
         ``heading-no-h1``, ``heading-direct-formatting``,
         ``heading-empty``, ``heading-too-long``. ``rules`` may be |None|
-        (defaults), a list of rule-id strings, or a list of callables
-        ``(paragraphs) -> Iterable[LintFinding]``.
+        (defaults), a list of rule-id strings, or a list of callables.
+
+        Accessibility rules (issue #15) are off by default but available
+        by id: ``image-no-alt-text``, ``table-no-caption``,
+        ``no-language-tag``, ``low-contrast``, ``no-document-title``.
+        Pass :data:`docx.lint.ACCESSIBILITY_RULES` to enable the full
+        set, or :data:`docx.lint.ALL_RULES` for every shipped rule.
 
         .. versionadded:: 2026.05.13
+        .. versionchanged:: 2026.05.dev0
+           Added accessibility rules.
         """
         from docx.lint import lint_document
 
