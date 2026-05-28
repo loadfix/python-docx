@@ -58,6 +58,9 @@ Summary of areas extended beyond upstream `1.2.0`:
   `Document.add_citation`, `Paragraph.add_citation_reference` — backed by
   the `customXml/item{N}.xml` + `itemProps{N}.xml` part pair)
 - Form fields (text input, checkbox, dropdown)
+- Cross-format linked content (`Paragraph.link_to(target_url)` —
+  Excel cells, Excel table columns, PowerPoint slides via `INCLUDETEXT`;
+  `Document.update_links()` re-resolves via sibling `xlsx`/`pptx`)
 - Charts (read + create for bar/line/pie; `Chart.replace_data()`)
 - SmartArt (read + create for list/cycle/process layout families)
 - Equations (OMML read + builders for identifier, fraction, superscript,

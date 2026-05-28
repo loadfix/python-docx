@@ -394,6 +394,58 @@ document.save("out.docx")
 
 ---
 
+## Cross-format linked content (INCLUDETEXT)
+
+`Paragraph.link_to(target_url)` writes a Word `INCLUDETEXT` complex
+field that points at an external Excel cell, Excel table column, or
+PowerPoint slide. Word re-resolves these on open;
+`Document.update_links()` re-resolves them in-process via the sibling
+`xlsx` (and, when present, `pptx`) packages so the cached field
+result reflects the live workbook value at save time. `[Added in
+2026.05.13]`.
+
+```python
+from docx import Document
+
+doc = Document()
+para = doc.add_paragraph("Q1 revenue: ")
+para.link_to("revenue.xlsx#RevenueQ1!B5")          # specific cell
+para.link_to("revenue.xlsx#RevenueQ1[Total]")      # table column total
+para.link_to("summary.pptx#slide-3")               # specific slide
+
+doc.update_links(base_dir="./reports")             # refresh on save
+
+for link in doc.linked_targets:
+    print(link.kind, link.url, link.cached_text)
+
+doc.save("report.docx")
+```
+
+- `Paragraph.link_to(target_url, cached_result=None, mark_dirty=True)` — Append an `INCLUDETEXT` complex field that points at an external resource and return a `LinkedTarget` proxy. `[Added in 2026.05.13]`.
+- `Document.linked_targets` — Iterate every `LinkedTarget` in the document body in document order. `[Added in 2026.05.13]`.
+- `Document.update_links(base_dir=None)` — Best-effort refresh: re-resolves every link's target via the sibling `xlsx` / `pptx` packages and rewrites the cached field result. Returns the count of fields updated. Failed resolutions leave the cached text alone. `[Added in 2026.05.13]`.
+- `LinkedTarget.url` / `LinkedTarget.kind` / `LinkedTarget.parsed` / `LinkedTarget.cached_text` / `LinkedTarget.field` — Read-only views of the underlying field's URL, parsed shape, cached display text, and raw `Field` proxy.
+- `LinkedTarget.resolve(base_dir=None)` — Best-effort fetch the live value at the URL without writing it back. Returns `None` when the target can't be resolved.
+- `LinkedTarget.refresh(base_dir=None)` — `resolve()` then write the result into the field's cached text.
+
+Recognised URL shapes:
+
+| URL                                  | `kind`              |
+| ------------------------------------ | ------------------- |
+| `workbook.xlsx#Sheet1!B5`             | `xlsx-cell`         |
+| `workbook.xlsx#'Sheet With Spaces'!A1` | `xlsx-cell`        |
+| `workbook.xlsx#Table1[Column]`         | `xlsx-table-column` |
+| `deck.pptx#slide-3`                    | `pptx-slide`        |
+| anything else                          | `unknown`           |
+
+`unknown` URLs round-trip cleanly (saved + reloaded with no loss) but
+`update_links()` skips them — there's no resolver. PowerPoint slides
+return `"[Slide N]"` (or `"[Slide N: <title>]"` when the sibling
+`pptx` package is installed); real slide rendering needs PowerPoint
+itself, which is out of scope for the in-process path.
+
+---
+
 ## Tables
 
 Tables are first-class blocks. The fork extends them with per-cell and

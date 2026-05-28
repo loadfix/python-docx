@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from docx.endnotes import Endnotes, EndnoteProperties
     from docx.equations import Equation
     from docx.fields import Field
+    from docx.linked_content import LinkedTarget
     from docx.font_table import FontTable
     from docx.footnotes import FootnoteProperties, Footnotes
     from docx.form_fields import FormField
@@ -2016,6 +2017,61 @@ class Document(ElementProxy):
             toc.rebuild(page_number_placeholder)
             count += 1
         return count
+
+    @property
+    def linked_targets(self) -> "list[LinkedTarget]":
+        """All linked external targets (``INCLUDETEXT`` fields) in document order.
+
+        Each entry is a :class:`docx.linked_content.LinkedTarget` proxy
+        wrapping one ``INCLUDETEXT`` complex field. The list is built
+        on demand from :attr:`fields`, so newly-added links via
+        :meth:`docx.text.paragraph.Paragraph.link_to` show up on the
+        next access without a manual reload.
+
+        Walks top-level body paragraphs only — links nested inside
+        table cells, headers, footers, footnotes, or endnotes are not
+        currently included; callers can access those via the
+        ``fields`` property on the enclosing paragraph and wrap each
+        ``INCLUDETEXT`` field manually with
+        :class:`~docx.linked_content.LinkedTarget`.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.linked_content import iter_linked_targets
+
+        return list(iter_linked_targets(self))
+
+    def update_links(self, base_dir: "str | None" = None) -> int:
+        """Re-resolve every link target and rewrite the cached field result.
+
+        Walks every ``INCLUDETEXT`` field in the document body
+        (:attr:`linked_targets`), calls
+        :meth:`docx.linked_content.LinkedTarget.refresh` on each, and
+        returns the count of fields whose cached text was actually
+        rewritten. Failed resolutions are silently skipped — the
+        existing cached text is preserved so the document never loses
+        information on a broken refresh.
+
+        `base_dir` scopes relative paths in the link URLs. When
+        |None|, paths are resolved against the current working
+        directory.
+
+        Resolution behaviour by link kind:
+
+        * ``xlsx-cell`` / ``xlsx-table-column`` — opens the workbook
+          via the sibling ``xlsx`` package and fetches the live value.
+          Returns the empty string when the cell is blank.
+        * ``pptx-slide`` — returns ``"[Slide N]"`` (or
+          ``"[Slide N: <title>]"`` when the sibling ``pptx`` package is
+          installed). Real slide rendering requires PowerPoint /
+          LibreOffice and is intentionally out of scope.
+        * ``unknown`` — left untouched.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.linked_content import update_document_links
+
+        return update_document_links(self, base_dir=base_dir)
 
     @property
     def has_macros(self) -> bool:
