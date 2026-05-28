@@ -3073,6 +3073,65 @@ paragraph per item). `nature_paper` omits keywords by Nature house
 style; `acm_paper` exposes a `ccs_concepts` kwarg for the CCS-Concepts
 block ACM camera-ready rendering requires.
 
+### Legal industry templates (court paper / brief / declaration / TOA)
+
+`docx.kit.legal` ships four template factories that build the
+legal-industry document shapes lawyers, paralegals, and
+litigation-support staff produce every day — `court_paper`, `brief`,
+`declaration`, `table_of_authorities`. The shapes follow common
+Australian / NSW litigation practice (Federal Court of Australia /
+NSW Supreme Court front-sheet layout, AGLC4 case-citation house style
+for the TOA, Oaths Act 1900 (NSW) declaration jurat conventions).
+`court_paper` and `brief` honour a `line_numbering=True` flag that
+wires up Word's built-in line numbering via
+`Section.set_line_numbering` (`w:sectPr/w:lnNumType`) so the numbers
+appear in the left margin in Word and Print Preview. Output is a
+*starting point only, not legal advice* — every document carries the
+same disclaimer the module docstring carries. `[Added in 2026.05.29]`
+
+```python
+from docx.kit.legal import (
+    court_paper,
+    table_of_authorities,
+    brief,
+    declaration,
+)
+
+doc = court_paper(
+    court="Federal Court of Australia",
+    division="New South Wales District Registry",
+    case_no="NSD 1234 of 2026",
+    parties=[
+        {"role": "Plaintiff", "name": "Acme Corp Pty Ltd"},
+        {"role": "Defendant", "name": "Beta Pty Ltd"},
+    ],
+    document_type="Statement of Claim",
+    line_numbering=True,
+    body=[
+        {"heading": "Background",      "paragraphs": ["..."]},
+        {"heading": "Cause of Action", "paragraphs": ["..."]},
+    ],
+)
+
+toa = table_of_authorities(
+    citations=[
+        {"case": "Donoghue v Stevenson [1932] AC 562", "first_pin": 580},
+        {"case": "Smith v Jones (2020) 270 CLR 100",   "first_pin": 105},
+    ],
+)
+```
+
+`table_of_authorities` renders the supplied citations as a numbered
+list (read-only fallback) and appends a Word `TOA` complex field
+(`Paragraph.add_table_of_authorities`) that Word replaces with a
+live, page-aware Table of Authorities the first time the user
+presses F9. Pass `category=1` to filter to Cases (or 2 = Statutes,
+3 = Other Authorities, …); the default emits the field without `\c`
+so Word includes every category. Every factory raises `ValueError`
+when its required argument is missing or malformed — `parties` for
+`court_paper`, `matter` and `counsel` for `brief`, `declarant` for
+`declaration`, citation `case` for `table_of_authorities`.
+
 ---
 
 ## API concepts

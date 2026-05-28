@@ -126,11 +126,16 @@ Summary of areas extended beyond upstream `1.2.0`:
   (`brief` / `coe` / `rfp_response` / `white_paper` document-template
   registry covering short briefs, Centre of Excellence charters,
   RFP responses with a pricing table, and white papers with abstract
-  and references), and `docx.kit.scientific`
+  and references), `docx.kit.scientific`
   (`ieee_paper` / `acm_paper` / `apa_paper` / `nature_paper`
   scientific-paper template factories — IEEE / Nature switch the body
   to two-column layout, APA applies double line spacing, ACM stays
-  single-column for the `acmart` stylesheet). Lives under the optional
+  single-column for the `acmart` stylesheet), and `docx.kit.legal`
+  (`court_paper` / `brief` / `declaration` / `table_of_authorities`
+  legal industry template factories with Federal Court of Australia /
+  NSW Supreme Court front-sheet layout, Word built-in line numbering
+  via `w:sectPr/w:lnNumType`, and a live `TOA` complex field —
+  *starting points only, not legal advice*). Lives under the optional
   `[kit]` extras flag (`pip install python-docx[kit]`).
 
 API and user-guide documentation lives under `docs/` and builds with
