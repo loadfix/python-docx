@@ -2395,6 +2395,75 @@ merged.save("book.docx")
 
 ---
 
+## Document diff (semantic compare)
+
+Compare two documents by semantic content rather than raw XML — the
+output is a structured set of paragraph add/remove/modify findings,
+table mutations, image counts, and (at ``level="formatting"``) style
+changes. Useful for PR review on docx artefacts and for verifying
+generator changes against a baseline. `[Added in 2026.05.13]`
+
+```python
+from docx import Document
+
+old = Document("q1-review-v1.docx")
+new = Document("q1-review-v2.docx")
+
+diff = old.diff(new)                       # default level="content"
+print(diff.summary)
+# {'paragraphs_added': 3, 'paragraphs_removed': 1, 'paragraphs_modified': 7,
+#  'tables_modified': 1, 'images_added': 0, 'styles_changed': 0,
+#  'total_changes': 12}
+
+for change in diff.changes:
+    print(change.kind, change.target, change.before, change.after)
+
+# pick a granularity level
+old.diff(new, level="structural")          # add/remove only
+old.diff(new, level="content")             # + per-paragraph text edits
+old.diff(new, level="formatting")          # + style / font / colour changes
+
+# render formats
+md = diff.to_markdown()                    # PR-comment-friendly Markdown
+html = diff.to_html()                      # web-UI fragment with CSS classes
+review_doc = diff.to_word_track_changes()  # third Document with [INS]/[DEL] markers
+review_doc.save("review.docx")
+```
+
+Example PR-comment-friendly Markdown output:
+
+```markdown
+### Document diff (`level=content`)
+
+| Kind | Count |
+| --- | ---: |
+| Paragraphs added | 3 |
+| Paragraphs removed | 1 |
+| Paragraphs modified | 7 |
+| **Total changes** | **11** |
+
+#### paragraph_added (3)
+
+- `paragraph[3]` -> `NEW line A`
+- `paragraph[10]` -> `NEW line B`
+- `paragraph[31]` -> `NEW line C`
+
+#### paragraph_modified (7)
+
+- `paragraph[2]`: `Section 02: original line content` -> `Section 02: original line content (revised)`
+- ...
+```
+
+- `Document.diff(other, level="content")` — Returns a `SemanticDiff`. `level` is one of `"structural"`, `"content"` (default), `"formatting"`. `[Added in 2026.05.13]`
+- `SemanticDiff.summary` — Counts dictionary (`paragraphs_added`, `paragraphs_removed`, `paragraphs_modified`, `paragraphs_moved`, `tables_added`, `tables_removed`, `tables_modified`, `images_added`, `images_removed`, `styles_added`, `styles_removed`, `styles_changed`, `formatting_changed`, `total_changes`).
+- `SemanticDiff.changes` — List of `Change(kind, target, before, after, detail)` records.
+- `SemanticDiff.filter(*kinds)` — Subset by change-kind.
+- `SemanticDiff.to_markdown(max_per_kind=25)` — PR-comment-friendly Markdown summary.
+- `SemanticDiff.to_html()` — HTML5 fragment with `diff-added` / `diff-removed` / `diff-modified` CSS classes.
+- `SemanticDiff.to_word_track_changes()` — Best-effort: emits a fresh `Document` whose paragraphs carry `[INS]` / `[DEL]` / `[~MOD]` markers. Native `w:ins` / `w:del` revision marks are out of scope for this exporter (markers are visible plain text rather than reviewable Word revisions).
+
+---
+
 ## Packaging and I/O options
 
 `Document.save()` supports:

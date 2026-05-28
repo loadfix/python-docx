@@ -6,6 +6,22 @@ Release History
 Unreleased — Hyperlink ergonomics
 +++++++++++++++++++++++++++++++++
 
+- **``Document.diff(other, level="content")``** computes a semantic
+  diff between two documents (#75) — paragraph add / remove / modify,
+  table mutations, image presence, and (at ``level="formatting"``)
+  style / font / colour changes. The returned
+  :class:`docx.semantic_diff.SemanticDiff` exposes :attr:`summary`
+  (counts dictionary) and :attr:`changes` (list of
+  :class:`Change` records), plus three exporters:
+  :meth:`SemanticDiff.to_markdown` for PR comments,
+  :meth:`SemanticDiff.to_html` for web review UIs, and
+  :meth:`SemanticDiff.to_word_track_changes` for a best-effort
+  third-document rendering with visible ``[INS]`` / ``[DEL]`` /
+  ``[~MOD]`` markers (full ``w:ins`` / ``w:del`` track-changes
+  authoring is out of scope for this exporter — the markers are
+  human-readable text rather than reviewable Word revisions).
+  Comparison uses :mod:`difflib` over normalised paragraph text, so
+  whitespace-only re-flow is suppressed.
 - **``Paragraph.add_link_to(target, ...)``** is a polymorphic wrapper
   for internal hyperlinks (#69). ``target`` accepts a |Bookmark|, a
   heading |Paragraph| (any paragraph whose style name starts with

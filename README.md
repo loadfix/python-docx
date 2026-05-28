@@ -81,6 +81,9 @@ Summary of areas extended beyond upstream `1.2.0`:
 - Search and replace (plain, regex, across tables/headers/footers/footnotes)
 - Cross-document operations (`append_document`, `add_table_copy`,
   `copy_header_from`)
+- Semantic diff (`Document.diff(other)`, three granularity levels,
+  Markdown / HTML / Word output formats — review-friendly compare for
+  PR workflows)
 - Packaging (`.dotx` / `.dotm` templates, Strict OOXML translation,
   Flat-OPC read/write, reproducible save, `huge_tree` opt-in, recover
   mode, password-protected read/write via optional

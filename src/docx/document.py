@@ -2248,6 +2248,46 @@ class Document(ElementProxy):
             self, include_styles=include_styles, embed_images=embed_images
         )
 
+    def diff(self, other: "Document", level: str = "content"):
+        """Return a :class:`~docx.semantic_diff.SemanticDiff` against `other`.
+
+        Compares the *content* of two documents — paragraph adds /
+        removes / modifications, table mutations, image counts, and
+        (at ``level="formatting"``) style changes — rather than the
+        raw XML, which would over-report whitespace and ordering noise
+        with no visible impact.
+
+        ``level`` selects the granularity:
+
+        * ``"structural"`` — paragraph add / remove / move only.
+        * ``"content"`` (default) — adds per-paragraph text edits.
+        * ``"formatting"`` — adds style / font / colour changes.
+
+        Example::
+
+            old = Document("q1-review-v1.docx")
+            new = Document("q1-review-v2.docx")
+            diff = old.diff(new)
+            print(diff.summary)
+            # {'paragraphs_added': 3, 'paragraphs_removed': 1,
+            #  'paragraphs_modified': 7, 'tables_modified': 1,
+            #  'images_added': 0, 'styles_changed': 0,
+            #  'total_changes': 12}
+            for change in diff.changes:
+                print(change.kind, change.target, change.before, change.after)
+
+        The returned object exposes :meth:`~docx.semantic_diff.SemanticDiff.to_markdown`
+        (for PR comments), :meth:`~docx.semantic_diff.SemanticDiff.to_html`
+        (for web UIs), and
+        :meth:`~docx.semantic_diff.SemanticDiff.to_word_track_changes`
+        (best-effort visible-marker docx) for downstream rendering.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.semantic_diff import compute_diff
+
+        return compute_diff(self, other, level=level)
+
     @property
     def inline_shapes(self):
         """The |InlineShapes| collection for this document.
