@@ -112,12 +112,15 @@ Summary of areas extended beyond upstream `1.2.0`:
   three styles), `docx.kit.resume`
   (`resume_chronological` / `resume_functional` / `resume_technical`
   factories returning fully-styled CV documents in three visual
-  styles — `modern` / `classic` / `minimal`), and
+  styles — `modern` / `classic` / `minimal`),
   `docx.kit.mail_merge.merge` (bulk-render N personalised documents
-  from a single template + iterable of records, composing the
-  smart-placeholder machinery from #68 with an ergonomic one-line
-  API). Lives under the optional
-  `[kit]` extras flag (`pip install python-docx[kit]`).
+  from a single template + iterable of records),
+  `docx.kit.contracts` (`nda` / `msa` / `sow` /
+  `contractor_agreement` boilerplate factories — *starting points
+  only, not legal advice*), and `docx.kit.memos` (`investment_memo`
+  with McKinsey-style SCQA executive summary, and `business_case`
+  with options-analysis table). Lives under the optional `[kit]`
+  extras flag (`pip install python-docx[kit]`).
 
 API and user-guide documentation lives under `docs/` and builds with
 Sphinx. The theme is Furo.

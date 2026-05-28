@@ -41,6 +41,10 @@ Available kit submodules:
   from a single template + iterable of records, composing the
   smart-placeholder machinery from #68 with an ergonomic
   one-line API.
+* :mod:`docx.kit.memos` — investment memo / business case template
+  family (``investment_memo`` / ``business_case``) with McKinsey-style
+  SCQA (Situation / Complication / Question / Answer) structure for
+  memos and an options-analysis table for business cases.
 
 .. versionadded:: 2026.05.29
 """
@@ -54,6 +58,7 @@ from docx.kit import (
     front_matter,
     letterhead,
     mail_merge,
+    memos,
     resume,
 )
 
@@ -64,5 +69,6 @@ __all__ = [
     "front_matter",
     "letterhead",
     "mail_merge",
+    "memos",
     "resume",
 ]
