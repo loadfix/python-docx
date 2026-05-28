@@ -509,6 +509,8 @@ class DocumentPart(StoryPart):
             # whatever rsids the loaded document already references,
             # but we do not introduce new session-scoped tokens.
             _mirror_run_formatting_to_paragraph_mark(self.element)
+            self._resolve_data_source_bindings()
+            self._stamp_data_source_markers()
             self._drop_unused_optional_parts(self.element)
             return
 
@@ -568,6 +570,16 @@ class DocumentPart(StoryPart):
         # emits by default.
         _mirror_run_formatting_to_paragraph_mark(root)
 
+        # Resolve and inline custom-XML data-binding values for every SDT
+        # whose <w:dataBinding> points at a registered data source (#80).
+        # Re-bound sources are honoured automatically because the resolver
+        # reads the live blob from the data part each save.
+        self._resolve_data_source_bindings()
+        # Persist the logical-name marker into each bound data part's
+        # payload so the next ``Document(path)`` reload re-discovers the
+        # source under the same name.
+        self._stamp_data_source_markers()
+
         # Drop optional parts that the template carries but the document
         # doesn't actually use. Mirrors Word's behaviour — Word only
         # writes numbering.xml when lists are present, customXml when
@@ -575,6 +587,50 @@ class DocumentPart(StoryPart):
         # for new docs, and never ships a thumbnail for library-authored
         # files.
         self._drop_unused_optional_parts(root)
+
+    def _resolve_data_source_bindings(self) -> None:
+        """Save-time hook — resolve every SDT data binding against its source.
+
+        Delegates to :func:`docx.data_sources.resolve_bindings_in_document`.
+        Hardened against an environment without ``ooxml_customxml`` installed
+        — the helper bails out gracefully (returns ``0``).
+        """
+        try:
+            from docx.data_sources import resolve_bindings_in_document
+
+            resolve_bindings_in_document(self)
+        except Exception:  # pragma: no cover - defensive: never break save
+            pass
+
+    def _stamp_data_source_markers(self) -> None:
+        """Stamp the logical-source name into each bound data part's payload.
+
+        Called from :meth:`before_marshal` so the marker is written *just*
+        before the package is serialised. The marker is an ignorable
+        attribute on the payload root — readers without the marker (Word,
+        third-party tools) ignore it; python-docx re-imports it on load via
+        :meth:`_recover_data_source_markers`.
+        """
+        try:
+            from docx.data_sources import _name_marker, stamp_name_into_payload
+            from docx.opc.constants import RELATIONSHIP_TYPE as _RT
+            from docx.parts.custom_xml import CustomXmlPart as _DataPart
+
+            for rel in self.rels.values():
+                if rel.is_external or rel.reltype != _RT.CUSTOM_XML:
+                    continue
+                try:
+                    target = rel.target_part
+                except ValueError:
+                    continue
+                if not isinstance(target, _DataPart):
+                    continue
+                name = _name_marker(target)
+                if name is None:
+                    continue
+                stamp_name_into_payload(target, name)
+        except Exception:  # pragma: no cover - defensive
+            pass
 
     def _drop_unused_optional_parts(self, root) -> None:
         """Drop template-default rels whose target parts are unused.
@@ -645,15 +701,40 @@ class DocumentPart(StoryPart):
                 # link to citations implicitly via w:citation markers +
                 # matching <b:Tag> values rather than via w:dataBinding,
                 # so the uses_custom_xml heuristic doesn't flag them.
+                # Also preserve named data-source parts authored via
+                # ``Document.bind_data_source`` (#80) — the document may
+                # bind a source eagerly before any SDTs reference it,
+                # and the bound-source registry must survive a save → reload
+                # cycle.
                 if (
                     not uses_custom_xml
                     and not shipped
                     and not self._rel_targets_nonempty_bibliography(rel)
+                    and not self._rel_targets_named_data_source(rel)
                 ):
                     rels_to_drop.append(rId)
 
         for rId in rels_to_drop:
             self.drop_rel(rId)
+
+    @staticmethod
+    def _rel_targets_named_data_source(rel) -> bool:
+        """Return ``True`` when ``rel`` targets a ``Document.bind_data_source``
+        part — either via the in-memory marker stamped at bind time or via
+        the ``lfxbind:name`` attribute we persist into the payload at save
+        time.
+        """
+        try:
+            from docx.data_sources import _name_marker, recover_name_from_payload
+        except ImportError:  # pragma: no cover - circular guard
+            return False
+        try:
+            target = rel.target_part
+        except ValueError:
+            return False
+        if _name_marker(target) is not None:
+            return True
+        return recover_name_from_payload(target) is not None
 
     @staticmethod
     def _rel_targets_nonempty_bibliography(rel) -> bool:
