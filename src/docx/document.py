@@ -2513,6 +2513,45 @@ class Document(ElementProxy):
         """The |DocumentPart| object of this document."""
         return self._part
 
+    def select(self, selector: str) -> list:
+        """Return every proxy matching CSS-style ``selector`` in document order.
+
+        Supports the eight element kinds ``p``, ``r``, ``tbl``, ``tr``,
+        ``td``, ``hyperlink``, ``bookmark``, and ``comment``; the four
+        attribute operators ``=`` / ``^=`` / ``$=`` / ``*=`` (plus bare
+        ``[name]`` for "exists / is True"); the descendant (``" "``),
+        child (``">"``), and adjacent-sibling (``"+"``) combinators; and
+        the ``:first-child`` / ``:last-child`` / ``:nth-child(N)`` /
+        ``:not(...)`` pseudo-classes. See :mod:`docx.selectors` for the
+        full cheatsheet.
+
+        Examples::
+
+            doc.select('p[style="Heading 1"]')
+            doc.select('p[style^="Heading "] r[bold]')
+            doc.select('tbl tr td:nth-child(2)')
+
+        Raises :class:`docx.selectors.SelectorSyntaxError` on malformed
+        selectors. Closes #78.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.selectors import select as _select
+
+        return _select(self, selector)
+
+    def select_one(self, selector: str):
+        """Return the first proxy matching ``selector`` or |None|.
+
+        Convenience wrapper over :meth:`select` that stops after the
+        first hit.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.selectors import select_one as _select_one
+
+        return _select_one(self, selector)
+
     def replace(
         self,
         old_text: str,

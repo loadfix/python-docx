@@ -79,6 +79,9 @@ Summary of areas extended beyond upstream `1.2.0`:
   language, East Asian layout, symbols, ruby)
 - Accessibility (alt text, heading-structure validation)
 - Search and replace (plain, regex, across tables/headers/footers/footnotes)
+- CSS-selector queries (`Document.select` / `Document.select_one` —
+  paragraphs, runs, tables, hyperlinks, bookmarks, comments by
+  attribute / combinator / pseudo-class)
 - Cross-document operations (`append_document`, `add_table_copy`,
   `copy_header_from`)
 - Semantic diff (`Document.diff(other)`, three granularity levels,
