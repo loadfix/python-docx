@@ -1,5 +1,8 @@
 """Latent style-related objects."""
 
+from __future__ import annotations
+
+from docx.exceptions import LatentStyleNotFoundError, _did_you_mean
 from docx.shared import ElementProxy
 from docx.styles import BabelFish
 
@@ -14,7 +17,17 @@ class LatentStyles(ElementProxy):
         style_name = BabelFish.ui2internal(key)
         lsdException = self._element.get_by_name(style_name)
         if lsdException is None:
-            raise KeyError("no latent style with name '%s'" % key)
+            available = [
+                BabelFish.internal2ui(ls.name)
+                for ls in self._element.lsdException_lst
+                if ls.name
+            ]
+            raise LatentStyleNotFoundError(
+                "no latent style with name %r" % (key,),
+                suggestion=_did_you_mean(str(key), available),
+                location=f"document.styles.latent_styles[{key!r}]",
+                operation="LatentStyles.__getitem__",
+            )
         return _LatentStyle(lsdException)
 
     def __iter__(self):

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, cast
 from typing_extensions import TypeAlias
 
 from docx.enum.dml import MSO_COLOR_TYPE
+from docx.exceptions import InvalidBrightnessError
 from docx.oxml.simpletypes import ST_HexColorAuto
 from docx.shared import ElementProxy, RGBColor
 
@@ -138,14 +139,28 @@ class ColorFormat(ElementProxy):
     @brightness.setter
     def brightness(self, value: float) -> None:
         if not -1.0 <= value <= 1.0:
-            raise ValueError(
-                "brightness must be in the range -1.0 .. +1.0, got %r" % (value,)
+            raise InvalidBrightnessError(
+                "brightness must be in the range -1.0 .. +1.0, got %r" % (value,),
+                code="INVALID_BRIGHTNESS",
+                suggestion=(
+                    "Pass a float in -1.0 .. +1.0 (negative darkens toward "
+                    "black, positive lightens toward white, 0 is unadjusted)."
+                ),
+                location=f"ColorFormat.brightness = {value!r}",
+                operation="ColorFormat.brightness",
             )
         color = self._color
         if color is None or color.themeColor is None:
-            raise ValueError(
+            raise InvalidBrightnessError(
                 "can't set brightness when no theme color is set; assign "
-                "theme_color first"
+                "theme_color first",
+                code="BRIGHTNESS_NO_THEME",
+                suggestion=(
+                    "Set `font.color.theme_color = MSO_THEME_COLOR.ACCENT_1` "
+                    "(or similar) before assigning a brightness."
+                ),
+                location="ColorFormat.brightness",
+                operation="ColorFormat.brightness",
             )
         if value == 0.0:
             color.themeTint = None

@@ -18,6 +18,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Union
 from collections.abc import Iterator
 
+from docx.exceptions import (
+    FontEmbedEmptyError,
+    FontFamilyInvalidError,
+    FontNotFoundError,
+    _did_you_mean,
+)
 from docx.font_obfuscation import (
     deobfuscate_font_bytes,
     generate_font_key,
@@ -81,7 +87,13 @@ class FontTable:
     def __getitem__(self, name: str) -> "FontMetadata":
         font_elm = self._fonts.get_font_by_name(name)
         if font_elm is None:
-            raise KeyError(name)
+            available = [f.name for f in self._fonts.font_lst if f.name]
+            raise FontNotFoundError(
+                "no font named %r in font table" % (name,),
+                suggestion=_did_you_mean(name, available),
+                location=f"document.font_table[{name!r}]",
+                operation="FontTable.__getitem__",
+            )
         return FontMetadata(font_elm, self._part)
 
     def get(self, name: str) -> "FontMetadata | None":
@@ -155,9 +167,15 @@ class FontTable:
             variants.append((variant_name, bytes(blob)))
 
         if not variants:
-            raise ValueError(
+            raise FontEmbedEmptyError(
                 "embed_font() requires at least one of regular/bold/italic/"
-                "bold_italic to be supplied"
+                "bold_italic to be supplied",
+                suggestion=(
+                    "Pass at least one variant, e.g. "
+                    "`font_table.embed_font('Arial', regular=ttf_bytes)`."
+                ),
+                location=f"FontTable.embed_font({name!r}, ...)",
+                operation="FontTable.embed_font",
             )
 
         font_elm = self._fonts.get_font_by_name(name)
@@ -201,8 +219,11 @@ class FontTable:
         .. versionadded:: 2026.05.0
         """
         if family not in _EMBED_TAG:
-            raise ValueError(
-                f"family must be one of {sorted(_EMBED_TAG)}, got {family!r}"
+            raise FontFamilyInvalidError(
+                f"family must be one of {sorted(_EMBED_TAG)}, got {family!r}",
+                suggestion=_did_you_mean(str(family), _EMBED_TAG),
+                location=f"FontTable.add_embedded_font(..., family={family!r})",
+                operation="FontTable.add_embedded_font",
             )
 
         font_path = Path(path)

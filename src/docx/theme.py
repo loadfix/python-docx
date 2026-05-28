@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+from docx.exceptions import ThemeTokenInvalidError, _did_you_mean
 from docx.shared import ElementProxy
 
 if TYPE_CHECKING:
@@ -123,7 +124,12 @@ class ThemeColors:
         name".
         """
         if name not in _COLOR_SLOTS:
-            raise KeyError(name)
+            raise ThemeTokenInvalidError(
+                "%r is not a valid theme color slot" % (name,),
+                suggestion=_did_you_mean(str(name), _COLOR_SLOTS),
+                location=f"theme.colors[{name!r}]",
+                operation="ThemeColors.__getitem__",
+            )
         if self._clrScheme is None:
             return None
         choice = self._clrScheme.color_for(name)
