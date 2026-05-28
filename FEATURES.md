@@ -2883,6 +2883,70 @@ non-required arguments (`chapter_number`, `epigraph`, `image`,
 `drop_cap`, `color`) are optional; the helper degrades gracefully for
 documents that only need a subset of the layout.
 
+### Resume / CV template family
+
+`docx.kit.resume` ships three template factories that build a fully
+styled |Document| from plain-Python keyword arguments, plus three
+visual styles (`modern` / `classic` / `minimal`). `[Added in 2026.05.29]`
+
+```python
+from docx.kit.resume import (
+    resume_chronological,
+    resume_functional,
+    resume_technical,
+)
+
+doc = resume_chronological(
+    name="Ben Hooper",
+    title="Senior Software Engineer",
+    contact={
+        "email": "ben@example.com",
+        "phone": "+61 2 1234 5678",
+        "linkedin": "in/benhooper",
+        "github": "benh",
+    },
+    summary="15+ years of distributed-systems experience.",
+    experience=[
+        {"company": "Acme Corp", "title": "Staff Engineer",
+         "start": "2020-03", "end": "present",
+         "bullets": ["Led X migration", "Shipped Y to production"]},
+    ],
+    education=[
+        {"school": "UNSW", "degree": "BE (Hons) Software", "year": 2010},
+    ],
+    skills=["Python", "Go", "AWS"],          # or {"Cloud": [...], ...}
+    style="modern",                            # modern | classic | minimal
+)
+
+resume_functional(
+    name="Ben Hooper",
+    focus_areas=["Engineering Leadership", "Distributed Systems"],
+    skills={"Languages": ["Python", "Go"], "Cloud": ["AWS"]},
+    style="classic",
+)
+
+resume_technical(
+    name="Ben Hooper",
+    projects=[{"name": "monorepo-tool", "tech": ["Python", "Rust"],
+               "url": "github.com/x/monorepo-tool",
+               "bullets": ["Saved 10s on every CI run"]}],
+    tech_stack={"Languages": ["Python"], "Cloud": ["AWS"]},
+    style="minimal",
+)
+```
+
+The contact block accepts six recognised keys (`email`, `phone`,
+`linkedin`, `github`, `website`, `location`) — recognised link kinds
+become hyperlinks (`mailto:`, normalised LinkedIn / GitHub URLs,
+`https://` for bare website domains). Unrecognised keys are rendered
+verbatim after the recognised ones, in caller-insertion order.
+
+Every factory raises `ValueError` when `name` is empty or `style` is
+not one of the three built-ins. The returned `Document` is a fresh
+instance — callers further mutate it (add a header via
+`docx.kit.letterhead.set_letterhead`, append more sections, etc.)
+or save via `Document.save(...)`.
+
 ---
 
 ## API concepts

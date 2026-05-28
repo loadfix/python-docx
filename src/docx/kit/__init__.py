@@ -30,12 +30,15 @@ Available kit submodules:
 * :mod:`docx.kit.letterhead` — branded header (logo + return address)
   and footer (phone / email / website) with three built-in styles
   (``modern`` / ``classic`` / ``minimal``).
+* :mod:`docx.kit.resume` — resume / CV template family
+  (``resume_chronological`` / ``resume_functional`` / ``resume_technical``)
+  with three built-in styles (``modern`` / ``classic`` / ``minimal``).
 
 .. versionadded:: 2026.05.29
 """
 
 from __future__ import annotations
 
-from docx.kit import back_matter, chapter, front_matter, letterhead
+from docx.kit import back_matter, chapter, front_matter, letterhead, resume
 
-__all__ = ["back_matter", "chapter", "front_matter", "letterhead"]
+__all__ = ["back_matter", "chapter", "front_matter", "letterhead", "resume"]
