@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import enum
 import random
-from typing import TYPE_CHECKING, Iterator, Union, cast
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Iterator, Union, cast
 
 from docx.oxml.ns import qn
 from docx.oxml.parser import OxmlElement
@@ -19,6 +20,74 @@ if TYPE_CHECKING:
         CT_SdtDropDownList,
     )
     from docx.text.paragraph import Paragraph
+
+
+# -- ergonomic-authoring kind aliases ------------------------------------------
+#
+# The :func:`add_text_control` / :meth:`Paragraph.add_text_control` ergonomic
+# entry points accept short string kinds in addition to the canonical
+# :class:`ContentControlType` members. The mapping here is intentionally
+# liberal — both hyphen and underscore variants of multi-word kinds are
+# accepted, plus the long-form spellings that match Word's UI.
+_KIND_ALIASES: dict[str, "ContentControlType"] = {}
+
+
+def _register_kind_aliases() -> None:
+    """Populate :data:`_KIND_ALIASES` once at import time."""
+    pairs: list[tuple[str, ContentControlType]] = [
+        ("text", ContentControlType.PLAIN_TEXT),
+        ("plain-text", ContentControlType.PLAIN_TEXT),
+        ("plain_text", ContentControlType.PLAIN_TEXT),
+        ("plaintext", ContentControlType.PLAIN_TEXT),
+        ("rich-text", ContentControlType.RICH_TEXT),
+        ("rich_text", ContentControlType.RICH_TEXT),
+        ("richtext", ContentControlType.RICH_TEXT),
+        ("dropdown", ContentControlType.DROPDOWN),
+        ("drop-down", ContentControlType.DROPDOWN),
+        ("drop_down", ContentControlType.DROPDOWN),
+        ("dropdown-list", ContentControlType.DROPDOWN),
+        ("combo", ContentControlType.COMBO_BOX),
+        ("combo-box", ContentControlType.COMBO_BOX),
+        ("combo_box", ContentControlType.COMBO_BOX),
+        ("combobox", ContentControlType.COMBO_BOX),
+        ("date", ContentControlType.DATE),
+        ("checkbox", ContentControlType.CHECKBOX),
+        ("check-box", ContentControlType.CHECKBOX),
+        ("repeating-section", ContentControlType.REPEATING_SECTION),
+        ("repeating_section", ContentControlType.REPEATING_SECTION),
+        ("repeatingsection", ContentControlType.REPEATING_SECTION),
+        ("picture", ContentControlType.PICTURE),
+        ("image", ContentControlType.PICTURE),
+        ("building-block", ContentControlType.BUILDING_BLOCK),
+        ("building_block", ContentControlType.BUILDING_BLOCK),
+        ("buildingblock", ContentControlType.BUILDING_BLOCK),
+    ]
+    for spelling, member in pairs:
+        _KIND_ALIASES[spelling] = member
+
+
+def _resolve_kind(kind: "str | ContentControlType") -> "ContentControlType":
+    """Return the :class:`ContentControlType` for `kind`.
+
+    `kind` accepts either a :class:`ContentControlType` member directly, or
+    one of the short aliases: ``"text"``, ``"rich-text"``, ``"dropdown"``,
+    ``"combo"``, ``"date"``, ``"checkbox"``, ``"repeating-section"``,
+    ``"picture"``, plus underscore / hyphen variants. Raises
+    :class:`ValueError` when `kind` is unrecognised.
+    """
+    if isinstance(kind, ContentControlType):
+        return kind
+    if not _KIND_ALIASES:
+        _register_kind_aliases()
+    key = str(kind).strip().lower()
+    try:
+        return _KIND_ALIASES[key]
+    except KeyError as exc:
+        raise ValueError(
+            "unknown content-control kind %r; expected one of "
+            "'text', 'rich-text', 'dropdown', 'combo', 'date', 'checkbox', "
+            "'repeating-section', 'picture'" % kind
+        ) from exc
 
 
 class ContentControlType(enum.Enum):
@@ -963,3 +1032,351 @@ AnyControl = Union[
     BuildingBlockControl,
     RepeatingSectionControl,
 ]
+
+
+# ---------------------------------------------------------------------------
+# Ergonomic authoring builders
+#
+# ``build_text_control`` shapes the most common authoring path — pick a kind,
+# stamp a programmatic name and friendly placeholder, optionally seed a
+# value, optionally lock, optionally bind. The helper returns a wired-up
+# ``CT_Sdt`` element ready for insertion into a paragraph (inline) or a
+# block-level container (block). Callers then wrap the element with
+# :meth:`ContentControl.proxy_for` to get the typed proxy.
+#
+# Locked semantics map to the four ``ST_Lock`` strings:
+#   locked=True  -> "sdtLocked"  (cannot delete the SDT, content editable)
+#   locked=False -> no lock element (default — both are user-controllable)
+#   locked="<value>" -> verbatim ST_Lock string (advanced)
+# Per the issue: "locked=True prevents deletion; content editable separately".
+# That is exactly the ``sdtLocked`` semantic.
+
+# -- placeholder text default per kind --------------------------------------
+_DEFAULT_PLACEHOLDERS: dict["ContentControlType", str] = {
+    ContentControlType.PLAIN_TEXT: "Click or tap here to enter text.",
+    ContentControlType.RICH_TEXT: "Click or tap here to enter text.",
+    ContentControlType.DATE: "Click or tap to enter a date.",
+    ContentControlType.DROPDOWN: "Choose an item.",
+    ContentControlType.COMBO_BOX: "Choose an item.",
+    ContentControlType.CHECKBOX: "",
+    ContentControlType.PICTURE: "",
+    ContentControlType.REPEATING_SECTION: "",
+    ContentControlType.BUILDING_BLOCK: "",
+}
+
+
+def _resolve_lock(locked: "bool | str | None") -> "str | None":
+    """Translate the ergonomic ``locked=`` argument to an ``ST_Lock`` string.
+
+    * ``False`` / ``None`` → |None| (no lock element written).
+    * ``True`` → ``"sdtLocked"`` — the SDT cannot be deleted but its content
+      remains editable, matching the issue's "prevents deletion; content
+      editable separately" contract.
+    * ``str`` — verbatim ST_Lock value (``"unlocked"``, ``"sdtLocked"``,
+      ``"sdtContentLocked"``, ``"contentLocked"``). Validation happens
+      downstream in :class:`docx.oxml.simpletypes.ST_Lock`.
+    """
+    if locked is None or locked is False:
+        return None
+    if locked is True:
+        return "sdtLocked"
+    if isinstance(locked, str):
+        return locked
+    raise TypeError(
+        "locked must be a bool, an ST_Lock string, or None; got %r"
+        % type(locked).__name__
+    )
+
+
+def _wire_inline_value(sdt: "CT_Sdt", value: str) -> None:
+    """Replace the inline `<w:sdtContent>/<w:r>/<w:t>` text with `value`."""
+    sdtContent = sdt.get_or_add_sdtContent()
+    for child in list(sdtContent):
+        sdtContent.remove(child)
+    r = OxmlElement("w:r")
+    t = OxmlElement("w:t")
+    if value != value.strip():
+        t.set(qn("xml:space"), "preserve")
+    t.text = value
+    r.append(t)
+    sdtContent.append(r)
+
+
+def _wire_block_value(sdt: "CT_Sdt", value: str) -> None:
+    """Replace the block `<w:sdtContent>/<w:p>` with a single-run paragraph
+    bearing `value`.
+    """
+    sdtContent = sdt.get_or_add_sdtContent()
+    for child in list(sdtContent):
+        sdtContent.remove(child)
+    p = OxmlElement("w:p")
+    r = OxmlElement("w:r")
+    t = OxmlElement("w:t")
+    if value != value.strip():
+        t.set(qn("xml:space"), "preserve")
+    t.text = value
+    r.append(t)
+    p.append(r)
+    sdtContent.append(p)
+
+
+def _placeholder_for(
+    kind: "ContentControlType",
+    placeholder: "str | None",
+    value: "str | None",
+) -> str:
+    """Return the literal text to seed inside the SDT when no `value` is given.
+
+    The fallback chain is `value` → `placeholder` → kind-specific default.
+    """
+    if value is not None:
+        return value
+    if placeholder is not None:
+        return placeholder
+    return _DEFAULT_PLACEHOLDERS.get(kind, "")
+
+
+def build_text_control(
+    kind: "str | ContentControlType" = "text",
+    name: "str | None" = None,
+    placeholder: "str | None" = None,
+    value: "str | None" = None,
+    locked: "bool | str | None" = None,
+    bind_to: "str | None" = None,
+    items: "Sequence[str] | None" = None,
+    inline: bool = True,
+    title: "str | None" = None,
+) -> "CT_Sdt":
+    """Build a `<w:sdt>` element for the requested ergonomic authoring kind.
+
+    `kind` is one of ``"text"``, ``"rich-text"``, ``"dropdown"``, ``"combo"``,
+    ``"date"``, ``"checkbox"``, ``"picture"``, ``"repeating-section"``, or a
+    :class:`ContentControlType` member. `name` becomes ``w:sdtPr/w:tag/@w:val``
+    (the programmatic identifier). `title` becomes ``w:sdtPr/w:alias/@w:val``;
+    when omitted it falls back to `placeholder`.
+
+    `placeholder` is the prompt text Word displays when the SDT has no user
+    content; `value` overrides it as the SDT's initial body. For a checkbox
+    SDT, `value` is interpreted as a boolean check-state instead of body
+    text. `items` populates a dropdown / combo box's `<w:listItem>` list.
+
+    `locked=True` writes a ``<w:lock w:val="sdtLocked"/>`` so the user cannot
+    delete the control (content remains editable). Pass an explicit
+    :class:`ST_Lock` string for finer-grained control. `bind_to` adds a
+    ``<w:dataBinding>`` whose ``@w:xpath`` is the bare custom-property path
+    (``/ns0:properties[1]/ns0:<bind_to>[1]`` when `bind_to` is a property
+    name; a leading ``/`` indicates a verbatim XPath the caller has already
+    composed).
+
+    `inline=True` initialises the body for inline (paragraph-level) use; pass
+    ``False`` for a block-level SDT.
+
+    Returns the new ``CT_Sdt`` element. Callers responsible for inserting it
+    into the document tree.
+
+    .. versionadded:: 2026.05.13
+    """
+    cc_type = _resolve_kind(kind)
+    sdt = new_sdt(cc_type, tag=name, title=title or placeholder, inline=inline)
+
+    # -- value / placeholder --
+    if cc_type == ContentControlType.CHECKBOX:
+        if value is not None:
+            sdt.checked = bool(value)
+    elif cc_type == ContentControlType.PICTURE:
+        # -- picture controls hold a drawing, not a text run; leave content empty --
+        pass
+    elif cc_type == ContentControlType.REPEATING_SECTION:
+        # -- repeating section seeds with a single empty inner row when populated
+        # -- via `add()` on the ergonomic proxy; here we leave the body alone.
+        pass
+    else:
+        seed = _placeholder_for(cc_type, placeholder, value)
+        if seed:
+            if inline:
+                _wire_inline_value(sdt, seed)
+            else:
+                _wire_block_value(sdt, seed)
+
+    # -- list items --
+    if items is not None and cc_type in (
+        ContentControlType.DROPDOWN,
+        ContentControlType.COMBO_BOX,
+    ):
+        proxy = ContentControl.proxy_for(sdt)
+        # mypy: proxy is the concrete list-bearing type
+        proxy.items = list(items)  # type: ignore[union-attr]
+
+    # -- lock --
+    lock_value = _resolve_lock(locked)
+    if lock_value is not None:
+        sdt.lock_val = lock_value
+
+    # -- data binding --
+    if bind_to is not None:
+        proxy = ContentControl.proxy_for(sdt)
+        xpath, prefix_mappings = _compose_binding_xpath(bind_to)
+        proxy.set_data_binding(xpath, prefix_mappings=prefix_mappings)
+
+    return sdt
+
+
+def _compose_binding_xpath(bind_to: str) -> "tuple[str, str]":
+    """Translate ``bind_to`` to an XPath + prefix-mapping pair.
+
+    A leading ``/`` indicates the caller has supplied a verbatim XPath
+    (and prefix mappings should already cover any namespaces in use). A
+    bare property name like ``CustomerName`` is wrapped in the standard
+    Word-emitted shape:
+
+    ``/ns0:properties[1]/ns0:<name>[1]`` with
+    ``xmlns:ns0='http://schemas.openxmlformats.org/officeDocument/2006/custom-properties'``.
+
+    The exact namespace doesn't matter for round-trip fidelity — Word
+    preserves whatever the file declares. The default produces a binding
+    that points at a `/customXml/itemN.xml` shaped to match `docProps`
+    custom-properties, which is the most common shape in practice.
+    """
+    if not isinstance(bind_to, str) or not bind_to:
+        raise ValueError("bind_to must be a non-empty string")
+    if bind_to.startswith("/"):
+        return bind_to, ""
+    ns = "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"
+    return (
+        f"/ns0:properties[1]/ns0:{bind_to}[1]",
+        f"xmlns:ns0='{ns}'",
+    )
+
+
+# ---------------------------------------------------------------------------
+# RepeatingSectionControl ergonomic ``add()`` / schema-driven authoring
+#
+# The issue describes:
+#
+#     items = doc.add_repeating_section(
+#         name='line_items',
+#         schema={'description': 'text', 'quantity': 'number'},
+#     )
+#     for item in [...]:
+#         items.add(item)
+#
+# A repeating-section SDT row is itself an inner ``<w:sdt>`` carrying a
+# ``<w15:repeatingSectionItem>`` marker. With a `schema` we further nest
+# per-field SDTs inside the row paragraph so each sub-field is its own
+# editable text control. Without a `schema` the row body is a single
+# paragraph the caller can populate manually.
+
+
+def _normalise_schema(
+    schema: "Mapping[str, str] | Sequence[tuple[str, str]] | None",
+) -> "list[tuple[str, ContentControlType]]":
+    """Validate and normalise a `RepeatingSectionControl.add(...)` schema.
+
+    Accepts ``{"name": "kind", ...}`` (insertion-ordered in py3.7+) or a
+    sequence of ``(name, kind)`` pairs. Translates each ``kind`` through
+    :func:`_resolve_kind`, with the additional alias ``"number"`` mapping
+    to plain text (Word has no dedicated number SDT — it relies on
+    ``w:text`` with a regex pattern, which is out of scope here).
+    """
+    if schema is None:
+        return []
+    if isinstance(schema, Mapping):
+        pairs = list(schema.items())
+    else:
+        pairs = list(schema)
+    result: list[tuple[str, ContentControlType]] = []
+    for name, kind in pairs:
+        if kind == "number":
+            result.append((name, ContentControlType.PLAIN_TEXT))
+        else:
+            result.append((name, _resolve_kind(kind)))
+    return result
+
+
+# Patch RepeatingSectionControl with schema/add ergonomics. Defining the
+# methods here (rather than inline in the class body) keeps the
+# ergonomic-authoring concerns colocated with the rest of the
+# ``build_*`` helpers and the kind-alias map.
+
+
+def _repsec_set_schema(
+    self: RepeatingSectionControl,
+    schema: "Mapping[str, str] | Sequence[tuple[str, str]] | None",
+) -> None:
+    """Stash the row-field schema for subsequent ``add()`` calls.
+
+    Stored as a Python attribute on the proxy (not in the XML) — the
+    schema is a Python-level convenience. Retrieving rows via
+    :attr:`rows` after a save→load round trip therefore won't carry the
+    schema; that's by design — the schema is just a row-builder
+    template.
+    """
+    self._schema = _normalise_schema(schema)  # type: ignore[attr-defined]
+
+
+def _repsec_add(
+    self: RepeatingSectionControl,
+    item: "Mapping[str, Any] | None" = None,
+    **fields: Any,
+) -> ContentControl:
+    """Append a new repeating-section row populated from `item` / `fields`.
+
+    When the proxy carries a schema (set via :meth:`set_schema` or via
+    ``Document.add_repeating_section(schema=...)``), per-field inner SDTs
+    are stamped into the new row's paragraph in schema order. Each field
+    value is coerced to ``str`` and seeded into its inner SDT.
+
+    Without a schema, ``item`` / ``fields`` are coalesced into a single
+    text run inserted as the row's first run — useful for ad-hoc lists.
+
+    Returns the proxy for the new row SDT.
+
+    .. versionadded:: 2026.05.13
+    """
+    schema_pairs: list[tuple[str, ContentControlType]] = getattr(
+        self, "_schema", []
+    )
+    payload: dict[str, Any] = {}
+    if item is not None:
+        if isinstance(item, Mapping):
+            payload.update(item)
+        else:
+            # -- a single positional non-mapping is treated as the row text --
+            payload["__text__"] = item
+    payload.update(fields)
+
+    row_proxy = self.add_row()
+    row_sdt = row_proxy.element
+    row_sdtContent = row_sdt.get_or_add_sdtContent()
+    # -- the helper seeded a single empty <w:p>; reuse it as the row container --
+    row_p = row_sdtContent.find(qn("w:p"))
+    if row_p is None:
+        row_p = OxmlElement("w:p")
+        row_sdtContent.append(row_p)
+
+    if schema_pairs:
+        for fname, fkind in schema_pairs:
+            fvalue = payload.get(fname, "")
+            inner = build_text_control(
+                fkind, name=fname, value=str(fvalue), inline=True
+            )
+            row_p.append(inner)
+    else:
+        # -- ad-hoc shape: dump payload values into a plain run --
+        text = payload.get("__text__")
+        if text is None:
+            text = " ".join(str(v) for v in payload.values())
+        if text:
+            r = OxmlElement("w:r")
+            t = OxmlElement("w:t")
+            if text != text.strip():
+                t.set(qn("xml:space"), "preserve")
+            t.text = str(text)
+            r.append(t)
+            row_p.append(r)
+    return row_proxy
+
+
+# -- attach ergonomic methods to the RepeatingSectionControl class ----------
+RepeatingSectionControl.set_schema = _repsec_set_schema  # type: ignore[attr-defined]
+RepeatingSectionControl.add = _repsec_add  # type: ignore[attr-defined]

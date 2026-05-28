@@ -590,6 +590,97 @@ class Document(ElementProxy):
         """
         return self._body.add_content_control(type, tag=tag, title=title)
 
+    def add_text_control(
+        self,
+        kind: "str | ContentControlType" = "rich-text",
+        name: str | None = None,
+        placeholder: str | None = None,
+        value: str | None = None,
+        locked: "bool | str | None" = None,
+        bind_to: str | None = None,
+        items: "Sequence[str] | None" = None,
+        title: str | None = None,
+    ) -> ContentControl:
+        """Append a block-level content control of `kind` to the document body.
+
+        `kind` is one of ``"text"``, ``"rich-text"``, ``"dropdown"``,
+        ``"combo"``, ``"date"``, ``"checkbox"``, ``"picture"``,
+        ``"repeating-section"``, or a :class:`ContentControlType` member.
+        See :func:`docx.content_controls.build_text_control` for the full
+        argument contract.
+
+        Block-level controls are commonly used for whole sections (executive
+        summaries, signature blocks, etc.) where the user can edit a region
+        of multi-paragraph rich content. Use :meth:`Paragraph.add_text_control`
+        for inline controls.
+
+        Returns the typed |ContentControl| proxy (e.g. :class:`PlainTextControl`,
+        :class:`DateControl`).
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.content_controls import ContentControl, build_text_control
+
+        sdt = build_text_control(
+            kind,
+            name=name,
+            placeholder=placeholder,
+            value=value,
+            locked=locked,
+            bind_to=bind_to,
+            items=items,
+            title=title,
+            inline=False,
+        )
+        self._body._body._insert_sdt(sdt)  # pyright: ignore[reportPrivateUsage]
+        return ContentControl.proxy_for(sdt)
+
+    def add_repeating_section(
+        self,
+        name: str | None = None,
+        section_title: str | None = None,
+        schema: "dict[str, str] | Sequence[tuple[str, str]] | None" = None,
+        locked: "bool | str | None" = None,
+    ) -> "ContentControl":
+        """Append a block-level repeating-section content control.
+
+        `name` becomes the SDT's programmatic ``w:tag/@w:val`` (typically the
+        repeating-section's identifier — e.g. ``"line_items"``).
+        `section_title` populates the ``@w15:sectionTitle`` attribute Word
+        shows in the *Insert New Item* drop-down.
+
+        `schema` is a mapping of ``field_name -> kind`` describing the
+        per-row fields the helper will stamp into each row when callers
+        invoke :meth:`RepeatingSectionControl.add`. Kinds reuse the same
+        strings :meth:`add_text_control` accepts (plus ``"number"``, which
+        maps to plain text — Word has no dedicated number SDT).
+
+        Returns a :class:`RepeatingSectionControl`.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.content_controls import (
+            ContentControl,
+            ContentControlType,
+            RepeatingSectionControl,
+            build_text_control,
+        )
+
+        sdt = build_text_control(
+            ContentControlType.REPEATING_SECTION,
+            name=name,
+            locked=locked,
+            inline=False,
+        )
+        self._body._body._insert_sdt(sdt)  # pyright: ignore[reportPrivateUsage]
+        proxy = ContentControl.proxy_for(sdt)
+        assert isinstance(proxy, RepeatingSectionControl)
+        if section_title is not None:
+            proxy.section_title = section_title
+        if schema is not None:
+            proxy.set_schema(schema)  # type: ignore[attr-defined]
+        return proxy
+
     def add_chart(
         self,
         chart_type: WD_CHART_TYPE,
