@@ -855,6 +855,36 @@ class Document(ElementProxy):
             line_numbering=line_numbering,
         )
 
+    def lint(self, rules=None):
+        """Run a set of structural / accessibility lint rules over the body.
+
+        Returns a list of :class:`docx.lint.LintFinding` (severity,
+        paragraph_index, rule_id, message). The default rule-set
+        focuses on heading-hierarchy quality::
+
+            for finding in document.lint():
+                print(finding.rule_id, finding.message)
+
+        Rules ship with stable ids:
+
+        - ``heading-skip`` (error) — H1 → H3 with no H2
+        - ``heading-multiple-h1`` (warning) — more than one Heading 1
+        - ``heading-no-h1`` (info) — document has no Heading 1
+        - ``heading-direct-formatting`` (warning) — body paragraph
+          looks like a heading via bold / large font
+        - ``heading-empty`` (error) — heading with no visible text
+        - ``heading-too-long`` (warning) — heading > 120 chars
+
+        ``rules`` may be |None| (use defaults), a sequence of rule-id
+        strings, or a sequence of rule callables. Custom rules are
+        ``(paragraphs) -> Iterable[LintFinding]``.
+
+        .. versionadded:: 2026.05.13
+        """
+        from docx.lint import lint_document
+
+        return lint_document(self, rules)
+
     def add_table_of_contents(
         self, levels: tuple[int, int] = (1, 3)
     ) -> Paragraph:
