@@ -96,7 +96,8 @@ Summary of areas extended beyond upstream `1.2.0`:
   mode, `Document.repair()` best-effort recovery for damaged packages,
   password-protected read/write via optional `python-ooxml-crypto`,
   `Document.stream()` bounded-memory reader for very large documents,
-  `os.PathLike` support)
+  `Document.from_html()` / `from_html_string()` HTML import, `os.PathLike`
+  support)
 - Settings and metadata (compat flags, view, mail merge,
   `Document.extended_properties`, doc vars, page stats, spell/grammar
   toggles, auto-hyphenation, timezone-aware comments)
