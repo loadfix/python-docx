@@ -4516,6 +4516,54 @@ to prepend the DataFrame's index as the first column. Pandas is an
 `ImportError` whose message tells the user to
 `pip install pandas`.
 
+### RFC-6902 JSON-Patch over the structural model
+
+`docx.kit.patch.apply(doc, ops)` applies a list of RFC-6902 JSON
+Patch operations against a stable, addressable subset of the
+document's structural model — paragraphs (by index or
+`w14:paraId`), table cell text, and section page orientation. All
+ops are validated against an in-memory shadow before any mutation
+reaches the live tree, so a failing op leaves the document
+untouched (all-or-nothing semantics). `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import patch
+
+doc = Document("input.docx")
+patch.apply(doc, [
+    {"op": "replace", "path": "/paragraphs/0/text",  "value": "New title"},
+    {"op": "add",     "path": "/paragraphs/-",
+     "value": {"text": "Final paragraph", "style": "Normal"}},
+    {"op": "remove",  "path": "/paragraphs/2"},
+    {"op": "test",    "path": "/paragraphs/0/style", "value": "Title"},
+    # Stable-ID path keyed on Word's w14:paraId attribute:
+    {"op": "replace", "path": "/by_id/1A2B3C4D/text", "value": "Stable!"},
+])
+doc.save("out.docx")
+```
+
+Supported ops: `add`, `remove`, `replace`, `move`, `copy`, `test`.
+Path scheme:
+
+- `/paragraphs/N` — Nth paragraph in body order (negative N counts
+  from the end; `-` after `add` appends; `add` value is a
+  `{"text": ..., "style": ...}` mapping).
+- `/paragraphs/N/text` and `/paragraphs/N/style` — paragraph text /
+  style-name fields.
+- `/by_id/<paraId>/text` and `/by_id/<paraId>/style` — same, keyed on
+  the stable `w14:paraId` token Word stamps on every paragraph in
+  2010+ files.
+- `/tables/N/rows/M/cells/K/text` — table cell text content.
+- `/sections/N/page_orientation` — section page orientation, one of
+  `"portrait"` / `"landscape"`.
+
+Failures raise a `PatchError` subclass: `PathNotFound` (path does
+not resolve), `PatchTestFailed` (a `test` op did not hold), or
+`InvalidOp` (the op shape is malformed). Returns `None` on success.
+The implementation vendors a small RFC-6902 dispatcher; no
+`jsonpatch` PyPI dependency is added.
+
 ---
 
 ## API concepts
