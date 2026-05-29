@@ -3462,6 +3462,60 @@ so Word includes every category. Every factory raises `ValueError`
 when its required argument is missing or malformed — `parties` for
 `court_paper`, `matter` and `counsel` for `brief`, `declarant` for
 `declaration`, citation `case` for `table_of_authorities`.
+### Customer case-study / customer-story template
+
+`docx.kit.case_study.case_study(doc, ...)` appends a complete
+B2B-marketing customer-story section to an existing `Document` in
+one call: a centred `Title` paragraph, a centred customer-name
+heading, a 3-column customer-profile metadata strip
+(industry / size / location), the canonical narrative sections
+(`Summary` / `Challenge` / `Solution` / `Implementation`), a
+four-column metric / before / after / delta `Results` table, the
+customer quote in Word's built-in `Quote` style, a `Technologies`
+bullet list (or comma-separated paragraph when
+`technologies_as_bullets=False`), and a `Next Steps` paragraph.
+Empty / missing input suppresses the matching section so callers
+can omit anything that doesn't apply. Returns the list of
+newly-appended `Paragraph` and `Table` objects (in document order,
+including the trailing page-break paragraph when `page_break=True`,
+the default). `[Added in 2026.05.29]` — closes #300.
+
+```python
+from docx import Document
+from docx.kit import case_study
+
+doc = Document()
+case_study.case_study(
+    doc,
+    title="How ACME cut latency by 80% with FrobnitzPro",
+    customer="ACME Corp",
+    industry="Manufacturing",
+    size="5,000 employees",
+    location="Detroit, MI",
+    summary="One-paragraph elevator pitch of the case study...",
+    challenge="ACME's primary challenge was ...",
+    solution="With FrobnitzPro, they were able to...",
+    implementation="The rollout took 6 weeks across three phases...",
+    results=[
+        {"metric": "Latency",      "before": "500ms", "after": "100ms", "delta": "-80%"},
+        {"metric": "Throughput",   "before": "1k/s",  "after": "5k/s",  "delta": "+400%"},
+        {"metric": "Cost per req", "before": "$0.10", "after": "$0.04", "delta": "-60%"},
+    ],
+    customer_quote='"FrobnitzPro paid for itself in three months." -- Jane Doe, CTO',
+    technologies=["FrobnitzPro 5", "Kubernetes", "PostgreSQL 17"],
+    next_steps="ACME plans to expand to their EU region in Q3.",
+)
+doc.save("case_study.docx")
+```
+
+`title` and `customer` are the only required arguments — every other
+parameter is optional and defaults to "skipped" when |None| / empty.
+The helper raises `ValueError` when either required argument is
+empty / whitespace-only, or when any entry in `results` is not a
+mapping. The `Quote` / `List Bullet` / `Title` / `Heading 1` /
+`Heading 2` styles fall back to `Normal` when the loaded template
+lacks them — the spirit of a kit is "works out of the box".
+
 ### Medical clinical-note templates (SOAP / discharge / referral)
 
 `docx.kit.medical` ships three template factories that build a
