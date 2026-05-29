@@ -65,6 +65,10 @@ Available kit submodules:
   (``brief`` / ``coe`` / ``rfp_response`` / ``white_paper``) covering
   short briefs, Centre of Excellence charters, RFP responses with a
   pricing table, and white papers with abstract and references.
+* :mod:`docx.kit.coe` — Correction of Error / post-mortem template
+  appended to an existing |Document| (incident metadata, summary,
+  timeline table, Five Whys table, contributing-factors list, action-
+  items table, lessons-learned list).
 * :mod:`docx.kit.scientific` — scientific paper template family
   (``ieee_paper`` / ``acm_paper`` / ``apa_paper`` / ``nature_paper``)
   applying each venue's structural skeleton (IEEE two-column compact,
@@ -99,6 +103,7 @@ from docx.kit import (
     back_matter,
     brand,
     chapter,
+    coe,
     contracts,
     dividers,
     front_matter,
@@ -117,6 +122,7 @@ __all__ = [
     "back_matter",
     "brand",
     "chapter",
+    "coe",
     "contracts",
     "dividers",
     "front_matter",
