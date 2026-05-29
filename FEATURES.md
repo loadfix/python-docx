@@ -4077,6 +4077,92 @@ break so the next content lands on a fresh page; pass
 `prerequisites`, `procedure`) raise `ValueError` when empty so a
 caller building a draft hears about the gap immediately rather than
 shipping a half-runbook.
+### Token-bounded progressive summarisation (`summarize.summarize`)
+
+`docx.kit.summarize.summarize` walks a `Document`, splits the body
+into sections (by `Heading 1`, falling back to `Heading 2` when no H1
+is present, falling back to chunks of N paragraphs when no headings
+are present), allocates a token budget across sections proportional
+to each section's length, and emits a per-section summary under that
+budget. The default summariser is *structural-extractive* (first
+sentences per section) so the helper works out of the box with no
+PyPI deps; callers inject `summariser=` for LLM-grade summaries and
+`token_counter=` for real tokenisers like `tiktoken`.
+`[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import summarize
+
+doc = Document("long_report.docx")
+
+# 1. Structured: list[dict] with section / summary / tokens keys.
+sections = summarize.summarize(doc, max_tokens=500)
+# [
+#   {"section": "Introduction", "summary": "...", "tokens": 80},
+#   {"section": "Methods",      "summary": "...", "tokens": 120},
+#   ...
+# ]
+
+# 2. Flat string with bold (Markdown **section**) prefixes.
+text = summarize.as_text(doc, max_tokens=500)
+
+# 3. Plug in any summariser callback.
+def my_llm_summarise(text, max_tokens):
+    return f"AI summary of {text[:50]}..."
+
+sections = summarize.summarize(
+    doc, max_tokens=500, summariser=my_llm_summarise
+)
+
+# 4. Plug in any tokeniser (tiktoken shown).
+import tiktoken
+enc = tiktoken.get_encoding("cl100k_base")
+sections = summarize.summarize(
+    doc,
+    max_tokens=500,
+    token_counter=lambda s: len(enc.encode(s)),
+)
+```
+
+API:
+
+- `summarize.summarize(doc, *, max_tokens, summariser=None, section_predicate=None, token_counter=None, chunk_size=20)`
+  — Returns `list[dict]` with `section` / `summary` / `tokens` keys
+  per row. Returns `[]` for an empty document. Raises `ValueError` on
+  non-positive `max_tokens` or `chunk_size`.
+- `summarize.as_text(doc, *, max_tokens, summariser=None, section_predicate=None, token_counter=None, chunk_size=20)`
+  — Returns the same content as a flat string with `**heading**`
+  Markdown-bold section prefixes. Sections with empty summaries are
+  omitted. Returns `""` for an empty document.
+- `summarize.count_tokens(text)` — 4-chars-per-token approximation.
+  Suitable for budget allocation against OpenAI / Anthropic / Google
+  models; not for billing.
+
+The token counter is approximate by default (4-chars-per-token); the
+heuristic is close enough for budget allocation but not for hard
+context-window enforcement. Inject `token_counter=` to override.
+
+Token allocation across sections is proportional to section length
+(a section that's 30% of the body gets ~30% of the budget, capped at
+the section's own length so a 50-token aside doesn't get 200 tokens
+of budget). A 10-token floor per non-empty section keeps short
+sections from rounding to zero and dropping out entirely.
+
+The default extractive summariser splits each section's body on
+sentence terminators (`. ! ?`) and accumulates sentences until the
+next one would exceed the section's budget. When the *first* sentence
+alone is over budget it emits a character-truncated head so the row
+never returns an empty string from a non-empty body.
+
+`section_predicate` overrides heading detection — pass a
+`Callable[[Paragraph], bool]` to drive the split off custom heading
+styles or content patterns. `chunk_size` controls the headingless
+fallback (defaults to 20 paragraphs per chunk).
+
+No PyPI dependencies are added — `tiktoken` / `openai` / `anthropic`
+are reachable only through the `token_counter=` / `summariser=`
+injection points.
 ### Comparison / pricing / rubric tables
 
 `docx.kit.tables_compare` ships three table builders that append a

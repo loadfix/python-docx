@@ -142,6 +142,16 @@ Available kit submodules:
   (title / purpose / when to use / roles / prerequisites checklist /
   numbered procedure with Step / Owner / Detail table / escalation
   table / rollback) to an existing |Document|.
+* :mod:`docx.kit.summarize` — token-bounded progressive document
+  summarisation. :func:`~docx.kit.summarize.summarize` splits the
+  document into sections (by ``Heading 1`` / ``Heading 2`` / fixed
+  chunks), allocates a token budget proportional to section length,
+  and emits one summary per section under that budget. The default
+  summariser is structural-extractive (first sentences per section);
+  callers inject ``summariser=`` for LLM-grade summaries and
+  ``token_counter=`` for tokenisers like ``tiktoken``.
+  :func:`~docx.kit.summarize.as_text` returns the same content as a
+  flat string with bold section prefixes.
 * :mod:`docx.kit.exec_summary` — Amazon-style narrative document family
   (``one_pager`` / ``six_pager``) with the canonical Purpose /
   Background / Current state / Proposal / Risks / Asks shape on the
@@ -230,6 +240,7 @@ from docx.kit import (
     resume,
     runbook,
     scientific,
+    summarize,
     tables_compare,
     tables,
     template,
@@ -268,6 +279,7 @@ __all__ = [
     "resume",
     "runbook",
     "scientific",
+    "summarize",
     "tables_compare",
     "template",
     "tables",
