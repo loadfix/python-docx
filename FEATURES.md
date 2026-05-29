@@ -3639,6 +3639,83 @@ split on blank lines (`"\n\n"`). Both helpers fall back from
 `Heading 1` / `Heading 2` / `List Bullet` to `Normal` when a custom
 template lacks them, and raise `ValueError` on empty title / empty
 required prose section / empty `sections` mapping.
+### Sales proposal / Statement of Work appender
+
+`docx.kit.proposal` ships two helpers — `sales_proposal` and `sow` —
+that *append* a structured commercial-document section to an existing
+`Document` and return the list of newly-appended paragraphs and
+tables (in document order, including the trailing page-break
+paragraph when emitted). The helpers compose with the rest of
+`docx.kit` (e.g. drop a branded letterhead via
+`docx.kit.letterhead.set_letterhead` then append the proposal) so
+callers chain composition cleanly. Output is a *starting point only,
+not legal advice* — every appended section carries the same
+disclaimer the module docstring carries. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import proposal
+
+doc = Document()
+proposal.sales_proposal(
+    doc,
+    title="Implementing Frobnitz at ACME",
+    prepared_for="ACME Corp",
+    prepared_by="Acme Consulting",
+    date="2026-05-29",
+    executive_summary="Frobnitz adoption is on the critical path.",
+    problem_statement="ACME's current process is manual and brittle.",
+    proposed_solution="Acme will deliver Frobnitz in three phases.",
+    deliverables=["Discovery report", "Implementation", "30-day support"],
+    timeline=[
+        ("Week 1-2",  "Discovery"),
+        ("Week 3-6",  "Implementation"),
+        ("Week 7-10", "Rollout + support"),
+    ],
+    pricing=[
+        {"item": "Discovery",      "qty": 1, "rate": "$15,000", "total": "$15,000"},
+        {"item": "Implementation", "qty": 1, "rate": "$60,000", "total": "$60,000"},
+        {"item": "Support (30d)",  "qty": 1, "rate": "$10,000", "total": "$10,000"},
+    ],
+    grand_total="$85,000",
+    terms=["50% on signing", "50% on go-live", "Net 30"],
+    next_steps=["Sign attached SOW", "Kick-off call within 5 business days"],
+)
+proposal.sow(
+    doc,
+    title="Statement of Work — Frobnitz Implementation",
+    parties=("Acme Consulting Pty Ltd", "ACME Corp"),
+    effective_date="2026-06-01",
+    end_date="2026-08-31",
+    scope="Acme Consulting will perform the following.",
+    deliverables=[
+        "Discovery report by Week 2",
+        "Implementation by Week 6",
+        "Documentation by Week 8",
+    ],
+    fees="Total: $85,000. Payable in two instalments.",
+    acceptance_criteria=[
+        "All test cases pass",
+        "Documentation handed off",
+        "Knowledge transfer completed",
+    ],
+)
+doc.save("proposal.docx")
+```
+
+`pricing` is a `list[dict]` with `item` / `qty` / `rate` / `total`
+keys, rendered as a four-column `Table Grid`-styled table; missing
+optional columns render as empty cells, and a non-`None` `grand_total`
+emits a bold trailing row spanning column 1 (`"Grand Total"`) and
+column 4 (the supplied total). `timeline` accepts either
+`(period, activity)` tuples or `{"period", "activity"}` mappings
+and renders as a two-column `Period` / `Activity` table. `terms` and
+`next_steps` are optional — passing an empty sequence skips the
+section entirely. `page_break=True` (the default) trails each
+appended section with a page break so subsequent sections start on a
+fresh page; pass `False` to suppress. Both helpers raise
+`ValueError` on empty required strings, malformed pricing rows, or a
+`parties` sequence with fewer than two non-empty entries.
 
 ### Brand asset manager (YAML-driven)
 

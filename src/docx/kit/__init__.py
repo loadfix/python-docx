@@ -129,6 +129,16 @@ Available kit submodules:
   (``one_pager`` / ``six_pager``) with the canonical Purpose /
   Background / Current state / Proposal / Risks / Asks shape on the
   1-pager and a flexible ordered ``sections`` mapping on the 6-pager.
+* :mod:`docx.kit.proposal` — sales proposal / Statement of Work
+  appender family (``sales_proposal`` / ``sow``) with executive
+  summary / problem / solution / deliverables / timeline / pricing
+  (4-column ``Item`` / ``Qty`` / ``Rate`` / ``Total``) / terms /
+  next-steps shape for proposals and a parties / scope / deliverables
+  / fees / acceptance-criteria shape for SOWs. Helpers append to an
+  existing |Document| and return the list of newly-appended
+  paragraphs and tables. Output is a *starting point only* — the
+  module docstring carries an explicit "not legal advice" disclaimer
+  rendered into every appended section.
 * :mod:`docx.kit.brand` — :class:`~docx.kit.brand.BrandAssets`,
   a YAML-driven manifest loader for corporate brand colours
   (RGB triples), font pairs (heading / body), logo path variants
@@ -172,6 +182,7 @@ from docx.kit import (
     medical,
     memos,
     pr_faq,
+    proposal,
     resume,
     runbook,
     scientific,
@@ -201,6 +212,7 @@ __all__ = [
     "medical",
     "memos",
     "pr_faq",
+    "proposal",
     "resume",
     "runbook",
     "scientific",
