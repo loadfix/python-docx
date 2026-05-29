@@ -3842,6 +3842,72 @@ break so the next content lands on a fresh page; pass
 `prerequisites`, `procedure`) raise `ValueError` when empty so a
 caller building a draft hears about the gap immediately rather than
 shipping a half-runbook.
+### Comparison / pricing / rubric tables
+
+`docx.kit.tables_compare` ships three table builders that append a
+fully-formed table to an existing `Document` and return the new
+`Table`. `comparison` lays out a feature-by-option matrix (one column
+per option, one row per feature) with an optional "Recommended" badge
+and accent shading on the matched column; `pricing` lays out a tier-
+per-column pricing grid (name row + price row + one row per bullet
+position) with per-tier `highlighted` shading; `rubric` lays out a
+criterion-by-level scoring grid with a label row across the top and a
+label column down the left side. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import tables_compare as tables
+
+doc = Document()
+
+tables.comparison(
+    doc,
+    options=["Plan A", "Plan B", "Plan C"],
+    features={
+        "Users":       ["1",     "10",     "Unlimited"],
+        "Storage":     ["10 GB", "100 GB", "1 TB"],
+        "Support":     ["Email", "Chat",   "Phone+SLA"],
+        "Price/month": ["$9",    "$29",    "$99"],
+    },
+    recommended="Plan B",
+)
+
+tables.pricing(doc, tiers=[
+    {"name": "Starter",  "price": "$9/mo",  "bullets": ["1 user", "10 GB", "email support"]},
+    {"name": "Pro",      "price": "$29/mo", "bullets": ["10 users", "100 GB", "chat support"], "highlighted": True},
+    {"name": "Business", "price": "$99/mo", "bullets": ["unlimited", "1 TB", "phone+SLA"]},
+])
+
+tables.rubric(
+    doc,
+    criteria=["Clarity", "Accuracy", "Style"],
+    levels=["Poor (1)", "OK (3)", "Excellent (5)"],
+    cells=[
+        ["unclear",   "mostly clear", "crystal clear"],
+        ["3+ errors", "1-2 errors",   "no errors"],
+        ["awkward",   "readable",     "polished"],
+    ],
+)
+```
+
+The default highlight fill is a light-blue accent (`#DCE6F1`); pass
+`highlight_fill=` an `RGBColor` or 3/6-digit hex string to override.
+`comparison` accepts a single `recommended` option name (must match
+one of `options`); `pricing` lets each tier carry its own
+`highlighted: True` flag (multiple highlighted tiers are tolerated);
+`rubric` emits a pure scoring grid with no shading (rubrics aren't
+trying to single any one level out). All three accept an optional
+`title=` keyword that emits a `Heading 2` (or fallback bold paragraph)
+above the table. `comparison` and `rubric` raise `ValueError` when
+the supplied grid doesn't match the declared shape (wrong number of
+options / features / criteria / levels). `pricing` rejects a bare
+string passed for `bullets` (a common copy-paste typo) so the helper
+fails fast rather than rendering the string letter-by-letter.
+
+The three callables are also re-exported at the package root, so
+`from docx.kit import comparison, pricing, rubric` works alongside
+the conventional `from docx.kit import tables_compare as tables`
+namespace alias.
 
 ---
 

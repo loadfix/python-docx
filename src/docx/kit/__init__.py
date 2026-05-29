@@ -120,6 +120,15 @@ Available kit submodules:
   values. Composes with the rest of the kit (``set_letterhead`` /
   ``add_chapter_opener`` / ``invoice``) so an organisation declares
   its brand once and reuses it across every authored document.
+* :mod:`docx.kit.tables_compare` — comparison / pricing / rubric
+  table builders (``comparison`` / ``pricing`` / ``rubric``).
+  ``comparison`` lays out a feature-by-option matrix with an optional
+  "Recommended" column shaded with an accent fill; ``pricing`` lays
+  out a tier-per-column pricing grid (name / price / bullets) with
+  per-tier ``highlighted`` shading; ``rubric`` lays out a criterion-
+  by-level scoring grid with label row and column. Each helper
+  appends to an existing |Document| and returns the new
+  :class:`~docx.table.Table`.
 
 .. versionadded:: 2026.05.29
 """
@@ -147,8 +156,10 @@ from docx.kit import (
     resume,
     runbook,
     scientific,
+    tables_compare,
     templates,
 )
+from docx.kit.tables_compare import comparison, pricing, rubric
 
 __all__ = [
     "back_matter",
@@ -171,5 +182,11 @@ __all__ = [
     "resume",
     "runbook",
     "scientific",
+    "tables_compare",
     "templates",
+    # -- direct re-exports from tables_compare for the conventional
+    # -- ``from docx.kit import tables`` -> ``tables.comparison(...)`` shape.
+    "comparison",
+    "pricing",
+    "rubric",
 ]
