@@ -3100,6 +3100,44 @@ Style → fill colour: `note` (light blue `DEEBF7`), `warning` (amber
 black 11pt body text readable. Each helper returns the
 :class:`~docx.table.Table` it appended so callers may further
 mutate it (resize, restyle, append rows).
+### Multi-column page layout (newspaper-style sections)
+
+`docx.kit.layout` exposes two helpers that bracket a body run with
+*continuous* section breaks so the enclosed paragraphs flow
+newspaper-style across N columns. `multi_column` opens the
+multi-column section; `end_multi_column` closes it back to a single
+column. Both are pure compositions of `Document.add_section` and
+`Section.set_columns` and return the new |Section|.
+`[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import layout
+
+doc = Document()
+
+# -- equal-width, default 0.5" gutter --
+layout.multi_column(doc, columns=2, equal_width=True)
+doc.add_paragraph("This text flows across two columns like a newspaper.")
+doc.add_paragraph("More text continues to flow.")
+layout.end_multi_column(doc)
+
+# -- a wide editorial column next to a narrow sidebar --
+layout.multi_column(doc, columns=2, equal_width=False, widths_in=[4.0, 2.0])
+doc.add_paragraph("Lead story copy in the wide column.")
+doc.add_paragraph("Sidebar pull-quote in the narrow column.")
+layout.end_multi_column(doc)
+
+# -- custom gutter --
+layout.multi_column(doc, columns=3, spacing_in=0.25)
+```
+
+`columns` must be `>= 1`. When `widths_in` is supplied,
+`len(widths_in)` must equal `columns` and `equal_width` must be
+`False` (or omitted). `spacing_in` is in inches and is applied as the
+gutter between equal-width columns; per-column spacing for the
+unequal-width path is settable via `Section.columns[i].space` after
+the helper returns.
 
 ### Resume / CV template family
 

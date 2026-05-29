@@ -65,6 +65,10 @@ Available kit submodules:
   international callers), auto-computed subtotal / GST / grand total,
   and a right-aligned line-item table. Output complies with ATO
   tax-invoice rules when the seller carries an ABN.
+* :mod:`docx.kit.layout` — newspaper-style multi-column sections
+  (:func:`~docx.kit.layout.multi_column` /
+  :func:`~docx.kit.layout.end_multi_column`) with equal-width or
+  per-column widths and a configurable gutter.
 * :mod:`docx.kit.mail_merge` — bulk render N personalised documents
   from a single template + iterable of records, composing the
   smart-placeholder machinery from #68 with an ergonomic
@@ -128,6 +132,7 @@ from docx.kit import (
     front_matter,
     headers,
     invoices,
+    layout,
     legal,
     letterhead,
     mail_merge,
@@ -150,6 +155,7 @@ __all__ = [
     "front_matter",
     "headers",
     "invoices",
+    "layout",
     "legal",
     "letterhead",
     "mail_merge",
