@@ -104,6 +104,11 @@ Available kit submodules:
   subheadline → dateline → summary → problem → solution →
   spokesperson quote → optional customer quote → call-to-action,
   followed by a Q&A list).
+* :mod:`docx.kit.runbook` — :func:`~docx.kit.runbook.runbook` SOP /
+  playbook helper. Appends a structured operational runbook section
+  (title / purpose / when to use / roles / prerequisites checklist /
+  numbered procedure with Step / Owner / Detail table / escalation
+  table / rollback) to an existing |Document|.
 * :mod:`docx.kit.brand` — :class:`~docx.kit.brand.BrandAssets`,
   a YAML-driven manifest loader for corporate brand colours
   (RGB triples), font pairs (heading / body), logo path variants
@@ -135,6 +140,7 @@ from docx.kit import (
     memos,
     pr_faq,
     resume,
+    runbook,
     scientific,
     templates,
 )
@@ -157,6 +163,7 @@ __all__ = [
     "memos",
     "pr_faq",
     "resume",
+    "runbook",
     "scientific",
     "templates",
 ]

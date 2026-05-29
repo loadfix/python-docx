@@ -3744,6 +3744,66 @@ is cleared before writing.
 Each helper raises `ValueError` on missing required arguments
 (`title=""`, no cells supplied to `running_header`, malformed
 `line_color`).
+### Runbook / SOP / playbook helper
+
+`docx.kit.runbook.runbook` appends a structured operational runbook
+section to an existing `Document`. The shape is the conventional
+SOP / playbook skeleton: title heading, purpose paragraph, "when to
+use" trigger, roles bullet list, prerequisites checklist, numbered
+procedure (one paragraph per step plus a Step / Owner / Detail
+table so the same content reads both linearly and by role), an
+optional Trigger / Action escalation table, and an optional
+rollback paragraph. The helper composes only python-docx's public
+API and returns the list of newly-appended paragraphs and tables in
+document order. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import runbook
+
+doc = Document()
+runbook.runbook(
+    doc,
+    title="Database failover runbook",
+    purpose="Recover the production primary after a node failure.",
+    when_to_use="When the primary's heartbeat times out for >30s.",
+    roles=["On-call SRE", "DBA", "Incident commander"],
+    prerequisites=[
+        "Pager access",
+        "VPN connection",
+        "Read access to dashboards",
+    ],
+    procedure=[
+        {"step": "Confirm failure", "owner": "On-call SRE",
+         "detail": "Check Grafana dashboard..."},
+        {"step": "Trigger failover", "owner": "DBA",
+         "detail": "Run `pg_ctl promote replica-1`..."},
+        {"step": "Update DNS", "owner": "On-call SRE",
+         "detail": "Promote replica-1 in Route 53..."},
+        {"step": "Verify", "owner": "Incident commander",
+         "detail": "Run smoke tests..."},
+    ],
+    escalation=[
+        ("After 5min", "Page on-call DBA"),
+        ("After 15min", "Page director of engineering"),
+        ("After 30min", "Open incident with vendor"),
+    ],
+    rollback="If failover fails: revert DNS to old primary, page vendor.",
+)
+doc.save("runbook.docx")
+```
+
+`procedure` is a `list[dict]` with `step` / `owner` / `detail` keys
+(`step` required, the others optional). `escalation` is a
+`list[tuple[str, str]]` of `(trigger, action)` rows. Both `escalation`
+and `rollback` are optional — omit either and that section is left
+out entirely. `page_break=True` (default) appends a trailing page
+break so the next content lands on a fresh page; pass
+`page_break=False` to suppress. Required scalars (`title`,
+`purpose`, `when_to_use`) and required collections (`roles`,
+`prerequisites`, `procedure`) raise `ValueError` when empty so a
+caller building a draft hears about the gap immediately rather than
+shipping a half-runbook.
 
 ---
 
