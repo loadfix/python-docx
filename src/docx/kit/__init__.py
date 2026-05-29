@@ -73,6 +73,15 @@ Available kit submodules:
   family (``investment_memo`` / ``business_case``) with McKinsey-style
   SCQA (Situation / Complication / Question / Answer) structure for
   memos and an options-analysis table for business cases.
+* :mod:`docx.kit.case_study` —
+  :func:`~docx.kit.case_study.case_study` appends a customer-story
+  / case-study section in one call: title + customer name, a
+  3-column customer-profile metadata strip
+  (industry / size / location), the canonical narrative sections
+  (summary / challenge / solution / implementation), a four-column
+  results table (metric / before / after / delta), a ``Quote``-styled
+  customer quote, a bullet list of technologies, and a "next steps"
+  paragraph.
 * :mod:`docx.kit.templates` — generic document template registry
   (``brief`` / ``coe`` / ``rfp_response`` / ``white_paper``) covering
   short briefs, Centre of Excellence charters, RFP responses with a
@@ -121,6 +130,7 @@ from docx.kit import (
     back_matter,
     brand,
     callouts,
+    case_study,
     chapter,
     coe,
     contracts,
@@ -143,6 +153,7 @@ __all__ = [
     "back_matter",
     "brand",
     "callouts",
+    "case_study",
     "chapter",
     "coe",
     "contracts",
