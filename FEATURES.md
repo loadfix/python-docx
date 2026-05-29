@@ -3585,6 +3585,60 @@ helper falls back silently to `Normal` when the loaded template lacks
 `Title` / `List Bullet` / `Table Grid` styles. `ValueError` is raised
 when `title` is empty, when a timeline / five-whys entry is not a
 2-tuple, or when an action item lacks a non-empty `item` key.
+### Executive-summary helpers (Amazon 1-pager / 6-pager)
+
+`docx.kit.exec_summary` exposes two helpers that build Amazon-style
+narrative documents — `one_pager` and `six_pager`. Both append their
+content at the end of an existing document and return the list of
+newly-appended paragraphs (in document order, including a trailing
+page-break paragraph by default). The 1-pager renders the canonical
+"narrative-on-a-page" structure (Purpose / Background / Current state /
+Proposal / Risks / Asks); the 6-pager is a flexible scaffold that
+accepts an ordered `sections` mapping so callers can match the
+canonical Amazon shape (Background / Goals / Tenets / State of the
+business / Lessons learned / Strategic priorities / Looking forward) or
+deviate as the narrative requires. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import exec_summary
+
+doc = Document()
+exec_summary.one_pager(
+    doc,
+    title="Project Frobnitz: Q3 update",
+    purpose="Decide whether to ship FrobnitzPro by end of Q3.",
+    background="Customers have asked for FrobnitzPro since launch.",
+    current_state="Engineering is 80% done; design review pending.",
+    proposal="Ship in two waves — beta March 15, GA April 1.",
+    risks=["Dependency on team B", "Holiday freeze cuts review window"],
+    asks=["Approval to ship", "Reviewer time on Mar 5"],
+)
+exec_summary.six_pager(
+    doc,
+    title="FrobnitzPro launch plan",
+    sections={
+        "Background":            "Why this exists.",
+        "Goals":                 "What we will accomplish.",
+        "Tenets":                ["Customer obsession", "Speed"],
+        "State of the business": "Where we are today.",
+        "Lessons learned":       "What previous launches taught us.",
+        "Strategic priorities":  ["Foundation", "Growth", "Trust"],
+        "Looking forward":       "Twelve-month outlook.",
+    },
+)
+doc.save("exec.docx")
+```
+
+The title renders as `Heading 1`; each section heading renders as
+`Heading 2` so a reader can scan the document outline. On the 1-pager,
+`risks` and `asks` accept either a single string (one paragraph) or a
+sequence of strings (one bullet per item). On the 6-pager, every
+section body accepts the same shape. Multi-paragraph string bodies are
+split on blank lines (`"\n\n"`). Both helpers fall back from
+`Heading 1` / `Heading 2` / `List Bullet` to `Normal` when a custom
+template lacks them, and raise `ValueError` on empty title / empty
+required prose section / empty `sections` mapping.
 
 ### Brand asset manager (YAML-driven)
 

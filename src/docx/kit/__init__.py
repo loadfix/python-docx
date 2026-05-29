@@ -125,6 +125,10 @@ Available kit submodules:
   (title / purpose / when to use / roles / prerequisites checklist /
   numbered procedure with Step / Owner / Detail table / escalation
   table / rollback) to an existing |Document|.
+* :mod:`docx.kit.exec_summary` — Amazon-style narrative document family
+  (``one_pager`` / ``six_pager``) with the canonical Purpose /
+  Background / Current state / Proposal / Risks / Asks shape on the
+  1-pager and a flexible ordered ``sections`` mapping on the 6-pager.
 * :mod:`docx.kit.brand` — :class:`~docx.kit.brand.BrandAssets`,
   a YAML-driven manifest loader for corporate brand colours
   (RGB triples), font pairs (heading / body), logo path variants
@@ -157,6 +161,7 @@ from docx.kit import (
     code_block,
     contracts,
     dividers,
+    exec_summary,
     front_matter,
     headers,
     invoices,
@@ -185,6 +190,7 @@ __all__ = [
     "code_block",
     "contracts",
     "dividers",
+    "exec_summary",
     "front_matter",
     "headers",
     "invoices",
