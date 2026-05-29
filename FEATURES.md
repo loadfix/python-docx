@@ -3963,6 +3963,13 @@ conventional "branded document" shape used by reports, proposals, and
 white papers — `cover_page`, `first_page_banner`, `running_header`.
 Each helper writes to / appends to the current (first) section so the
 three combine into a complete branded layout in three lines of code.
+### Markdown -> docx renderer (`markdown_section.add`)
+
+`docx.kit.markdown_section.add` parses a Markdown blob and appends
+fully-formatted content to a `Document` in a single call. The inverse
+of `Document.to_markdown()` — feed the `to_markdown()` output back
+through `add` and the body content round-trips (cosmetic fidelity is
+best-effort; Markdown is a subset of Word's expressiveness).
 `[Added in 2026.05.29]`
 
 ```python
@@ -4313,6 +4320,62 @@ pipeline. `to_pdf` requires `reportlab` (install via
 stdlib. The `to(...)` dispatcher accepts `.pdf`, `.html` / `.htm`,
 `.md` / `.markdown`, and `.epub` (case-insensitive) and raises
 `ValueError` for any other extension.
+from docx.kit import markdown_section
+
+doc = Document()
+markdown_section.add(doc, """
+# Section title
+
+A paragraph with **bold** and *italic* text.
+
+- bullet 1
+- bullet 2
+
+| Col | Other |
+|-----|-------|
+| 1   | 2     |
+""")
+doc.save("out.docx")
+```
+
+Supported constructs:
+
+- ATX headings `#` … `######` -> `Heading 1` … `Heading 6`.
+- Paragraphs with inline `**bold**`, `*italic*`, `` `inline code` ``
+  (Courier New runs), and `[label](url)` hyperlinks.
+- Inline images `![alt](path)` — embedded via `Run.add_picture` when
+  `path` is a readable local file and `inline_images=True` (default);
+  remote / missing paths fall back to a `[image: alt]` placeholder
+  so the information isn't dropped.
+- Bulleted lists (`- `, `* `, `+ `) -> `List Bullet`.
+- Numbered lists (`1. `) -> `List Number`.
+- GFM pipe tables (header + `---` divider + body rows) -> `Table Grid`
+  with bold header cells.
+- Single- and multi-line blockquotes (`> `) -> `Intense Quote` /
+  `Quote` / `Normal` (whichever the template defines).
+- Fenced code blocks (```` ``` ````) -> Courier New paragraph.
+- Horizontal rules (`---`, `***`, `___`) -> centred em-dash row.
+
+API:
+
+- `markdown_section.add(doc, markdown_text, *, style_prefix="MD ", inline_images=True)`
+  — Returns the list of newly-appended `Paragraph` and `Table` objects
+  in document order.
+
+The `style_prefix` keyword controls how the renderer resolves styles:
+the helper looks for `f"{style_prefix}Heading 1"` (default
+`"MD Heading 1"`) before falling back to the built-in `"Heading 1"`,
+then to `"Normal"`. A corporate template can override the kit's
+appearance wholesale by registering the prefixed variants
+(`"MD Heading 1"`, `"MD Body"`, `"MD Code"`, `"MD Table"`, `"MD List
+Bullet"`, `"MD List Number"`, `"MD Quote"`); pass `style_prefix=""` to
+skip the prefix and use built-ins directly.
+
+The parser is stdlib-only — no `markdown` / `commonmark` PyPI
+dependency is added. Block-level constructs nested *inside* lists or
+tables are flattened to top-level (the parser does not track
+indentation depth); inline formatting inside list items, blockquotes,
+and table cells is preserved.
 
 ---
 

@@ -111,6 +111,14 @@ Available kit submodules:
   applying each venue's structural skeleton (IEEE two-column compact,
   ACM ``sigconf``, APA double-spaced single column, Nature compact
   display style).
+* :mod:`docx.kit.markdown_section` — :func:`~docx.kit.markdown_section.add`
+  drop-in Markdown -> docx renderer. Parses a Markdown blob and appends
+  fully-formatted content (headings, paragraphs with inline bold /
+  italic / code / link runs, bulleted and numbered lists, GFM pipe
+  tables, blockquotes, fenced code blocks, horizontal rules, inline
+  images) to a |Document| in a single call. Stdlib-only parser, no
+  PyPI ``markdown`` / ``commonmark`` dependency. Inverse of
+  :meth:`Document.to_markdown`.
 * :mod:`docx.kit.legal` — legal industry template family
   (``court_paper`` / ``brief`` / ``declaration`` / ``table_of_authorities``)
   with Federal Court of Australia / NSW Supreme Court front-sheet
@@ -209,6 +217,7 @@ from docx.kit import (
     legal,
     letterhead,
     mail_merge,
+    markdown_section,
     medical,
     memos,
     pr_faq,
@@ -247,6 +256,7 @@ __all__ = [
     "legal",
     "letterhead",
     "mail_merge",
+    "markdown_section",
     "medical",
     "memos",
     "pr_faq",
