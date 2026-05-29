@@ -30,6 +30,11 @@ Available kit submodules:
   + a generic ``box``) rendered as single-cell shaded tables with
   emoji or unicode icon prefixes; used to set tips, warnings, and
   worked examples visually apart from the body.
+* :mod:`docx.kit.charts` — embed a matplotlib :class:`~matplotlib.figure.Figure`
+  as an inline picture with brand colours, alt-text, and convenience
+  wrappers (``bar_chart`` / ``line_chart`` / ``pie_chart``) that build
+  the figure server-side. matplotlib is an opt-in extra
+  (``pip install python-docx[matplotlib]``).
 * :mod:`docx.kit.dividers` — section-divider / chapter-ornament
   helpers (``add_divider`` / ``add_fleuron`` / ``add_three_stars`` /
   ``add_chapter_break``) for inserting fleurons and decorative
@@ -141,6 +146,7 @@ from docx.kit import (
     callouts,
     chapter,
     coe,
+    charts,
     contracts,
     dividers,
     front_matter,
@@ -167,6 +173,7 @@ __all__ = [
     "callouts",
     "chapter",
     "coe",
+    "charts",
     "contracts",
     "dividers",
     "front_matter",

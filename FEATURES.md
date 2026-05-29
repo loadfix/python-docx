@@ -3908,6 +3908,53 @@ The three callables are also re-exported at the package root, so
 `from docx.kit import comparison, pricing, rubric` works alongside
 the conventional `from docx.kit import tables_compare as tables`
 namespace alias.
+### Embedded matplotlib charts
+
+`docx.kit.charts` renders a matplotlib `Figure` to PNG in-memory and
+embeds it as an inline picture, applying brand colours to lines / bars
+/ pie wedges before render and writing alt-text to `wp:docPr/@descr`.
+Three convenience wrappers (`bar_chart` / `line_chart` / `pie_chart`)
+build the figure server-side so callers don't have to touch
+matplotlib's API directly. matplotlib is an opt-in extra
+(`pip install python-docx[matplotlib]`); the module is import-safe
+without it but every helper raises an actionable `ImportError` on
+first call. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import charts
+import matplotlib.pyplot as plt
+
+doc = Document()
+
+# 1. Bring-your-own Figure ----------------------------------------
+fig, ax = plt.subplots()
+ax.plot([1, 2, 3, 4], [10, 20, 15, 25])
+ax.set_title("Quarterly revenue")
+
+charts.add_chart(
+    doc, fig,
+    brand_colors=["#1f4e79", "#2e75b6", "#9dc3e6"],
+    width_in=6.0,
+    alt_text="Revenue chart",
+)
+
+# 2. Convenience wrappers (no manual fig construction) -------------
+charts.bar_chart(doc, x=["Q1", "Q2", "Q3", "Q4"], y=[10, 20, 15, 25],
+                 title="Revenue")
+charts.line_chart(doc, x=[1, 2, 3, 4], y=[10, 20, 15, 25],
+                  title="Trend")
+charts.pie_chart(doc, labels=["A", "B", "C"], values=[30, 40, 30],
+                 title="Mix")
+
+doc.save("out.docx")
+```
+
+`brand_colors` is cycled across every line / bar / pie wedge in the
+figure (modulo the palette length). Pass `None` (the default) to keep
+matplotlib's default palette. Each helper returns the freshly-appended
+`InlineShape` so callers can post-process (set `a11y_role`, override
+the size, etc.).
 
 ---
 

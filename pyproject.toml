@@ -201,6 +201,17 @@ brand = ["pyyaml>=6.0"]
 #   pip install 'python-docx[pdfa]'
 #
 pdfa = ["reportlab>=4.0"]
+# Opt-in extra for ``docx.kit.charts`` — embed a matplotlib
+# ``Figure`` as an inline picture with brand colours / alt-text
+# (issue #291). matplotlib is widely installed in data-pipeline
+# environments but not a hard dependency of python-docx; only callers
+# who use ``charts.add_chart`` / ``charts.bar_chart`` /
+# ``charts.line_chart`` / ``charts.pie_chart`` need the extra
+# installed.
+#
+#   pip install 'python-docx[matplotlib]'
+#
+matplotlib = ["matplotlib>=3.5"]
 
 [project.urls]
 Changelog = "https://github.com/python-openxml/python-docx/blob/master/HISTORY.rst"
