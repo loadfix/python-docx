@@ -4227,6 +4227,33 @@ User --> (Login)
 diagrams.dot(doc, """
 digraph G { A -> B; B -> C; }
 """)
+### Styled-table builders (`docx.kit.tables`)
+
+`docx.kit.tables` ships two one-call helpers — `styled_table` and
+`from_dataframe` — that append a styled |Table| to a |Document| with
+a header row, optional banded body rows, and auto-aligned numeric /
+date columns. Four built-in styles cover most ad-hoc reporting
+needs; pandas integration is opt-in (the import is deferred and the
+helper degrades to an actionable `ImportError` when pandas is
+absent). `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import tables
+
+doc = Document()
+
+tables.styled_table(
+    doc,
+    headers=["Name", "Value"],
+    rows=[["Alpha", 1], ["Beta", 2]],
+    style="modern",
+)
+
+# pandas is optional — degrades cleanly when not installed.
+import pandas as pd
+df = pd.DataFrame({"Name": ["X", "Y"], "Value": [10, 20]})
+tables.from_dataframe(doc, df, style="zebra", auto_format=True)
 
 doc.save("out.docx")
 ```
@@ -4376,6 +4403,32 @@ dependency is added. Block-level constructs nested *inside* lists or
 tables are flattened to top-level (the parser does not track
 indentation depth); inline formatting inside list items, blockquotes,
 and table cells is preserved.
+Built-in styles map to a header fill colour, optional zebra
+banding, and a header text colour:
+
+| Style | Header fill | Header text | Banded rows |
+|---|---|---|---|
+| `"modern"` (default) | deep blue (`#1F497D`) | white | none |
+| `"zebra"` | medium grey (`#595959`) | white | light grey (`#F2F2F2`) |
+| `"minimal"` | none — bold + underline only | inherits | none |
+| `"corporate"` | dark navy (`#0B2D5C`) | white | light blue (`#DCE6F2`) |
+
+Override any single colour via `header_fill=` / `alt_row_fill=`
+(accepts an `RGBColor`, a 6-character hex string, or `None` to
+suppress); leave the keyword unset to inherit from the resolved
+style. Pass `column_alignments=[...]` to `styled_table` to override
+the auto-detected per-column alignment.
+
+`from_dataframe(doc, df, *, style="modern", auto_format=True, ...)`
+accepts a `pandas.DataFrame` and renders it as a `styled_table`.
+With `auto_format=True` (the default) numeric columns right-align,
+floats render via `%g` (no trailing zeros), dates render as ISO-8601,
+booleans render as `"Yes"`/`"No"`, and pandas null sentinels
+(`NaN` / `NaT`) become the empty string. Pass `include_index=True`
+to prepend the DataFrame's index as the first column. Pandas is an
+*optional* dependency — when missing, the call raises an
+`ImportError` whose message tells the user to
+`pip install pandas`.
 
 ---
 

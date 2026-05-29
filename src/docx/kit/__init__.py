@@ -190,6 +190,11 @@ Available kit submodules:
   :class:`~docx.document.Document` exporters; the EPUB exporter is a
   new minimal EPUB 3 single-file exporter built on the HTML
   pipeline.
+* :mod:`docx.kit.tables` — :func:`~docx.kit.tables.styled_table` and
+  :func:`~docx.kit.tables.from_dataframe`, one-call styled-table
+  builders with four built-in styles (``modern`` / ``zebra`` /
+  ``minimal`` / ``corporate``) and a pandas-optional DataFrame
+  adapter that auto-aligns numeric and date columns.
 
 .. versionadded:: 2026.05.29
 """
@@ -226,6 +231,7 @@ from docx.kit import (
     runbook,
     scientific,
     tables_compare,
+    tables,
     templates,
 )
 from docx.kit.tables_compare import comparison, pricing, rubric
@@ -266,6 +272,7 @@ __all__ = [
     "scientific",
     "tables_compare",
     "template",
+    "tables",
     "templates",
     # -- direct re-exports from tables_compare for the conventional
     # -- ``from docx.kit import tables`` -> ``tables.comparison(...)`` shape.
