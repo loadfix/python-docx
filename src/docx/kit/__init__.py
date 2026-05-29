@@ -232,12 +232,10 @@ from docx.kit import (
     scientific,
     tables_compare,
     tables,
-    templates,
-)
-from docx.kit.tables_compare import comparison, pricing, rubric
     template,
     templates,
 )
+from docx.kit.tables_compare import comparison, pricing, rubric
 from docx.kit.template import from_template_dotx
 
 __all__ = [
