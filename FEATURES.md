@@ -3544,6 +3544,61 @@ for f in findings:
 `sha1` digest, or both. PyYAML is loaded lazily — when unavailable, a
 small built-in subset parser handles the schemas the issue documents.
 
+### Branded headers (cover page / first-page banner / running header)
+
+`docx.kit.headers` ships three composable helpers that produce the
+conventional "branded document" shape used by reports, proposals, and
+white papers — `cover_page`, `first_page_banner`, `running_header`.
+Each helper writes to / appends to the current (first) section so the
+three combine into a complete branded layout in three lines of code.
+`[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import headers
+
+doc = Document()
+headers.cover_page(
+    doc,
+    title="Annual Report",
+    subtitle="FY2026",
+    logo="logo.png",
+    date="2026-05-29",
+    author="Jane Smith",
+)
+headers.first_page_banner(doc, title="Annual Report", logo="logo.png")
+headers.running_header(doc, left="Annual Report", right="Confidential")
+doc.save("out.docx")
+```
+
+`cover_page(doc, *, title, subtitle=None, logo=None, date=None,
+author=None, page_break=True)` appends a styled cover page (centred
+logo + title + subtitle + decorative rule + author + date) and returns
+the list of newly-appended `Paragraph` objects, in document order,
+including the trailing page-break paragraph when `page_break=True`
+(the default).
+
+`first_page_banner(doc, *, title, logo=None, line_color="#000000")`
+toggles `Section.different_first_page_header_footer` to `True` on the
+current section and writes a centred banner (logo + bold title +
+horizontal rule) to the section's first-page header. The rule colour
+accepts a hex string, an `RGBColor`, or `None` (inherit). Calls are
+idempotent — pre-existing first-page-header content is cleared before
+the new banner is written.
+
+`running_header(doc, *, left=None, center=None, right=None,
+footer=False)` writes the section's primary header — or footer when
+`footer=True` — with an optional 3-cell layout. When two or more
+cells are populated the helper emits a borderless 3-column 1-row
+table so each cell sits at its edge of the page (left / centre /
+right); when only one cell is populated the helper falls back to a
+single edge-aligned paragraph for simpler XML. Pre-existing content
+is cleared before writing.
+
+Each helper raises `ValueError` on missing required arguments
+(`title=""`, no cells supplied to `running_header`, malformed
+`line_color`).
+
 ---
 
 ## API concepts

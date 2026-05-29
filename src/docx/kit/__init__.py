@@ -45,6 +45,13 @@ Available kit submodules:
 * :mod:`docx.kit.letterhead` — branded header (logo + return address)
   and footer (phone / email / website) with three built-in styles
   (``modern`` / ``classic`` / ``minimal``).
+* :mod:`docx.kit.headers` — branded cover page, first-page banner,
+  and per-section running header helpers (``cover_page`` /
+  ``first_page_banner`` / ``running_header``). ``cover_page`` appends
+  a styled cover (logo + title + subtitle + author + date);
+  ``first_page_banner`` sets the section's first-page header to a
+  banner; ``running_header`` writes a 3-cell (left / center / right)
+  running header or footer.
 * :mod:`docx.kit.resume` — resume / CV template family
   (``resume_chronological`` / ``resume_functional`` / ``resume_technical``)
   with three built-in styles (``modern`` / ``classic`` / ``minimal``).
@@ -108,6 +115,7 @@ from docx.kit import (
     contracts,
     dividers,
     front_matter,
+    headers,
     invoices,
     legal,
     letterhead,
@@ -127,6 +135,7 @@ __all__ = [
     "contracts",
     "dividers",
     "front_matter",
+    "headers",
     "invoices",
     "legal",
     "letterhead",
