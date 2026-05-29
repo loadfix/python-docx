@@ -371,12 +371,7 @@ class DescribeViewSubscript:
 
 # -- Tests for validate_brand (#91) ------------------------------------------
 
-from __future__ import annotations
-
-import os
 from typing import Any, Dict, List, Mapping
-
-import pytest
 
 from docx import Document
 from docx.document import Document as DocumentCls
