@@ -119,6 +119,17 @@ Available kit submodules:
   images) to a |Document| in a single call. Stdlib-only parser, no
   PyPI ``markdown`` / ``commonmark`` dependency. Inverse of
   :meth:`Document.to_markdown`.
+* :mod:`docx.kit.lint` — visual / structural lint rules with autofix
+  suggestions (``lint`` / ``LintReport`` / ``Finding`` / ``register_rule``).
+  Surfaces eleven built-in rules — ``multiple-spaces`` /
+  ``trailing-whitespace`` / ``tab-instead-of-indent`` / ``mixed-quotes`` /
+  ``empty-paragraph`` / ``inconsistent-heading-levels`` /
+  ``missing-alt-text`` / ``mixed-fonts`` / ``missing-document-title`` /
+  ``over-long-paragraph`` / ``placeholder-text`` — and a
+  :func:`~docx.kit.lint.register_rule` extension hook for project-
+  specific checks. ``LintReport.autofix(rules=None)`` mutates the
+  document in place; ``LintReport.summary()`` produces a rule-by-rule
+  count.
 * :mod:`docx.kit.legal` — legal industry template family
   (``court_paper`` / ``brief`` / ``declaration`` / ``table_of_authorities``)
   with Federal Court of Australia / NSW Supreme Court front-sheet
@@ -221,6 +232,7 @@ from docx.kit import (
     layout,
     legal,
     letterhead,
+    lint,
     mail_merge,
     markdown_section,
     medical,
@@ -259,6 +271,7 @@ __all__ = [
     "layout",
     "legal",
     "letterhead",
+    "lint",
     "mail_merge",
     "markdown_section",
     "medical",
