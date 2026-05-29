@@ -4120,6 +4120,52 @@ charts.line_chart(doc, x=[1, 2, 3, 4], y=[10, 20, 15, 25],
                   title="Trend")
 charts.pie_chart(doc, labels=["A", "B", "C"], values=[30, 40, 30],
                  title="Mix")
+### Inline diagrams (Mermaid / PlantUML / DOT)
+
+`docx.kit.diagrams` embeds a Mermaid, PlantUML, or Graphviz-DOT
+diagram as an inline picture in a single function call. Each helper
+takes the diagram source as a string, renders it to PNG (or SVG), and
+embeds the resulting picture inline. `[Added in 2026.05.29]`
+
+> **The default render path is a network call to the public
+> [`kroki.io`](https://kroki.io) rendering service.** The diagram
+> source is POSTed to `https://kroki.io/<language>/<format>` and the
+> rendered bytes come back. Network use is documented per call: the
+> `timeout=` parameter (default 30 s) bounds the wait. To switch to an
+> *offline* render path, install one of the language-specific CLI
+> binaries (`@mermaid-js/mermaid-cli` / `plantuml` / Graphviz `dot`)
+> and the kit will prefer it automatically — or pass
+> `backend="local"` to force the local binary, or `backend="kroki"`
+> to force the network call. `requests` and `httpx` are both
+> *optional* — install one of them (or a local binary) before the
+> first call.
+
+```python
+from docx import Document
+from docx.kit import diagrams
+
+doc = Document()
+
+# Mermaid flowchart with a caption
+diagrams.mermaid(doc, """
+flowchart TD
+    A[Start] --> B{Decision}
+    B -->|yes| C[Do it]
+    B -->|no| D[Skip]
+""", caption="Workflow")
+
+# PlantUML use-case diagram
+diagrams.plantuml(doc, """
+@startuml
+actor User
+User --> (Login)
+@enduml
+""")
+
+# Graphviz / DOT directed graph
+diagrams.dot(doc, """
+digraph G { A -> B; B -> C; }
+""")
 
 doc.save("out.docx")
 ```
@@ -4129,6 +4175,21 @@ figure (modulo the palette length). Pass `None` (the default) to keep
 matplotlib's default palette. Each helper returns the freshly-appended
 `InlineShape` so callers can post-process (set `a11y_role`, override
 the size, etc.).
+- `diagrams.mermaid(doc, source, *, caption=None, width_in=5.0, alt_text=None, image_format="png", timeout=30.0, backend="auto", base_url="https://kroki.io")` — render Mermaid and embed inline. Returns the `InlineShape`. `[Added in 2026.05.29]`
+- `diagrams.plantuml(doc, source, ...)` — same, PlantUML. `[Added in 2026.05.29]`
+- `diagrams.dot(doc, source, ...)` — same, Graphviz / DOT. `[Added in 2026.05.29]`
+- `diagrams.kroki_url(language, image_format="png", base_url=...)` — return the kroki POST endpoint URL (handy for self-hosted overrides). `[Added in 2026.05.29]`
+- `diagrams.kroki_get_url(language, source, image_format="png", base_url=...)` — return a kroki *GET*-style shareable URL with the source deflate + urlsafe-base64 encoded. `[Added in 2026.05.29]`
+
+`backend="auto"` (default) prefers the local binary when one is on
+`PATH` and falls back to kroki when none is found. Pass
+`backend="kroki"` to force the network call (handy for CI hosts where
+the binary version drifts), or `backend="local"` to require the
+binary and raise `FileNotFoundError` when it is missing (handy for
+air-gapped builds where any network call is a hard error). When
+`caption` is supplied, a `"Figure N: caption"` paragraph in the
+`Caption` style is appended after the image via
+`Document.add_caption(...)`.
 
 ---
 

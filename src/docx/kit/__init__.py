@@ -155,6 +155,12 @@ Available kit submodules:
   by-level scoring grid with label row and column. Each helper
   appends to an existing |Document| and returns the new
   :class:`~docx.table.Table`.
+* :mod:`docx.kit.diagrams` — inline Mermaid / PlantUML / Graphviz-DOT
+  diagrams. Each helper renders the diagram source via the
+  ``kroki.io`` public API (default — a network call) or a local CLI
+  binary (``mmdc`` / ``plantuml`` / ``dot``) when one is on ``PATH``,
+  embeds the resulting picture inline, and optionally appends a
+  ``"Figure N: caption"`` paragraph in the ``Caption`` style.
 
 .. versionadded:: 2026.05.29
 """
@@ -170,6 +176,7 @@ from docx.kit import (
     charts,
     code_block,
     contracts,
+    diagrams,
     dividers,
     exec_summary,
     front_matter,
@@ -200,6 +207,7 @@ __all__ = [
     "charts",
     "code_block",
     "contracts",
+    "diagrams",
     "dividers",
     "exec_summary",
     "front_matter",
