@@ -4410,6 +4410,65 @@ air-gapped builds where any network call is a hard error). When
 `caption` is supplied, a `"Figure N: caption"` paragraph in the
 `Caption` style is appended after the image via
 `Document.add_caption(...)`.
+### Stable, addressable paragraph IDs (`docx.kit.stable_paragraph_ids`)
+
+`docx.kit.stable_paragraph_ids` stamps and looks up Word's
+`w14:paraId` attribute on every body paragraph, giving callers a
+stable identifier that survives save / load and tracks the paragraph
+across edits. Useful for content management systems, collaborative
+editors, AI-assisted authoring pipelines, and any tool that needs to
+refer to a specific paragraph after the document has been mutated
+elsewhere. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import stable_paragraph_ids
+
+doc = Document("input.docx")
+
+# Stamp stable IDs on every paragraph (idempotent — won't overwrite
+# existing IDs).  Walks into table cells, including nested tables.
+stable_paragraph_ids.ensure(doc)
+
+# Look up a paragraph by ID
+para = stable_paragraph_ids.get(doc, "A3F12B4C")
+para.text  # e.g. "The introduction..."
+
+# Iterate every paragraph + ID in document order
+for pid, para in stable_paragraph_ids.iter_with_ids(doc):
+    print(pid, para.text[:40])
+
+# Set a custom (human-readable) ID on a specific paragraph
+stable_paragraph_ids.set_id(doc.paragraphs[0], "intro")
+
+# Read the current ID
+stable_paragraph_ids.id_of(doc.paragraphs[0])  # "intro"
+
+doc.save("out.docx")
+```
+
+- `stable_paragraph_ids.ensure(document)` — stamp a fresh
+  8-hex-uppercase `w14:paraId` on every body paragraph that lacks
+  one. Returns the count of newly stamped paragraphs. Idempotent.
+- `stable_paragraph_ids.get(document, id_str)` — return the matching
+  `Paragraph`, or `None`. Validates the id format.
+- `stable_paragraph_ids.iter_with_ids(document)` — yield `(id,
+  Paragraph)` tuples in document order; skips paragraphs without an id.
+- `stable_paragraph_ids.set_id(paragraph, id_str)` — assign a
+  caller-supplied id (1-32 chars of `[A-Za-z0-9_]`). Word writes
+  8-hex tokens; this module accepts that shape and a broader
+  human-readable grammar so callers can use semantic ids like
+  `"intro"` or `"section_1"`.
+- `stable_paragraph_ids.id_of(paragraph)` — return the current id, or
+  `None`.
+
+This module is the **one** place in `docx.kit` that reads or writes
+to a paragraph's underlying `oxml` element directly — `w14:paraId` is
+not exposed on the public `Paragraph` surface today. The reach is
+contained to the module's private `_paraId_attr` helper; the kit's
+overall "compose, don't reach down" rule remains valid for every
+other helper. See the module docstring for the full design note.
+
 ### Corporate `.dotx` template loader with placeholder substitution
 
 `docx.kit.from_template_dotx` loads a `.dotx` Word template, swaps its

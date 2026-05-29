@@ -223,6 +223,17 @@ Available kit submodules:
   ``/tables/N/rows/M/cells/K/text``, and
   ``/sections/N/page_orientation`` paths with all-or-nothing
   semantics — a failing op leaves the document untouched.
+* :mod:`docx.kit.stable_paragraph_ids` — stamp and look up stable
+  ``w14:paraId`` identifiers on every body paragraph. Provides
+  :func:`~docx.kit.stable_paragraph_ids.ensure` (idempotent stamp),
+  :func:`~docx.kit.stable_paragraph_ids.get` (id lookup),
+  :func:`~docx.kit.stable_paragraph_ids.iter_with_ids` (ordered
+  walk), :func:`~docx.kit.stable_paragraph_ids.set_id` (caller-
+  supplied id), and :func:`~docx.kit.stable_paragraph_ids.id_of`
+  (read). The one kit module that reads and writes ``w14:paraId``
+  on paragraph elements directly — see its module docstring for
+  the design note on why the kit's "compose, don't reach down"
+  rule is intentionally bent for this single helper.
 
 .. versionadded:: 2026.05.29
 """
@@ -261,6 +272,7 @@ from docx.kit import (
     runbook,
     scientific,
     summarize,
+    stable_paragraph_ids,
     tables_compare,
     tables,
     template,
@@ -302,6 +314,7 @@ __all__ = [
     "runbook",
     "scientific",
     "summarize",
+    "stable_paragraph_ids",
     "tables_compare",
     "template",
     "tables",
