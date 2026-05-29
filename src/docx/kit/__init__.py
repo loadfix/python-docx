@@ -195,6 +195,13 @@ Available kit submodules:
   builders with four built-in styles (``modern`` / ``zebra`` /
   ``minimal`` / ``corporate``) and a pandas-optional DataFrame
   adapter that auto-aligns numeric and date columns.
+* :mod:`docx.kit.patch` — :func:`~docx.kit.patch.apply` RFC-6902
+  JSON-Patch over the structural model. Apply a list of ``add`` /
+  ``remove`` / ``replace`` / ``move`` / ``copy`` / ``test`` operations
+  against ``/paragraphs/N/{text,style}``, ``/by_id/<paraId>/...``,
+  ``/tables/N/rows/M/cells/K/text``, and
+  ``/sections/N/page_orientation`` paths with all-or-nothing
+  semantics — a failing op leaves the document untouched.
 
 .. versionadded:: 2026.05.29
 """
@@ -225,6 +232,7 @@ from docx.kit import (
     markdown_section,
     medical,
     memos,
+    patch,
     pr_faq,
     proposal,
     resume,
@@ -263,6 +271,7 @@ __all__ = [
     "markdown_section",
     "medical",
     "memos",
+    "patch",
     "pr_faq",
     "proposal",
     "resume",
