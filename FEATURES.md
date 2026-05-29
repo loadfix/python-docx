@@ -4244,6 +4244,75 @@ air-gapped builds where any network call is a hard error). When
 `caption` is supplied, a `"Figure N: caption"` paragraph in the
 `Caption` style is appended after the image via
 `Document.add_caption(...)`.
+### Corporate `.dotx` template loader with placeholder substitution
+
+`docx.kit.from_template_dotx` loads a `.dotx` Word template, swaps its
+content type to the regular `.docx` variant, and substitutes literal
+`[KEY]` placeholders inside every paragraph and table cell with the
+caller-supplied values. Substitution is a per-run `str.replace`, so
+run-level formatting (bold, italic, font, colour) is preserved.
+`[Added in 2026.05.29]`
+
+```python
+from docx.kit import from_template_dotx
+
+doc = from_template_dotx(
+    "corporate_template.dotx",
+    placeholders={
+        "[CLIENT]": "ACME Corp",
+        "[DATE]":   "2026-05-29",
+        "[AUTHOR]": "Jane Smith",
+    },
+)
+doc.save("acme-engagement.docx")
+```
+
+`placeholders` is optional — calling `from_template_dotx(path)` with
+no mapping just loads the template untouched (the result is the same
+shape as `Document.from_template`). Non-`str` keys or values raise
+`TypeError`. Headers, footers, footnotes, and text boxes are *not*
+walked — for placeholders that span run boundaries or live outside the
+body, escalate to `docx.bind_tokens` (the smart-placeholder machinery).
+
+### Unified export entry-points
+
+`docx.kit.export` bundles four single-call wrappers around the
+existing python-docx exporters plus a generic `to(...)` dispatcher
+that picks the right one based on the output file extension. PDF /
+HTML / Markdown forward to the `Document.save_as_pdf_a` /
+`Document.to_html` / `Document.to_markdown` exporters; the EPUB
+exporter is a new minimal EPUB 3 single-file exporter built purely
+on stdlib `zipfile`. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import export
+
+doc = Document("report.docx")
+
+export.to_pdf(doc, "out.pdf")        # PDF/A-3a (default)
+export.to_html(doc, "out.html")      # Document.to_html()
+export.to_md(doc, "out.md")          # Document.to_markdown()
+export.to_epub(doc, "out.epub", title="Annual Report 2026")
+
+# Or one-shot, dispatching on the file extension:
+export.to(doc, "out.pdf")
+export.to(doc, "out.html")
+export.to(doc, "out.md")
+export.to(doc, "out.epub")
+```
+
+The EPUB output is a portable EPUB 3 package with the document HTML
+wrapped as a single chapter, a generated `urn:uuid:` identifier, an
+EPUB 3 `nav.xhtml` plus an `OEBPS/toc.ncx` legacy navigation document
+for EPUB 2 reader compatibility, and a basic CSS stylesheet. The
+exporter trades fidelity for portability — the document renders as
+one navigable chapter with inline CSS preserved from the HTML
+pipeline. `to_pdf` requires `reportlab` (install via
+`pip install 'python-docx[pdfa]'`); HTML / Markdown / EPUB are pure
+stdlib. The `to(...)` dispatcher accepts `.pdf`, `.html` / `.htm`,
+`.md` / `.markdown`, and `.epub` (case-insensitive) and raises
+`ValueError` for any other extension.
 
 ---
 

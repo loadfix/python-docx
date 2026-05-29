@@ -170,6 +170,18 @@ Available kit submodules:
   binary (``mmdc`` / ``plantuml`` / ``dot``) when one is on ``PATH``,
   embeds the resulting picture inline, and optionally appends a
   ``"Figure N: caption"`` paragraph in the ``Caption`` style.
+* :mod:`docx.kit.template` — :func:`~docx.kit.template.from_template_dotx`
+  ``.dotx`` corporate-template loader with simple ``[KEY]``
+  placeholder substitution that preserves run formatting.
+* :mod:`docx.kit.export` — unified export wrappers
+  (:func:`~docx.kit.export.to_pdf` / :func:`~docx.kit.export.to_html` /
+  :func:`~docx.kit.export.to_md` / :func:`~docx.kit.export.to_epub`)
+  plus a :func:`~docx.kit.export.to` dispatcher that picks the
+  exporter based on the output file's extension. The PDF / HTML /
+  Markdown wrappers thinly forward to existing
+  :class:`~docx.document.Document` exporters; the EPUB exporter is a
+  new minimal EPUB 3 single-file exporter built on the HTML
+  pipeline.
 
 .. versionadded:: 2026.05.29
 """
@@ -189,6 +201,7 @@ from docx.kit import (
     diagrams,
     dividers,
     exec_summary,
+    export,
     front_matter,
     headers,
     invoices,
@@ -207,6 +220,10 @@ from docx.kit import (
     templates,
 )
 from docx.kit.tables_compare import comparison, pricing, rubric
+    template,
+    templates,
+)
+from docx.kit.template import from_template_dotx
 
 __all__ = [
     "back_matter",
@@ -221,8 +238,10 @@ __all__ = [
     "diagrams",
     "dividers",
     "exec_summary",
+    "export",
     "front_matter",
     "headers",
+    "from_template_dotx",
     "invoices",
     "layout",
     "legal",
@@ -236,6 +255,7 @@ __all__ = [
     "runbook",
     "scientific",
     "tables_compare",
+    "template",
     "templates",
     # -- direct re-exports from tables_compare for the conventional
     # -- ``from docx.kit import tables`` -> ``tables.comparison(...)`` shape.
