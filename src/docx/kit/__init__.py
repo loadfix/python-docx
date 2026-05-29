@@ -94,6 +94,12 @@ Available kit submodules:
   Subjective / Objective / Assessment / Plan structure, structured
   vitals table, and an explicit "template only — not a medical record"
   disclaimer rendered into every output document.
+* :mod:`docx.kit.pr_faq` — Amazon-style press-release / FAQ template
+  family (``press_release`` / ``faq`` / ``pr_faq_doc``) for
+  working-backwards product-development documents (headline →
+  subheadline → dateline → summary → problem → solution →
+  spokesperson quote → optional customer quote → call-to-action,
+  followed by a Q&A list).
 * :mod:`docx.kit.brand` — :class:`~docx.kit.brand.BrandAssets`,
   a YAML-driven manifest loader for corporate brand colours
   (RGB triples), font pairs (heading / body), logo path variants
@@ -122,6 +128,7 @@ from docx.kit import (
     mail_merge,
     medical,
     memos,
+    pr_faq,
     resume,
     scientific,
     templates,
@@ -142,6 +149,7 @@ __all__ = [
     "mail_merge",
     "medical",
     "memos",
+    "pr_faq",
     "resume",
     "scientific",
     "templates",

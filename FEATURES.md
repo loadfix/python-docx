@@ -3510,6 +3510,84 @@ manifest from a non-YAML source (TOML / JSON / env-var harness) or
 who want to construct a brand programmatically. PyYAML is required
 only for `BrandAssets.load(yaml_path)`; opt in via the
 `[brand]` extras flag (`pip install 'python-docx[brand]'`).
+### Amazon-style PR/FAQ template family
+
+`docx.kit.pr_faq` exposes three composition helpers for the Amazon
+"working backwards" product-development pattern: a customer-facing
+press release written before any code is written, paired with a
+"frequently asked questions" addendum that surfaces the difficult
+questions the team will have to answer before launch.
+`[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import pr_faq
+
+doc = Document()
+pr_faq.press_release(
+    doc,
+    headline="Acme launches FrobnitzPro",
+    subheadline="The fastest frobnitz on the market",
+    location="Seattle, WA",
+    date="2026-05-29",
+    summary="One-paragraph summary of the launch.",
+    problem="Customers struggle with frobnitz throughput.",
+    solution="FrobnitzPro solves this by parallelising the work.",
+    quote_speaker="Jane Doe, VP Product",
+    quote_text='"FrobnitzPro is the most exciting product we have launched in a decade."',
+    customer_quote_speaker="John Smith, ACME Corp",
+    customer_quote_text='"It has revolutionised our workflow."',
+    call_to_action="Visit acme.com/frobnitz to learn more.",
+)
+pr_faq.faq(
+    doc,
+    items=[
+        ("What is FrobnitzPro?", "It is a frobnitz that..."),
+        ("How much does it cost?", "$99/month..."),
+        ("When is it available?", "Today."),
+    ],
+)
+doc.save("pr_faq.docx")
+```
+
+`press_release` renders the canonical Amazon shape: a centred ``Title``
+headline, an optional ``Subtitle`` subheadline, a bold dateline of the
+form ``"LOCATION — DATE — "`` followed by the summary body, ``Heading 2``
+"The Problem" / "The Solution" sections, a ``Quote``-styled
+spokesperson attribution, an optional customer quote, and a bold
+"Call to action:" line. `faq` renders the supplied list of
+``(question, answer)`` tuples under a ``Heading 1`` (default
+``"Frequently Asked Questions"``) with each pair as a paragraph
+beginning with a bold ``"Q: "`` / ``"A: "`` label run. Both helpers
+append at the end of the document body and return the list of
+newly-appended paragraphs in document order, including a trailing
+page-break paragraph by default (suppress with ``page_break=False``).
+
+```python
+from docx.kit import pr_faq
+
+doc = pr_faq.pr_faq_doc(
+    press_release_kwargs={
+        "headline": "Acme launches FrobnitzPro",
+        "location": "Seattle, WA",
+        "date": "2026-05-29",
+        "summary": "...",
+        "problem": "...",
+        "solution": "...",
+        "quote_speaker": "Jane Doe, VP Product",
+        "quote_text": "...",
+        "call_to_action": "Visit acme.com/frobnitz to learn more.",
+    },
+    faq_items=[("What is FrobnitzPro?", "It is a frobnitz that...")],
+    output_path="pr_faq.docx",
+)
+```
+
+`pr_faq_doc` is a one-line convenience that creates a fresh
+|Document|, appends the press release with the supplied
+``press_release_kwargs``, appends the FAQ with ``faq_items``, optionally
+saves to ``output_path``, and returns the |Document| in either case.
+
 ### Brand-guideline validator
 
 `docx.kit.brand.validate_brand` lints a document against a brand palette
