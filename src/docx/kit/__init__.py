@@ -35,6 +35,13 @@ Available kit submodules:
   wrappers (``bar_chart`` / ``line_chart`` / ``pie_chart``) that build
   the figure server-side. matplotlib is an opt-in extra
   (``pip install python-docx[matplotlib]``).
+* :mod:`docx.kit.code_block` — syntax-highlighted code blocks via
+  Pygments (``add`` plus per-language wrappers ``python`` / ``bash`` /
+  ``json`` / ``yaml`` / ``sql`` / ``javascript`` / ``typescript`` /
+  ``rust`` / ``go`` / ``html`` / ``css`` / ``xml``) rendered as
+  monospace runs in a shaded single-cell table with optional line
+  numbers. Soft-fallback to a plain monospace block when pygments is
+  not installed.
 * :mod:`docx.kit.dividers` — section-divider / chapter-ornament
   helpers (``add_divider`` / ``add_fleuron`` / ``add_three_stars`` /
   ``add_chapter_break``) for inserting fleurons and decorative
@@ -147,6 +154,7 @@ from docx.kit import (
     chapter,
     coe,
     charts,
+    code_block,
     contracts,
     dividers,
     front_matter,
@@ -174,6 +182,7 @@ __all__ = [
     "chapter",
     "coe",
     "charts",
+    "code_block",
     "contracts",
     "dividers",
     "front_matter",

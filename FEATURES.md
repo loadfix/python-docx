@@ -3138,6 +3138,49 @@ layout.multi_column(doc, columns=3, spacing_in=0.25)
 gutter between equal-width columns; per-column spacing for the
 unequal-width path is settable via `Section.columns[i].space` after
 the helper returns.
+### Syntax-highlighted code blocks
+
+`docx.kit.code_block` exposes an `add` helper plus a family of
+language-specific shortcuts (`python` / `bash` / `json` / `yaml` /
+`sql` / `javascript` / `typescript` / `rust` / `go` / `html` / `css` /
+`xml`) that append a syntax-highlighted code block to a document.
+The block renders inside a single-row table with a light shaded
+background, monospace runs (`Consolas` 9pt by default), and an
+optional line-number gutter. Highlighting is delegated to
+`pygments` (declared as the optional `[code]` extra); without
+pygments the helper degrades gracefully to a plain monospace block —
+never raising. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import code_block
+
+doc = Document()
+
+# Full call — explicit lang, theme, line numbers.
+code_block.add(
+    doc,
+    """
+    def hello():
+        print("Hello world!")
+    """,
+    lang="python",
+    line_numbers=True,
+    theme="monokai",
+)
+
+# Convenience wrappers — same return value (a `Table`), bound `lang`.
+code_block.python(doc, "x = 1\nprint(x)")
+code_block.bash(doc, "ls -la")
+code_block.json(doc, '{"a": 1}', line_numbers=True)
+```
+
+Theme names follow the pygments style catalogue (`default`,
+`monokai`, `tango`, `friendly`, `solarized-dark`, `solarized-light`,
+`vs`, …). The helper returns the underlying `Table` so callers can
+post-process (caption paragraphs, vertical spacing, etc.). The
+`code_block.HAS_PYGMENTS` module flag exposes whether the
+optional dependency is installed.
 
 ### Resume / CV template family
 

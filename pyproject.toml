@@ -212,6 +212,15 @@ pdfa = ["reportlab>=4.0"]
 #   pip install 'python-docx[matplotlib]'
 #
 matplotlib = ["matplotlib>=3.5"]
+# Opt-in extra for ``docx.kit.code_block`` — Pygments-driven syntax
+# highlighting (issue #293). Without pygments installed the kit
+# helper falls back to a plain monospace block (no colour, no bold,
+# no italic) — never raising — so this extra is purely an "upgrade"
+# for callers who want full syntax-aware rendering.
+#
+#   pip install 'python-docx[code]'
+#
+code = ["pygments>=2.10"]
 
 [project.urls]
 Changelog = "https://github.com/python-openxml/python-docx/blob/master/HISTORY.rst"
