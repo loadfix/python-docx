@@ -3922,6 +3922,52 @@ doc = pr_faq.pr_faq_doc(
 ``press_release_kwargs``, appends the FAQ with ``faq_items``, optionally
 saves to ``output_path``, and returns the |Document| in either case.
 
+### Visual / structural lint with autofix (`docx.kit.lint`)
+
+`docx.kit.lint.lint(doc)` returns a `LintReport` whose `findings`
+list flags micro-typography and structural defects in a `.docx`:
+double spaces, trailing whitespace, leading tabs, mixed straight /
+smart quotes, consecutive empty paragraphs, skipped heading levels,
+inline images without alt text, paragraphs mixing font families, an
+empty document `title` core property, paragraphs longer than 1000
+characters, and leftover `[PLACEHOLDER]` / `[TBD]` / `Lorem ipsum`
+sentinels. Each `Finding` carries `rule` / `severity`
+(`error` / `warning` / `info`) / `message` / `paragraph_index` /
+`autofix_available` / `autofix_description`. Stage one is read-only;
+`LintReport.autofix(rules=None)` mutates the document in place and
+returns the count of fixes applied. `LintReport.summary()` produces a
+rule-by-rule count line. Custom rules plug in via
+`docx.kit.lint.register_rule(name, check_callback,
+autofix_callback=None)` — the public extension hook for project-
+specific checks. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import lint
+
+doc = Document("draft.docx")
+report = lint.lint(doc)
+
+for finding in report.findings:
+    print(finding.rule, finding.severity, finding.message)
+    if finding.autofix_available:
+        print("  fix:", finding.autofix_description)
+
+# Apply every available autofix in one call.
+report.autofix()
+doc.save("clean.docx")
+
+# Or filter the autofix to specific rules.
+report.autofix(rules=["multiple-spaces", "trailing-whitespace"])
+```
+
+The `missing-document-title` rule's autofix sets the core property
+`title` to the document filename's stem when the caller supplies a
+hint via `doc._lint_filename = "report.docx"` — python-docx's
+`Document()` factory does not retain the load path on the document
+object, so the linter accepts a side-channel hint to keep the kit a
+strict consumer of the public API.
+
 ### Brand-guideline validator
 
 `docx.kit.brand.validate_brand` lints a document against a brand palette
