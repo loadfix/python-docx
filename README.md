@@ -150,7 +150,11 @@ Summary of areas extended beyond upstream `1.2.0`:
   (`soap_note` / `discharge_summary` / `referral_letter`
   clinical-note template factories with Subjective / Objective /
   Assessment / Plan structure and a structured vitals table —
-  *template only, not a medical record*), and `docx.kit.brand`
+  *template only, not a medical record*), `docx.kit.coe`
+  (`coe(doc, ...)` — Correction of Error / post-mortem template that
+  appends an incident metadata block, summary, timeline table, Five
+  Whys table, contributing-factors list, action-items table, and
+  lessons-learned list to an existing document), and `docx.kit.brand`
   (`BrandAssets.load(yaml_path)` — YAML-driven manifest loader for
   brand colours, font pairs, logo path variants, and conventional
   spacing values; composes with `set_letterhead`, `add_chapter_opener`,

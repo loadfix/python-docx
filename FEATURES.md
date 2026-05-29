@@ -3437,6 +3437,74 @@ either a string or a `{"name", "dose", "frequency", "duration"}`
 mapping (missing fields are elided). Every factory raises `ValueError`
 when `patient` or `provider`/`referrer` is missing or has no `name`.
 
+### Correction of Error / post-mortem template
+
+`docx.kit.coe.coe(doc, ...)` appends a structured Correction of Error
+(also known as post-mortem or incident review) section to an existing
+`Document`. The shape follows the conventional Amazon / SRE-style COE:
+an incident metadata block (date / severity / duration / customer
+impact), a one-paragraph summary, a chronological timeline table, the
+*Five Whys* cascade rendered as a question / answer table, a
+contributing-factors bullet list, an action-items table (item / owner /
+due), and a lessons-learned bullet list. Returns the list of newly-
+appended `Paragraph` and `Table` objects in document order. `page_break=True`
+(the default) emits a trailing page break. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import coe
+
+doc = Document()
+coe.coe(
+    doc,
+    title="DB-2026-05-29 — primary failover delay",
+    incident_date="2026-05-29",
+    severity="Sev2",
+    duration="47 minutes",
+    customer_impact="20% of users saw 5xx errors during the failover window.",
+    summary="One-paragraph summary of what happened.",
+    timeline=[
+        ("14:32 UTC", "Heartbeat alert fires"),
+        ("14:34 UTC", "On-call paged"),
+        ("14:42 UTC", "Failover initiated"),
+        ("14:55 UTC", "Failover failed; rollback initiated"),
+        ("15:19 UTC", "Service restored"),
+    ],
+    five_whys=[
+        ("Why did the service fail?", "The primary replica fell behind."),
+        ("Why did the primary fail?", "Disk hit 100% util."),
+        ("Why did the disk fill?", "A rogue analytics query backfilled to it."),
+        ("Why did the query run on primary?",
+         "Routing rule misconfigured 6 weeks ago."),
+        ("Why was it not caught?",
+         "We don't alert on routing rule changes."),
+    ],
+    contributing_factors=[
+        "Routing rule misconfigured",
+        "Lack of canary on rule changes",
+    ],
+    action_items=[
+        {"item": "Add canary on routing rule changes",
+         "owner": "SRE", "due": "2026-06-15"},
+        {"item": "Backfill alert on primary disk util",
+         "owner": "DBA", "due": "2026-06-08"},
+    ],
+    lessons_learned=[
+        "Always canary routing changes",
+        "Alert on every disk reaching > 80% utilisation",
+    ],
+)
+doc.save("coe.docx")
+```
+
+`timeline` and `five_whys` accept `list[tuple[str, str]]`; `action_items`
+accepts `list[dict]` with required `item` and optional `owner` / `due`
+keys. `contributing_factors` and `lessons_learned` are `list[str]`. The
+helper falls back silently to `Normal` when the loaded template lacks
+`Title` / `List Bullet` / `Table Grid` styles. `ValueError` is raised
+when `title` is empty, when a timeline / five-whys entry is not a
+2-tuple, or when an action item lacks a non-empty `item` key.
+
 ### Brand asset manager (YAML-driven)
 
 `docx.kit.brand.BrandAssets` loads a corporate brand-asset bundle —
