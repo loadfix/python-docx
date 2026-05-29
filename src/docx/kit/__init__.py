@@ -25,6 +25,11 @@ Available kit submodules:
   preface / TOC / list-of-figures / list-of-tables helpers.
 * :mod:`docx.kit.chapter` — chapter opener pages (large title +
   decorative image + drop cap).
+* :mod:`docx.kit.callouts` — coloured admonition boxes (``note`` /
+  ``warning`` / ``tip`` / ``caution`` / ``important`` / ``example``
+  + a generic ``box``) rendered as single-cell shaded tables with
+  emoji or unicode icon prefixes; used to set tips, warnings, and
+  worked examples visually apart from the body.
 * :mod:`docx.kit.dividers` — section-divider / chapter-ornament
   helpers (``add_divider`` / ``add_fleuron`` / ``add_three_stars`` /
   ``add_chapter_break``) for inserting fleurons and decorative
@@ -98,6 +103,7 @@ from __future__ import annotations
 from docx.kit import (
     back_matter,
     brand,
+    callouts,
     chapter,
     contracts,
     dividers,
@@ -116,6 +122,7 @@ from docx.kit import (
 __all__ = [
     "back_matter",
     "brand",
+    "callouts",
     "chapter",
     "contracts",
     "dividers",

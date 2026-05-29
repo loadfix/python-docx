@@ -3060,6 +3060,47 @@ trailing gap) and returns the appended paragraph(s). `add_chapter_break`
 accepts any of the four `add_divider` kinds *plus* `"fleuron"` and
 `"stars"`, and forwards an optional `glyph=` to the underlying helper.
 
+### Callout / admonition boxes
+
+`docx.kit.callouts` exposes seven helpers — six named convenience
+helpers (`note` / `warning` / `tip` / `caution` / `important` /
+`example`) plus the underlying `box` factory — for inserting coloured
+admonition boxes (the *Note*, *Warning*, *Tip*, *Caution*, *Important*,
+*Example* boxes that appear in nearly every technical-writing style
+guide). Each callout renders as a single-cell shaded table with a
+style-specific pastel fill, an emoji or unicode icon prefix, and an
+optional bold title above the body. `[Added in 2026.05.29]`
+
+```python
+from docx import Document
+from docx.kit import callouts
+
+doc = Document()
+callouts.note(doc, "This is informational.")
+callouts.warning(doc, "Be careful here.")
+callouts.tip(doc, "Pro tip: use the kit.")
+callouts.caution(doc, "May cause data loss.")
+callouts.important(doc, "You must read this.")
+callouts.example(doc, "Here is an example.")
+
+# Multi-paragraph body (each list entry becomes one paragraph).
+callouts.note(doc, ["First.", "Second.", "Third."])
+
+# Suppress the title line — icon prepended to the body inline.
+callouts.tip(doc, "A quick reminder.", title=None)
+
+# Custom callout — pick your own style + icon + title.
+callouts.box(doc, "Custom callout", style="info", icon="ℹ", title="FYI")
+```
+
+Style → fill colour: `note` (light blue `DEEBF7`), `warning` (amber
+`FFE699`), `caution` (light red `F8CBAD`), `tip` (light green
+`E2EFDA`), `important` (lavender `E4DFEC`), `example` (neutral
+`F2F2F2`), `info` (light cyan `DEF1F5`). Pastel fills keep the
+black 11pt body text readable. Each helper returns the
+:class:`~docx.table.Table` it appended so callers may further
+mutate it (resize, restyle, append rows).
+
 ### Resume / CV template family
 
 `docx.kit.resume` ships three template factories that build a fully
