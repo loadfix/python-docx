@@ -2925,6 +2925,165 @@ class Document(ElementProxy):
             return self._body.iter_inner_content()
         return self._body._iter_inner_content_flat_sdt()
 
+    def iter_all_paragraphs(
+        self,
+        *,
+        include_tables: bool = True,
+        include_headers_footers: bool = True,
+        include_footnotes: bool = True,
+        include_endnotes: bool = True,
+        include_comments: bool = True,
+    ) -> "Iterator[tuple[Paragraph, str]]":
+        """Yield every |Paragraph| in the document, paired with its story location.
+
+        Walks the same set of stories that :func:`docx.search.search_all_paragraphs`
+        searches: the body, body-level table cells, every non-inherited
+        header / footer on every section, and the footnote / endnote /
+        comment parts. Paragraphs are yielded in document order within
+        each story, and each yield is a ``(paragraph, location)`` tuple
+        where ``location`` is one of:
+
+        * ``"body"``
+        * ``"table:<t>:row:<r>:col:<c>"`` (top-level body tables only)
+        * ``"header:section<i>:primary"`` /
+          ``"header:section<i>:even_page"`` /
+          ``"header:section<i>:first_page"`` (and the corresponding
+          ``"footer:..."`` strings)
+        * ``"footnote:<id>"`` / ``"endnote:<id>"`` / ``"comment:<id>"``
+
+        Keyword-only flags let callers prune any of those story groups
+        without rewriting the walker; the body group is always included.
+        For example, ``doc.iter_all_paragraphs(include_comments=False)``
+        skips comment text while still descending into tables and
+        headers / footers.
+
+        Use this in place of ``for p in doc.paragraphs: …`` whenever a
+        check or transformation must apply to "every paragraph in the
+        document": top-level :attr:`paragraphs` only covers the body and
+        silently misses content inside tables, headers, footers,
+        footnotes, endnotes, and comments.
+
+        .. versionadded:: 2026.05.dev0
+           Promotes the previously-private ``docx.search._iter_all_paragraphs``
+           walker to a documented public surface (#662).
+        """
+        from docx.search import iter_all_paragraph_groups
+
+        for paragraphs, location in iter_all_paragraph_groups(
+            self,
+            include_tables=include_tables,
+            include_headers_footers=include_headers_footers,
+            include_footnotes=include_footnotes,
+            include_endnotes=include_endnotes,
+            include_comments=include_comments,
+        ):
+            for paragraph in paragraphs:
+                yield paragraph, location
+
+    def iter_all_runs(
+        self,
+        *,
+        include_tables: bool = True,
+        include_headers_footers: bool = True,
+        include_footnotes: bool = True,
+        include_endnotes: bool = True,
+        include_comments: bool = True,
+    ) -> "Iterator[tuple[Run, str]]":
+        """Yield every visible |Run| in the document, paired with its story location.
+
+        Iterates :attr:`Paragraph.all_runs` for every paragraph yielded
+        by :meth:`iter_all_paragraphs`, so runs nested inside hyperlinks,
+        complex / simple fields, content controls, tracked insertions,
+        and smartTag / customXml wrappers are surfaced — matching the
+        same "what the user actually sees" view used by
+        :mod:`docx.search`.
+
+        Each yield is a ``(run, location)`` tuple; the keyword-only
+        flags mirror :meth:`iter_all_paragraphs` and let callers prune
+        story groups they do not care about.
+
+        .. versionadded:: 2026.05.dev0
+           Closes #662.
+        """
+        for paragraph, location in self.iter_all_paragraphs(
+            include_tables=include_tables,
+            include_headers_footers=include_headers_footers,
+            include_footnotes=include_footnotes,
+            include_endnotes=include_endnotes,
+            include_comments=include_comments,
+        ):
+            for run in paragraph.all_runs:
+                yield run, location
+
+    def iter_all_pictures(
+        self,
+        *,
+        include_tables: bool = True,
+        include_headers_footers: bool = True,
+        include_footnotes: bool = True,
+        include_endnotes: bool = True,
+        include_comments: bool = True,
+    ) -> "Iterator[tuple[object, str]]":
+        """Yield every picture in the document, paired with its story location.
+
+        Returns both inline images (``wp:inline`` — the same drawings
+        listed by :attr:`inline_shapes`) and floating images
+        (``wp:anchor`` — exposed per-paragraph via
+        :attr:`Paragraph.floating_images`) across every story:
+        body, body-level table cells, non-inherited headers / footers
+        on every section, and the footnote / endnote / comment parts.
+
+        Each yield is a ``(picture, location)`` tuple. ``picture`` is
+        either an :class:`~docx.shape.InlineShape` (for inline pictures)
+        or a :class:`~docx.shape.FloatingImage` (for anchored / floating
+        pictures); both expose ``alt_text``, ``title``, and dimension
+        helpers, so most read-only audits can stay agnostic of the
+        runtime type.
+
+        This is the missing one-line answer to "give me every image":
+        :attr:`inline_shapes` only covers body-level inline drawings
+        and floating images live as a per-paragraph property, so today
+        every caller has to reinvent the union.
+
+        .. versionadded:: 2026.05.dev0
+           Closes #662.
+        """
+        from docx.oxml.ns import qn
+        from docx.shape import FloatingImage, InlineShape
+        from docx.oxml.shape import CT_Anchor, CT_Inline
+
+        seen_inline: set[int] = set()
+        for paragraph, location in self.iter_all_paragraphs(
+            include_tables=include_tables,
+            include_headers_footers=include_headers_footers,
+            include_footnotes=include_footnotes,
+            include_endnotes=include_endnotes,
+            include_comments=include_comments,
+        ):
+            p_element = paragraph._p  # type: ignore[attr-defined]
+            # -- inline pictures: every wp:inline that contains a pic:pic --
+            for inline in p_element.xpath(
+                ".//w:r/w:drawing/wp:inline[descendant::pic:pic]"
+            ):
+                key = id(inline)
+                if key in seen_inline:
+                    continue
+                seen_inline.add(key)
+                yield (
+                    InlineShape(cast("CT_Inline", inline), self.part),
+                    location,
+                )
+            # -- floating pictures: wp:anchor with a pic:pic descendant --
+            for anchor in p_element.xpath(
+                ".//w:r/w:drawing/wp:anchor[descendant::pic:pic]"
+            ):
+                yield (
+                    FloatingImage(cast("CT_Anchor", anchor)),
+                    location,
+                )
+            # -- silence unused-import linters when the module is type-checked --
+            _ = qn
+
     @property
     def text(self) -> str:
         """Concatenated text of every top-level paragraph in the document body.

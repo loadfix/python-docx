@@ -104,9 +104,15 @@ def Document(
        The `strict` parameter.
     """
     if docx is None:
+        load_path = None
         docx = _default_docx_stream()
     elif isinstance(docx, os.PathLike):
         docx = os.fspath(docx)
+        load_path = docx
+    elif isinstance(docx, str):
+        load_path = docx
+    else:
+        load_path = None
     package = Package.open(
         docx, recover=recover, huge_tree=huge_tree, password=password,
         strict=strict,
@@ -128,6 +134,15 @@ def Document(
     if not include_metadata:
         document.core_properties.clear_all()
         document.extended_properties.clear_all()
+    # Capture the load path for downstream tooling (e.g. ``docx.kit.lint``'s
+    # ``missing-document-title`` rule, which uses the filename stem as an
+    # autofix source). Stored as a side-channel attribute so it isn't part
+    # of the document's public surface or persisted to the package.
+    if load_path is not None:
+        try:
+            document._lint_filename = load_path  # type: ignore[attr-defined]
+        except Exception:  # pragma: no cover - defensive
+            pass
     return document
 
 

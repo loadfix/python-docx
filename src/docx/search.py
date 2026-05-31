@@ -359,8 +359,14 @@ def _replace_in_paragraph_regex(
 # -- Cross-story search / replace --------------------------------------------
 
 
-def _iter_all_paragraphs(
+def iter_all_paragraph_groups(
     document: Document,
+    *,
+    include_tables: bool = True,
+    include_headers_footers: bool = True,
+    include_footnotes: bool = True,
+    include_endnotes: bool = True,
+    include_comments: bool = True,
 ) -> Iterator[tuple[list[Paragraph], str]]:
     """Yield ``(paragraphs, location)`` pairs covering every story in `document`.
 
@@ -379,70 +385,96 @@ def _iter_all_paragraphs(
     - Footnote paragraphs, tagged ``"footnote:<id>"``.
     - Endnote paragraphs, tagged ``"endnote:<id>"``.
     - Comment paragraphs, tagged ``"comment:<id>"``.
+
+    Keyword-only flags let callers prune stories they do not care about
+    (e.g. ``include_headers_footers=False`` for a body+table-only walk).
+    The body group is always yielded.
+
+    .. versionadded:: 2026.05.dev0
+       Promoted from the private ``_iter_all_paragraphs`` helper to a public
+       building block backing :meth:`Document.iter_all_paragraphs` (#662).
     """
     # -- body --
     yield list(document.paragraphs), "body"
 
     # -- body tables (top-level only; no recursion into nested tables) --
-    for t_idx, table in enumerate(document.tables):
-        for r_idx, row in enumerate(table.rows):
-            for c_idx, cell in enumerate(row.cells):
-                yield (
-                    list(cell.paragraphs),
-                    f"table:{t_idx}:row:{r_idx}:col:{c_idx}",
-                )
+    if include_tables:
+        for t_idx, table in enumerate(document.tables):
+            for r_idx, row in enumerate(table.rows):
+                for c_idx, cell in enumerate(row.cells):
+                    yield (
+                        list(cell.paragraphs),
+                        f"table:{t_idx}:row:{r_idx}:col:{c_idx}",
+                    )
 
     # -- headers / footers (skip inherited / linked-to-previous definitions) --
-    _hf_kinds: tuple[tuple[str, str], ...] = (
-        ("header", "primary"),
-        ("header", "even_page"),
-        ("header", "first_page"),
-        ("footer", "primary"),
-        ("footer", "even_page"),
-        ("footer", "first_page"),
-    )
-    for s_idx, section in enumerate(document.sections):
-        accessors = {
-            ("header", "primary"): section.header,
-            ("header", "even_page"): section.even_page_header,
-            ("header", "first_page"): section.first_page_header,
-            ("footer", "primary"): section.footer,
-            ("footer", "even_page"): section.even_page_footer,
-            ("footer", "first_page"): section.first_page_footer,
-        }
-        for kind, variant in _hf_kinds:
-            hf = accessors[(kind, variant)]
-            if hf.is_linked_to_previous:
-                continue
-            yield (
-                list(hf.paragraphs),
-                f"{kind}:section{s_idx}:{variant}",
-            )
+    if include_headers_footers:
+        _hf_kinds: tuple[tuple[str, str], ...] = (
+            ("header", "primary"),
+            ("header", "even_page"),
+            ("header", "first_page"),
+            ("footer", "primary"),
+            ("footer", "even_page"),
+            ("footer", "first_page"),
+        )
+        for s_idx, section in enumerate(document.sections):
+            accessors = {
+                ("header", "primary"): section.header,
+                ("header", "even_page"): section.even_page_header,
+                ("header", "first_page"): section.first_page_header,
+                ("footer", "primary"): section.footer,
+                ("footer", "even_page"): section.even_page_footer,
+                ("footer", "first_page"): section.first_page_footer,
+            }
+            for kind, variant in _hf_kinds:
+                hf = accessors[(kind, variant)]
+                if hf.is_linked_to_previous:
+                    continue
+                yield (
+                    list(hf.paragraphs),
+                    f"{kind}:section{s_idx}:{variant}",
+                )
 
     # -- footnotes / endnotes / comments --
     # These attributes create default parts lazily; guard against exotic Document
     # configurations (e.g. unit-test fixtures built around a Mock part) where the
     # accessors raise instead of returning an iterable.
-    try:
-        footnotes_iter = list(document.footnotes)
-    except (AttributeError, KeyError, AssertionError, TypeError):
-        footnotes_iter = []
-    for footnote in footnotes_iter:
-        yield list(footnote.paragraphs), f"footnote:{footnote.footnote_id}"
+    if include_footnotes:
+        try:
+            footnotes_iter = list(document.footnotes)
+        except (AttributeError, KeyError, AssertionError, TypeError):
+            footnotes_iter = []
+        for footnote in footnotes_iter:
+            yield list(footnote.paragraphs), f"footnote:{footnote.footnote_id}"
 
-    try:
-        endnotes_iter = list(document.endnotes)
-    except (AttributeError, KeyError, AssertionError, TypeError):
-        endnotes_iter = []
-    for endnote in endnotes_iter:
-        yield list(endnote.paragraphs), f"endnote:{endnote.endnote_id}"
+    if include_endnotes:
+        try:
+            endnotes_iter = list(document.endnotes)
+        except (AttributeError, KeyError, AssertionError, TypeError):
+            endnotes_iter = []
+        for endnote in endnotes_iter:
+            yield list(endnote.paragraphs), f"endnote:{endnote.endnote_id}"
 
-    try:
-        comments_iter = list(document.comments)
-    except (AttributeError, KeyError, AssertionError, TypeError):
-        comments_iter = []
-    for comment in comments_iter:
-        yield list(comment.paragraphs), f"comment:{comment.comment_id}"
+    if include_comments:
+        try:
+            comments_iter = list(document.comments)
+        except (AttributeError, KeyError, AssertionError, TypeError):
+            comments_iter = []
+        for comment in comments_iter:
+            yield list(comment.paragraphs), f"comment:{comment.comment_id}"
+
+
+# -- Backwards-compatible alias kept for any third-party consumers that
+# -- imported the underscore-prefixed name before it was promoted in #662.
+def _iter_all_paragraphs(
+    document: Document,
+) -> Iterator[tuple[list[Paragraph], str]]:
+    """Backwards-compatible alias for :func:`iter_all_paragraph_groups`.
+
+    Prefer :func:`iter_all_paragraph_groups` (or the higher-level
+    :meth:`Document.iter_all_paragraphs`) in new code.
+    """
+    return iter_all_paragraph_groups(document)
 
 
 def _search_in_story(

@@ -33,37 +33,92 @@ without mutation and returns a :class:`Finding`. Stage two
 (``LintReport.autofix``) is the only mutation step; callers can opt out
 per-rule via the ``rules=[...]`` filter.
 
-Built-in rules (eleven total):
+Built-in rules (twelve total):
 
-* ``multiple-spaces`` (warning, autofix) — two or more consecutive
-  spaces inside a run; collapses to a single space.
+* ``multiple-spaces`` (warning, autofix) — three or more consecutive
+  spaces *inside* a run (interior, not leading); collapses to a single
+  space. Paragraphs styled as ``List *``, ``Body Text Indent`` or
+  ``Quote`` are skipped because their hanging indents legitimately use
+  multi-space prefixes. Heading paragraphs whose double-space sits
+  immediately after a leading numbering token (``4.1  Title``) are also
+  skipped — that gap is a deliberate template convention. Threshold is
+  configurable via the module-level :data:`MULTIPLE_SPACES_MIN_RUN`.
 * ``trailing-whitespace`` (warning, autofix) — paragraph ends with a
   whitespace character; trims the trailing whitespace.
-* ``tab-instead-of-indent`` (warning, autofix) — paragraph starts with
-  a literal ``\\t`` character; removes the leading tab.
+* ``tab-instead-of-indent`` (warning, autofix) — body paragraph starts
+  with one or more literal ``\\t`` characters; replaces the leading
+  tab(s) with a real ``paragraph_format.left_indent`` so the visual
+  indent survives. Skips heading and list paragraphs, where a leading
+  tab is typically a list/numbering leader, not an author-typed
+  indent.
 * ``mixed-quotes`` (info, no-fix) — paragraph mixes "smart" and
   "straight" quote characters (manual review — auto-converting can
   destroy intentional code samples).
 * ``empty-paragraph`` (info, autofix) — consecutive empty / whitespace-
-  only paragraphs; keeps the first, removes the rest.
+  only paragraphs; keeps the first, removes the rest. Paragraphs whose
+  XML carries layout / annotation intent (page or column break, tab,
+  drawing, bookmark anchor, comment-range marker, SDT, section
+  properties, ink annotation) are never reported and never auto-fixed,
+  even when their rendered text is empty.
+* ``trailing-empty-paragraph`` (info, autofix) — empty paragraphs at
+  the very end of the document; deletes them. Closes the gap left by
+  ``empty-paragraph`` (which only catches the second-and-subsequent
+  in a consecutive run).
 * ``inconsistent-heading-levels`` (warning, no-fix) — heading skips a
   level (e.g. H1 then H3). Manual fix only — automatically renumbering
   changes the table of contents.
-* ``missing-alt-text`` (warning, no-fix) — inline image without an alt
-  text attribute. Manual fix only — alt text is meaning-bearing and
+* ``missing-alt-text`` (info or warning, no-fix) — inline image without
+  an alt text attribute. Default severity is ``info``; escalates to
+  ``warning`` when the document already declares accessibility intent
+  (a non-empty ``core_properties.title`` *and* at least one inline image
+  that already carries alt text). Decorative images — those flagged via
+  python-docx's :attr:`~docx.shape.InlineShape.a11y_role` of
+  ``"decorative"`` or carrying Office 365's
+  ``<a16:decorative val="1"/>`` extension marker — are skipped. Repeat
+  insertions of the same image binary are collapsed to a single finding
+  per unique image. Manual fix only — alt text is meaning-bearing and
   should be authored, not generated.
 * ``mixed-fonts`` (info, no-fix) — paragraph runs use multiple font
   families. Manual review only — sometimes intentional (code spans,
   emphasis runs).
 * ``missing-document-title`` (info, autofix-from-filename) — core
   property ``title`` is empty; autofix sets it to the document
-  filename's stem when one is known.
-* ``over-long-paragraph`` (info, no-fix) — paragraph longer than 1000
-  characters. Manual review only — splitting may break list / TOC
-  numbering.
-* ``placeholder-text`` (warning, no-fix) — paragraph still contains
-  ``[PLACEHOLDER]`` / ``[TBD]`` / ``Lorem ipsum`` sentinels. Manual
-  fix — autoreplace cannot guess the intended replacement.
+  filename's stem when one is known. The ``Document(path)`` factory
+  records the load path automatically, so the autofix is available
+  out-of-the-box for documents loaded from disk. Pass an explicit
+  ``source_path=...`` to :func:`lint` for documents loaded from
+  in-memory streams when a filename is known by other means. When
+  *no* filename is available the finding is suppressed entirely —
+  there is nothing the caller can do about a missing title without
+  context, so the rule stays silent rather than emitting permanent
+  ``info`` noise.
+* ``over-long-paragraph`` (info, no-fix) — paragraph longer than the
+  configured threshold (default ``1000`` characters). Manual review
+  only — splitting may break list / TOC numbering. List / caption /
+  footnote / quote styles are exempt by default; tune via
+  :class:`LintConfig`.
+* ``placeholder-text`` (warning, no-fix) — paragraph still contains a
+  known placeholder sentinel. The bundled patterns cover the
+  bracket-token forms (``[PLACEHOLDER]``, ``[TBD]``, ``[FILL IN]``),
+  the Latin filler (``Lorem ipsum``), the author-marker conventions
+  (``TODO:``, ``FIXME``, ``XXX``, ``TKTK``), and angle-bracket
+  sentinels (``<replace me>``, ``<your text here>``, ``<insert
+  name>``). Manual fix — autoreplace cannot guess the intended
+  replacement.
+* ``table-without-header-row`` (warning, no-fix) — the first row of a
+  table is not flagged as a header (``<w:trPr>/<w:tblHeader/>``
+  absent). Word will not repeat the row when the table breaks across
+  pages and screen readers will not announce it as a header — a WCAG
+  1.3.1 (Info & Relationships) failure. Manual fix only because
+  declaring which row is the header is meaning-bearing.
+* ``bare-url`` (info, no-fix) — paragraph contains a raw URL string
+  (``https://...``, ``http://...``, ``www....``) that is not wrapped in
+  a ``<w:hyperlink>`` element. Manual fix only — choosing the visible
+  link text and the relationship target is meaning-bearing.
+* ``excessive-font-size-variation`` (info, no-fix) — body runs use
+  more than four distinct explicit font sizes across the document
+  (heading paragraphs are skipped). Manual review only — collapsing
+  sizes is a meaning-bearing decision the author must make.
 
 Custom rules plug in via :func:`register_rule`::
 
@@ -94,6 +149,7 @@ import os
 import re
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -102,6 +158,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Mapping,
     Optional,
     Sequence,
     Tuple,
@@ -116,6 +173,7 @@ if TYPE_CHECKING:  # pragma: no cover - import-time hints only
 
 __all__ = [
     "Finding",
+    "LintConfig",
     "LintReport",
     "Rule",
     "lint",
@@ -123,6 +181,7 @@ __all__ = [
     "unregister_rule",
     "registered_rules",
     "BUILTIN_RULES",
+    "DEFAULT_STYLE_EXEMPTIONS",
     "SEVERITIES",
 ]
 
@@ -161,6 +220,14 @@ class Finding:
     location
         Optional human-readable locator (e.g. ``"table 2 row 3 cell 1"``)
         used when ``paragraph_index`` is not the right scope.
+    details
+        Optional read-only mapping carrying rule-specific structured
+        data (e.g. ``inconsistent-heading-levels`` exposes
+        ``{"level": 3, "previous_level": 1, "skipped": 1}``). Empty
+        mapping when the rule has no structured payload. Tools that
+        need to reason about a finding programmatically should prefer
+        ``details[...]`` over regex-parsing :attr:`message`. Closes
+        #678.
     """
 
     rule: str
@@ -170,6 +237,92 @@ class Finding:
     autofix_available: bool = False
     autofix_description: Optional[str] = None
     location: Optional[str] = None
+    details: Mapping[str, Any] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
+
+
+DEFAULT_STYLE_EXEMPTIONS: Tuple[str, ...] = (
+    "List Bullet",
+    "List Number",
+    "List Paragraph",
+    "Caption",
+    "Footnote Text",
+    "Quote",
+)
+"""Paragraph style names exempted by default from prose-length heuristics.
+
+These styles legitimately carry long compound content (bulleted
+explanations, captions, quoted blocks, footnote bodies) whose length is
+bounded by editorial intent rather than reading-line ergonomics, so the
+``over-long-paragraph`` rule skips them by default. Override via
+:class:`LintConfig`.
+"""
+
+
+@dataclass(frozen=True)
+class LintConfig:
+    """Tunable thresholds and exemptions for the built-in rules.
+
+    Pass an instance to :func:`lint` to override any of the heuristics
+    without monkey-patching module-level constants. Every field has a
+    sane default chosen to match the historical behavior::
+
+        from docx.kit.lint import lint, LintConfig
+
+        report = lint(doc, config=LintConfig(over_long_threshold=2000))
+
+    Attributes
+    ----------
+    over_long_threshold
+        Maximum paragraph character length before
+        ``over-long-paragraph`` fires. Defaults to ``1000``.
+    multi_space_minimum
+        Minimum run of consecutive ``ASCII space`` characters that
+        triggers ``multiple-spaces``. Must be ``>= 2``. Defaults to
+        ``2``.
+    style_exemptions
+        Paragraph style names exempted from ``over-long-paragraph``.
+        The default covers list / caption / footnote / quote families
+        whose long bodies are usually intentional. Pass an explicit
+        empty ``frozenset()`` to disable exemptions entirely.
+
+    .. versionadded:: 2026.05.31
+    """
+
+    over_long_threshold: int = 1000
+    multi_space_minimum: int = 2
+    style_exemptions: frozenset = field(
+        default_factory=lambda: frozenset(DEFAULT_STYLE_EXEMPTIONS)
+    )
+
+    def __post_init__(self) -> None:
+        if self.over_long_threshold < 1:
+            raise ValueError(
+                "over_long_threshold must be a positive integer; "
+                f"got {self.over_long_threshold!r}"
+            )
+        if self.multi_space_minimum < 2:
+            raise ValueError(
+                "multi_space_minimum must be at least 2 to detect 'runs' "
+                f"of spaces; got {self.multi_space_minimum!r}"
+            )
+        # Coerce mutable iterables (set, list, tuple) to frozenset for
+        # immutability — the dataclass is frozen=True at the top level
+        # so callers can pass any iterable here without surprise.
+        if not isinstance(self.style_exemptions, frozenset):
+            object.__setattr__(
+                self, "style_exemptions", frozenset(self.style_exemptions)
+            )
+
+
+_DEFAULT_CONFIG = LintConfig()
+_ACTIVE_CONFIG: LintConfig = _DEFAULT_CONFIG
+
+
+def _current_config() -> LintConfig:
+    """Return the config the running ``lint()`` call should consult."""
+    return _ACTIVE_CONFIG
 
 
 @dataclass
@@ -244,16 +397,79 @@ def registered_rules() -> Tuple[str, ...]:
 # ---------------------------------------------------------------------------
 
 
-def lint(document: "Document") -> "LintReport":
+def lint(
+    document: "Document",
+    *,
+    source_path: "Optional[Union[str, os.PathLike[str]]]" = None,
+    config: Optional["LintConfig"] = None,
+) -> "LintReport":
     """Run every registered rule against *document* and return a :class:`LintReport`.
+
+    *config*, when supplied, overrides the built-in thresholds and
+    style exemptions consulted by the bundled rules. Pass an instance
+    of :class:`LintConfig`; pass |None| (the default) to use the
+    defaults documented on that class.
 
     The returned report carries the ``findings`` list (in document
     order, then rule order) and exposes an :meth:`LintReport.autofix`
     method that mutates the document in place.
 
+    *source_path* is an optional explicit filename hint used by
+    filename-based rules (today: ``missing-document-title``). When
+    omitted, the rule falls back to any path captured automatically
+    by :func:`docx.Document` when the document was loaded from disk.
+    Pass *source_path* explicitly when the document was loaded from
+    an in-memory stream but the original filename is known.
+
     .. versionadded:: 2026.05.29
+    .. versionchanged:: 2026.05.31
+       Added *source_path* keyword.
+    .. versionchanged:: 2026.06.01
+       Added the *config* parameter.
     """
 
+    global _ACTIVE_CONFIG
+    if config is not None and not isinstance(config, LintConfig):
+        raise TypeError(
+            "config must be a LintConfig instance or None; got "
+            f"{type(config).__name__}"
+        )
+    previous_config = _ACTIVE_CONFIG
+    _ACTIVE_CONFIG = config if config is not None else _DEFAULT_CONFIG
+    try:
+        if source_path is not None:
+            path_str = os.fspath(source_path)
+            prev_attr_set = hasattr(document, "_lint_filename")
+            prev_value = (
+                getattr(document, "_lint_filename", None)
+                if prev_attr_set
+                else None
+            )
+            try:
+                document._lint_filename = path_str  # type: ignore[attr-defined]
+            except Exception:  # pragma: no cover - defensive
+                return _run_rules(document, source_path=None)
+            try:
+                return _run_rules(document, source_path=path_str)
+            finally:
+                try:
+                    if prev_attr_set:
+                        document._lint_filename = prev_value  # type: ignore[attr-defined]
+                    else:
+                        try:
+                            del document._lint_filename
+                        except AttributeError:  # pragma: no cover
+                            pass
+                except Exception:  # pragma: no cover - defensive
+                    pass
+        return _run_rules(document, source_path=None)
+    finally:
+        _ACTIVE_CONFIG = previous_config
+
+
+def _run_rules(
+    document: "Document", source_path: Optional[str] = None
+) -> "LintReport":
     findings: List[Finding] = []
     finding_to_rule: Dict[int, str] = {}
     for rule in _REGISTRY.values():
@@ -268,7 +484,12 @@ def lint(document: "Document") -> "LintReport":
             findings.append(f)
             finding_to_rule[id(f)] = rule.name
     findings.sort(key=_finding_sort_key)
-    return LintReport(document=document, findings=findings)
+    return LintReport(
+        document=document,
+        findings=findings,
+        source_path=source_path,
+        config=_ACTIVE_CONFIG,
+    )
 
 
 def _finding_sort_key(f: Finding) -> Tuple[int, int, str]:
@@ -292,10 +513,23 @@ class LintReport:
     mutates the same document instance the report was generated from.
     Callers may inspect :attr:`findings` freely (read-only is the
     intended use); rerun :func:`lint` after mutations to refresh.
+
+    The :attr:`config` attribute records the :class:`LintConfig` the
+    findings were produced with so callers can introspect which
+    thresholds were in effect.
     """
 
     document: "Document"
     findings: List[Finding] = field(default_factory=list)
+    source_path: Optional[str] = None
+    """Filename hint passed to :func:`lint` (or |None|).
+
+    Re-applied to the bound document for the duration of
+    :meth:`autofix` so filename-based autofixes (today:
+    ``missing-document-title``) succeed even though the rule's
+    side-channel attribute was scrubbed when :func:`lint` returned.
+    """
+    config: "LintConfig" = field(default_factory=lambda: _DEFAULT_CONFIG)
 
     # -- Aggregations -----------------------------------------------------
 
@@ -368,11 +602,32 @@ class LintReport:
         reported as successful.
         """
 
+        return sum(self.autofix_breakdown(rules=rules).values())
+
+    def autofix_breakdown(
+        self,
+        rules: Optional[Sequence[str]] = None,
+    ) -> Dict[str, int]:
+        """Apply autofixes and return a per-rule breakdown of successes.
+
+        Same selection semantics as :meth:`autofix` (``rules=None``
+        applies every available autofix; a sequence restricts to those
+        rule names) but the return value is a ``{rule_name: count}``
+        mapping instead of a single aggregate. Rules with zero successful
+        fixes are omitted from the mapping.
+
+        Useful for tooling that wants to display "fixed: multiple-spaces
+        x3" without re-running :func:`lint` before and after to diff the
+        rule counts.
+
+        Closes #679.
+        """
+
         if rules is not None:
             wanted = set(rules)
         else:
             wanted = None
-        applied = 0
+        breakdown: Dict[str, int] = {}
         # Fix in document-reverse order so paragraph_index changes
         # caused by removal don't invalidate later indices.
         ordered = sorted(
@@ -382,21 +637,49 @@ class LintReport:
             ),
             reverse=True,
         )
-        for f in ordered:
-            if not f.autofix_available:
-                continue
-            if wanted is not None and f.rule not in wanted:
-                continue
-            rule = _REGISTRY.get(f.rule)
-            if rule is None or rule.autofix is None:
-                continue
+        # Re-apply the source-path hint that ``lint(..., source_path=...)``
+        # captured, so filename-based autofixes can re-derive the stem.
+        # Restore the document's prior state on exit.
+        path_hint = self.source_path
+        prev_attr_set = hasattr(self.document, "_lint_filename")
+        prev_value = (
+            getattr(self.document, "_lint_filename", None)
+            if prev_attr_set
+            else None
+        )
+        if path_hint is not None:
             try:
-                ok = rule.autofix(self.document, f)
+                self.document._lint_filename = path_hint  # type: ignore[attr-defined]
             except Exception:  # pragma: no cover - defensive
-                ok = False
-            if ok:
-                applied += 1
-        return applied
+                path_hint = None
+        try:
+            for f in ordered:
+                if not f.autofix_available:
+                    continue
+                if wanted is not None and f.rule not in wanted:
+                    continue
+                rule = _REGISTRY.get(f.rule)
+                if rule is None or rule.autofix is None:
+                    continue
+                try:
+                    ok = rule.autofix(self.document, f)
+                except Exception:  # pragma: no cover - defensive
+                    ok = False
+                if ok:
+                    breakdown[f.rule] = breakdown.get(f.rule, 0) + 1
+        finally:
+            if path_hint is not None:
+                try:
+                    if prev_attr_set:
+                        self.document._lint_filename = prev_value  # type: ignore[attr-defined]
+                    else:
+                        try:
+                            del self.document._lint_filename
+                        except AttributeError:  # pragma: no cover
+                            pass
+                except Exception:  # pragma: no cover - defensive
+                    pass
+        return breakdown
 
     # -- Convenience -----------------------------------------------------
 
@@ -420,14 +703,94 @@ def _max_severity(a: str, b: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-_MULTI_SPACE_RE = re.compile(r"  +")  # two or more spaces
+MULTIPLE_SPACES_MIN_RUN = 3
+"""Minimum number of consecutive spaces required to trigger ``multiple-spaces``.
+
+Intentional formatting (e.g. spacing after a `4.1` heading-number prefix or
+list-bullet hanging indents) routinely uses *exactly* two spaces, so the
+default threshold is three. Callers can tighten or loosen by reassigning
+this module-level constant before invoking :func:`lint`. Values below 2 are
+clamped up to 2 — a single space is never multi-space.
+"""
+
+# Pattern used to flag interior runs of spaces inside a run's text. Built
+# lazily so callers can override ``MULTIPLE_SPACES_MIN_RUN`` between calls.
+def _multi_space_re() -> "re.Pattern[str]":
+    n = max(2, int(MULTIPLE_SPACES_MIN_RUN))
+    # ``(?<=\S)`` ensures we don't match leading-whitespace runs (list
+    # hanging indents, intentional pre-bullet padding); we want *interior*
+    # runs only.
+    return re.compile(rf"(?<=\S) {{{n},}}")
+
+
+# Legacy module-level pattern preserved for back-compat with any external
+# callers that imported ``_MULTI_SPACE_RE`` directly. The autofix uses a
+# greedier collapse pattern (any run of two-or-more spaces) so that once a
+# finding is emitted, every space-run in the paragraph is normalised.
+_MULTI_SPACE_RE = re.compile(r"  +")
+
+# Heading paragraphs whose multi-space gap sits immediately after a leading
+# numeric token (``4.1  Three-LZA``) are intentional — skip them.
+_HEADING_NUMBERING_GAP_RE = re.compile(r"^\s*\d+(?:\.\d+)*\s{2,}\S")
+
+# Styles whose paragraphs commonly carry intentional leading whitespace
+# (hanging indents). Membership is tested case-insensitively against the
+# style name; "List Bullet 2", "List Number", etc. all match the "list"
+# token.
+_INDENTED_STYLE_TOKENS: Tuple[str, ...] = (
+    "list",  # List Bullet, List Number, List Paragraph, ...
+    "body text indent",
+    "quote",
+)
 
 _HEADING_STYLE_RE = re.compile(r"^Heading\s+(\d+)$")
 
-_PLACEHOLDER_PATTERNS: Tuple[re.Pattern[str], ...] = (
-    re.compile(r"\[PLACEHOLDER\]", re.IGNORECASE),
-    re.compile(r"\[TBD\]", re.IGNORECASE),
-    re.compile(r"\bLorem\s+ipsum\b", re.IGNORECASE),
+def _multi_space_pattern(minimum: int) -> "re.Pattern[str]":
+    """Return a compiled regex matching *minimum*+ consecutive spaces."""
+    if minimum <= 2:
+        return _MULTI_SPACE_RE
+    return re.compile(r" {%d,}" % minimum)
+
+
+# Placeholder-text patterns paired with a stable ``category`` tag that
+# rule consumers (autofixers, authoring UIs) can group findings by
+# without regex-parsing the matched substring. The categories are part
+# of the public Finding.details contract once #681 lands.
+_PLACEHOLDER_PATTERNS: Tuple[Tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\[PLACEHOLDER\]", re.IGNORECASE), "bracket-token"),
+    (re.compile(r"\[TBD\]", re.IGNORECASE), "bracket-token"),
+    (re.compile(r"\bLorem\s+ipsum\b", re.IGNORECASE), "lorem-ipsum"),
+    # ``TODO`` is the most common author-marker placeholder in real
+    # drafts. Require a delimiter (``:``, ``-``, whitespace) after the
+    # word so we don't false-match ``TODOLIST`` or product names that
+    # incidentally contain the substring.
+    (re.compile(r"\bTODO\b[\s:\-–]", re.IGNORECASE), "todo-marker"),
+    # ``FIXME`` and ``XXX`` are the programmer-style placeholder
+    # conventions that bleed into prose drafts via copy-paste from code.
+    # ``XXX`` stays case-sensitive — lower-case ``xxx`` is too noisy
+    # (it appears in URLs, anonymisation tokens, etc.).
+    (re.compile(r"\bFIXME\b", re.IGNORECASE), "todo-marker"),
+    (re.compile(r"\bXXX\b"), "todo-marker"),
+    # ``TKTK`` is the journalism convention for "to come". The four-
+    # letter form is unambiguous enough to flag case-insensitively;
+    # we deliberately do not match the two-letter ``TK`` because it
+    # collides with too many product / acronym uses.
+    (re.compile(r"\bTKTK\b", re.IGNORECASE), "to-come"),
+    # Generic angle-bracket sentinels: ``<replace me>``, ``<your
+    # text here>``, ``<insert name>``. The pattern requires the
+    # opening ``<`` and matching ``>`` so legitimate prose using the
+    # word "replace" stays untouched.
+    (
+        re.compile(
+            r"<\s*(?:replace[\s_-]*me|your[\s_-]*text[\s_-]*here|"
+            r"insert[\s_-]*\w+)\s*>",
+            re.IGNORECASE,
+        ),
+        "angle-bracket",
+    ),
+    # ``[FILL IN]`` / ``[FILL ME]`` mirror the existing ``[TBD]``
+    # bracket-token convention.
+    (re.compile(r"\[\s*FILL\s*(?:IN|ME)\s*\]", re.IGNORECASE), "bracket-token"),
 )
 
 _SMART_QUOTES = "“”‘’"  # “ ” ‘ ’
@@ -435,19 +798,64 @@ _STRAIGHT_QUOTES = "\"'"
 
 _OVER_LONG_THRESHOLD = 1000
 
+# Match http/https/www URLs. Trailing punctuation (``.,;:)]}>"'``) is stripped
+# below so a sentence-ending period or closing parenthesis is not treated as
+# part of the URL — that would produce noisy / inaccurate findings.
+_BARE_URL_RE = re.compile(r"\b(?:https?://|www\.)\S+")
+_URL_TRAILING_PUNCT = ".,;:!?)]}>\"'"
+
+_EXCESSIVE_FONT_SIZE_THRESHOLD = 4
+
+
+def _paragraph_style_name(paragraph: "Paragraph") -> str:
+    """Return the paragraph's style name as a lowercased string (or ``""``).
+
+    Lowercased so existing case-insensitive callers (e.g.
+    :func:`_is_indented_style`) can match style families without
+    re-normalising. Callers that need the case-preserved form (e.g.
+    matching against :data:`DEFAULT_STYLE_EXEMPTIONS`) should read
+    ``paragraph.style.name`` directly via :func:`_paragraph_style_name_raw`.
+    """
+    style = paragraph.style
+    if style is None:
+        return ""
+    name = getattr(style, "name", None) or ""
+    return name.lower()
+
+
+def _paragraph_style_name_raw(paragraph: "Paragraph") -> str:
+    """Return the paragraph style name with case preserved (or empty)."""
+    style = paragraph.style
+    if style is None:
+        return ""
+    return getattr(style, "name", None) or ""
+
 
 def _heading_level(paragraph: "Paragraph") -> Optional[int]:
     """Return the heading level (1-9) of *paragraph* or |None|."""
-    style = paragraph.style
-    if style is None:
+    name = _paragraph_style_name_raw(paragraph)
+    if not name:
         return None
-    name = getattr(style, "name", None) or ""
     match = _HEADING_STYLE_RE.match(name)
     if match is None:
         if name in ("Title", "Subtitle"):
             return 0  # treat Title/Subtitle as the document root level
         return None
     return int(match.group(1))
+
+
+def _is_indented_style(paragraph: "Paragraph") -> bool:
+    """``True`` for paragraphs whose style typically uses a hanging indent.
+
+    Hanging-indent styles (``List Bullet``, ``List Number``, ``List
+    Paragraph``, ``Body Text Indent``, ``Quote``) routinely begin with
+    multi-space prefixes in the authored text — those should not trigger
+    ``multiple-spaces``.
+    """
+    name = _paragraph_style_name(paragraph)
+    if not name:
+        return False
+    return any(token in name for token in _INDENTED_STYLE_TOKENS)
 
 
 def _document_inline_shapes(document: "Document") -> List["InlineShape"]:
@@ -457,18 +865,159 @@ def _document_inline_shapes(document: "Document") -> List["InlineShape"]:
         return []
 
 
+# -- Office 365 "Mark as decorative" marker. The flag lives on
+# ``wp:docPr/a:extLst/a:ext/a16:decorative/@val``. ``a16`` is the Office
+# 2018 drawing namespace; the URI is stable per Microsoft's published
+# extension catalog. We do not register the prefix in ``docx.oxml.ns`` —
+# the lookup here is read-only and uses the fully-qualified URI directly
+# so we don't perturb the global namespace map. --
+_A16_DECORATIVE_NS = "http://schemas.microsoft.com/office/drawing/2017/decorative"
+_A16_DECORATIVE_QN = f"{{{_A16_DECORATIVE_NS}}}decorative"
+
+
+def _shape_is_decorative(shape: "InlineShape") -> bool:
+    """Return ``True`` when *shape* is flagged decorative.
+
+    Two paths are recognised:
+
+    * python-docx's :attr:`~docx.shape.InlineShape.a11y_role` returns
+      ``"decorative"`` when the descr carries a ``[decorative]`` prefix.
+    * Office 365 writes ``<a16:decorative val="1"/>`` inside
+      ``wp:docPr/a:extLst/a:ext`` when the user ticks the *Mark as
+      decorative* checkbox. We resolve the extension element by Clark
+      name so an unregistered ``a16`` prefix doesn't trip us up.
+    """
+    role = getattr(shape, "a11y_role", None)
+    if role == "decorative":
+        return True
+    inline = getattr(shape, "_inline", None)
+    if inline is None:
+        return False
+    docPr = getattr(inline, "docPr", None)
+    if docPr is None:
+        return False
+    for elem in docPr.iter(_A16_DECORATIVE_QN):
+        val = elem.get("val")
+        # Per the Office 365 schema the attribute is a boolean — values
+        # of "1" or "true" mean decorative. Anything else (including a
+        # missing attribute, which spec-wise defaults to false) is
+        # ignored to stay on the conservative side.
+        if val in ("1", "true"):
+            return True
+    return False
+
+
+def _shape_identity(shape: "InlineShape") -> Optional[str]:
+    """Return a stable identity for *shape*'s underlying image, or |None|.
+
+    Prefers the SHA-1 of the image binary so that two pictures inserted
+    from the same file collapse to one finding even when Word stores
+    them as separate parts. Falls back to the part-name (a string like
+    ``"/word/media/image1.png"``) so chart / SmartArt shapes that don't
+    expose a blob still dedupe correctly. Returns |None| when neither
+    can be resolved — those shapes always emit a finding.
+    """
+    try:
+        image = shape.image  # type: ignore[attr-defined]
+    except Exception:
+        image = None
+    sha1 = getattr(image, "sha1", None)
+    if isinstance(sha1, str) and sha1:
+        return f"sha1:{sha1}"
+    inline = getattr(shape, "_inline", None)
+    part = getattr(shape, "_part", None)
+    if inline is not None and part is not None:
+        try:
+            blip = shape._blip()  # type: ignore[attr-defined]
+        except Exception:
+            blip = None
+        if blip is not None:
+            rId = getattr(blip, "embed", None) or getattr(blip, "link", None)
+            if rId:
+                related = getattr(part, "related_parts", None) or {}
+                related_part = related.get(rId)
+                partname = getattr(related_part, "partname", None)
+                if partname:
+                    return f"partname:{partname}"
+    return None
+
+
+def _document_has_a11y_intent(
+    document: "Document", shapes: Sequence["InlineShape"]
+) -> bool:
+    """Heuristic: does the author show signs of authoring for accessibility?
+
+    Two things have to be true:
+
+    * the document carries a non-empty ``core_properties.title``, and
+    * at least one inline shape already has alt text or a title
+      attribute set.
+
+    The combination means the author is paying attention to a11y
+    metadata in general; a missing alt text in *that* document is much
+    more likely to be a real defect than a decorative leftover.
+    """
+    try:
+        title = document.core_properties.title
+    except Exception:  # pragma: no cover - defensive
+        title = None
+    if not (title and title.strip()):
+        return False
+    for shape in shapes:
+        alt = getattr(shape, "alt_text", None)
+        if alt and alt.strip():
+            return True
+        ttl = getattr(shape, "title", None)
+        if ttl and ttl.strip():
+            return True
+    return False
+
+
 # ---------------------------------------------------------------------------
 # Built-in rules: check + autofix callbacks
 # ---------------------------------------------------------------------------
 
 
 def _check_multiple_spaces(document: "Document") -> Iterable[Finding]:
+    config = _current_config()
+    # Prefer the legacy module-level constant when the caller has tuned
+    # it past the default; otherwise honour the LintConfig setting. This
+    # keeps the existing ``MULTIPLE_SPACES_MIN_RUN`` override path
+    # (``(?<=\S)`` interior-only matching) working for callers who never
+    # adopt ``LintConfig``.
+    legacy_n = max(2, int(MULTIPLE_SPACES_MIN_RUN))
+    if legacy_n != 2:
+        pattern = _multi_space_re()
+    else:
+        pattern = _multi_space_pattern(config.multi_space_minimum)
     for index, paragraph in enumerate(document.paragraphs):
+        # Hanging-indent styles (List Bullet, List Number, Body Text
+        # Indent, Quote, ...) intentionally start lines with multi-space
+        # padding. The author-typed leading whitespace is the visual
+        # indent; flagging it would invite an autofix that destroys the
+        # hanging indent.
+        if _is_indented_style(paragraph):
+            continue
+        # Heading paragraphs whose double-space sits right after a
+        # leading numeric token (`4.1  Title`) are using the spacing as
+        # a deliberate gap between number and title — skip when that's
+        # the only multi-space pattern in the paragraph.
+        if _heading_level(paragraph) is not None:
+            full_text = paragraph.text
+            if _HEADING_NUMBERING_GAP_RE.match(full_text):
+                # If the only multi-space run in the paragraph is the
+                # numbering gap, treat as intentional. Detect by
+                # stripping that prefix and checking the remainder.
+                remainder = _HEADING_NUMBERING_GAP_RE.sub(
+                    lambda m: m.group(0)[-1], full_text, count=1
+                )
+                if pattern.search(remainder) is None:
+                    continue
         for run_index, run in enumerate(paragraph.runs):
             text = run.text
             if not text:
                 continue
-            match = _MULTI_SPACE_RE.search(text)
+            match = pattern.search(text)
             if match is None:
                 continue
             yield Finding(
@@ -482,6 +1031,12 @@ def _check_multiple_spaces(document: "Document") -> Iterable[Finding]:
                 autofix_available=True,
                 autofix_description="collapse runs of spaces to a single space",
                 location=f"paragraph {index} run {run_index}",
+                details=MappingProxyType(
+                    {
+                        "run_index": run_index,
+                        "space_count": len(match.group(0)),
+                    }
+                ),
             )
             break  # one finding per run is enough; autofix collapses all
 
@@ -502,21 +1057,50 @@ def _autofix_multiple_spaces(document: "Document", finding: Finding) -> bool:
     return fixed_any
 
 
+def _has_trailing_authored_whitespace(paragraph: "Paragraph") -> bool:
+    """Return |True| when the paragraph ends with author-typed whitespace.
+
+    Walks the runs in reverse, examining ``Run.text`` (which decodes
+    structural ``<w:tab/>`` and ``<w:br/>`` elements to ``\\t`` and
+    ``\\n`` respectively). The last visible character is examined only
+    after stripping trailing ``\\t`` and ``\\n`` characters — those
+    represent structural elements rather than literal whitespace the
+    author typed, so they should not poison the check. Empty runs
+    (formatting-only) are skipped.
+    """
+
+    for run in reversed(paragraph.runs):
+        text = run.text
+        if text == "":
+            continue
+        # Strip structural-element decode artifacts from the right —
+        # `<w:tab/>` → '\t' and `<w:br/>` → '\n'. Those don't represent
+        # literal whitespace authored at the end of a w:t element, so we
+        # ignore them when deciding whether the paragraph trails space.
+        cleaned = text.rstrip("\t\n")
+        if not cleaned:
+            # The run is entirely structural (tabs / breaks); keep
+            # walking left for a run carrying actual text characters.
+            continue
+        return cleaned != cleaned.rstrip()
+    return False
+
+
 def _check_trailing_whitespace(document: "Document") -> Iterable[Finding]:
     for index, paragraph in enumerate(document.paragraphs):
-        text = paragraph.text
-        if not text:
+        if not paragraph.runs:
             continue
-        if text != text.rstrip():
-            yield Finding(
-                rule="trailing-whitespace",
-                severity="warning",
-                message=f"paragraph {index} ends with whitespace",
-                paragraph_index=index,
-                autofix_available=True,
-                autofix_description="trim trailing whitespace",
-                location=f"paragraph {index}",
-            )
+        if not _has_trailing_authored_whitespace(paragraph):
+            continue
+        yield Finding(
+            rule="trailing-whitespace",
+            severity="warning",
+            message=f"paragraph {index} ends with whitespace",
+            paragraph_index=index,
+            autofix_available=True,
+            autofix_description="trim trailing whitespace",
+            location=f"paragraph {index}",
+        )
 
 
 def _autofix_trailing_whitespace(document: "Document", finding: Finding) -> bool:
@@ -545,6 +1129,46 @@ def _autofix_trailing_whitespace(document: "Document", finding: Finding) -> bool
     return fixed_any
 
 
+def _is_list_paragraph(paragraph: "Paragraph") -> bool:
+    """Return ``True`` when *paragraph* is part of a numbered/bulleted list.
+
+    The check uses the public ``Paragraph.list_level`` accessor, which
+    returns ``None`` when the paragraph has no ``w:numPr`` (i.e. is not
+    a list item). The accessor was introduced for list-handling support
+    and is the documented public way to detect list membership.
+    """
+    try:
+        return paragraph.list_level is not None
+    except Exception:  # pragma: no cover - defensive
+        return False
+
+
+def _is_heading_or_toc(paragraph: "Paragraph") -> bool:
+    """Return ``True`` for heading/title/TOC-style paragraphs.
+
+    A leading tab on these paragraphs is almost always a rendered
+    leader between the number and the title (e.g. ``"1.\\tIntroduction"``)
+    and stripping it is destructive. ``_heading_level`` handles the
+    ``Heading N`` / ``Title`` / ``Subtitle`` styles; we additionally
+    skip ``TOC N`` and ``Table of Contents``-style names.
+    """
+    if _heading_level(paragraph) is not None:
+        return True
+    style = paragraph.style
+    name = getattr(style, "name", None) or ""
+    if name.startswith("TOC ") or name == "TOC Heading":
+        return True
+    if name == "Table of Contents":
+        return True
+    return False
+
+
+# Word's default tab-stop is 36 points (≈ 0.5 inch). Each stripped tab
+# becomes one tab-stop's worth of left_indent so the visual position
+# survives the substitution.
+_TAB_INDENT_PT = 36
+
+
 def _check_tab_instead_of_indent(document: "Document") -> Iterable[Finding]:
     for index, paragraph in enumerate(document.paragraphs):
         # Use the first run's text rather than paragraph.text — Paragraph.text
@@ -555,19 +1179,39 @@ def _check_tab_instead_of_indent(document: "Document") -> Iterable[Finding]:
         if not runs:
             continue
         first_text = runs[0].text
-        if first_text.startswith("\t"):
-            yield Finding(
-                rule="tab-instead-of-indent",
-                severity="warning",
-                message=f"paragraph {index} starts with a literal tab character",
-                paragraph_index=index,
-                autofix_available=True,
-                autofix_description="remove leading tab character",
-                location=f"paragraph {index}",
-            )
+        if not first_text.startswith("\t"):
+            continue
+        # Skip paragraphs where a leading tab is structural rather
+        # than an author-typed indent: heading/TOC paragraphs render a
+        # tab-leader between number and title, and list paragraphs
+        # carry their indent through ``w:numPr`` already.
+        if _is_heading_or_toc(paragraph) or _is_list_paragraph(paragraph):
+            continue
+        # Count consecutive leading tabs so the autofix can compensate
+        # with the right indent multiple and the message can report it.
+        tab_count = len(first_text) - len(first_text.lstrip("\t"))
+        plural = "s" if tab_count != 1 else ""
+        yield Finding(
+            rule="tab-instead-of-indent",
+            severity="warning",
+            message=(
+                f"paragraph {index} starts with {tab_count} literal "
+                f"tab character{plural}"
+            ),
+            paragraph_index=index,
+            autofix_available=True,
+            autofix_description=(
+                "replace leading tab(s) with paragraph left-indent"
+            ),
+            location=f"paragraph {index}",
+        )
 
 
 def _autofix_tab_instead_of_indent(document: "Document", finding: Finding) -> bool:
+    # Local import — keeps ``docx.shared`` out of module import time
+    # and avoids cycles for callers using the lint module standalone.
+    from docx.shared import Emu, Pt
+
     if finding.paragraph_index is None:
         return False
     try:
@@ -577,12 +1221,29 @@ def _autofix_tab_instead_of_indent(document: "Document", finding: Finding) -> bo
     runs = paragraph.runs
     if not runs:
         return False
+    # Re-check the skip conditions in case the document was edited
+    # between :func:`lint` and :meth:`LintReport.autofix`. This keeps
+    # the autofix idempotent on heading/list paragraphs even if a
+    # caller fabricated a Finding by hand.
+    if _is_heading_or_toc(paragraph) or _is_list_paragraph(paragraph):
+        return False
     first_run = runs[0]
-    new_text = first_run.text.lstrip("\t")
-    if new_text != first_run.text:
-        first_run.text = new_text
-        return True
-    return False
+    original = first_run.text
+    stripped = original.lstrip("\t")
+    tab_count = len(original) - len(stripped)
+    if tab_count == 0:
+        return False
+    first_run.text = stripped
+    # Add to any existing direct left_indent so we don't clobber an
+    # author-set value; treat ``None`` (inherited) as zero baseline.
+    pf = paragraph.paragraph_format
+    existing = pf.left_indent
+    addition = Pt(_TAB_INDENT_PT * tab_count)
+    # ``Length`` is an ``int`` subclass; arithmetic returns plain int
+    # so wrap the sum back into ``Emu`` for the setter to keep the
+    # value typed.
+    pf.left_indent = Emu(int(existing or 0) + int(addition))
+    return True
 
 
 def _check_mixed_quotes(document: "Document") -> Iterable[Finding]:
@@ -604,12 +1265,70 @@ def _check_mixed_quotes(document: "Document") -> Iterable[Finding]:
             )
 
 
+# XML element local names whose presence in a paragraph means the paragraph
+# carries load-bearing layout / annotation intent even when its plain text is
+# empty. The empty-paragraph rule must skip such paragraphs — auto-deleting
+# them silently destroys page breaks, bookmarks, comment anchors, etc.
+_STRUCTURAL_EMPTY_BLOCKERS: Tuple[str, ...] = (
+    "br",  # <w:br> — page, column, textWrapping or line breaks
+    "tab",  # <w:tab/>
+    "drawing",  # <w:drawing> — inline / floating images, charts, ink
+    "pict",  # <w:pict> — legacy VML drawings
+    "object",  # <w:object> — embedded OLE
+    "bookmarkStart",  # <w:bookmarkStart> / End — anchor targets
+    "bookmarkEnd",
+    "commentRangeStart",  # comment-range markers
+    "commentRangeEnd",
+    "commentReference",
+    "sdt",  # <w:sdt> — structured-document-tag (content controls)
+    "contentPart",  # <w:contentPart> — ink annotations
+)
+
+
+def _paragraph_has_structural_content(paragraph: "Paragraph") -> bool:
+    """Return ``True`` when *paragraph* carries XML with layout / annotation
+    intent that must not be discarded as "empty drift".
+
+    A paragraph whose plain text is empty may still carry a page break, a
+    bookmark anchor, a comment-range marker, an SDT, ink, etc. The
+    ``empty-paragraph`` rule must skip such paragraphs — both at finding
+    time (so the autofix is never offered) and inside the autofix
+    callback (defence in depth, since callers can build :class:`Finding`
+    instances directly via :func:`register_rule`).
+
+    Implementation note: the checks read the underlying ``_p`` element
+    via its ``xpath`` helper. That is the same pattern the rest of
+    ``docx.text.paragraph`` uses to expose ``has_page_break``,
+    ``has_section_break``, ``drawings``, ``ink_annotations``, etc., so
+    the linter is not introducing a new private-XML coupling.
+    """
+
+    p = getattr(paragraph, "_p", None)
+    if p is None:  # pragma: no cover - defensive, every Paragraph has _p
+        return False
+    # Section-property carrier inside <w:pPr> — a section break.
+    pPr = getattr(p, "pPr", None)
+    if pPr is not None and getattr(pPr, "sectPr", None) is not None:
+        return True
+    for local_name in _STRUCTURAL_EMPTY_BLOCKERS:
+        if p.xpath(f".//w:{local_name}"):
+            return True
+    return False
+
+
 def _check_empty_paragraph(document: "Document") -> Iterable[Finding]:
     paragraphs = document.paragraphs
     in_run = False
     run_start: Optional[int] = None
     for index, paragraph in enumerate(paragraphs):
         is_empty = not paragraph.text.strip()
+        # A paragraph whose XML carries a break, bookmark, comment anchor,
+        # SDT, section property, etc. is *not* drift — never offer the
+        # autofix and never count it toward a "consecutive empties" run.
+        if is_empty and _paragraph_has_structural_content(paragraph):
+            in_run = False
+            run_start = None
+            continue
         if is_empty:
             if not in_run:
                 in_run = True
@@ -641,6 +1360,10 @@ def _autofix_empty_paragraph(document: "Document", finding: Finding) -> bool:
         return False
     if paragraph.text.strip():
         return False
+    # Defence in depth: even when a Finding was hand-built by a caller,
+    # never delete a paragraph that carries layout / annotation intent.
+    if _paragraph_has_structural_content(paragraph):
+        return False
     try:
         paragraph.delete()
     except Exception:  # pragma: no cover - defensive
@@ -649,12 +1372,17 @@ def _autofix_empty_paragraph(document: "Document", finding: Finding) -> bool:
 
 
 def _check_inconsistent_heading_levels(document: "Document") -> Iterable[Finding]:
-    previous_level: Optional[int] = None
+    # Treat the implicit pre-document state as "level 0" — same value
+    # ``Title`` / ``Subtitle`` already report from ``_heading_level`` —
+    # so the very first heading is required to be ``Heading 1`` (or a
+    # ``Title``-equivalent). A document that starts with ``Heading 2``
+    # or deeper is a level-skip from the document root and is flagged.
+    previous_level: int = 0
     for index, paragraph in enumerate(document.paragraphs):
         level = _heading_level(paragraph)
         if level is None or level == 0:
             continue
-        if previous_level is not None and level > previous_level + 1:
+        if level > previous_level + 1:
             yield Finding(
                 rule="inconsistent-heading-levels",
                 severity="warning",
@@ -666,12 +1394,29 @@ def _check_inconsistent_heading_levels(document: "Document") -> Iterable[Finding
                 autofix_available=False,
                 autofix_description=None,
                 location=f"paragraph {index}",
+                details=MappingProxyType(
+                    {
+                        "level": level,
+                        "previous_level": previous_level,
+                        "skipped": level - previous_level - 1,
+                    }
+                ),
             )
         previous_level = level
 
 
 def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
-    for shape_index, shape in enumerate(_document_inline_shapes(document)):
+    shapes = _document_inline_shapes(document)
+    severity = (
+        "warning" if _document_has_a11y_intent(document, shapes) else "info"
+    )
+    # Track each unique image identity so duplicate insertions of the
+    # same blob produce one finding instead of N. Shapes with no
+    # resolvable identity (charts, SmartArt, malformed blips) always
+    # emit — they are the cases most likely to need human attention.
+    seen: Dict[str, Tuple[int, int]] = {}
+    deferred: List[Tuple[int, str, str, Optional[str]]] = []
+    for shape_index, shape in enumerate(shapes):
         alt = getattr(shape, "alt_text", None)
         title = getattr(shape, "title", None)
         # Treat a non-empty alt OR title as sufficient — Word's own UI
@@ -680,48 +1425,150 @@ def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
             continue
         if title and title.strip():
             continue
+        if _shape_is_decorative(shape):
+            continue
+        identity = _shape_identity(shape)
+        if identity is not None:
+            existing = seen.get(identity)
+            if existing is None:
+                seen[identity] = (shape_index, 1)
+                deferred.append(
+                    (shape_index, identity, severity, identity)
+                )
+            else:
+                first_index, count = existing
+                seen[identity] = (first_index, count + 1)
+            continue
+        # Unkeyed shape — emit immediately, can't dedupe.
         yield Finding(
             rule="missing-alt-text",
-            severity="warning",
+            severity=severity,
             message=f"inline image {shape_index} has no alt text",
             paragraph_index=None,
             autofix_available=False,
             autofix_description=None,
             location=f"inline image {shape_index}",
         )
+    for first_index, identity, sev, _ in deferred:
+        # The dedupe loop above may have grown the count; pull the final
+        # number from `seen` so the message reflects every duplicate.
+        _, count = seen[identity]
+        if count > 1:
+            message = (
+                f"inline image {first_index} has no alt text "
+                f"(repeated on {count} shapes; same image binary)"
+            )
+        else:
+            message = f"inline image {first_index} has no alt text"
+        yield Finding(
+            rule="missing-alt-text",
+            severity=sev,
+            message=message,
+            paragraph_index=None,
+            autofix_available=False,
+            autofix_description=None,
+            location=f"inline image {first_index}",
+        )
+# Conservative serif / sans-serif font sets used by the mixed-fonts
+# rule to grade severity. The lists cover the Word/Office defaults that
+# show up in real documents; an unknown font name falls back to ``info``
+# severity (the prior behaviour). The sets are deliberately small —
+# adding a stray entry costs nothing if it's wrong, but a bigger list
+# would invite false-positive severity escalations.
+_SERIF_FONTS: frozenset[str] = frozenset(
+    {
+        "Times New Roman",
+        "Times",
+        "Cambria",
+        "Georgia",
+        "Garamond",
+        "Book Antiqua",
+        "Palatino",
+        "Palatino Linotype",
+        "Constantia",
+        "Sitka",
+    }
+)
+_SANS_FONTS: frozenset[str] = frozenset(
+    {
+        "Calibri",
+        "Calibri Light",
+        "Arial",
+        "Arial Black",
+        "Helvetica",
+        "Verdana",
+        "Tahoma",
+        "Aptos",
+        "Aptos Display",
+        "Segoe UI",
+        "Trebuchet MS",
+        "Lucida Sans Unicode",
+        "Corbel",
+    }
+)
+
+
+def _font_clash_straddles_serif_sans(font_names: Iterable[str]) -> bool:
+    """Return ``True`` when *font_names* contains both a serif and a
+    sans-serif family (the visually loudest mixed-fonts case)."""
+
+    fonts = set(font_names)
+    return bool(fonts & _SERIF_FONTS) and bool(fonts & _SANS_FONTS)
 
 
 def _check_mixed_fonts(document: "Document") -> Iterable[Finding]:
     for index, paragraph in enumerate(document.paragraphs):
         names = {run.font.name for run in paragraph.runs if run.font.name}
         if len(names) > 1:
+            font_names = tuple(sorted(names))
+            straddles = _font_clash_straddles_serif_sans(font_names)
             yield Finding(
                 rule="mixed-fonts",
-                severity="info",
+                # Issue #680: a serif + sans clash is a much more
+                # visible defect than two sans-serif fonts that
+                # happen to differ — escalate to ``warning`` for the
+                # straddling case so an LLM-author lint pass treats
+                # it as actionable rather than noise.
+                severity="warning" if straddles else "info",
                 message=(
                     f"paragraph {index} uses multiple font families: "
-                    + ", ".join(sorted(names))
+                    + ", ".join(font_names)
                 ),
                 paragraph_index=index,
                 autofix_available=False,
                 autofix_description=None,
                 location=f"paragraph {index}",
+                # Issue #680: callers should not have to regex-parse
+                # the message to recover the offending font names.
+                details=MappingProxyType(
+                    {
+                        "font_names": font_names,
+                        "count": len(font_names),
+                        "straddles_serif_sans": straddles,
+                    }
+                ),
             )
 
 
 def _document_filename_stem(document: "Document") -> Optional[str]:
     """Best-effort guess at the filename stem the document was loaded from.
 
-    python-docx's ``Document()`` factory does not retain the load path
-    on the document object, so the linter looks for a side-channel hint
-    set by the caller as ``document._lint_filename = "..."``. That keeps
-    the lint module a strict consumer of the public API while still
-    giving callers a clean way to opt into the filename-based autofix::
+    The :func:`docx.Document` factory automatically records the load path
+    on the document as the side-channel ``_lint_filename`` attribute when
+    called with a ``str`` / :class:`os.PathLike` argument, so this works
+    out-of-the-box for documents loaded from disk::
 
-        doc = Document("draft.docx")
-        doc._lint_filename = "draft.docx"
+        from docx import Document
+        from docx.kit import lint
+
+        doc = Document("draft.docx")            # _lint_filename auto-set
         report = lint.lint(doc)
         report.autofix(rules=["missing-document-title"])
+
+    Callers loading from an in-memory stream can pass the filename
+    explicitly via :func:`lint`'s ``source_path`` keyword (which sets the
+    same side-channel attribute for the duration of the lint pass) or
+    by assigning ``document._lint_filename`` directly.
 
     Falls back to scanning the package / part for a stored path
     attribute should one ever be added to the core API.
@@ -753,16 +1600,22 @@ def _check_missing_document_title(document: "Document") -> Iterable[Finding]:
     if title and title.strip():
         return
     stem = _document_filename_stem(document)
-    autofix = stem is not None
+    if stem is None:
+        # No filename hint available — there's no autofix path and no
+        # actionable signal to the caller, so stay silent rather than
+        # emitting a permanent ``info`` finding the user can't address.
+        # When a hint becomes available (loaded via ``Document(path)``,
+        # passed via ``lint(..., source_path=...)``, or set directly on
+        # ``document._lint_filename``) the finding fires with the
+        # autofix attached.
+        return
     yield Finding(
         rule="missing-document-title",
         severity="info",
         message="document core property 'title' is empty",
         paragraph_index=None,
-        autofix_available=autofix,
-        autofix_description=(
-            f"set core property 'title' to {stem!r}" if autofix else None
-        ),
+        autofix_available=True,
+        autofix_description=f"set core property 'title' to {stem!r}",
         location="core properties",
     )
 
@@ -781,18 +1634,187 @@ def _autofix_missing_document_title(
 
 
 def _check_over_long_paragraph(document: "Document") -> Iterable[Finding]:
+    config = _current_config()
+    threshold = config.over_long_threshold
+    exemptions = config.style_exemptions
     for index, paragraph in enumerate(document.paragraphs):
         text = paragraph.text
-        if len(text) > _OVER_LONG_THRESHOLD:
-            # Skip headings — the rule targets body prose, not titles.
-            if _heading_level(paragraph) is not None:
+        if len(text) <= threshold:
+            continue
+        # Skip headings — the rule targets body prose, not titles.
+        if _heading_level(paragraph) is not None:
+            continue
+        # Skip styles whose long bodies are bounded by editorial intent
+        # rather than reading-line ergonomics (lists, captions,
+        # footnotes, quotes, etc.).
+        if exemptions and _paragraph_style_name_raw(paragraph) in exemptions:
+            continue
+        yield Finding(
+            rule="over-long-paragraph",
+            severity="info",
+            message=(
+                f"paragraph {index} is {len(text)} characters long "
+                f"(threshold {threshold})"
+            ),
+            paragraph_index=index,
+            autofix_available=False,
+            autofix_description=None,
+            location=f"paragraph {index}",
+            details=MappingProxyType(
+                {
+                    "char_count": len(text),
+                    "threshold": threshold,
+                }
+            ),
+        )
+
+
+def _check_table_without_header_row(document: "Document") -> Iterable[Finding]:
+    """Yield a finding for every table whose first row is not flagged as a header.
+
+    A WCAG 1.3.1 (Info & Relationships) accessibility check. Word
+    represents the header-row marker as ``<w:trPr>/<w:tblHeader/>`` on
+    the row's XML; python-docx exposes it as the public
+    :attr:`docx.table._Row.is_header` boolean. When the flag is absent
+    Word will not repeat the row when the table breaks across pages and
+    screen readers will not announce it as a header.
+
+    No autofix — declaring which row is the header is meaning-bearing
+    and must be confirmed by the author.
+    """
+    try:
+        tables = list(document.tables)
+    except Exception:  # pragma: no cover - defensive
+        return
+    for table_index, table in enumerate(tables):
+        try:
+            rows = list(table.rows)
+        except Exception:  # pragma: no cover - defensive
+            continue
+        if not rows:
+            continue
+        first_row = rows[0]
+        try:
+            if first_row.is_header:
+                continue
+        except Exception:  # pragma: no cover - defensive
+            continue
+        yield Finding(
+            rule="table-without-header-row",
+            severity="warning",
+            message=(
+                f"table {table_index} first row is not flagged as a "
+                f"header (w:tblHeader missing); Word will not repeat "
+                f"the row across pages and screen readers will not "
+                f"announce it as a header"
+            ),
+            paragraph_index=None,
+            autofix_available=False,
+            autofix_description=None,
+            location=f"table {table_index}",
+        )
+
+
+def _check_trailing_empty_paragraph(
+    document: "Document",
+) -> Iterable[Finding]:
+    """Flag trailing empty paragraphs at the very end of the document.
+
+    Closes #677. The standard ``empty-paragraph`` rule only catches the
+    second-and-subsequent paragraph in a *consecutive* run, so a single
+    trailing empty paragraph at end-of-document (or two — the first is
+    silent on the existing rule) is silently shipped.
+
+    This rule complements ``empty-paragraph`` by surfacing every empty
+    paragraph in the trailing run, including the first. Word users
+    routinely leave a phantom empty paragraph at the bottom; LLM
+    authors emit them even more reliably. The autofix removes them
+    one-by-one in reverse order.
+    """
+
+    paragraphs = document.paragraphs
+    if not paragraphs:
+        return
+    # Walk backwards from the end, collecting trailing empties.
+    trailing_indices: List[int] = []
+    for i in range(len(paragraphs) - 1, -1, -1):
+        if paragraphs[i].text.strip():
+            break
+        trailing_indices.append(i)
+    if not trailing_indices:
+        return
+    # Word almost always carries a single empty paragraph at the end of
+    # body content as a section-properties anchor; flagging that one is
+    # noisy. Only surface a finding when the trailing run is two or
+    # more, OR when the document is genuinely tiny (<= 3 paragraphs and
+    # the last is empty — that's clearly authoring residue).
+    if len(trailing_indices) < 2 and len(paragraphs) > 3:
+        return
+    # Emit findings in document order, oldest-first, so the autofix
+    # ordering (reverse-paragraph-index in LintReport.autofix) deletes
+    # from the bottom up.
+    for idx in sorted(trailing_indices):
+        yield Finding(
+            rule="trailing-empty-paragraph",
+            severity="info",
+            message=(
+                f"paragraph {idx} is a trailing empty paragraph "
+                f"({len(trailing_indices)} trailing empties total)"
+            ),
+            paragraph_index=idx,
+            autofix_available=True,
+            autofix_description="remove trailing empty paragraph",
+            location=f"paragraph {idx}",
+        )
+
+
+def _autofix_trailing_empty_paragraph(
+    document: "Document", finding: Finding
+) -> bool:
+    if finding.paragraph_index is None:
+        return False
+    try:
+        paragraph = document.paragraphs[finding.paragraph_index]
+    except IndexError:
+        return False
+    if paragraph.text.strip():
+        return False
+    try:
+        paragraph.delete()
+    except Exception:  # pragma: no cover - defensive
+        return False
+    return True
+
+
+
+def _check_bare_url(document: "Document") -> Iterable[Finding]:
+    for index, paragraph in enumerate(document.paragraphs):
+        text = paragraph.text
+        if not text:
+            continue
+        # Pre-filter cheaply before invoking the regex.
+        if "http" not in text and "www." not in text:
+            continue
+        # Collect the visible text of any hyperlinks already present in
+        # the paragraph; URL strings appearing inside that visible text
+        # are wrapped, so they should not be flagged.
+        try:
+            hyperlink_texts = [hl.text for hl in paragraph.hyperlinks]
+        except Exception:  # pragma: no cover - defensive
+            hyperlink_texts = []
+        for match in _BARE_URL_RE.finditer(text):
+            url = match.group(0).rstrip(_URL_TRAILING_PUNCT)
+            if not url:
+                continue
+            wrapped = any(url in ht for ht in hyperlink_texts)
+            if wrapped:
                 continue
             yield Finding(
-                rule="over-long-paragraph",
+                rule="bare-url",
                 severity="info",
                 message=(
-                    f"paragraph {index} is {len(text)} characters long "
-                    f"(threshold {_OVER_LONG_THRESHOLD})"
+                    f"paragraph {index} contains bare URL {url!r} "
+                    f"not wrapped in a hyperlink"
                 ),
                 paragraph_index=index,
                 autofix_available=False,
@@ -804,7 +1826,7 @@ def _check_over_long_paragraph(document: "Document") -> Iterable[Finding]:
 def _check_placeholder_text(document: "Document") -> Iterable[Finding]:
     for index, paragraph in enumerate(document.paragraphs):
         text = paragraph.text
-        for pattern in _PLACEHOLDER_PATTERNS:
+        for pattern, category in _PLACEHOLDER_PATTERNS:
             match = pattern.search(text)
             if match is None:
                 continue
@@ -819,8 +1841,62 @@ def _check_placeholder_text(document: "Document") -> Iterable[Finding]:
                 autofix_available=False,
                 autofix_description=None,
                 location=f"paragraph {index}",
+                # Issue #681: surface the matched placeholder and a
+                # stable category tag so consumers can group findings
+                # without regex-parsing the message.
+                details=MappingProxyType(
+                    {
+                        "placeholder": match.group(0),
+                        "category": category,
+                    }
+                ),
             )
             break  # one finding per paragraph regardless of how many
+
+
+def _check_excessive_font_size_variation(
+    document: "Document",
+) -> Iterable[Finding]:
+    # Aggregate every explicit run-level font size on body (non-heading)
+    # paragraphs. ``run.font.size`` is ``None`` when the run inherits from
+    # its paragraph / character style — those cases are *not* drift, so
+    # we skip them. Sizes are stored as ``Length`` (EMU) but compare and
+    # render naturally as point values via ``.pt``.
+    sizes: "OrderedDict[int, None]" = OrderedDict()
+    for paragraph in document.paragraphs:
+        if _heading_level(paragraph) is not None:
+            # Headings are intentionally larger / smaller than body
+            # prose; including them would false-positive every styled
+            # document.
+            continue
+        for run in paragraph.runs:
+            try:
+                size = run.font.size
+            except Exception:  # pragma: no cover - defensive
+                size = None
+            if size is None:
+                continue
+            try:
+                pt_value = int(round(float(size.pt)))
+            except Exception:  # pragma: no cover - defensive
+                continue
+            sizes.setdefault(pt_value, None)
+    if len(sizes) <= _EXCESSIVE_FONT_SIZE_THRESHOLD:
+        return
+    sorted_sizes = sorted(sizes.keys())
+    pretty = ", ".join(str(s) for s in sorted_sizes)
+    yield Finding(
+        rule="excessive-font-size-variation",
+        severity="info",
+        message=(
+            f"document body uses {len(sorted_sizes)} distinct explicit "
+            f"font sizes ({pretty} pt); consider consolidating via styles"
+        ),
+        paragraph_index=None,
+        autofix_available=False,
+        autofix_description=None,
+        location="document body",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -834,14 +1910,18 @@ BUILTIN_RULES: Tuple[str, ...] = (
     "tab-instead-of-indent",
     "mixed-quotes",
     "empty-paragraph",
+    "trailing-empty-paragraph",
     "inconsistent-heading-levels",
     "missing-alt-text",
     "mixed-fonts",
     "missing-document-title",
     "over-long-paragraph",
     "placeholder-text",
+    "table-without-header-row",
+    "bare-url",
+    "excessive-font-size-variation",
 )
-"""The eleven built-in rule identifiers, in registration order."""
+"""The built-in rule identifiers, in registration order."""
 
 
 def _install_builtin_rules() -> None:
@@ -870,6 +1950,11 @@ def _install_builtin_rules() -> None:
         "empty-paragraph", _check_empty_paragraph, _autofix_empty_paragraph
     )
     register_rule(
+        "trailing-empty-paragraph",
+        _check_trailing_empty_paragraph,
+        _autofix_trailing_empty_paragraph,
+    )
+    register_rule(
         "inconsistent-heading-levels", _check_inconsistent_heading_levels
     )
     register_rule("missing-alt-text", _check_missing_alt_text)
@@ -881,6 +1966,14 @@ def _install_builtin_rules() -> None:
     )
     register_rule("over-long-paragraph", _check_over_long_paragraph)
     register_rule("placeholder-text", _check_placeholder_text)
+    register_rule(
+        "table-without-header-row", _check_table_without_header_row
+    )
+    register_rule("bare-url", _check_bare_url)
+    register_rule(
+        "excessive-font-size-variation",
+        _check_excessive_font_size_variation,
+    )
 
 
 _install_builtin_rules()
