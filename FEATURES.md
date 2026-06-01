@@ -4081,6 +4081,18 @@ the hint via `lint(doc, source_path="report.docx")` or set
 the rule stays silent rather than emitting a permanent `info`
 finding the caller can't act on (issue #648).
 
+Every paragraph- / run- / picture-scoped rule now walks the *whole*
+document via `Document.iter_all_paragraphs()` (#673), so headers,
+footers, footnotes, endnotes, comments, and table-cell paragraphs
+are checked alongside the body. Non-body findings carry the walker's
+location tag verbatim on `Finding.location`
+(`"header:section0:primary"`, `"footnote:2"`,
+`"table:0:row:0:col:0"`, …) and leave `Finding.paragraph_index`
+unset; body findings keep the legacy `"paragraph N"` locator and a
+populated `paragraph_index` so existing autofix lookups continue to
+work. Non-body findings carry `autofix_available=False` —
+cross-story autofixes are a follow-up. `[Updated in 2026.06.01]`
+
 ### Brand-guideline validator
 
 `docx.kit.brand.validate_brand` lints a document against a brand palette

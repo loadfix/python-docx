@@ -2705,3 +2705,269 @@ class DescribeTrailingWhitespaceStructural:
         para.add_run("")  # empty trailing run
         report = lint(document)
         assert "trailing-whitespace" in [f.rule for f in report.findings]
+
+
+# ---------------------------------------------------------------------------
+# Cross-story walker (issue #673)
+# ---------------------------------------------------------------------------
+
+
+class DescribeCrossStoryWalk:
+    """Every paragraph-/run-/picture-scoped rule walks every story.
+
+    Closes #673 — header / footer / footnote / endnote / comment /
+    table-cell content used to be silently skipped because the rules
+    iterated ``document.paragraphs`` (body-only). The migration switches
+    each rule to ``Document.iter_all_paragraphs()`` (or its run /
+    picture sibling) and tags non-body findings with the walker's
+    ``location`` string.
+    """
+
+    # -- Helpers ----------------------------------------------------------
+
+    @staticmethod
+    def _doc_with_violations() -> DocumentCls:
+        """Build a document carrying a violation in every story."""
+        doc = Document()
+
+        # -- body: a placeholder ("TODO:") --
+        doc.add_paragraph("body content with TODO: insert client name")
+
+        # -- table cell: trailing whitespace --
+        table = doc.add_table(rows=1, cols=1)
+        table.cell(0, 0).text = "table cell text   "
+
+        # -- header: placeholder + double-trailing-space --
+        doc.sections[0].header.paragraphs[0].text = (
+            "Confidential — TODO: stamp version "
+        )
+
+        # -- footer: trailing whitespace + bare URL --
+        doc.sections[0].footer.paragraphs[0].text = (
+            "see https://example.com   "
+        )
+
+        # -- footnote: a placeholder --
+        host_run = doc.add_paragraph("body host").runs[0]
+        doc.footnotes.add(host_run, "footnote TODO: cite source")
+
+        # -- endnote: trailing whitespace --
+        en_run = doc.add_paragraph("end host").runs[0]
+        doc.endnotes.add(en_run, "endnote text  ")
+
+        # -- comment: placeholder --
+        cm_run = doc.add_paragraph("comment host").runs[0]
+        doc.add_comment(cm_run, "comment TODO: revisit", author="QA")
+
+        return doc
+
+    # -- Paragraph-scoped rule (placeholder-text) -------------------------
+
+    def it_flags_placeholder_text_in_every_story(self):
+        doc = self._doc_with_violations()
+
+        report = lint(doc)
+        placeholders = [
+            f for f in report.findings if f.rule == "placeholder-text"
+        ]
+
+        # -- at least one finding per story carrying a TODO: --
+        locations = {f.location for f in placeholders}
+        # body finding uses the legacy ``"paragraph N"`` shape
+        assert any(loc and loc.startswith("paragraph ") for loc in locations)
+        # header / footnote / comment carry the walker tag verbatim
+        assert any(
+            loc and loc.startswith("header:section0:primary")
+            for loc in locations
+        )
+        assert any(
+            loc and loc.startswith("footnote:") for loc in locations
+        )
+        assert any(
+            loc and loc.startswith("comment:") for loc in locations
+        )
+
+    def it_propagates_walker_location_tag_to_finding_location(self):
+        doc = self._doc_with_violations()
+
+        report = lint(doc)
+        ph_locations = {
+            f.location
+            for f in report.findings
+            if f.rule == "placeholder-text"
+        }
+        # Header location uses the walker's exact tag form.
+        assert "header:section0:primary" in ph_locations
+
+    def it_marks_body_findings_with_paragraph_index_set(self):
+        doc = self._doc_with_violations()
+
+        report = lint(doc)
+        body_findings = [
+            f
+            for f in report.findings
+            if f.rule == "placeholder-text"
+            and f.location
+            and f.location.startswith("paragraph ")
+        ]
+        assert body_findings  # the body TODO must surface
+        assert all(f.paragraph_index is not None for f in body_findings)
+        assert all(f.autofix_available is False for f in body_findings)
+
+    def it_leaves_paragraph_index_unset_on_non_body_findings(self):
+        doc = self._doc_with_violations()
+
+        report = lint(doc)
+        non_body = [
+            f
+            for f in report.findings
+            if f.rule == "placeholder-text"
+            and f.location
+            and not f.location.startswith("paragraph ")
+        ]
+        assert non_body
+        assert all(f.paragraph_index is None for f in non_body)
+
+    # -- Run-scoped rule (mixed-fonts) ------------------------------------
+
+    def it_flags_mixed_fonts_in_a_header(self):
+        doc = Document()
+        # Body is clean; only the header carries the violation.
+        header_para = doc.sections[0].header.paragraphs[0]
+        header_para.text = ""  # clear the implicit single empty run
+        r1 = header_para.add_run("Title")
+        r1.font.name = "Calibri"
+        r2 = header_para.add_run("Caption")
+        r2.font.name = "Times New Roman"
+
+        report = lint(doc)
+        mf = [f for f in report.findings if f.rule == "mixed-fonts"]
+        assert mf
+        assert any(
+            f.location and f.location.startswith("header:") for f in mf
+        )
+        # Non-body finding leaves paragraph_index unset.
+        for finding in mf:
+            if finding.location and finding.location.startswith("header:"):
+                assert finding.paragraph_index is None
+                assert finding.autofix_available is False
+
+    # -- Picture-scoped rule (missing-alt-text) ---------------------------
+
+    def it_flags_missing_alt_text_in_a_header(self):
+        import os
+
+        # Reuse the python-docx test fixture image.
+        fixture = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "test_files",
+            "monty-truth.png",
+        )
+        if not os.path.exists(fixture):  # pragma: no cover - fixture missing
+            pytest.skip("fixture image not present")
+
+        doc = Document()
+        header_para = doc.sections[0].header.paragraphs[0]
+        run = header_para.add_run()
+        run.add_picture(fixture)  # no alt text → finding
+
+        report = lint(doc)
+        alt = [f for f in report.findings if f.rule == "missing-alt-text"]
+        assert alt
+        # The locator threads through the walker's header tag.
+        assert any(
+            f.location and "header:section0:primary" in f.location
+            for f in alt
+        )
+
+    # -- Accumulator-scoped rule (empty-paragraph) ------------------------
+
+    def it_flags_consecutive_empty_paragraphs_in_a_footer(self):
+        doc = Document()
+        # Body untouched. Stuff three empty paragraphs into the footer.
+        footer = doc.sections[0].footer
+        footer.paragraphs[0].text = ""
+        footer.add_paragraph("")
+        footer.add_paragraph("")
+        footer.add_paragraph("")
+
+        report = lint(doc)
+        empties = [
+            f for f in report.findings if f.rule == "empty-paragraph"
+        ]
+        # The first empty starts a run; second / third are findings.
+        assert empties
+        assert all(
+            f.location and f.location.startswith("footer:") for f in empties
+        )
+        for finding in empties:
+            assert finding.paragraph_index is None
+            assert finding.autofix_available is False
+
+    def it_resets_empty_paragraph_run_at_story_boundaries(self):
+        # An empty paragraph at the end of the body must not pair up
+        # with the first paragraph of the next story (a header) — the
+        # accumulator state resets at every location change.
+        doc = Document()
+        doc.add_paragraph("body line 1")
+        # End of body sometimes carries an empty paragraph; the
+        # cross-story walker shouldn't pair it with header content.
+        header_para = doc.sections[0].header.paragraphs[0]
+        header_para.text = ""  # empty header paragraph
+
+        report = lint(doc)
+        empties = [
+            f for f in report.findings if f.rule == "empty-paragraph"
+        ]
+        # No findings — the body has at most one trailing empty (which
+        # is silent; "consecutive" means second-and-subsequent), and
+        # the header has just one empty paragraph (also silent).
+        assert empties == []
+
+    # -- Round-trip: body-only assertions still pass ----------------------
+
+    def it_round_trips_existing_body_only_behaviour(self):
+        # A pure-body document still surfaces the same findings with
+        # the legacy ``"paragraph N"`` location string and an active
+        # autofix for body-scoped rules.
+        doc = Document()
+        doc.add_paragraph("hello   world")  # multiple-spaces, body
+        doc.add_paragraph("trailing space   ")  # trailing-whitespace
+
+        report = lint(doc)
+
+        ms = [f for f in report.findings if f.rule == "multiple-spaces"]
+        assert ms and ms[0].paragraph_index == 0
+        assert ms[0].location and ms[0].location.startswith("paragraph 0")
+        assert ms[0].autofix_available is True
+
+        tw = [
+            f
+            for f in report.findings
+            if f.rule == "trailing-whitespace"
+        ]
+        assert tw and tw[0].paragraph_index == 1
+        assert tw[0].location == "paragraph 1"
+        assert tw[0].autofix_available is True
+
+    def it_runs_autofix_only_for_body_findings(self):
+        # Body autofixes still work; non-body findings are skipped (no
+        # `paragraph_index` to resolve).
+        doc = Document()
+        doc.add_paragraph("body   double")
+        doc.sections[0].footer.paragraphs[0].text = "footer   double"
+
+        report = lint(doc)
+        ms = [f for f in report.findings if f.rule == "multiple-spaces"]
+        assert ms
+        body_ms = [f for f in ms if f.paragraph_index is not None]
+        non_body_ms = [f for f in ms if f.paragraph_index is None]
+        assert body_ms
+        assert non_body_ms
+
+        applied = report.autofix(rules=["multiple-spaces"])
+        assert applied >= 1
+        # Body got fixed.
+        assert doc.paragraphs[0].text == "body double"
+        # Footer was untouched (autofix path skipped — non-body finding).
+        assert "   " in doc.sections[0].footer.paragraphs[0].text

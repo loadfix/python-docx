@@ -33,6 +33,18 @@ without mutation and returns a :class:`Finding`. Stage two
 (``LintReport.autofix``) is the only mutation step; callers can opt out
 per-rule via the ``rules=[...]`` filter.
 
+Every paragraph- / run- / picture-scoped rule walks the *whole*
+document via :meth:`Document.iter_all_paragraphs` (#673), so headers,
+footers, footnotes, endnotes, comments, and table-cell paragraphs are
+checked alongside the body. Non-body findings carry the walker's
+location tag verbatim (``"header:section0:primary"``,
+``"footnote:2"``, ``"table:0:row:0:col:0"``, …) on
+:attr:`Finding.location` and leave :attr:`Finding.paragraph_index`
+unset; body findings keep the legacy ``"paragraph N"`` locator and a
+populated ``paragraph_index`` so existing body-only autofix paths
+continue to work. ``autofix_available`` is ``False`` for non-body
+findings — cross-story autofixes are a follow-up.
+
 Built-in rules (twelve total):
 
 * ``multiple-spaces`` (warning, autofix) — three or more consecutive
@@ -238,9 +250,14 @@ class Finding:
     message
         Human-readable explanation of the issue, suitable for printing.
     paragraph_index
-        Index of the paragraph the finding applies to, or ``None`` when
-        the finding is document-level (e.g. ``missing-document-title``)
-        or table-scoped (in which case ``location`` carries the locator).
+        Index of the paragraph the finding applies to in
+        :attr:`Document.paragraphs`, or ``None`` when the finding is
+        document-level (e.g. ``missing-document-title``), table-scoped
+        (in which case ``location`` carries the locator), or sourced
+        from a non-body story (header / footer / footnote / endnote /
+        comment / table cell — closes #673). Non-body findings carry
+        the walker's location tag verbatim on :attr:`location` and
+        always set :attr:`autofix_available` to ``False``.
     autofix_available
         ``True`` when the rule registered an autofix callback *and* the
         callback can apply for this finding.
@@ -1147,6 +1164,69 @@ def _document_has_a11y_intent(
 # ---------------------------------------------------------------------------
 
 
+def _iter_all_paragraphs_indexed(
+    document: "Document",
+) -> "Iterator[Tuple[int, Paragraph, str, Optional[int]]]":
+    """Yield ``(global_index, paragraph, location, body_index)`` across every story.
+
+    Wraps :meth:`Document.iter_all_paragraphs` (issue #662) and adds two
+    pieces of bookkeeping every paragraph-scoped lint rule needs:
+
+    * ``global_index`` — a monotonically-increasing 0-based counter that
+      runs across every story in iteration order. Used by rules whose
+      finding location strings need a stable per-document index even on
+      non-body paragraphs.
+    * ``body_index`` — the index of the paragraph in
+      :attr:`Document.paragraphs` for body paragraphs (so existing
+      ``document.paragraphs[paragraph_index]`` autofix lookups still
+      work) and |None| for paragraphs in any other story (header,
+      footer, footnote, endnote, comment, table cell). Body autofixes
+      key on this; non-body findings carry ``autofix_available=False``
+      so the autofix path is never tried.
+
+    The walker yields paragraphs in the same order as
+    :meth:`Document.iter_all_paragraphs`: body first (including body
+    paragraphs nested inside top-level tables), then headers / footers
+    by section, then footnotes, endnotes, and comments. The body group
+    appears first in that ordering so the body-index counter advances
+    contiguously over the same paragraphs ``document.paragraphs``
+    enumerates.
+
+    Closes #673 — the cross-story walker is the single mechanical
+    migration step every paragraph-scoped rule needs.
+    """
+
+    iter_paragraphs = getattr(document, "iter_all_paragraphs", None)
+    if not callable(iter_paragraphs):  # pragma: no cover - older Document
+        for index, paragraph in enumerate(document.paragraphs):
+            yield index, paragraph, "body", index
+        return
+    body_index = 0
+    for global_index, (paragraph, location) in enumerate(iter_paragraphs()):
+        if location == "body":
+            yield global_index, paragraph, location, body_index
+            body_index += 1
+        else:
+            yield global_index, paragraph, location, None
+
+
+def _location_message_prefix(location: str, body_index: Optional[int]) -> str:
+    """Return the locator prefix to embed in a finding message.
+
+    Body paragraphs get the legacy ``"paragraph N"`` shape so existing
+    consumers parsing message strings see no change. Non-body
+    paragraphs get the walker's tag verbatim plus a trailing ``" "``
+    placeholder removed by callers — which is to say, the caller
+    embeds ``loc`` directly. Use the helper output as a drop-in for
+    the prior ``f"paragraph {index}"`` interpolation; for non-body
+    findings the locator is the story tag (``"footer:section0:primary"``
+    etc.).
+    """
+    if body_index is not None:
+        return f"paragraph {body_index}"
+    return location
+
+
 def _joined_runs_text_with_offsets(
     paragraph: "Paragraph",
 ) -> Tuple[str, List[Tuple[int, int, int]]]:
@@ -1333,7 +1413,15 @@ def _check_multiple_spaces(document: "Document") -> Iterable[Finding]:
         pattern = _multi_space_re()
     else:
         pattern = _multi_space_pattern(config.multi_space_minimum)
-    for index, paragraph in enumerate(document.paragraphs):
+    # Cross-story walk — body, table cells, headers / footers, footnotes,
+    # endnotes, and comments. Body paragraphs keep the legacy
+    # ``"paragraph N"`` locator (and ``paragraph_index`` populated so
+    # autofixes still resolve via ``document.paragraphs[idx]``);
+    # non-body paragraphs surface the walker's location tag verbatim
+    # and carry ``autofix_available=False``. Closes #673.
+    for _global_index, paragraph, location, body_index in (
+        _iter_all_paragraphs_indexed(document)
+    ):
         joined, spans = _joined_runs_text_with_offsets(paragraph)
         if not joined:
             continue
@@ -1351,21 +1439,19 @@ def _check_multiple_spaces(document: "Document") -> Iterable[Finding]:
             continue
         affected = _runs_for_match(spans, match.start(), match.end())
         first_run = affected[0] if affected else 0
-        location = (
-            f"paragraph {index} run {first_run}"
-            if len(affected) <= 1
-            else (
-                f"paragraph {index} runs {affected[0]}-{affected[-1]}"
-            )
-        )
+        prefix = _location_message_prefix(location, body_index)
+        if len(affected) <= 1:
+            location_str = f"{prefix} run {first_run}"
+        else:
+            location_str = f"{prefix} runs {affected[0]}-{affected[-1]}"
         if len(affected) <= 1:
             message = (
-                f"paragraph {index} run {first_run} contains "
+                f"{prefix} run {first_run} contains "
                 f"{len(match.group(0))} consecutive spaces"
             )
         else:
             message = (
-                f"paragraph {index} contains "
+                f"{prefix} contains "
                 f"{len(match.group(0))} consecutive spaces "
                 f"spanning runs {affected[0]}-{affected[-1]}"
             )
@@ -1373,10 +1459,14 @@ def _check_multiple_spaces(document: "Document") -> Iterable[Finding]:
             rule="multiple-spaces",
             severity="warning",
             message=message,
-            paragraph_index=index,
-            autofix_available=True,
-            autofix_description="collapse runs of spaces to a single space",
-            location=location,
+            paragraph_index=body_index,
+            autofix_available=body_index is not None,
+            autofix_description=(
+                "collapse runs of spaces to a single space"
+                if body_index is not None
+                else None
+            ),
+            location=location_str,
             details=MappingProxyType(
                 {
                     "run_index": first_run,
@@ -1454,7 +1544,14 @@ def _has_trailing_authored_whitespace(paragraph: "Paragraph") -> bool:
 
 
 def _check_trailing_whitespace(document: "Document") -> Iterable[Finding]:
-    for index, paragraph in enumerate(document.paragraphs):
+    # Cross-story walk (closes #673): any story may carry trailing
+    # whitespace — a footer with ``Page  X of  Y `` is the headline
+    # case the issue calls out. Body paragraphs keep the legacy
+    # locator + autofix; non-body paragraphs surface the walker's
+    # location tag and skip the autofix.
+    for _global_index, paragraph, location, body_index in (
+        _iter_all_paragraphs_indexed(document)
+    ):
         if not paragraph.runs:
             continue
         if not _has_trailing_authored_whitespace(paragraph):
@@ -1465,14 +1562,17 @@ def _check_trailing_whitespace(document: "Document") -> Iterable[Finding]:
         # #649.
         if _is_trailing_whitespace_exempt_style(paragraph):
             continue
+        prefix = _location_message_prefix(location, body_index)
         yield Finding(
             rule="trailing-whitespace",
             severity="warning",
-            message=f"paragraph {index} ends with whitespace",
-            paragraph_index=index,
-            autofix_available=True,
-            autofix_description="trim trailing whitespace",
-            location=f"paragraph {index}",
+            message=f"{prefix} ends with whitespace",
+            paragraph_index=body_index,
+            autofix_available=body_index is not None,
+            autofix_description=(
+                "trim trailing whitespace" if body_index is not None else None
+            ),
+            location=prefix,
         )
 
 
@@ -1543,7 +1643,14 @@ _TAB_INDENT_PT = 36
 
 
 def _check_tab_instead_of_indent(document: "Document") -> Iterable[Finding]:
-    for index, paragraph in enumerate(document.paragraphs):
+    # Cross-story walk (closes #673). Header / footer paragraphs may
+    # also start with a literal tab the author typed instead of
+    # configuring an indent. Body autofix path is preserved; non-body
+    # findings carry ``autofix_available=False`` (left_indent on
+    # header / footer paragraphs is out of scope for this PR).
+    for _global_index, paragraph, location, body_index in (
+        _iter_all_paragraphs_indexed(document)
+    ):
         # Use the first run's text rather than paragraph.text — Paragraph.text
         # maps `<w:tab/>` elements to `\t`, which would mis-fire on
         # legitimate field separators. Run.text only contains the literal
@@ -1564,19 +1671,22 @@ def _check_tab_instead_of_indent(document: "Document") -> Iterable[Finding]:
         # with the right indent multiple and the message can report it.
         tab_count = len(first_text) - len(first_text.lstrip("\t"))
         plural = "s" if tab_count != 1 else ""
+        prefix = _location_message_prefix(location, body_index)
         yield Finding(
             rule="tab-instead-of-indent",
             severity="warning",
             message=(
-                f"paragraph {index} starts with {tab_count} literal "
+                f"{prefix} starts with {tab_count} literal "
                 f"tab character{plural}"
             ),
-            paragraph_index=index,
-            autofix_available=True,
+            paragraph_index=body_index,
+            autofix_available=body_index is not None,
             autofix_description=(
                 "replace leading tab(s) with paragraph left-indent"
+                if body_index is not None
+                else None
             ),
-            location=f"paragraph {index}",
+            location=prefix,
         )
 
 
@@ -1650,7 +1760,12 @@ def _check_leading_spaces_instead_of_indent(
     document: "Document",
 ) -> Iterable[Finding]:
     threshold = max(2, int(LEADING_SPACES_MIN_RUN))
-    for index, paragraph in enumerate(document.paragraphs):
+    # Cross-story walk (closes #673) — leading-space "fake tabs" can
+    # appear in any story. Body keeps the autofix path; non-body
+    # findings are advisory only.
+    for _global_index, paragraph, location, body_index in (
+        _iter_all_paragraphs_indexed(document)
+    ):
         # Use the first run's text — ``paragraph.text`` flattens
         # ``<w:tab/>`` to ``\t`` and would mis-attribute leading
         # whitespace on a paragraph whose first run starts with a tab.
@@ -1676,19 +1791,22 @@ def _check_leading_spaces_instead_of_indent(
         if _is_indented_style(paragraph):
             continue
         plural = "s" if space_count != 1 else ""
+        prefix = _location_message_prefix(location, body_index)
         yield Finding(
             rule="leading-spaces-instead-of-indent",
             severity="info",
             message=(
-                f"paragraph {index} starts with {space_count} leading "
+                f"{prefix} starts with {space_count} leading "
                 f"space{plural}"
             ),
-            paragraph_index=index,
-            autofix_available=True,
+            paragraph_index=body_index,
+            autofix_available=body_index is not None,
             autofix_description=(
                 "replace leading space-run with paragraph left-indent"
+                if body_index is not None
+                else None
             ),
-            location=f"paragraph {index}",
+            location=prefix,
             details=MappingProxyType(
                 {
                     "space_count": space_count,
@@ -1748,21 +1866,27 @@ def _autofix_leading_spaces_instead_of_indent(
 
 
 def _check_mixed_quotes(document: "Document") -> Iterable[Finding]:
-    for index, paragraph in enumerate(document.paragraphs):
+    # Cross-story walk (closes #673). No autofix path so the same code
+    # surfaces findings from headers / footers / footnotes / endnotes /
+    # comments / table cells without any further changes.
+    for _global_index, paragraph, location, body_index in (
+        _iter_all_paragraphs_indexed(document)
+    ):
         text = paragraph.text
         smart_count = sum(1 for ch in text if ch in _SMART_QUOTES)
         straight_count = sum(1 for ch in text if ch in _STRAIGHT_QUOTES)
         if smart_count and straight_count:
+            prefix = _location_message_prefix(location, body_index)
             yield Finding(
                 rule="mixed-quotes",
                 severity="info",
                 message=(
-                    f"paragraph {index} mixes smart (curly) and straight quotes"
+                    f"{prefix} mixes smart (curly) and straight quotes"
                 ),
-                paragraph_index=index,
+                paragraph_index=body_index,
                 autofix_available=False,
                 autofix_description=None,
-                location=f"paragraph {index}",
+                location=prefix,
                 details=MappingProxyType(
                     {
                         "smart_count": smart_count,
@@ -1860,10 +1984,25 @@ def _paragraph_is_truly_empty(paragraph: "Paragraph") -> bool:
 
 
 def _check_empty_paragraph(document: "Document") -> Iterable[Finding]:
-    paragraphs = document.paragraphs
+    # Cross-story walk (closes #673). The accumulator state
+    # (``in_run`` / ``run_start``) tracks consecutive empties *within
+    # a single story* — heading-style skip context doesn't carry
+    # across a body→header boundary, and neither should the empty-
+    # paragraph run. We reset on every location change. The locator
+    # used for ``run_start`` matches the locator used for the
+    # finding (``"paragraph N"`` for body, the walker's tag for
+    # non-body) so the message stays sensible.
     in_run = False
-    run_start: Optional[int] = None
-    for index, paragraph in enumerate(paragraphs):
+    run_start_locator: Optional[str] = None
+    current_location: Optional[str] = None
+    for _global_index, paragraph, location, body_index in (
+        _iter_all_paragraphs_indexed(document)
+    ):
+        if location != current_location:
+            in_run = False
+            run_start_locator = None
+            current_location = location
+        prefix = _location_message_prefix(location, body_index)
         # Use the tightened predicate — a paragraph is "empty" only when
         # both its rendered text is blank *and* it carries no
         # load-bearing XML (page break, bookmark, comment anchor, SDT,
@@ -1872,19 +2011,23 @@ def _check_empty_paragraph(document: "Document") -> Iterable[Finding]:
         if _paragraph_is_truly_empty(paragraph):
             if not in_run:
                 in_run = True
-                run_start = index
+                run_start_locator = prefix
             else:
                 yield Finding(
                     rule="empty-paragraph",
                     severity="info",
                     message=(
-                        f"paragraph {index} is a consecutive empty "
-                        f"paragraph (run started at {run_start})"
+                        f"{prefix} is a consecutive empty "
+                        f"paragraph (run started at {run_start_locator})"
                     ),
-                    paragraph_index=index,
-                    autofix_available=True,
-                    autofix_description="remove this consecutive empty paragraph",
-                    location=f"paragraph {index}",
+                    paragraph_index=body_index,
+                    autofix_available=body_index is not None,
+                    autofix_description=(
+                        "remove this consecutive empty paragraph"
+                        if body_index is not None
+                        else None
+                    ),
+                    location=prefix,
                 )
         else:
             # Either the paragraph has visible text (breaks the run) or
@@ -1893,7 +2036,7 @@ def _check_empty_paragraph(document: "Document") -> Iterable[Finding]:
             # structural content is never a finding and never counts
             # toward the "consecutive empties" run.
             in_run = False
-            run_start = None
+            run_start_locator = None
 
 
 def _autofix_empty_paragraph(document: "Document", finding: Finding) -> bool:
@@ -1919,28 +2062,41 @@ def _autofix_empty_paragraph(document: "Document", finding: Finding) -> bool:
 
 
 def _check_inconsistent_heading_levels(document: "Document") -> Iterable[Finding]:
-    # Treat the implicit pre-document state as "level 0" — same value
+    # Cross-story walk (closes #673). Heading hierarchy is per-story —
+    # a header-story heading skip is independent from a body-story one.
+    # Resetting ``previous_level`` on every story boundary keeps the
+    # rule well-defined when a header carries an H2 even though the
+    # body started at H1.
+    #
+    # Treat the implicit pre-story state as "level 0" — same value
     # ``Title`` / ``Subtitle`` already report from ``_heading_level`` —
     # so the very first heading is required to be ``Heading 1`` (or a
-    # ``Title``-equivalent). A document that starts with ``Heading 2``
-    # or deeper is a level-skip from the document root and is flagged.
+    # ``Title``-equivalent). A story that starts with ``Heading 2``
+    # or deeper is a level-skip from the story root and is flagged.
     previous_level: int = 0
-    for index, paragraph in enumerate(document.paragraphs):
+    current_location: Optional[str] = None
+    for _global_index, paragraph, location, body_index in (
+        _iter_all_paragraphs_indexed(document)
+    ):
+        if location != current_location:
+            previous_level = 0
+            current_location = location
         level = _heading_level(paragraph)
         if level is None or level == 0:
             continue
         if level > previous_level + 1:
+            prefix = _location_message_prefix(location, body_index)
             yield Finding(
                 rule="inconsistent-heading-levels",
                 severity="warning",
                 message=(
-                    f"heading at paragraph {index} jumps from level "
+                    f"heading at {prefix} jumps from level "
                     f"{previous_level} to level {level}"
                 ),
-                paragraph_index=index,
+                paragraph_index=body_index,
                 autofix_available=False,
                 autofix_description=None,
-                location=f"paragraph {index}",
+                location=prefix,
                 details=MappingProxyType(
                     {
                         "level": level,
@@ -2061,20 +2217,40 @@ def _check_trailing_heading(document: "Document") -> Iterable[Finding]:
 
 
 def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
-    shapes = _document_inline_shapes(document)
+    # Cross-story walk (closes #673). Pictures can live in any story —
+    # a header logo and a footnote diagram both deserve alt text.
+    # ``Document.iter_all_pictures()`` yields ``(picture, location)``
+    # tuples covering inline + floating images across body, table
+    # cells, headers / footers, footnotes / endnotes, and comments.
+    iter_pictures = getattr(document, "iter_all_pictures", None)
+    if callable(iter_pictures):
+        picture_pairs: List[Tuple[Any, str]] = list(iter_pictures())
+    else:  # pragma: no cover - defensive (older Document without #662)
+        picture_pairs = [
+            (shape, "body") for shape in _document_inline_shapes(document)
+        ]
+    # The a11y-intent heuristic only knows about inline shapes today.
+    # Pass the inline-shape subset so the severity escalation continues
+    # to fire on documents that already declare alt text on at least
+    # one shape.
+    inline_subset = [
+        shape for shape, _loc in picture_pairs
+        if shape.__class__.__name__ == "InlineShape"
+    ]
     severity = (
-        "warning" if _document_has_a11y_intent(document, shapes) else "info"
+        "warning" if _document_has_a11y_intent(document, inline_subset) else "info"
     )
     # Track each unique image identity so duplicate insertions of the
     # same blob produce one finding instead of N. Shapes with no
     # resolvable identity (charts, SmartArt, malformed blips) always
     # emit — they are the cases most likely to need human attention.
-    # ``seen`` maps identity -> ordered list of every occurrence index;
-    # the first occurrence becomes the canonical location and the rest
-    # surface via ``Finding.details["additional_locations"]``.
-    seen: Dict[str, List[int]] = {}
-    deferred: List[Tuple[int, str, str]] = []
-    for shape_index, shape in enumerate(shapes):
+    # ``seen`` maps identity -> ordered list of every (occurrence_index,
+    # locator) pair; the first occurrence becomes the canonical
+    # location and the rest surface via
+    # ``Finding.details["additional_locations"]``.
+    seen: Dict[str, List[Tuple[int, str]]] = {}
+    deferred: List[Tuple[int, str, str, str]] = []
+    for shape_index, (shape, location) in enumerate(picture_pairs):
         alt = getattr(shape, "alt_text", None)
         title = getattr(shape, "title", None)
         # Treat a non-empty alt OR title as sufficient — Word's own UI
@@ -2085,24 +2261,29 @@ def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
             continue
         if _shape_is_decorative(shape):
             continue
+        # The locator distinguishes body / non-body images.
+        if location == "body":
+            locator = f"inline image {shape_index}"
+        else:
+            locator = f"{location} image {shape_index}"
         identity = _shape_identity(shape)
         if identity is not None:
             existing = seen.get(identity)
             if existing is None:
-                seen[identity] = [shape_index]
-                deferred.append((shape_index, identity, severity))
+                seen[identity] = [(shape_index, locator)]
+                deferred.append((shape_index, identity, severity, locator))
             else:
-                existing.append(shape_index)
+                existing.append((shape_index, locator))
             continue
         # Unkeyed shape — emit immediately, can't dedupe.
         yield Finding(
             rule="missing-alt-text",
             severity=severity,
-            message=f"inline image {shape_index} has no alt text",
+            message=f"{locator} has no alt text",
             paragraph_index=None,
             autofix_available=False,
             autofix_description=None,
-            location=f"inline image {shape_index}",
+            location=locator,
             details=MappingProxyType(
                 {
                     "occurrence_count": 1,
@@ -2110,22 +2291,20 @@ def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
                 }
             ),
         )
-    for first_index, identity, sev in deferred:
-        # The dedupe loop above may have grown the index list; pull the
-        # final occurrence list from ``seen`` so the message and details
+    for first_index, identity, sev, locator in deferred:
+        # The dedupe loop above may have grown the occurrence list;
+        # pull the final list from ``seen`` so the message and details
         # reflect every duplicate.
         occurrences = seen[identity]
         count = len(occurrences)
-        additional = tuple(
-            f"inline image {idx}" for idx in occurrences[1:]
-        )
+        additional = tuple(loc for _idx, loc in occurrences[1:])
         if count > 1:
             message = (
-                f"inline image {first_index} has no alt text "
+                f"{locator} has no alt text "
                 f"(repeated on {count} shapes; same image binary)"
             )
         else:
-            message = f"inline image {first_index} has no alt text"
+            message = f"{locator} has no alt text"
         yield Finding(
             rule="missing-alt-text",
             severity=sev,
@@ -2133,7 +2312,7 @@ def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
             paragraph_index=None,
             autofix_available=False,
             autofix_description=None,
-            location=f"inline image {first_index}",
+            location=locator,
             details=MappingProxyType(
                 {
                     "occurrence_count": count,
@@ -2189,11 +2368,17 @@ def _font_clash_straddles_serif_sans(font_names: Iterable[str]) -> bool:
 
 
 def _check_mixed_fonts(document: "Document") -> Iterable[Finding]:
-    for index, paragraph in enumerate(document.paragraphs):
+    # Cross-story walk (closes #673). Mixed fonts are equally a defect
+    # in a header / footer that combines Calibri body text with a
+    # Times Roman page number as they are in body prose.
+    for _global_index, paragraph, location, body_index in (
+        _iter_all_paragraphs_indexed(document)
+    ):
         names = {run.font.name for run in paragraph.runs if run.font.name}
         if len(names) > 1:
             font_names = tuple(sorted(names))
             straddles = _font_clash_straddles_serif_sans(font_names)
+            prefix = _location_message_prefix(location, body_index)
             yield Finding(
                 rule="mixed-fonts",
                 # Issue #680: a serif + sans clash is a much more
@@ -2203,13 +2388,13 @@ def _check_mixed_fonts(document: "Document") -> Iterable[Finding]:
                 # it as actionable rather than noise.
                 severity="warning" if straddles else "info",
                 message=(
-                    f"paragraph {index} uses multiple font families: "
+                    f"{prefix} uses multiple font families: "
                     + ", ".join(font_names)
                 ),
-                paragraph_index=index,
+                paragraph_index=body_index,
                 autofix_available=False,
                 autofix_description=None,
-                location=f"paragraph {index}",
+                location=prefix,
                 # Issue #680: callers should not have to regex-parse
                 # the message to recover the offending font names.
                 details=MappingProxyType(
@@ -2328,7 +2513,11 @@ def _check_over_long_paragraph(document: "Document") -> Iterable[Finding]:
     config = _current_config()
     threshold = config.over_long_threshold
     exemptions = config.style_exemptions
-    for index, paragraph in enumerate(document.paragraphs):
+    # Cross-story walk (closes #673) — over-long body / header / footer
+    # paragraphs are equally hostile to readability.
+    for _global_index, paragraph, location, body_index in (
+        _iter_all_paragraphs_indexed(document)
+    ):
         text = paragraph.text
         if len(text) <= threshold:
             continue
@@ -2342,17 +2531,18 @@ def _check_over_long_paragraph(document: "Document") -> Iterable[Finding]:
         # so a deliberate compound bullet is not flagged. Closes #649.
         if _is_overlong_exempt_style(paragraph, exemptions):
             continue
+        prefix = _location_message_prefix(location, body_index)
         yield Finding(
             rule="over-long-paragraph",
             severity="info",
             message=(
-                f"paragraph {index} is {len(text)} characters long "
+                f"{prefix} is {len(text)} characters long "
                 f"(threshold {threshold})"
             ),
-            paragraph_index=index,
+            paragraph_index=body_index,
             autofix_available=False,
             autofix_description=None,
-            location=f"paragraph {index}",
+            location=prefix,
             details=MappingProxyType(
                 {
                     "char_count": len(text),
@@ -2526,7 +2716,11 @@ def _autofix_trailing_empty_paragraph(
 
 
 def _check_bare_url(document: "Document") -> Iterable[Finding]:
-    for index, paragraph in enumerate(document.paragraphs):
+    # Cross-story walk (closes #673) — a bare URL pasted into a footer
+    # is just as much an authoring defect as one in body prose.
+    for _global_index, paragraph, location, body_index in (
+        _iter_all_paragraphs_indexed(document)
+    ):
         text = paragraph.text
         if not text:
             continue
@@ -2540,6 +2734,7 @@ def _check_bare_url(document: "Document") -> Iterable[Finding]:
             hyperlink_texts = [hl.text for hl in paragraph.hyperlinks]
         except Exception:  # pragma: no cover - defensive
             hyperlink_texts = []
+        prefix = _location_message_prefix(location, body_index)
         for match in _BARE_URL_RE.finditer(text):
             url = match.group(0).rstrip(_URL_TRAILING_PUNCT)
             if not url:
@@ -2551,19 +2746,24 @@ def _check_bare_url(document: "Document") -> Iterable[Finding]:
                 rule="bare-url",
                 severity="info",
                 message=(
-                    f"paragraph {index} contains bare URL {url!r} "
+                    f"{prefix} contains bare URL {url!r} "
                     f"not wrapped in a hyperlink"
                 ),
-                paragraph_index=index,
+                paragraph_index=body_index,
                 autofix_available=False,
                 autofix_description=None,
-                location=f"paragraph {index}",
+                location=prefix,
             )
 
 
 def _check_placeholder_text(document: "Document") -> Iterable[Finding]:
-    for index, paragraph in enumerate(document.paragraphs):
+    # Cross-story walk (closes #673) — a "TODO: insert client name" in
+    # a header is the issue's headline example.
+    for _global_index, paragraph, location, body_index in (
+        _iter_all_paragraphs_indexed(document)
+    ):
         text = paragraph.text
+        prefix = _location_message_prefix(location, body_index)
         for pattern, category in _PLACEHOLDER_PATTERNS:
             match = pattern.search(text)
             if match is None:
@@ -2572,13 +2772,13 @@ def _check_placeholder_text(document: "Document") -> Iterable[Finding]:
                 rule="placeholder-text",
                 severity="warning",
                 message=(
-                    f"paragraph {index} contains placeholder "
+                    f"{prefix} contains placeholder "
                     f"{match.group(0)!r}"
                 ),
-                paragraph_index=index,
+                paragraph_index=body_index,
                 autofix_available=False,
                 autofix_description=None,
-                location=f"paragraph {index}",
+                location=prefix,
                 # Issue #681: surface the matched placeholder and a
                 # stable category tag so consumers can group findings
                 # without regex-parsing the message.

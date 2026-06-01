@@ -3,6 +3,49 @@
 Release History
 ---------------
 
+Unreleased — ``docx.kit.lint`` walks every story (#673)
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+- ``docx.kit.lint.lint(document)`` no longer iterates ``document.paragraphs``
+  (body-only) for paragraph-/run-/picture-scoped rules. Every rule
+  whose scope is "every paragraph in the document" now composes
+  against the public cross-story walker
+  (:meth:`Document.iter_all_paragraphs` / :meth:`iter_all_runs` /
+  :meth:`iter_all_pictures`, shipped in #708) so headers, footers,
+  footnotes, endnotes, comments, and table-cell paragraphs are
+  surfaced too. A footer with ``Page  X of  Y`` (double space), a
+  header with ``TODO: insert client name``, or a footnote with mixed
+  quotes is now flagged the same as the equivalent body defect.
+
+  Rules migrated: ``multiple-spaces``, ``trailing-whitespace``,
+  ``tab-instead-of-indent``, ``leading-spaces-instead-of-indent``,
+  ``mixed-quotes``, ``empty-paragraph``,
+  ``inconsistent-heading-levels``, ``mixed-fonts``,
+  ``over-long-paragraph``, ``placeholder-text``, ``bare-url``,
+  ``missing-alt-text``. ``excessive-font-size-variation`` was
+  already cross-story (per #646). ``missing-document-title``
+  (document-level), ``table-without-header-row`` (table-scoped),
+  ``trailing-empty-paragraph`` (end-of-body trailing), and
+  ``trailing-heading`` (body-only end-of-document) keep their
+  previous scope.
+
+  Per-story state — the ``empty-paragraph`` consecutive-run
+  accumulator and the ``inconsistent-heading-levels`` previous-level
+  tracker — resets at every story boundary so a body→header
+  transition never pairs the trailing body empty with the header's
+  first paragraph or compares the body's last heading to a header
+  heading.
+
+  Finding shape: ``Finding.location`` now carries the walker's tag
+  verbatim for non-body findings (``"header:section0:primary"``,
+  ``"footnote:2"``, ``"table:0:row:0:col:0"``, …) and keeps the
+  legacy ``"paragraph N"`` shape for body findings.
+  ``Finding.paragraph_index`` is populated only for body findings so
+  existing autofix lookups (``document.paragraphs[paragraph_index]``)
+  keep working. Non-body findings carry
+  ``autofix_available=False`` — the autofix path is body-only in
+  this PR; cross-story autofixes are a follow-up. Closes #673.
+
 Unreleased — Docs: rewrite ``bind_tokens`` module docstring to match MCE reality (#735)
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
