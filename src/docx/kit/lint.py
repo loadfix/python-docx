@@ -110,12 +110,14 @@ Built-in rules (twelve total):
   sentinels (``<replace me>``, ``<your text here>``, ``<insert
   name>``). Manual fix — autoreplace cannot guess the intended
   replacement.
-* ``table-without-header-row`` (warning, no-fix) — the first row of a
-  table is not flagged as a header (``<w:trPr>/<w:tblHeader/>``
+* ``table-without-header-row`` (warning, autofix) — the first row of
+  a table is not flagged as a header (``<w:trPr>/<w:tblHeader/>``
   absent). Word will not repeat the row when the table breaks across
   pages and screen readers will not announce it as a header — a WCAG
-  1.3.1 (Info & Relationships) failure. Manual fix only because
-  declaring which row is the header is meaning-bearing.
+  1.3.1 (Info & Relationships) failure. Autofix sets
+  ``rows[0].is_header = True`` on the affected table; opt out via
+  ``report.autofix(rules=[...])`` when the first row is genuinely a
+  data row rather than headings.
 * ``bare-url`` (info, no-fix) — paragraph contains a raw URL string
   (``https://...``, ``http://...``, ``www....``) that is not wrapped in
   a ``<w:hyperlink>`` element. Manual fix only — choosing the visible
@@ -1766,8 +1768,11 @@ def _check_table_without_header_row(document: "Document") -> Iterable[Finding]:
     Word will not repeat the row when the table breaks across pages and
     screen readers will not announce it as a header.
 
-    No autofix — declaring which row is the header is meaning-bearing
-    and must be confirmed by the author.
+    Autofix — sets ``rows[0].is_header = True`` on the affected table,
+    which adds ``<w:tblHeader/>`` to the row's ``<w:trPr>``. The
+    finding's ``details`` mapping carries the table index so the
+    autofix can target the same table even after intervening edits
+    shift positions.
     """
     try:
         tables = list(document.tables)
@@ -1796,10 +1801,52 @@ def _check_table_without_header_row(document: "Document") -> Iterable[Finding]:
                 f"announce it as a header"
             ),
             paragraph_index=None,
-            autofix_available=False,
-            autofix_description=None,
+            autofix_available=True,
+            autofix_description=(
+                "set rows[0].is_header = True on the affected table "
+                "(adds <w:tblHeader/> to the row's <w:trPr>)"
+            ),
             location=f"table {table_index}",
+            details=MappingProxyType({"table_index": table_index}),
         )
+
+
+def _autofix_table_without_header_row(
+    document: "Document", finding: Finding
+) -> bool:
+    table_index = finding.details.get("table_index") if finding.details else None
+    if table_index is None:
+        # Fall back to parsing the location string for hand-built findings.
+        loc = finding.location or ""
+        prefix = "table "
+        if loc.startswith(prefix):
+            try:
+                table_index = int(loc[len(prefix):])
+            except ValueError:
+                return False
+        else:
+            return False
+    try:
+        tables = list(document.tables)
+    except Exception:  # pragma: no cover - defensive
+        return False
+    if not isinstance(table_index, int) or not (0 <= table_index < len(tables)):
+        return False
+    table = tables[table_index]
+    try:
+        rows = list(table.rows)
+    except Exception:  # pragma: no cover - defensive
+        return False
+    if not rows:
+        return False
+    first_row = rows[0]
+    try:
+        if first_row.is_header:
+            return False
+        first_row.is_header = True
+    except Exception:  # pragma: no cover - defensive
+        return False
+    return True
 
 
 def _check_trailing_empty_paragraph(
@@ -2054,7 +2101,9 @@ def _install_builtin_rules() -> None:
     register_rule("over-long-paragraph", _check_over_long_paragraph)
     register_rule("placeholder-text", _check_placeholder_text)
     register_rule(
-        "table-without-header-row", _check_table_without_header_row
+        "table-without-header-row",
+        _check_table_without_header_row,
+        _autofix_table_without_header_row,
     )
     register_rule("bare-url", _check_bare_url)
     register_rule(

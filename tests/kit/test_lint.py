@@ -1290,7 +1290,10 @@ class DescribeTableWithoutHeaderRow:
         assert twh[0].severity == "warning"
         assert twh[0].location == "table 0"
         assert twh[0].paragraph_index is None
-        assert twh[0].autofix_available is False
+        # Issue #650: autofix is now available — sets the first row's
+        # is_header flag (adds <w:tblHeader/> to <w:trPr>).
+        assert twh[0].autofix_available is True
+        assert twh[0].details["table_index"] == 0
 
     def it_does_not_flag_a_table_with_a_header_row(
         self, document: DocumentCls
@@ -1333,16 +1336,57 @@ class DescribeTableWithoutHeaderRow:
             f.rule for f in report.findings
         ]
 
-    def it_marks_findings_with_autofix_unavailable(
+    def it_marks_findings_with_autofix_available(
         self, document: DocumentCls
     ):
+        # Issue #650: the rule now ships an autofix that flips
+        # rows[0].is_header to True on the affected table.
         document.add_table(rows=2, cols=2)
         report = lint(document)
         twh = next(
             f for f in report.findings if f.rule == "table-without-header-row"
         )
-        assert twh.autofix_available is False
-        assert twh.autofix_description is None
+        assert twh.autofix_available is True
+        assert twh.autofix_description is not None
+        assert "is_header" in twh.autofix_description
+
+    def it_autofix_sets_first_row_as_header_and_round_trips(
+        self, document: DocumentCls, tmp_path
+    ):
+        # Issue #650: round-trip the autofix through save+reopen and
+        # assert the reopened document's first row carries
+        # <w:tblHeader/> (i.e. _Row.is_header is True).
+        tbl = document.add_table(rows=2, cols=2)
+        tbl.rows[0].cells[0].text = "Name"
+        tbl.rows[0].cells[1].text = "Value"
+        assert tbl.rows[0].is_header is False
+        report = lint(document)
+        applied = report.autofix(rules=["table-without-header-row"])
+        assert applied == 1
+        # Save and re-open to verify the XML mutation persists.
+        path = tmp_path / "out.docx"
+        document.save(str(path))
+        reopened = Document(str(path))
+        assert reopened.tables[0].rows[0].is_header is True
+        # Lint should now be clean for this rule.
+        followup = lint(reopened)
+        assert "table-without-header-row" not in [
+            f.rule for f in followup.findings
+        ]
+
+    def it_autofix_targets_only_the_finding_table_when_multiple_offenders(
+        self, document: DocumentCls
+    ):
+        # Build two offending tables; autofix should fix both via the
+        # finding's stored table_index.
+        document.add_table(rows=1, cols=2)
+        document.add_paragraph("between")
+        document.add_table(rows=1, cols=2)
+        report = lint(document)
+        applied = report.autofix(rules=["table-without-header-row"])
+        assert applied == 2
+        for tbl in document.tables:
+            assert tbl.rows[0].is_header is True
 
 
 # ---------------------------------------------------------------------------
