@@ -53,9 +53,17 @@ nsmap = {
     # -- to preserve the original token string of a save-time-resolved
     # -- text run (e.g. ``"Dear {customer.name}"``) so that subsequent
     # -- ``load -> bind -> save`` cycles re-resolve against the new
-    # -- record instead of the previously-stamped literal. Word and
-    # -- every other consumer follow the "preserve but ignore unknown
-    # -- children" convention. See :mod:`docx.bind_tokens` (issue #68).
+    # -- record instead of the previously-stamped literal. Word does
+    # -- not silently ignore unknown-namespace children of ``<w:r>`` —
+    # -- the ECMA-376 contract is the Markup Compatibility and
+    # -- Extensibility (MCE) framework, which only treats a foreign
+    # -- prefix as ignorable when it is listed in ``mc:Ignorable`` on a
+    # -- containing element or wrapped in ``<mc:AlternateContent>``.
+    # -- :mod:`docx.bind_tokens` works around the constraint by
+    # -- gating emission on opt-in and hoisting this prefix onto the
+    # -- document root rather than declaring it inline; see that
+    # -- module's "Round-trip preservation" section and issue #733.
+    # -- See :mod:`docx.bind_tokens` (issue #68).
     "lfxbind": "https://loadfix.dev/docx/bind-tokens",
     "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
     "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",

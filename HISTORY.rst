@@ -3,6 +3,33 @@
 Release History
 ---------------
 
+Unreleased — Docs: rewrite ``bind_tokens`` module docstring to match MCE reality (#735)
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+- The ``docx.bind_tokens`` module docstring previously justified
+  emitting a fork-internal ``<lfxbind:src>`` element directly inside
+  ``<w:r>`` by appealing to a stated OOXML convention that "Word and
+  every other OOXML consumer follow the 'preserve but ignore unknown
+  children' convention". That premise is wrong — ECMA-376 has no such
+  blanket rule. The actual contract is the Markup Compatibility and
+  Extensibility (MCE) framework defined in ECMA-376 Part 3, under
+  which unknown-namespace elements are only safely ignored when their
+  prefix is listed in ``mc:Ignorable`` on a containing element or
+  when they sit inside an ``<mc:AlternateContent>`` wrapper.
+  Microsoft Word's loader rejects bare unknown-namespace elements as
+  schema-violating, which is the failure mode that drove #733.
+
+  The "Round-trip preservation" section of the module docstring is
+  rewritten to drop the false convention claim, state the real MCE
+  contract, and document the strategy taken after #733: an opt-in
+  gate on bound record / persisted marker, root-declared prefix
+  hoisted via ``etree.cleanup_namespaces`` (never inline), and a
+  defensive guard in ``_write_source_marker`` that suppresses
+  emission when the prefix declaration is missing. The same
+  correction is applied to the ``lfxbind`` registration comment in
+  ``docx.oxml.ns``. Pure documentation; no behaviour change.
+  Closes #735.
+
 Unreleased — Word-compatibility fix: gate ``apply_bind_tokens`` on opt-in (#733)
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

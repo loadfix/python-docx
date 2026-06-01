@@ -36,12 +36,80 @@ Round-trip preservation
 
 Whenever a token-bearing run is resolved, the original source string
 is stamped into a ``<lfxbind:src>`` child element appended after the
-run's ``<w:t>``. Word and every other OOXML consumer follow the
-"preserve but ignore unknown children" convention, so the marker
-survives untouched across edits performed by other tools. On the
-next ``load -> bind -> save`` cycle, :func:`apply_bind_tokens`
-discovers the marker, reseats the source string, and re-resolves to
-the new record.
+run's ``<w:t>``. On the next ``load -> bind -> save`` cycle,
+:func:`apply_bind_tokens` discovers the marker, reseats the source
+string, and re-resolves to the new record.
+
+ECMA-376 has no blanket "consumers preserve and ignore unknown
+children" rule. The actual contract is the **Markup Compatibility
+and Extensibility (MCE)** framework defined in ECMA-376 Part 3
+(namespace
+``http://schemas.openxmlformats.org/markup-compatibility/2006``,
+prefix ``mc``). MCE-compliant consumers ignore unknown content only
+when one of the following holds:
+
+1. The unknown element's namespace prefix is listed in an
+   ``mc:Ignorable`` attribute on a containing element (typically the
+   document root, e.g. ``<w:document mc:Ignorable="w14 wp14">``).
+2. The unknown content sits inside an ``<mc:AlternateContent>``
+   wrapper with appropriate ``<mc:Choice Requires="...">`` and
+   ``<mc:Fallback>`` siblings.
+
+A bare element in an undeclared namespace appearing inside ``<w:r>``
+satisfies neither condition. Strict consumers — Microsoft Word in
+particular — treat such a document as schema-violating and refuse
+to open it. That observed Word rejection is the failure mode that
+drove issue #733.
+
+Strategy after #733
+~~~~~~~~~~~~~~~~~~~
+
+The marker remains a bare child of ``<w:r>`` (no ``mc:Ignorable``,
+no ``<mc:AlternateContent>`` wrapper), but its emission is now
+tightly constrained so the package Word actually sees stays valid in
+practice:
+
+* **Opt-in gate.** :meth:`Document.save` calls
+  :func:`apply_bind_tokens` only when :func:`get_bound_record`
+  returns a non-|None| record *or* :func:`has_persisted_marker`
+  reports an existing marker on the document. Callers who never opt
+  into the bind-tokens feature get a save path that never touches
+  ``<lfxbind:src>``, so brace-quoted prose like
+  ``aws-{customer-code}-{role}`` in user content round-trips
+  byte-clean.
+
+* **Root-declared prefix, never inline.** When binding is active,
+  :func:`set_bound_record` and :func:`apply_bind_tokens` hoist the
+  ``lfxbind`` prefix declaration onto the document root via
+  :func:`_ensure_root_declares_lfxbind_for_element` (which uses
+  :func:`lxml.etree.cleanup_namespaces` with ``keep_ns_prefixes`` to
+  add the declaration even before any element references it). Each
+  ``<lfxbind:src>`` write therefore *references* a root-declared
+  prefix rather than carrying its own ``xmlns:lfxbind=...``
+  attribute — the inline-xmlns form was the specific shape Word's
+  loader rejected.
+
+* **Defensive guard at write time.** :func:`_write_source_marker`
+  consults :func:`_root_declares_lfxbind` before any write. If the
+  root declaration is missing (detached element, unusual tree
+  shape, or a regression that bypassed the hoist) the marker is
+  suppressed rather than emitted with an inline ``xmlns:lfxbind``.
+  Skipping the write is the safe degradation: a future save loses
+  round-trip fidelity for that run, but the package still opens in
+  Word.
+
+This is a defensible compromise, not a clean MCE-compliant design.
+Emitting ``<lfxbind:src>`` inside ``<w:r>`` without declaring
+``lfxbind`` in ``mc:Ignorable`` is technically still a strict-MCE
+violation that a strict validator may flag. Word tolerates it in
+practice when the document is otherwise valid *and* the prefix is
+declared on the root; the gate plus the root-hoist plus the
+defensive guard together keep the emission path off any document
+that would expose the violation to a Word loader. A fully
+MCE-correct redesign — declaring ``lfxbind`` in ``mc:Ignorable`` on
+``<w:document>``, or moving the marker into a sidecar custom-XML
+part — is the obvious next step if the strict-validator constraint
+ever tightens.
 
 Public surface
 --------------
