@@ -191,6 +191,21 @@ Unreleased — Hyperlink ergonomics
   flag enabled the complex-script tags are now mirrored only when
   the source paragraph mark already carried them. Closes #734.
 
+- **``docx.kit.lint`` — new ``excessive-font-size-variation`` rule**
+  (#646). A document-scoped check that aggregates every explicit
+  ``run.font.size`` across non-heading paragraphs and emits a single
+  ``info`` finding when the count of distinct sizes exceeds the
+  module-level threshold ``_EXCESSIVE_FONT_SIZE_THRESHOLD`` (default
+  ``4``). The motivating case is the regenerated CenITex masters whose
+  body runs carry seven distinct sizes (9, 12, 13, 15, 18, 20, 34 pt)
+  — a strong signal of inconsistent direct formatting that survived
+  editing. The finding's ``message`` lists the distinct sizes in
+  ascending order so the author can scan for the stragglers.
+  Heading paragraphs are skipped (their sizes are intentionally
+  varied) and runs whose ``font.size`` is ``None`` (inheriting from
+  their style) are not counted as drift. Read-only — collapsing sizes
+  is a meaning-bearing decision the author must make, so no autofix.
+
 - **``Document.iter_all_paragraphs()`` /
   ``Document.iter_all_runs()`` / ``Document.iter_all_pictures()``** —
   promote the previously-private ``docx.search._iter_all_paragraphs``

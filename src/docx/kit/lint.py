@@ -2484,13 +2484,22 @@ def _check_placeholder_text(document: "Document") -> Iterable[Finding]:
 def _check_excessive_font_size_variation(
     document: "Document",
 ) -> Iterable[Finding]:
-    # Aggregate every explicit run-level font size on body (non-heading)
-    # paragraphs. ``run.font.size`` is ``None`` when the run inherits from
-    # its paragraph / character style — those cases are *not* drift, so
-    # we skip them. Sizes are stored as ``Length`` (EMU) but compare and
-    # render naturally as point values via ``.pt``.
+    # Aggregate every explicit run-level font size on non-heading
+    # paragraphs across every story (body, table cells, headers /
+    # footers, footnotes / endnotes, comments — see #673). ``run.font.size``
+    # is ``None`` when the run inherits from its paragraph / character
+    # style — those cases are *not* drift, so we skip them. Sizes are
+    # stored as ``Length`` (EMU) but compare and render naturally as
+    # point values via ``.pt``.
     sizes: "OrderedDict[int, None]" = OrderedDict()
-    for paragraph in document.paragraphs:
+    iter_paragraphs = getattr(document, "iter_all_paragraphs", None)
+    if callable(iter_paragraphs):
+        paragraph_iter: Iterable["Paragraph"] = (
+            paragraph for paragraph, _location in iter_paragraphs()
+        )
+    else:  # pragma: no cover - defensive (older Document without #662)
+        paragraph_iter = document.paragraphs
+    for paragraph in paragraph_iter:
         if _heading_level(paragraph) is not None:
             # Headings are intentionally larger / smaller than body
             # prose; including them would false-positive every styled

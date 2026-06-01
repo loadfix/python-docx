@@ -2150,6 +2150,58 @@ class DescribeExcessiveFontSizeVariation:
         assert len(findings) == 1
         assert findings[0].location == "document body"
 
+    def it_flags_the_cenitex_seven_distinct_body_sizes_pattern(
+        self, document: DocumentCls
+    ):
+        # Reproduces the motivating case from #646: the regenerated
+        # CenITex master uses 9, 12, 13, 15, 18, 20, 34 pt across body
+        # runs. Seven distinct sizes — well above the default threshold
+        # of four — so a single document-scoped finding should fire and
+        # the message should list the sizes in ascending order.
+        for i, sz in enumerate((9, 12, 13, 15, 18, 20, 34)):
+            self._add_sized_paragraph(document, f"p{i}", sz)
+        report = lint(document)
+        findings = [
+            f
+            for f in report.findings
+            if f.rule == "excessive-font-size-variation"
+        ]
+        assert len(findings) == 1
+        f = findings[0]
+        assert f.severity == "info"
+        assert f.paragraph_index is None
+        assert f.autofix_available is False
+        assert "7 distinct" in f.message
+        assert "9, 12, 13, 15, 18, 20, 34 pt" in f.message
+
+    def it_walks_every_story_via_iter_all_paragraphs(
+        self, document: DocumentCls
+    ):
+        # Drift in a header / footer story counts toward the document-
+        # scoped tally. The body alone carries four distinct sizes
+        # (under the threshold), and a single drift entry inside the
+        # primary header pushes the total to five — the rule must flag
+        # because it walks every story (#673 cross-story walker).
+        for i, sz in enumerate((11, 12, 13, 14)):
+            self._add_sized_paragraph(document, f"body{i}", sz)
+        section = document.sections[0]
+        header = section.header
+        # ``Document()`` ships with one empty paragraph in the primary
+        # header; reuse it rather than appending so a single straggler
+        # size shows up cleanly.
+        header_para = header.paragraphs[0]
+        run = header_para.add_run("header")
+        run.font.size = Pt(15)
+        report = lint(document)
+        findings = [
+            f
+            for f in report.findings
+            if f.rule == "excessive-font-size-variation"
+        ]
+        assert len(findings) == 1
+        assert "5 distinct" in findings[0].message
+        assert "11, 12, 13, 14, 15 pt" in findings[0].message
+
 
 # ---------------------------------------------------------------------------
 # Report aggregations

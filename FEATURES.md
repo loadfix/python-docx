@@ -4010,9 +4010,13 @@ longer than 1000 characters, and leftover `[PLACEHOLDER]` / `[TBD]`
 / `Lorem ipsum` sentinels. Each `Finding` carries `rule` / `severity`
 
 characters, leftover `[PLACEHOLDER]` / `[TBD]` / `Lorem ipsum`
-sentinels, and bare URL strings (`https://…` / `http://…` /
+sentinels, bare URL strings (`https://…` / `http://…` /
 `www.…`) that are not wrapped in a `<w:hyperlink>` element
-(`bare-url`, info, no-fix — issue #647). Each `Finding` carries
+(`bare-url`, info, no-fix — issue #647), and documents whose body
+runs use more than four distinct explicit font sizes
+(`excessive-font-size-variation`, info, no-fix — issue #646; the
+finding's message lists the sizes in ascending order, headings are
+skipped). Each `Finding` carries
 `rule` / `severity`
 (`error` / `warning` / `info`) / `message` / `paragraph_index` /
 `autofix_available` / `autofix_description` / `safe_to_delete`.
