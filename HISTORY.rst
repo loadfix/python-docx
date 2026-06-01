@@ -64,6 +64,17 @@ Unreleased — Word-compatibility fix: gate ``apply_bind_tokens`` on opt-in (#73
 Unreleased — Hyperlink ergonomics
 +++++++++++++++++++++++++++++++++
 
+- **``docx.kit.lint`` — ``mixed-quotes`` exposes structured counts**
+  (#672). The ``mixed-quotes`` finding now populates
+  ``details["smart_count"]`` and ``details["straight_count"]`` with
+  the integer counts of curly (``“”‘’``) and straight (``"`` / ``'``)
+  quote characters in the offending paragraph. Agents driving an
+  autofix can read ``finding.details`` directly to make a dominance
+  decision instead of re-walking the paragraph's runs or text-parsing
+  the human-readable message. The legacy message text
+  (``paragraph N mixes smart (curly) and straight quotes``) is
+  preserved unchanged for back-compat with rendered reports.
+
 - **Skip empty ``docProps/custom.xml`` on save** (#721). A fresh
   ``Document().save()`` no longer materialises an empty
   ``docProps/custom.xml`` part with the matching
