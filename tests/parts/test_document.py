@@ -413,39 +413,20 @@ class DescribeDocumentPart:
         part_related_by_.assert_called_once_with(document_part, RT.COMMENTS)
         assert comments_part is comments_part_
 
-    def it_provides_access_to_its_custom_properties_part_to_help(
-        self, package_: Mock, part_related_by_: Mock, custom_properties_part_: Mock
+    def it_delegates_custom_properties_part_to_the_package(
+        self, package_: Mock, custom_properties_part_: Mock
     ):
-        part_related_by_.return_value = custom_properties_part_
+        # -- issue #712: the custom-properties relationship must land on the
+        # -- package root (``_rels/.rels``), not the main-document part. The
+        # -- DocumentPart accessor delegates to the package so the Office
+        # -- canonical layout is preserved and Word accepts the file.
+        package_._custom_properties_part = custom_properties_part_
         document_part = DocumentPart(
             PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
         )
 
         custom_properties_part = document_part._custom_properties_part
 
-        part_related_by_.assert_called_once_with(document_part, RT.CUSTOM_PROPERTIES)
-        assert custom_properties_part is custom_properties_part_
-
-    def and_it_creates_a_default_custom_properties_part_if_not_present(
-        self,
-        package_: Mock,
-        part_related_by_: Mock,
-        CustomPropertiesPart_: Mock,
-        custom_properties_part_: Mock,
-        relate_to_: Mock,
-    ):
-        part_related_by_.side_effect = KeyError
-        CustomPropertiesPart_.default.return_value = custom_properties_part_
-        document_part = DocumentPart(
-            PackURI("/word/document.xml"), CT.WML_DOCUMENT, element("w:document"), package_
-        )
-
-        custom_properties_part = document_part._custom_properties_part
-
-        CustomPropertiesPart_.default.assert_called_once_with(package_)
-        relate_to_.assert_called_once_with(
-            document_part, custom_properties_part_, RT.CUSTOM_PROPERTIES
-        )
         assert custom_properties_part is custom_properties_part_
 
     def it_exposes_the_custom_properties_collection(

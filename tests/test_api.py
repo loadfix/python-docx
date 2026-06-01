@@ -372,6 +372,64 @@ class DescribeDocument:
         return class_mock(request, "docx.api.Package")
 
 
+class DescribeCustomPropertiesPartRelPlacement:
+    """Regression suite for issue #712 — custom-properties relationship must
+    hang off the package root (``_rels/.rels``), never off the main-document
+    part (``word/_rels/document.xml.rels``). When the rel lands on the
+    document part, Microsoft Word rejects the package as malformed even
+    though python-docx itself can re-open it cleanly.
+    """
+
+    _CUSTOM_PROPS_TARGET = "docProps/custom.xml"
+
+    def _save_and_inspect(self, document):
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        with zipfile.ZipFile(buf) as z:
+            content_types = z.read("[Content_Types].xml").decode()
+            package_root_rels = z.read("_rels/.rels").decode()
+            document_rels = z.read("word/_rels/document.xml.rels").decode()
+        return buf, content_types, package_root_rels, document_rels
+
+    def it_writes_the_custom_properties_rel_to_the_package_root_rels(self):
+        # -- fresh document, no mutations: a no-op save still triggers the
+        # -- save-time path that materialises the part. --
+        document = DocumentFactoryFn()
+
+        _, content_types, root_rels, doc_rels = self._save_and_inspect(document)
+
+        assert self._CUSTOM_PROPS_TARGET in content_types
+        assert self._CUSTOM_PROPS_TARGET in root_rels
+        assert self._CUSTOM_PROPS_TARGET not in doc_rels
+
+    def it_writes_the_custom_properties_rel_correctly_after_core_props_mutation(
+        self,
+    ):
+        # -- the issue's reproduction: any core-properties mutation also
+        # -- triggers the save-time path that touches custom_properties. --
+        document = DocumentFactoryFn()
+        document.core_properties.author = "x"
+
+        _, content_types, root_rels, doc_rels = self._save_and_inspect(document)
+
+        assert self._CUSTOM_PROPS_TARGET in content_types
+        assert self._CUSTOM_PROPS_TARGET in root_rels
+        assert self._CUSTOM_PROPS_TARGET not in doc_rels
+
+    def it_round_trips_through_save_and_reopen(self):
+        # -- python-docx must still re-read its own output: save, reopen,
+        # -- inspect custom_properties without raising. --
+        document = DocumentFactoryFn()
+        buf, _, _, _ = self._save_and_inspect(document)
+
+        buf.seek(0)
+        reopened = DocumentFactoryFn(buf)
+
+        # -- no items but the proxy must be live and iterable. --
+        assert list(reopened.custom_properties) == []
+
+
 class DescribePasswordRoundTrip:
     """Integration tests for encrypted Document open/save via ``python-ooxml-crypto``."""
 

@@ -13,6 +13,7 @@ from docx.opc.packuri import PACKAGE_URI, PackURI
 from docx.opc.part import Part
 from docx.opc.parts.coreprops import CorePropertiesPart
 from docx.opc.pkgreader import PackageReader
+from docx.parts.custom_properties import CustomPropertiesPart
 from docx.opc.rel import Relationships, _Relationship
 
 from ..unitutil.mock import (
@@ -295,6 +296,39 @@ class DescribeOpcPackage:
         blob = core_properties_part.blob
         assert blob.count(b"cp:lastModifiedBy") <= 2  # one open, one close
 
+    def it_provides_access_to_the_custom_properties_part_to_help(
+        self, part_related_by_, custom_properties_part_
+    ):
+        # -- issue #712: the custom-properties relationship must hang off the
+        # -- package root (``_rels/.rels``), not the main-document part. The
+        # -- package-level accessor mirrors :attr:`_extended_properties_part`.
+        part_related_by_.return_value = custom_properties_part_
+        opc_package = OpcPackage()
+
+        custom_properties_part = opc_package._custom_properties_part
+
+        part_related_by_.assert_called_once_with(opc_package, RT.CUSTOM_PROPERTIES)
+        assert custom_properties_part is custom_properties_part_
+
+    def it_creates_a_default_custom_props_part_if_none_present(
+        self,
+        part_related_by_,
+        CustomPropertiesPart_,
+        relate_to_,
+        custom_properties_part_,
+    ):
+        part_related_by_.side_effect = KeyError
+        CustomPropertiesPart_.default.return_value = custom_properties_part_
+        opc_package = OpcPackage()
+
+        custom_properties_part = opc_package._custom_properties_part
+
+        CustomPropertiesPart_.default.assert_called_once_with(opc_package)
+        relate_to_.assert_called_once_with(
+            opc_package, custom_properties_part_, RT.CUSTOM_PROPERTIES
+        )
+        assert custom_properties_part is custom_properties_part_
+
     def it_leaves_well_formed_cp_binding_untouched(self, part_related_by_):
         # -- No-op case: an ordinary core.xml where ``cp:`` is bound to the
         # -- core-properties URI must be passed through unchanged.
@@ -376,6 +410,19 @@ class DescribeOpcPackage:
     @pytest.fixture
     def _core_properties_part_prop_(self, request: FixtureRequest):
         return property_mock(request, OpcPackage, "_core_properties_part")
+
+    @pytest.fixture
+    def custom_properties_part_(self, request: FixtureRequest):
+        # -- spec'd against the module-level import so the ``class_mock``
+        # -- patch on the same path doesn't shadow the spec class at
+        # -- ``instance_mock`` resolve-time. --
+        return instance_mock(request, CustomPropertiesPart)
+
+    @pytest.fixture
+    def CustomPropertiesPart_(self, request: FixtureRequest):
+        # -- the import inside ``OpcPackage._custom_properties_part`` is local,
+        # -- so we patch the source-of-truth import path. --
+        return class_mock(request, "docx.parts.custom_properties.CustomPropertiesPart")
 
     @pytest.fixture
     def iter_parts_(self, request: FixtureRequest):

@@ -361,17 +361,26 @@ class DocumentPart(StoryPart):
 
     @property
     def _custom_properties_part(self) -> CustomPropertiesPart:
-        """A |CustomPropertiesPart| for this document.
+        """Return the package-scoped |CustomPropertiesPart| for this document.
 
-        Creates a default (empty) custom properties part if one is not present.
+        The custom-properties part is related to the **package** (not the
+        main-document part), following the convention used for core and
+        extended properties. Microsoft Word rejects packages whose
+        ``custom-properties`` relationship lands on
+        ``word/_rels/document.xml.rels`` instead of the package-root
+        ``_rels/.rels`` (issue #712), so this delegates to
+        :attr:`OpcPackage._custom_properties_part` to ensure the
+        relationship is written in the canonical location. A default
+        (empty) part is created on demand when none is present.
+
+        .. versionchanged:: 2026.06.0
+           Delegate to the package; previously created the rel on the
+           main-document part, producing a docx Word refused to open.
         """
-        try:
-            return cast(CustomPropertiesPart, self.part_related_by(RT.CUSTOM_PROPERTIES))
-        except KeyError:
-            assert self.package is not None
-            custom_properties_part = CustomPropertiesPart.default(self.package)
-            self.relate_to(custom_properties_part, RT.CUSTOM_PROPERTIES)
-            return custom_properties_part
+        assert self.package is not None
+        return cast(
+            CustomPropertiesPart, self.package._custom_properties_part
+        )  # pyright: ignore[reportPrivateUsage]
 
     @property
     def extended_properties(self) -> ExtendedProperties:

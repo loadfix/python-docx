@@ -528,6 +528,29 @@ class OpcPackage:
             return part
 
     @property
+    def _custom_properties_part(self):
+        """Return the |CustomPropertiesPart| related to this package.
+
+        Creates a default (empty) custom-properties part lazily when none is
+        already related. Mirrors :attr:`_core_properties_part` and
+        :attr:`_extended_properties_part`; the canonical Office layout wires
+        the docProps relationships onto the package root (``_rels/.rels``)
+        rather than the main-document part. Microsoft Word rejects packages
+        that place the custom-properties relationship on the main-document
+        part as malformed (see issue #712).
+
+        .. versionadded:: 2026.06.0
+        """
+        from docx.parts.custom_properties import CustomPropertiesPart
+
+        try:
+            return cast(CustomPropertiesPart, self.part_related_by(RT.CUSTOM_PROPERTIES))
+        except KeyError:
+            part = CustomPropertiesPart.default(self)
+            self.relate_to(part, RT.CUSTOM_PROPERTIES)
+            return part
+
+    @property
     def _core_properties_part(self) -> CorePropertiesPart:
         """|CorePropertiesPart| object related to this package.
 
