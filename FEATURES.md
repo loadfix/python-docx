@@ -4008,6 +4008,12 @@ heading levels, inline images without alt text, paragraphs mixing
 font families, an empty document `title` core property, paragraphs
 longer than 1000 characters, and leftover `[PLACEHOLDER]` / `[TBD]`
 / `Lorem ipsum` sentinels. Each `Finding` carries `rule` / `severity`
+
+characters, leftover `[PLACEHOLDER]` / `[TBD]` / `Lorem ipsum`
+sentinels, and bare URL strings (`https://…` / `http://…` /
+`www.…`) that are not wrapped in a `<w:hyperlink>` element
+(`bare-url`, info, no-fix — issue #647). Each `Finding` carries
+`rule` / `severity`
 (`error` / `warning` / `info`) / `message` / `paragraph_index` /
 `autofix_available` / `autofix_description` / `safe_to_delete`.
 Stage one is read-only;

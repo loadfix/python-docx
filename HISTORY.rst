@@ -78,6 +78,20 @@ Unreleased — Hyperlink ergonomics
   indent. Skips the same heading / TOC / list / hanging-indent
   paragraphs the tab variant skips. Closes #676.
 
+- **``docx.kit.lint`` adds the ``bare-url`` rule** (#647). Flags
+  paragraphs whose plain text contains a raw URL (``https://...``,
+  ``http://...``, ``www.…``) that is not wrapped in a
+  ``<w:hyperlink>`` element. Severity is ``info`` and the finding is
+  read-only — choosing the visible link text and the relationship
+  target is meaning-bearing, so an autofix would routinely guess
+  wrong. URLs already covered by an existing
+  :class:`~docx.text.hyperlink.Hyperlink` (matched against the
+  paragraph's ``hyperlinks`` collection) are skipped, and trailing
+  sentence punctuation (``.,;:!?)]}>"'``) is stripped from the
+  reported URL so a sentence-ending period is not treated as part
+  of the link. Multiple bare URLs in the same paragraph yield one
+  finding per URL.
+
 - **``Document.iter_all_paragraphs()`` /
   ``Document.iter_all_runs()`` / ``Document.iter_all_pictures()``** —
   promote the previously-private ``docx.search._iter_all_paragraphs``
