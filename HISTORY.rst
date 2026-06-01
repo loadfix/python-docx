@@ -23,6 +23,19 @@ Unreleased — Hyperlink ergonomics
   ``Document.custom_properties`` accessor still creates the part on
   demand the first time a property is added.
 
+- **``docx.kit.lint`` — ``missing-alt-text`` decorative + dedupe
+  enrichments** (#651). Each finding now carries
+  ``details["occurrence_count"]`` (how many shapes share the image
+  binary) and ``details["additional_locations"]`` (the sibling
+  locator strings beyond the first occurrence) so callers rendering
+  reports can list every duplicate without recomputing the dedupe.
+  Decorative detection already honoured python-docx's
+  ``a11y_role == "decorative"`` and Office 365's
+  ``<a16:decorative val="1"/>`` extension marker on
+  ``wp:docPr/a:extLst``; this round adds the structured ``details``
+  payload and the dedicated regression tests for the five-occurrence
+  "logo on every header" pattern.
+
 - **``Document.iter_all_paragraphs()`` /
   ``Document.iter_all_runs()`` / ``Document.iter_all_pictures()``** —
   promote the previously-private ``docx.search._iter_all_paragraphs``

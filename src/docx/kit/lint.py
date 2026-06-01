@@ -1503,8 +1503,11 @@ def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
     # same blob produce one finding instead of N. Shapes with no
     # resolvable identity (charts, SmartArt, malformed blips) always
     # emit — they are the cases most likely to need human attention.
-    seen: Dict[str, Tuple[int, int]] = {}
-    deferred: List[Tuple[int, str, str, Optional[str]]] = []
+    # ``seen`` maps identity -> ordered list of every occurrence index;
+    # the first occurrence becomes the canonical location and the rest
+    # surface via ``Finding.details["additional_locations"]``.
+    seen: Dict[str, List[int]] = {}
+    deferred: List[Tuple[int, str, str]] = []
     for shape_index, shape in enumerate(shapes):
         alt = getattr(shape, "alt_text", None)
         title = getattr(shape, "title", None)
@@ -1520,13 +1523,10 @@ def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
         if identity is not None:
             existing = seen.get(identity)
             if existing is None:
-                seen[identity] = (shape_index, 1)
-                deferred.append(
-                    (shape_index, identity, severity, identity)
-                )
+                seen[identity] = [shape_index]
+                deferred.append((shape_index, identity, severity))
             else:
-                first_index, count = existing
-                seen[identity] = (first_index, count + 1)
+                existing.append(shape_index)
             continue
         # Unkeyed shape — emit immediately, can't dedupe.
         yield Finding(
@@ -1537,11 +1537,22 @@ def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
             autofix_available=False,
             autofix_description=None,
             location=f"inline image {shape_index}",
+            details=MappingProxyType(
+                {
+                    "occurrence_count": 1,
+                    "additional_locations": (),
+                }
+            ),
         )
-    for first_index, identity, sev, _ in deferred:
-        # The dedupe loop above may have grown the count; pull the final
-        # number from `seen` so the message reflects every duplicate.
-        _, count = seen[identity]
+    for first_index, identity, sev in deferred:
+        # The dedupe loop above may have grown the index list; pull the
+        # final occurrence list from ``seen`` so the message and details
+        # reflect every duplicate.
+        occurrences = seen[identity]
+        count = len(occurrences)
+        additional = tuple(
+            f"inline image {idx}" for idx in occurrences[1:]
+        )
         if count > 1:
             message = (
                 f"inline image {first_index} has no alt text "
@@ -1557,6 +1568,12 @@ def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
             autofix_available=False,
             autofix_description=None,
             location=f"inline image {first_index}",
+            details=MappingProxyType(
+                {
+                    "occurrence_count": count,
+                    "additional_locations": additional,
+                }
+            ),
         )
 # Conservative serif / sans-serif font sets used by the mixed-fonts
 # rule to grade severity. The lists cover the Word/Office defaults that

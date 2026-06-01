@@ -995,6 +995,43 @@ class DescribeMissingAltText:
         ma = [f for f in report.findings if f.rule == "missing-alt-text"]
         assert len(ma) == 2
 
+    def it_emits_one_finding_per_distinct_image_when_repeated(
+        self, document: DocumentCls
+    ):
+        # Five copies of the same image — typical "logo on every header
+        # page" pattern. The rule should collapse to a single finding
+        # carrying the full occurrence count and the four sibling
+        # locations on ``details`` so callers can render them.
+        for _ in range(5):
+            document.add_picture("tests/test_files/python-icon.png")
+        report = lint(document)
+        ma = [f for f in report.findings if f.rule == "missing-alt-text"]
+        assert len(ma) == 1
+        finding = ma[0]
+        assert finding.details["occurrence_count"] == 5
+        additional = finding.details["additional_locations"]
+        assert len(additional) == 4
+        # Primary location points at the first occurrence; siblings
+        # cover the remaining four (indices 1..4 in document order).
+        assert finding.location == "inline image 0"
+        assert list(additional) == [
+            f"inline image {i}" for i in range(1, 5)
+        ]
+
+    def it_emits_separate_findings_for_distinct_images(
+        self, document: DocumentCls
+    ):
+        # Two different image binaries, one occurrence each — neither
+        # finding should claim a duplicate count.
+        document.add_picture("tests/test_files/python-icon.png")
+        document.add_picture("tests/test_files/monty-truth.png")
+        report = lint(document)
+        ma = [f for f in report.findings if f.rule == "missing-alt-text"]
+        assert len(ma) == 2
+        for finding in ma:
+            assert finding.details["occurrence_count"] == 1
+            assert finding.details["additional_locations"] == ()
+
 
 # ---------------------------------------------------------------------------
 # mixed-fonts
