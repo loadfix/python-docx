@@ -6,6 +6,23 @@ Release History
 Unreleased — Hyperlink ergonomics
 +++++++++++++++++++++++++++++++++
 
+- **Skip empty ``docProps/custom.xml`` on save** (#721). A fresh
+  ``Document().save()`` no longer materialises an empty
+  ``docProps/custom.xml`` part with the matching
+  ``[Content_Types].xml`` override and ``_rels/.rels`` entry. The
+  save path's bind-tokens helper still touches
+  ``document.custom_properties`` to build a property map, but a
+  library-authored part with zero ``<cst:property>`` children is now
+  pruned at save time (alongside the existing thumbnail prune in
+  ``OpcPackage._drop_unused_package_rels``). Round-trip fidelity is
+  preserved: a docx that arrived with an empty custom-properties
+  part keeps it across read+save (``_loaded_from_package = True``
+  guard), so files authored by Microsoft Office or older python-docx
+  releases survive a reload unchanged. Reading a document with or
+  without the part continues to work — the public
+  ``Document.custom_properties`` accessor still creates the part on
+  demand the first time a property is added.
+
 - **``Document.iter_all_paragraphs()`` /
   ``Document.iter_all_runs()`` / ``Document.iter_all_pictures()``** —
   promote the previously-private ``docx.search._iter_all_paragraphs``

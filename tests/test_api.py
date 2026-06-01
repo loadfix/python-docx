@@ -45,6 +45,53 @@ def _make_valid_docx_bytes() -> bytes:
         return f.read()
 
 
+def _make_docx_with_empty_custom_properties_part() -> io.BytesIO:
+    """Return a ``BytesIO`` of a .docx with an empty ``docProps/custom.xml`` part.
+
+    Mirrors the layout produced by older python-docx releases (and by
+    Microsoft Office in some templates) where a zero-property
+    custom-properties part is materialised eagerly with a
+    ``[Content_Types].xml`` override and a package-root rel pointing
+    at it. Used to verify back-compat reading and round-trip fidelity
+    in :class:`DescribeCustomPropertiesPartRelPlacement`.
+    """
+    blob = _make_valid_docx_bytes()
+    out = io.BytesIO()
+    empty_custom_xml = (
+        b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        b'<Properties '
+        b'xmlns="http://schemas.openxmlformats.org/officeDocument/'
+        b'2006/custom-properties" '
+        b'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/'
+        b'2006/docPropsVTypes"/>'
+    )
+    custom_props_ct = (
+        b'<Override PartName="/docProps/custom.xml" '
+        b'ContentType="application/vnd.openxmlformats-officedocument.'
+        b'custom-properties+xml"/>'
+    )
+    custom_props_rel = (
+        b'<Relationship Id="rIdC1" '
+        b'Type="http://schemas.openxmlformats.org/officeDocument/'
+        b'2006/relationships/custom-properties" '
+        b'Target="docProps/custom.xml"/>'
+    )
+    with zipfile.ZipFile(io.BytesIO(blob), "r") as zin:
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+            for item in zin.infolist():
+                data = zin.read(item.filename)
+                if item.filename == "[Content_Types].xml":
+                    data = data.replace(b"</Types>", custom_props_ct + b"</Types>")
+                elif item.filename == "_rels/.rels":
+                    data = data.replace(
+                        b"</Relationships>", custom_props_rel + b"</Relationships>"
+                    )
+                zout.writestr(item, data)
+            zout.writestr("docProps/custom.xml", empty_custom_xml)
+    out.seek(0)
+    return out
+
+
 def _make_empty_document_xml_docx_bytes() -> bytes:
     """Return a valid .docx whose `word/document.xml` is an empty byte string.
 
@@ -373,11 +420,21 @@ class DescribeDocument:
 
 
 class DescribeCustomPropertiesPartRelPlacement:
-    """Regression suite for issue #712 — custom-properties relationship must
-    hang off the package root (``_rels/.rels``), never off the main-document
-    part (``word/_rels/document.xml.rels``). When the rel lands on the
-    document part, Microsoft Word rejects the package as malformed even
-    though python-docx itself can re-open it cleanly.
+    """Regression suite for issues #712 and #721.
+
+    Issue #712: when the custom-properties part **is** materialised, its
+    relationship must hang off the package root (``_rels/.rels``), never
+    off the main-document part (``word/_rels/document.xml.rels``). When
+    the rel lands on the document part, Microsoft Word rejects the
+    package as malformed even though python-docx itself can re-open it
+    cleanly.
+
+    Issue #721: a fresh ``Document().save()`` (or any save where no
+    custom property was set) must **not** materialise an empty
+    ``docProps/custom.xml`` part at all. Round-trip fidelity is
+    preserved for files that shipped the empty part — a read+save of
+    such a file keeps the part — but library-authored saves emit only
+    what the user actually populated.
     """
 
     _CUSTOM_PROPS_TARGET = "docProps/custom.xml"
@@ -387,47 +444,102 @@ class DescribeCustomPropertiesPartRelPlacement:
         document.save(buf)
         buf.seek(0)
         with zipfile.ZipFile(buf) as z:
+            names = z.namelist()
             content_types = z.read("[Content_Types].xml").decode()
             package_root_rels = z.read("_rels/.rels").decode()
             document_rels = z.read("word/_rels/document.xml.rels").decode()
-        return buf, content_types, package_root_rels, document_rels
+        return buf, names, content_types, package_root_rels, document_rels
 
-    def it_writes_the_custom_properties_rel_to_the_package_root_rels(self):
-        # -- fresh document, no mutations: a no-op save still triggers the
-        # -- save-time path that materialises the part. --
+    def it_does_not_write_custom_properties_part_for_a_fresh_document(self):
+        # -- issue #721: a no-op save of a fresh ``Document()`` should
+        # -- not produce a ``docProps/custom.xml`` part, content-type
+        # -- override, or rels entry. --
         document = DocumentFactoryFn()
 
-        _, content_types, root_rels, doc_rels = self._save_and_inspect(document)
+        _, names, content_types, root_rels, doc_rels = self._save_and_inspect(document)
 
-        assert self._CUSTOM_PROPS_TARGET in content_types
-        assert self._CUSTOM_PROPS_TARGET in root_rels
+        assert self._CUSTOM_PROPS_TARGET not in names
+        assert self._CUSTOM_PROPS_TARGET not in content_types
+        assert self._CUSTOM_PROPS_TARGET not in root_rels
         assert self._CUSTOM_PROPS_TARGET not in doc_rels
 
-    def it_writes_the_custom_properties_rel_correctly_after_core_props_mutation(
-        self,
-    ):
-        # -- the issue's reproduction: any core-properties mutation also
-        # -- triggers the save-time path that touches custom_properties. --
+    def it_does_not_write_custom_properties_part_when_only_core_props_set(self):
+        # -- mutating ``core_properties`` is unrelated to custom
+        # -- properties; the empty-skip must still apply. --
         document = DocumentFactoryFn()
         document.core_properties.author = "x"
 
-        _, content_types, root_rels, doc_rels = self._save_and_inspect(document)
+        _, names, content_types, root_rels, doc_rels = self._save_and_inspect(document)
 
+        assert self._CUSTOM_PROPS_TARGET not in names
+        assert self._CUSTOM_PROPS_TARGET not in content_types
+        assert self._CUSTOM_PROPS_TARGET not in root_rels
+        assert self._CUSTOM_PROPS_TARGET not in doc_rels
+
+    def it_writes_custom_properties_part_when_a_custom_property_is_set(self):
+        # -- the part must materialise (with the rel on the package
+        # -- root, per issue #712) once at least one custom property
+        # -- has been added. --
+        document = DocumentFactoryFn()
+        document.custom_properties.add("Project", "demo")
+
+        _, names, content_types, root_rels, doc_rels = self._save_and_inspect(document)
+
+        assert self._CUSTOM_PROPS_TARGET in names
         assert self._CUSTOM_PROPS_TARGET in content_types
         assert self._CUSTOM_PROPS_TARGET in root_rels
         assert self._CUSTOM_PROPS_TARGET not in doc_rels
+
+    def it_round_trips_a_document_with_custom_properties(self):
+        document = DocumentFactoryFn()
+        document.custom_properties.add("Project", "demo")
+        document.custom_properties.add("Iteration", 7)
+
+        buf = io.BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        reopened = DocumentFactoryFn(buf)
+
+        assert reopened.custom_properties["Project"] == "demo"
+        assert reopened.custom_properties["Iteration"] == 7
 
     def it_round_trips_through_save_and_reopen(self):
         # -- python-docx must still re-read its own output: save, reopen,
         # -- inspect custom_properties without raising. --
         document = DocumentFactoryFn()
-        buf, _, _, _ = self._save_and_inspect(document)
+        buf, _, _, _, _ = self._save_and_inspect(document)
 
         buf.seek(0)
         reopened = DocumentFactoryFn(buf)
 
         # -- no items but the proxy must be live and iterable. --
         assert list(reopened.custom_properties) == []
+
+    def it_reads_a_document_with_an_empty_custom_properties_part(self):
+        # -- back-compat: a docx that has the part declared but empty
+        # -- (e.g. saved by an older python-docx, or by Office) must
+        # -- still open cleanly. --
+        buf = _make_docx_with_empty_custom_properties_part()
+
+        document = DocumentFactoryFn(buf)
+
+        assert list(document.custom_properties) == []
+
+    def it_preserves_a_shipped_empty_custom_properties_part_on_round_trip(self):
+        # -- issue #721 round-trip fidelity: a docx that arrived with an
+        # -- empty custom-properties part keeps it across read+save so
+        # -- byte-equal fixtures don't drift just because python-docx
+        # -- opened them. --
+        buf_in = _make_docx_with_empty_custom_properties_part()
+
+        document = DocumentFactoryFn(buf_in)
+        buf_out = io.BytesIO()
+        document.save(buf_out)
+        buf_out.seek(0)
+        with zipfile.ZipFile(buf_out) as z:
+            names_out = z.namelist()
+
+        assert self._CUSTOM_PROPS_TARGET in names_out
 
 
 class DescribePasswordRoundTrip:

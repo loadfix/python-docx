@@ -466,6 +466,7 @@ class OpcPackage:
         if strict is not None:
             self._is_strict = bool(strict)
         self._drop_unused_package_rels()
+        self._drop_empty_library_authored_custom_props()
         for part in self.parts:
             part.before_marshal(reproducible=reproducible)
         PackageWriter.write(
@@ -503,6 +504,55 @@ class OpcPackage:
             # -- only drop library-authored thumbnails; preserve those
             # -- that shipped in the source package. --
             if getattr(rel.target_part, "_loaded_from_package", False):
+                continue
+            to_drop.append(rId)
+        for rId in to_drop:
+            del self.rels[rId]
+
+    def _drop_empty_library_authored_custom_props(self) -> None:
+        """Drop a library-authored, empty ``docProps/custom.xml`` part on save.
+
+        Issue #721: a fresh ``Document().save()`` materialises a
+        zero-property custom-properties part because the save path
+        accesses ``document.custom_properties`` (the bind-tokens helper
+        builds a property map regardless of whether any custom property
+        is set). The lazy accessor :attr:`_custom_properties_part`
+        creates an empty part the first time it is read, leaving an
+        empty ``docProps/custom.xml`` zip entry plus a content-type
+        override and a package-root rel in every saved file.
+        Microsoft Office tolerates the empty part (and even ships one
+        itself in some templates), but it is wasted bytes plus diff
+        noise across automation.
+
+        Round-trip fidelity is preserved: parts that shipped in the
+        source package (``_loaded_from_package = True``) are kept
+        verbatim even when empty, matching the conservative policy used
+        elsewhere (cf. :meth:`_drop_unused_package_rels`,
+        ``DocumentPart._drop_unused_optional_parts``). Only parts the
+        library itself created on demand and never populated are
+        suppressed.
+
+        .. versionadded:: 2026.06.0
+        """
+        from docx.parts.custom_properties import CustomPropertiesPart
+
+        to_drop: list[str] = []
+        for rId, rel in list(self.rels.items()):
+            if rel.is_external:
+                continue
+            if rel.reltype != RT.CUSTOM_PROPERTIES:
+                continue
+            try:
+                target = rel.target_part
+            except ValueError:  # pragma: no cover - defensive
+                continue
+            if not isinstance(target, CustomPropertiesPart):  # pragma: no cover
+                continue
+            # -- preserve the source package's shape on round-trip: an
+            # -- empty part that shipped in on read survives save. --
+            if getattr(target, "_loaded_from_package", False):
+                continue
+            if len(target._element.property_lst) > 0:
                 continue
             to_drop.append(rId)
         for rId in to_drop:
