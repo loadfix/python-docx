@@ -3933,11 +3933,17 @@ empty document `title` core property, paragraphs longer than 1000
 characters, and leftover `[PLACEHOLDER]` / `[TBD]` / `Lorem ipsum`
 sentinels. Each `Finding` carries `rule` / `severity`
 (`error` / `warning` / `info`) / `message` / `paragraph_index` /
-`autofix_available` / `autofix_description`. Stage one is read-only;
+`autofix_available` / `autofix_description` / `safe_to_delete`.
+Stage one is read-only;
 `LintReport.autofix(rules=None)` mutates the document in place and
 returns the count of fixes applied. `LintReport.summary()` produces a
-rule-by-rule count line. Custom rules plug in via
-`docx.kit.lint.register_rule(name, check_callback,
+rule-by-rule count line. The `empty-paragraph` autofix preserves
+paragraphs whose XML carries load-bearing structure (page / column /
+line break, tab, drawing, picture, embedded object, bookmark anchor,
+comment-range marker, SDT, section properties, ink annotation, simple
+/ complex field, hyperlink) — issue #656. Skipped findings show up
+in `LintReport.preservation_notes` as a one-line note. Custom rules
+plug in via `docx.kit.lint.register_rule(name, check_callback,
 autofix_callback=None)` — the public extension hook for project-
 specific checks. `[Added in 2026.05.29]`
 
