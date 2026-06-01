@@ -423,6 +423,7 @@ class OpcPackage:
         reproducible: bool = False,
         password: str | None = None,
         strict: bool | None = None,
+        mirror_paragraph_marks: bool = False,
     ):
         """Save this package to `pkg_file`.
 
@@ -454,12 +455,18 @@ class OpcPackage:
         callers who round-trip it explicitly via
         :class:`ooxml_opc.OpcPackage`.
 
+        ``mirror_paragraph_marks`` (default |False|) is forwarded to
+        :meth:`docx.parts.document.DocumentPart.before_marshal`; see
+        :meth:`docx.document.Document.save` for the full contract.
+
         .. versionadded:: 2026.05.0
            The `reproducible` parameter.
         .. versionadded:: 2026.05.10
            The `password` parameter.
         .. versionadded:: 2026.05.11
            The `strict` parameter.
+        .. versionadded:: 2026.06.0
+           The `mirror_paragraph_marks` parameter (#734).
         """
         if isinstance(pkg_file, str):
             _validate_save_path(pkg_file)
@@ -468,7 +475,19 @@ class OpcPackage:
         self._drop_unused_package_rels()
         self._drop_empty_library_authored_custom_props()
         for part in self.parts:
-            part.before_marshal(reproducible=reproducible)
+            # ``mirror_paragraph_marks`` is only meaningful on the
+            # document part — every other ``before_marshal`` ignores
+            # the kwarg via the **kwargs catch-all on the base class.
+            try:
+                part.before_marshal(
+                    reproducible=reproducible,
+                    mirror_paragraph_marks=mirror_paragraph_marks,
+                )
+            except TypeError:
+                # -- defensive: third-party part subclasses that
+                # -- predate the kwarg keep working with the legacy
+                # -- single-argument shape. --
+                part.before_marshal(reproducible=reproducible)
         PackageWriter.write(
             pkg_file,
             self.rels,

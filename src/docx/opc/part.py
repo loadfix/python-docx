@@ -72,8 +72,21 @@ class Part(_SharedPart):
         """Post-unmarshal hook (override without forwarding to super)."""
         return
 
-    def before_marshal(self, reproducible: bool = False) -> None:
-        """Pre-serialisation hook (override without forwarding to super)."""
+    def before_marshal(
+        self,
+        reproducible: bool = False,
+        mirror_paragraph_marks: bool = False,
+    ) -> None:
+        """Pre-serialisation hook (override without forwarding to super).
+
+        ``mirror_paragraph_marks`` is honoured by the document part
+        only (see :meth:`docx.parts.document.DocumentPart.before_marshal`)
+        and ignored elsewhere; it appears here so :meth:`OpcPackage.save`
+        can pass the kwarg uniformly to every part.
+
+        .. versionchanged:: 2026.06.0
+           Accepts ``mirror_paragraph_marks`` (#734).
+        """
         return
 
     @property

@@ -116,7 +116,11 @@ class DescribeDocumentPart:
         document_part.save("foobar.docx")
 
         package_.save.assert_called_once_with(
-            "foobar.docx", reproducible=False, password=None, strict=None
+            "foobar.docx",
+            reproducible=False,
+            password=None,
+            strict=None,
+            mirror_paragraph_marks=False,
         )
 
     def it_provides_access_to_the_comments_added_to_the_document(
@@ -679,3 +683,99 @@ class DescribeDocumentPart:
     @pytest.fixture
     def _styles_part_prop_(self, request: FixtureRequest):
         return property_mock(request, DocumentPart, "_styles_part")
+
+
+class DescribeParagraphMarkMirror:
+    """Save-time paragraph-mark formatting mirror (#734).
+
+    Exercises the public ``Document.save(mirror_paragraph_marks=...)``
+    contract end-to-end through the package-write path so the
+    forwarding (``Document`` → ``DocumentPart`` → ``OpcPackage`` →
+    ``DocumentPart.before_marshal``) is covered as a unit.
+    """
+
+    def it_does_not_mirror_paragraph_marks_by_default(self):
+        from io import BytesIO
+        from zipfile import ZipFile
+
+        import docx
+
+        d = docx.Document()
+        p = d.add_paragraph()
+        p.add_run("Hello").bold = True
+
+        buf = BytesIO()
+        d.save(buf)
+
+        body = ZipFile(BytesIO(buf.getvalue())).read("word/document.xml").decode()
+        # -- the bold run survives, but the paragraph mark must not
+        # -- carry the run's <w:b/>/<w:bCs/> mirror.
+        assert "<w:r><w:rPr><w:b/><w:bCs/></w:rPr><w:t>Hello</w:t></w:r>" in body
+        assert "<w:pPr><w:rPr><w:b/>" not in body
+
+    def it_mirrors_when_explicitly_enabled(self):
+        from io import BytesIO
+        from zipfile import ZipFile
+
+        import docx
+
+        d = docx.Document()
+        p = d.add_paragraph()
+        p.add_run("Hello").bold = True
+
+        buf = BytesIO()
+        d.save(buf, mirror_paragraph_marks=True)
+
+        body = ZipFile(BytesIO(buf.getvalue())).read("word/document.xml").decode()
+        # -- mirror copies the run's simple-script <w:b/> onto the
+        # -- paragraph mark; the complex-script <w:bCs/> is *not*
+        # -- mirrored unless the source paragraph mark already had it.
+        assert "<w:pPr><w:rPr><w:b/></w:rPr></w:pPr>" in body
+
+    def it_does_not_extend_b_to_bCs_on_paragraph_mark(self):
+        from io import BytesIO
+        from zipfile import ZipFile
+
+        import docx
+
+        d = docx.Document()
+        p = d.add_paragraph()
+        p.add_run("Hello").bold = True
+
+        buf = BytesIO()
+        d.save(buf, mirror_paragraph_marks=True)
+
+        body = ZipFile(BytesIO(buf.getvalue())).read("word/document.xml").decode()
+        # -- defect #3 from the issue: the bold setter writes both
+        # -- <w:b/> and <w:bCs/> on the run, but the paragraph mark
+        # -- should only inherit the simple-script tag.
+        assert "<w:pPr><w:rPr><w:b/><w:bCs/></w:rPr></w:pPr>" not in body
+        assert "<w:pPr><w:rPr><w:b/></w:rPr></w:pPr>" in body
+
+    def it_does_not_inflate_a_no_op_round_trip(self):
+        from io import BytesIO
+        from zipfile import ZipFile
+
+        import docx
+
+        # -- programmatically build a doc with several single-run
+        # -- bold paragraphs (worst case for the mirror — pre-fix
+        # -- every save inflated word/document.xml). Loading the
+        # -- saved bytes and re-saving must be byte-identical.
+        d = docx.Document()
+        for text in ("alpha", "beta", "gamma", "delta"):
+            p = d.add_paragraph()
+            p.add_run(text).bold = True
+
+        buf1 = BytesIO()
+        d.save(buf1)
+
+        d2 = docx.Document(BytesIO(buf1.getvalue()))
+        buf2 = BytesIO()
+        d2.save(buf2)
+
+        body1 = ZipFile(BytesIO(buf1.getvalue())).read("word/document.xml")
+        body2 = ZipFile(BytesIO(buf2.getvalue())).read("word/document.xml")
+        assert len(body1) == len(body2)
+        # -- and no paragraph-mark mirror crept in on the second save
+        assert b"<w:pPr><w:rPr><w:b/>" not in body2

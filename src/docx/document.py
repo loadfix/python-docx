@@ -3466,6 +3466,7 @@ class Document(ElementProxy):
         password: str | None = None,
         strict: bool | None = None,
         compatibility: str | int | None = None,
+        mirror_paragraph_marks: bool = False,
     ):
         """Save this document to `path_or_stream`.
 
@@ -3520,6 +3521,18 @@ class Document(ElementProxy):
         only that it will not error on opening. See
         :mod:`docx.compatibility` for the full list. Closes #94.
 
+        ``mirror_paragraph_marks`` (default |False|) controls the
+        paragraph-mark formatting mirror that copies the first run's
+        ``<w:rPr>`` onto every paragraph's ``<w:pPr><w:rPr>``. When
+        the mirror runs, typing past the last run in Microsoft Word
+        continues with the same character formatting (the historical
+        "keep typing in bold" convention python-docx emitted for every
+        save before 2026.06). The mirror inflated no-op round-trips by
+        thousands of bytes and silently disagreed with Word's
+        last-run-wins convention on multi-run paragraphs (#734), so it
+        now defaults to off. Pass ``mirror_paragraph_marks=True`` to
+        opt back into the legacy emission shape.
+
         .. versionadded:: 2026.05.0
            The `flat_opc` and `reproducible` parameters.
         .. versionadded:: 2026.05.10
@@ -3528,6 +3541,9 @@ class Document(ElementProxy):
            The `strict` parameter.
         .. versionadded:: 2026.05.dev0
            The `compatibility` parameter.
+        .. versionadded:: 2026.06.0
+           The `mirror_paragraph_marks` parameter (#734). Default is
+           |False| — the previous behaviour was equivalent to ``True``.
         """
         # -- resolve smart-placeholder bind tokens (#68) immediately
         # -- before handing off to the part-level save so every text
@@ -3587,12 +3603,18 @@ class Document(ElementProxy):
             from docx.opc.flat_opc import write_flat_opc
 
             buf = _io.BytesIO()
-            self._part.save(buf, reproducible=reproducible, strict=strict)
+            self._part.save(
+                buf,
+                reproducible=reproducible,
+                strict=strict,
+                mirror_paragraph_marks=mirror_paragraph_marks,
+            )
             write_flat_opc(path_or_stream, buf.getvalue())
             return
         self._part.save(
             path_or_stream, reproducible=reproducible, password=password,
             strict=strict,
+            mirror_paragraph_marks=mirror_paragraph_marks,
         )
 
     def search(

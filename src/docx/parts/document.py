@@ -458,7 +458,11 @@ class DocumentPart(StoryPart):
             self.relate_to(numbering_part, RT.NUMBERING)
             return numbering_part
 
-    def before_marshal(self, reproducible: bool = False) -> None:
+    def before_marshal(
+        self,
+        reproducible: bool = False,
+        mirror_paragraph_marks: bool = False,
+    ) -> None:
         """Stamp Word-style identifiers on paragraphs/runs just before save.
 
         Word emits ``w14:paraId``, ``w14:textId``, and session-wide
@@ -496,11 +500,23 @@ class DocumentPart(StoryPart):
         element defaults (no rsid/paraId/textId), which are all
         optional per ECMA-376 and accepted by Word.
 
+        ``mirror_paragraph_marks`` (default |False|) gates the
+        paragraph-mark formatting mirror that copies the first run's
+        ``<w:rPr>`` onto every paragraph's ``<w:pPr><w:rPr>``. The
+        mirror inflates no-op round-trips by thousands of bytes (#734)
+        and silently disagrees with Word's "last-run wins" convention
+        on multi-run paragraphs, so it now defaults to off. Set the
+        flag to |True| to recover the legacy "keep typing in bold"
+        behaviour python-docx emitted before 2026.06.
+
         .. versionadded:: 2026.05.2
         .. versionchanged:: 2026.05.11
             Suppress rsid/paraId/textId minting on parts loaded from a
             package — preserves byte-identical fidelity on read+save
             round-trips of Office-authored files.
+        .. versionchanged:: 2026.06.0
+            ``mirror_paragraph_marks`` keyword (default |False|) gates
+            the paragraph-mark formatting mirror. Closes #734.
         """
         # Fidelity gate: parts that were loaded from a package are
         # preserved verbatim. Minting new rsid/paraId/textId attributes
@@ -517,7 +533,8 @@ class DocumentPart(StoryPart):
             # Still want to keep settings/<w:rsids> consistent with
             # whatever rsids the loaded document already references,
             # but we do not introduce new session-scoped tokens.
-            _mirror_run_formatting_to_paragraph_mark(self.element)
+            if mirror_paragraph_marks:
+                _mirror_run_formatting_to_paragraph_mark(self.element)
             self._resolve_data_source_bindings()
             self._stamp_data_source_markers()
             self._drop_unused_optional_parts(self.element)
@@ -576,8 +593,13 @@ class DocumentPart(StoryPart):
         # Mirror run formatting onto the paragraph mark (pPr/rPr) so that
         # typing after the last run in Word continues with the same
         # formatting. This is the "keep typing in bold" convention Word
-        # emits by default.
-        _mirror_run_formatting_to_paragraph_mark(root)
+        # emits by default. Opt-in (#734) — the mirror inflates no-op
+        # round-trips by thousands of bytes and disagrees with Word's
+        # last-run-wins rule on multi-run paragraphs, so it defaults
+        # off. Callers who want the historical behaviour pass
+        # ``mirror_paragraph_marks=True`` to ``Document.save``.
+        if mirror_paragraph_marks:
+            _mirror_run_formatting_to_paragraph_mark(root)
 
         # Resolve and inline custom-XML data-binding values for every SDT
         # whose <w:dataBinding> points at a registered data source (#80).
@@ -844,6 +866,7 @@ class DocumentPart(StoryPart):
         reproducible: bool = False,
         password: str | None = None,
         strict: bool | None = None,
+        mirror_paragraph_marks: bool = False,
     ):
         """Save this document to `path_or_stream`, which can be either a path to a
         filesystem location (a string) or a file-like object.
@@ -860,16 +883,23 @@ class DocumentPart(StoryPart):
         for ECMA-376 conformance-class handling; see
         :meth:`docx.document.Document.save`.
 
+        ``mirror_paragraph_marks`` (default |False|) controls whether the
+        paragraph-mark formatting mirror runs in :meth:`before_marshal`.
+        See :meth:`docx.document.Document.save` for the full contract.
+
         .. versionadded:: 2026.05.0
            The `reproducible` parameter.
         .. versionadded:: 2026.05.10
            The `password` parameter.
         .. versionadded:: 2026.05.11
            The `strict` parameter.
+        .. versionadded:: 2026.06.0
+           The `mirror_paragraph_marks` parameter (#734).
         """
         self.package.save(
             path_or_stream, reproducible=reproducible, password=password,
             strict=strict,
+            mirror_paragraph_marks=mirror_paragraph_marks,
         )
 
     @property
@@ -985,13 +1015,22 @@ class DocumentPart(StoryPart):
 # caps variants) and character-shape properties (size, color, font
 # name). Deliberately excludes lang, spacing, and the border/shd
 # family because Word doesn't mirror those onto paragraph marks.
+#
+# The complex-script counterparts (``w:bCs`` / ``w:iCs`` / ``w:szCs``)
+# are deliberately *off* this default whitelist (#734). The bold and
+# italic setters in ``Font`` automatically write the simple- and
+# complex-script tags side by side on the run; mirroring the
+# complex-script tags onto the paragraph mark even when the source
+# document never carried them is a silent surface change that does
+# not match Word's own emission convention. The complex-script tags
+# are tracked separately in ``_MIRROR_RUN_PROP_TAGS_CS`` and only
+# mirrored when the source paragraph mark already carries one (or
+# when the caller enables aggressive mirroring explicitly).
 _MIRROR_RUN_PROP_TAGS = frozenset(
     qn(t)
     for t in (
         "w:b",
-        "w:bCs",
         "w:i",
-        "w:iCs",
         "w:u",
         "w:strike",
         "w:dstrike",
@@ -999,10 +1038,16 @@ _MIRROR_RUN_PROP_TAGS = frozenset(
         "w:smallCaps",
         "w:color",
         "w:sz",
-        "w:szCs",
         "w:rFonts",
         "w:vertAlign",
     )
+)
+
+#: Complex-script counterparts mirrored only when the source paragraph
+#: mark already carries the simple-script tag *or* when the caller
+#: opted into aggressive mirroring. See :func:`_mirror_run_formatting_to_paragraph_mark`.
+_MIRROR_RUN_PROP_TAGS_CS = frozenset(
+    qn(t) for t in ("w:bCs", "w:iCs", "w:szCs")
 )
 
 
@@ -1020,6 +1065,16 @@ def _mirror_run_formatting_to_paragraph_mark(root) -> None:
     Only mirrors for paragraphs that have exactly one direct <w:r>
     child whose <w:rPr> carries any of the whitelisted tags. Avoids
     over-writing an explicit pPr/rPr on the paragraph.
+
+    The complex-script tags ``w:bCs`` / ``w:iCs`` / ``w:szCs`` are
+    *not* mirrored by default (#734) — the Font.bold / Font.italic
+    setters automatically write the complex-script counterpart on
+    runs, but mirroring those onto the paragraph mark when the source
+    document never carried them is a silent surface change that bloats
+    no-op round-trips and disagrees with Word's emission convention.
+    A complex-script tag is mirrored only when the target paragraph
+    mark already carries the matching simple-script tag (i.e. an
+    earlier mirror pass or the source document explicitly authored it).
     """
     from copy import deepcopy
 
@@ -1055,11 +1110,34 @@ def _mirror_run_formatting_to_paragraph_mark(root) -> None:
             target_rPr = OxmlElement("w:rPr")
             pPr.append(target_rPr)
 
-        existing = {child.tag for child in target_rPr}
+        # Track tags already on the target paragraph mark *before*
+        # any mirroring so we can decide whether to copy the
+        # complex-script counterparts. ``existing_pre`` reflects what
+        # the source document explicitly authored on the paragraph
+        # mark; ``existing`` evolves as we append simple-script tags.
+        existing_pre = {child.tag for child in target_rPr}
+        existing = set(existing_pre)
         for src in mirror_children:
             if src.tag in existing:
                 continue
             target_rPr.append(deepcopy(src))
+            existing.add(src.tag)
+
+        # Mirror complex-script tags only when the source paragraph
+        # mark *already* carried them (pre-existing on the target
+        # before this pass). The bold/italic setters write the
+        # complex-script counterpart on every run automatically; we
+        # do NOT propagate that to paragraph marks that never carried
+        # complex-script formatting in the source. Closes #734.
+        for src in source_rPr:
+            if src.tag not in _MIRROR_RUN_PROP_TAGS_CS:
+                continue
+            if src.tag in existing:
+                continue
+            if src.tag not in existing_pre:
+                continue
+            target_rPr.append(deepcopy(src))
+            existing.add(src.tag)
 
 
 class _RandomMinter:

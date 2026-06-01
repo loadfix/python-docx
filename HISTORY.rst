@@ -150,6 +150,21 @@ Unreleased — Hyperlink ergonomics
   of the link. Multiple bare URLs in the same paragraph yield one
   finding per URL.
 
+- **Round-trip fidelity: paragraph-mark formatting mirror is opt-in
+  (#734)** — ``Document.save()`` no longer copies the first run's
+  ``<w:rPr>`` onto every paragraph's ``<w:pPr><w:rPr>`` by default.
+  The mirror was firing unconditionally on every save (including
+  no-op ``Document(p).save(p2)`` round-trips) and inflated body XML
+  by ~16% on real documents — a 173 KB fixture grew from 172 KB to
+  200 KB on a single round-trip with no edits. The mirror also
+  silently extended ``<w:bCs/>``/``<w:iCs/>`` (auto-written by the
+  ``Font.bold`` / ``Font.italic`` setters) onto paragraph marks the
+  source document never marked as complex-script. Pass
+  ``mirror_paragraph_marks=True`` to ``Document.save()`` to recover
+  the historical "keep typing in bold" emission shape; even with the
+  flag enabled the complex-script tags are now mirrored only when
+  the source paragraph mark already carried them. Closes #734.
+
 - **``Document.iter_all_paragraphs()`` /
   ``Document.iter_all_runs()`` / ``Document.iter_all_pictures()``** —
   promote the previously-private ``docx.search._iter_all_paragraphs``
