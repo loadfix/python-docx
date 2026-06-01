@@ -3992,6 +3992,8 @@ saves to ``output_path``, and returns the |Document| in either case.
 list flags micro-typography and structural defects in a `.docx`:
 double spaces, trailing whitespace, leading tabs, mixed straight /
 smart quotes, consecutive empty paragraphs, skipped heading levels,
+trailing headings (a heading at end-of-document with no body content
+beneath it — the unfinished-section pattern, issue #644),
 inline images without alt text, paragraphs mixing font families, an
 empty document `title` core property, paragraphs longer than 1000
 characters, and leftover `[PLACEHOLDER]` / `[TBD]` / `Lorem ipsum`

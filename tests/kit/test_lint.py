@@ -882,6 +882,97 @@ class DescribeInconsistentHeadingLevels:
         assert finding.details["skipped"] == 3
 
 
+class DescribeTrailingHeading:
+    """Issue #644 — heading at end of document with no body content."""
+
+    def it_flags_a_heading_with_no_following_paragraphs(
+        self, document: DocumentCls
+    ):
+        document.add_paragraph("Body of section ten.")
+        document.add_heading("11. Glossary", level=1)
+        report = lint(document)
+        th = [f for f in report.findings if f.rule == "trailing-heading"]
+        assert len(th) == 1
+        assert th[0].severity == "info"
+        assert "11. Glossary" in th[0].message
+        assert th[0].autofix_available is False
+
+    def it_flags_a_heading_followed_only_by_empty_paragraphs(
+        self, document: DocumentCls
+    ):
+        document.add_paragraph("Some prose.")
+        document.add_heading("Conclusion", level=2)
+        document.add_paragraph("")
+        document.add_paragraph("   ")
+        document.add_paragraph("")
+        report = lint(document)
+        th = [f for f in report.findings if f.rule == "trailing-heading"]
+        assert len(th) == 1
+        assert "Conclusion" in th[0].message
+
+    def it_does_not_flag_a_heading_with_following_body_text(
+        self, document: DocumentCls
+    ):
+        document.add_heading("Introduction", level=1)
+        document.add_paragraph("This is the body of the introduction.")
+        report = lint(document)
+        assert "trailing-heading" not in [f.rule for f in report.findings]
+
+    def it_does_not_flag_a_heading_with_following_table(
+        self, document: DocumentCls
+    ):
+        # A trailing table is body content even when its cells are
+        # empty — the author has at minimum sketched the structure of
+        # the section.
+        document.add_heading("Results", level=2)
+        document.add_table(rows=2, cols=2)
+        report = lint(document)
+        assert "trailing-heading" not in [f.rule for f in report.findings]
+
+    def it_does_not_fire_on_a_document_with_no_headings(
+        self, document: DocumentCls
+    ):
+        document.add_paragraph("Just prose.")
+        document.add_paragraph("More prose.")
+        report = lint(document)
+        assert "trailing-heading" not in [f.rule for f in report.findings]
+
+    def it_locates_the_finding_at_the_offending_heading_paragraph(
+        self, document: DocumentCls
+    ):
+        # Build a document where the offending heading sits at a known
+        # paragraph index so we can assert the finding's locator points
+        # at it.
+        document.add_paragraph("Intro paragraph.")  # index 0
+        document.add_paragraph("Body paragraph.")  # index 1
+        document.add_heading("Trailing Section", level=1)  # index 2
+        report = lint(document)
+        finding = next(
+            f for f in report.findings if f.rule == "trailing-heading"
+        )
+        assert finding.paragraph_index == 2
+        assert finding.location == "paragraph 2"
+        # Issue #678: heading metadata is exposed via Finding.details so
+        # callers don't have to regex-parse the message.
+        assert finding.details["heading_level"] == 1
+        assert finding.details["heading_text"] == "Trailing Section"
+
+    def it_flags_each_of_multiple_trailing_headings(
+        self, document: DocumentCls
+    ):
+        # Two adjacent headings at the end with no body content beneath
+        # *either* of them are both "trailing" — neither delivers the
+        # promised section content.
+        document.add_paragraph("Body content.")
+        document.add_heading("First trailing", level=1)
+        document.add_heading("Second trailing", level=2)
+        report = lint(document)
+        th = [f for f in report.findings if f.rule == "trailing-heading"]
+        assert len(th) == 2
+        texts = {f.details["heading_text"] for f in th}
+        assert texts == {"First trailing", "Second trailing"}
+
+
 class DescribeFindingDetails:
     """Issue #678 — Finding.details defaults to an empty mapping."""
 

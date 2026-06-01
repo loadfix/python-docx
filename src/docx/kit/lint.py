@@ -72,6 +72,15 @@ Built-in rules (twelve total):
 * ``inconsistent-heading-levels`` (warning, no-fix) — heading skips a
   level (e.g. H1 then H3). Manual fix only — automatically renumbering
   changes the table of contents.
+* ``trailing-heading`` (info, no-fix) — heading paragraph at the end
+  of the document with no body content beneath it (every following
+  block is an empty paragraph, or there are no following blocks).
+  Catches sections promised but never delivered, plus the common
+  authoring bug where ``Heading`` style is auto-applied to a final
+  pasted line. A trailing table counts as content, even when its
+  cells are empty. Manual fix only — the rule cannot guess what
+  content the author intended; the right move is to either delete
+  the heading or add the missing section body.
 * ``missing-alt-text`` (info or warning, no-fix) — inline image without
   an alt text attribute. Default severity is ``info``; escalates to
   ``warning`` when the document already declares accessibility intent
@@ -1494,6 +1503,114 @@ def _check_inconsistent_heading_levels(document: "Document") -> Iterable[Finding
         previous_level = level
 
 
+def _check_trailing_heading(document: "Document") -> Iterable[Finding]:
+    """Yield a finding for every heading whose document body trails into nothing.
+
+    A heading paragraph is "trailing" iff every block (paragraph or
+    table) that follows it in document order is empty — i.e. the
+    section title promises content the document never delivers. This
+    catches two real-world authoring bugs:
+
+    * the document ends mid-thought with a section title (e.g. the
+      last paragraph is ``Heading 1: '11. Glossary'`` and there is
+      no glossary body beneath it);
+    * the very last pasted line is auto-styled as ``Heading`` by
+      Word and the author never noticed.
+
+    The walk uses :meth:`Document.iter_inner_content` so a heading
+    followed by a table counts as having body content (a table is
+    content, even when its cells are empty — the author has at
+    minimum sketched the structure). A heading is flagged only when
+    every following block is a paragraph whose ``text.strip()`` is
+    empty.
+
+    Read-only — the rule cannot guess what content the author
+    intended, so no autofix is offered. The right move is for the
+    author to either delete the heading or add the missing section
+    content.
+
+    Closes #644.
+    """
+
+    try:
+        blocks = list(document.iter_inner_content())
+    except Exception:  # pragma: no cover - defensive
+        return
+    # Map each heading paragraph to its position in ``document.paragraphs``
+    # so the finding can carry the right ``paragraph_index`` (the public
+    # locator the rest of the lint surface uses). ``iter_inner_content``
+    # yields paragraphs and tables interleaved; ``document.paragraphs``
+    # is paragraphs-only, so we can't use the inner-content index. The
+    # mapping keys on the underlying ``<w:p>`` element rather than on
+    # ``id(paragraph)`` because :class:`Paragraph` proxies are created
+    # fresh on each iteration and would not collide on identity.
+    paragraph_index_by_p: Dict[int, int] = {
+        id(p._p): i for i, p in enumerate(document.paragraphs)
+    }
+    # Local import — keeps the table type out of module import time.
+    from docx.table import Table as _Table
+
+    for i, block in enumerate(blocks):
+        if isinstance(block, _Table):
+            continue
+        # Block is a paragraph; check whether it is a heading.
+        level = _heading_level(block)
+        if level is None or level == 0:
+            # Skip non-headings *and* Title / Subtitle (level 0) — a
+            # ``Title`` at end-of-document with no body is a different
+            # animal (a one-line cover page), not the "promised section
+            # never delivered" pattern this rule targets.
+            continue
+        # Examine every block after this one. If any is a non-empty
+        # *body* paragraph or any table, the heading has body content
+        # and is not trailing. A subsequent *heading* doesn't count as
+        # body content — it's the next section title, not the missing
+        # content for this one. Two adjacent trailing headings at
+        # end-of-document are both flagged.
+        has_following_content = False
+        for follower in blocks[i + 1:]:
+            if isinstance(follower, _Table):
+                has_following_content = True
+                break
+            text = follower.text
+            if not (text and text.strip()):
+                continue
+            if _heading_level(follower) is not None:
+                # Another heading — body content for *that* heading,
+                # not for this one. Keep walking; the next non-empty
+                # *non-heading* paragraph is what counts.
+                continue
+            has_following_content = True
+            break
+        if has_following_content:
+            continue
+        heading_text = block.text.strip()
+        paragraph_index = paragraph_index_by_p.get(id(block._p))
+        location = (
+            f"paragraph {paragraph_index}"
+            if paragraph_index is not None
+            else "document body"
+        )
+        yield Finding(
+            rule="trailing-heading",
+            severity="info",
+            message=(
+                f"heading {heading_text!r} at {location} has no body "
+                f"content beneath it"
+            ),
+            paragraph_index=paragraph_index,
+            autofix_available=False,
+            autofix_description=None,
+            location=location,
+            details=MappingProxyType(
+                {
+                    "heading_level": level,
+                    "heading_text": heading_text,
+                }
+            ),
+        )
+
+
 def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
     shapes = _document_inline_shapes(document)
     severity = (
@@ -2082,6 +2199,7 @@ BUILTIN_RULES: Tuple[str, ...] = (
     "empty-paragraph",
     "trailing-empty-paragraph",
     "inconsistent-heading-levels",
+    "trailing-heading",
     "missing-alt-text",
     "mixed-fonts",
     "missing-document-title",
@@ -2127,6 +2245,7 @@ def _install_builtin_rules() -> None:
     register_rule(
         "inconsistent-heading-levels", _check_inconsistent_heading_levels
     )
+    register_rule("trailing-heading", _check_trailing_heading)
     register_rule("missing-alt-text", _check_missing_alt_text)
     register_rule("mixed-fonts", _check_mixed_fonts)
     register_rule(

@@ -36,6 +36,21 @@ Unreleased — Hyperlink ergonomics
   payload and the dedicated regression tests for the five-occurrence
   "logo on every header" pattern.
 
+- **``docx.kit.lint`` — new ``trailing-heading`` rule** (#644). Flags
+  heading paragraphs at the end of the document with no body content
+  beneath them — a section title that promises content the document
+  never delivers. Catches both the unfinished-section pattern (the
+  motivating case: the last paragraph of a draft is
+  ``Heading 1 '11. Glossary'`` with nothing under it) and the common
+  authoring bug where ``Heading`` style is auto-applied to a final
+  pasted line. Severity ``info``; no autofix (the rule cannot guess
+  what content the author intended). Walks ``Document.iter_inner_content``
+  so a trailing table counts as body content even when its cells are
+  empty; only paragraphs without text count toward "no body content".
+  Adjacent trailing headings are each flagged independently — a
+  following heading is the next section title, not body content for
+  this one.
+
 - **``Document.iter_all_paragraphs()`` /
   ``Document.iter_all_runs()`` / ``Document.iter_all_pictures()``** —
   promote the previously-private ``docx.search._iter_all_paragraphs``
@@ -219,7 +234,6 @@ unlocks the same workflow for python-docx).
   the extra installed raises ``EncryptedDocumentError`` with the
   install instructions.
 
-
 2026.05.9 — Audit bug-fix round
 +++++++++++++++++++++++++++++++
 
@@ -252,7 +266,6 @@ or a crisper error type.
   internal ``CT_*`` / ``ST_*`` names can no longer be reached via
   ``from docx.<mod> import *``. Star-import only — existing explicit
   imports continue to work.
-
 
 2026.05.8 — New authoring APIs
 ++++++++++++++++++++++++++++++
@@ -319,7 +332,6 @@ Field evaluation
   ``QUOTE``, ``FILLIN``, and the full date-picture/numeric-format
   switch grammar.
 - See ``FEATURES.md`` § "Complex-field evaluation".
-
 
 2026.05.7 — Round-trip fidelity and performance fixes
 +++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -422,7 +434,6 @@ O(N^2) indexing on _Rows[i] and BlockItemContainer.paragraphs[i]
 - New ``tests/test_indexing_perf.py`` enforces a < 1 ms/access
   ceiling at N = 5000 (paragraphs) / N = 2000 (rows).
 
-
 2026.05.6 — Section.vertical_alignment property
 ++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -439,7 +450,6 @@ Surfaced by the ``docx/vertical-alignment`` parameterised family in
 ``loadfix/ooxml-reference-corpus`` — section-level cases previously
 required ``OxmlElement("w:vAlign")`` fallback.
 
-
 2026.05.5 — Document.add_comment accepts date=
 ++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -448,7 +458,6 @@ Released: 2026-05-04
 - ``Document.add_comment()`` now forwards an optional
   ``date: datetime`` kwarg to the underlying comments collection,
   mirroring ``Comments.add_comment(date=...)``.
-
 
 2026.05.4 — Word-mimicry phase 3: omit unused optional parts
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -488,7 +497,6 @@ US Letter, by design out of scope).
 
 Full suite: 5004 pass / 6 skip. Corpus conformance: 5/5 pass.
 
-
 2026.05.3 — Word-mimicry phase 2: paragraph-mark format mirror
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -509,7 +517,6 @@ Released: 2026-05-04
   hyperlinked paragraphs are left alone to avoid surprising behaviour.
 - Existing ``<w:pPr><w:rPr>`` content is preserved; only missing
   mirror properties are added.
-
 
 2026.05.2 — Word-mimicry phase 1: namespace decls, paraId, rsid
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -542,7 +549,6 @@ previously showed hundreds of lines of rsid/paraId/namespace churn
 that obscured real bold/italic/layout differences. Post-fix, the noise
 collapses and only behavioural divergences remain visible.
 
-
 2026.05.1 — bCs/iCs correctness fix
 +++++++++++++++++++++++++++++++++++
 
@@ -559,7 +565,6 @@ Released: 2026-05-04
   The ``cs_bold`` / ``cs_italic`` properties continue to work
   independently; callers that need divergent values can still set them
   explicitly after setting bold/italic.
-
 
 2026.05.0 — first release as independent fork
 +++++++++++++++++++++++++++++++++++++++++++++
@@ -675,13 +680,11 @@ Dev / tooling
     / Merge / Debug / Watchdog)
   - Add interop-validate behave scenarios wiring loadfix/ooxml-validate as a round-trip fidelity check.
 
-
 1.2.0 (2025-06-16)
 ++++++++++++++++++
 
 - Add support for comments
 - Drop support for Python 3.8, add testing for Python 3.13
-
 
 1.1.2 (2024-05-01)
 ++++++++++++++++++
@@ -690,7 +693,6 @@ Dev / tooling
 - Fix #1385 Support use of Part._rels by python-docx-template
 - Add support and testing for Python 3.12
 
-
 1.1.1 (2024-04-29)
 ++++++++++++++++++
 
@@ -698,19 +700,16 @@ Dev / tooling
 - Fix #1335 Tolerate invalid float value in bottom-margin
 - Fix #1337 Do not require typing-extensions at runtime
 
-
 1.1.0 (2023-11-03)
 ++++++++++++++++++
 
 - Add BlockItemContainer.iter_inner_content()
-
 
 1.0.1 (2023-10-12)
 ++++++++++++++++++
 
 - Fix #1256: parse_xml() and OxmlElement moved.
 - Add Hyperlink.fragment and .url
-
 
 1.0.0 (2023-10-01)
 +++++++++++++++++++
@@ -731,12 +730,10 @@ Dev / tooling
 - Add Run.iter_inner_content()
 - Add Section.iter_inner_content()
 
-
 0.8.11 (2021-05-15)
 +++++++++++++++++++
 
 - Small build changes and Python 3.8 version changes like collections.abc location.
-
 
 0.8.10 (2019-01-08)
 +++++++++++++++++++
@@ -744,18 +741,15 @@ Dev / tooling
 - Revert use of expanded package directory for default.docx to work around setup.py
   problem with filenames containing square brackets.
 
-
 0.8.9 (2019-01-08)
 ++++++++++++++++++
 
 - Fix gap in MANIFEST.in that excluded default document template directory
 
-
 0.8.8 (2019-01-07)
 ++++++++++++++++++
 
 - Add support for headers and footers
-
 
 0.8.7 (2018-08-18)
 ++++++++++++++++++
@@ -770,14 +764,12 @@ Dev / tooling
 - Add #175: refine MANIFEST.ini
 - Add #168: Unicode error on core-props in Python 2
 
-
 0.8.6 (2016-06-22)
 ++++++++++++++++++
 
 - Add #257: add Font.highlight_color
 - Add #261: add ParagraphFormat.tab_stops
 - Add #303: disallow XML entity expansion
-
 
 0.8.5 (2015-02-21)
 ++++++++++++++++++
@@ -787,19 +779,16 @@ Dev / tooling
 - Add #106: feature: Table.direction (i.e. right-to-left)
 - Add #102: feature: add CT_Row.trPr
 
-
 0.8.4 (2015-02-20)
 ++++++++++++++++++
 
 - Fix #151: tests won't run on PyPI distribution
 - Fix #124: default to inches on no TIFF resolution unit
 
-
 0.8.3 (2015-02-19)
 ++++++++++++++++++
 
 - Add #121, #135, #139: feature: Font.color
-
 
 0.8.2 (2015-02-16)
 ++++++++++++++++++
@@ -818,12 +807,10 @@ Dev / tooling
   something like `Document.numbering_definitions`. In the meantime, it can
   now be accessed using ``Document.part.numbering_part``.
 
-
 0.8.1 (2015-02-10)
 ++++++++++++++++++
 
 - Fix #140: Warning triggered on Document.add_heading/table()
-
 
 0.8.0 (2015-02-08)
 ++++++++++++++++++
@@ -863,19 +850,16 @@ Paragraph.style now returns a Style object. Previously it returned the style
 name as a string. The name can now be retrieved using the Style.name
 property, for example, `paragraph.style.name`.
 
-
 0.7.6 (2014-12-14)
 ++++++++++++++++++
 
 - Add feature #69: Table.alignment
 - Add feature #29: Document.core_properties
 
-
 0.7.5 (2014-11-29)
 ++++++++++++++++++
 
 - Add feature #65: _Cell.merge()
-
 
 0.7.4 (2014-07-18)
 ++++++++++++++++++
@@ -884,25 +868,21 @@ property, for example, `paragraph.style.name`.
 - Add feature #76: _Cell.add_paragraph()
 - Add _Cell.tables property (read-only)
 
-
 0.7.3 (2014-07-14)
 ++++++++++++++++++
 
 - Add Table.autofit
 - Add feature #46: _Cell.width
 
-
 0.7.2 (2014-07-13)
 ++++++++++++++++++
 
 - Fix: Word does not interpret <w:cr/> as line feed
 
-
 0.7.1 (2014-07-11)
 ++++++++++++++++++
 
 - Add feature #14: Run.add_picture()
-
 
 0.7.0 (2014-06-27)
 ++++++++++++++++++
@@ -915,7 +895,6 @@ property, for example, `paragraph.style.name`.
 - Add feature #60: Run.text setter
 - Add feature #39: Run.text and Paragraph.text interpret '\n' and '\t' chars
 
-
 0.6.0 (2014-06-22)
 ++++++++++++++++++
 
@@ -924,18 +903,15 @@ property, for example, `paragraph.style.name`.
 - Add page margins and page orientation properties on Section
 - Major refactoring of oxml layer
 
-
 0.5.3 (2014-05-10)
 ++++++++++++++++++
 
 - Add feature #19: Run.underline property
 
-
 0.5.2 (2014-05-06)
 ++++++++++++++++++
 
 - Add feature #17: character style
-
 
 0.5.1 (2014-04-02)
 ++++++++++++++++++
@@ -943,13 +919,11 @@ property, for example, `paragraph.style.name`.
 - Fix issue #23, `Document.add_picture()` raises ValueError when document
   contains VML drawing.
 
-
 0.5.0 (2014-03-02)
 ++++++++++++++++++
 
 - Add 20 tri-state properties on Run, including all-caps, double-strike,
   hidden, shadow, small-caps, and 15 others.
-
 
 0.4.0 (2014-03-01)
 ++++++++++++++++++
@@ -957,25 +931,21 @@ property, for example, `paragraph.style.name`.
 - Advance from alpha to beta status.
 - Add pure-python image header parsing; drop Pillow dependency
 
-
 0.3.0a5 (2014-01-10)
 ++++++++++++++++++++++
 
 - Hotfix: issue #4, Document.add_picture() fails on second and subsequent
   images.
 
-
 0.3.0a4 (2014-01-07)
 ++++++++++++++++++++++
 
 - Complete Python 3 support, tested on Python 3.3
 
-
 0.3.0a3 (2014-01-06)
 ++++++++++++++++++++++
 
 - Fix setup.py error on some Windows installs
-
 
 0.3.0a1 (2014-01-05)
 ++++++++++++++++++++++
@@ -988,7 +958,6 @@ property, for example, `paragraph.style.name`.
 - picture: add inline picture, auto-scaling
 - breaks: add page break
 - tests: full pytest and behave-based 2-layer test suite
-
 
 0.3.0dev1 (2013-12-14)
 ++++++++++++++++++++++
