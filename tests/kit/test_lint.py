@@ -322,6 +322,29 @@ class DescribeTabInsteadOfIndent:
         # Existing 18pt + one tab-stop (36pt) == 54pt.
         assert document.paragraphs[0].paragraph_format.left_indent == Pt(54)
 
+    def it_round_trips_the_compensating_indent_through_save(
+        self, document: DocumentCls
+    ):
+        # Regression guard for #660: the indent the autofix stamps must
+        # be a real ``w:pPr/w:ind/@w:left`` so it survives a save/reopen
+        # cycle, not just an in-memory descriptor on the proxy object.
+        from io import BytesIO
+
+        from docx.shared import Pt
+
+        para = document.add_paragraph()
+        para.add_run("\t\thello")
+        report = lint(document)
+        assert report.autofix(rules=["tab-instead-of-indent"]) == 1
+
+        buf = BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        reopened = Document(buf)
+        # Two tabs == two tab-stops of indent (72pt).
+        assert reopened.paragraphs[0].runs[0].text == "hello"
+        assert reopened.paragraphs[0].paragraph_format.left_indent == Pt(72)
+
 
 # ---------------------------------------------------------------------------
 # mixed-quotes
