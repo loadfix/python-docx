@@ -4032,11 +4032,16 @@ report.autofix(rules=["multiple-spaces", "trailing-whitespace"])
 ```
 
 The `missing-document-title` rule's autofix sets the core property
-`title` to the document filename's stem when the caller supplies a
-hint via `doc._lint_filename = "report.docx"` — python-docx's
-`Document()` factory does not retain the load path on the document
-object, so the linter accepts a side-channel hint to keep the kit a
-strict consumer of the public API.
+`title` to the document filename's stem. The `Document(path)` factory
+records the load path on the document as the public-ish
+`_loaded_from_path` attribute (with the legacy `_lint_filename`
+attribute set in parallel for back-compat with code that wrote to
+the older name), so the autofix fires out of the box for documents
+loaded from disk. For documents loaded from in-memory streams pass
+the hint via `lint(doc, source_path="report.docx")` or set
+`doc._loaded_from_path` directly. When no filename hint is available
+the rule stays silent rather than emitting a permanent `info`
+finding the caller can't act on (issue #648).
 
 ### Brand-guideline validator
 

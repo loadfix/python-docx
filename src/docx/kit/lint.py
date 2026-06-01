@@ -1643,31 +1643,38 @@ def _document_filename_stem(document: "Document") -> Optional[str]:
     """Best-effort guess at the filename stem the document was loaded from.
 
     The :func:`docx.Document` factory automatically records the load path
-    on the document as the side-channel ``_lint_filename`` attribute when
-    called with a ``str`` / :class:`os.PathLike` argument, so this works
-    out-of-the-box for documents loaded from disk::
+    on the document as the public-ish ``_loaded_from_path`` attribute
+    when called with a ``str`` / :class:`os.PathLike` argument, so this
+    works out-of-the-box for documents loaded from disk::
 
         from docx import Document
         from docx.kit import lint
 
-        doc = Document("draft.docx")            # _lint_filename auto-set
+        doc = Document("draft.docx")            # _loaded_from_path auto-set
         report = lint.lint(doc)
         report.autofix(rules=["missing-document-title"])
 
     Callers loading from an in-memory stream can pass the filename
-    explicitly via :func:`lint`'s ``source_path`` keyword (which sets the
-    same side-channel attribute for the duration of the lint pass) or
-    by assigning ``document._lint_filename`` directly.
+    explicitly via :func:`lint`'s ``source_path`` keyword (which sets
+    the side-channel attribute for the duration of the lint pass) or
+    by assigning ``document._loaded_from_path`` directly.
+
+    For back-compat the legacy ``_lint_filename`` attribute is also
+    consulted; ``_loaded_from_path`` wins when both are present.
 
     Falls back to scanning the package / part for a stored path
     attribute should one ever be added to the core API.
     """
 
-    hint = getattr(document, "_lint_filename", None)
-    if isinstance(hint, str) and hint:
-        stem = os.path.splitext(os.path.basename(hint))[0]
-        if stem:
-            return stem
+    # Prefer the public-ish ``_loaded_from_path`` attribute, fall back
+    # to the legacy private ``_lint_filename`` for code that still
+    # writes to the older name (issue #648).
+    for attr in ("_loaded_from_path", "_lint_filename"):
+        hint = getattr(document, attr, None)
+        if isinstance(hint, str) and hint:
+            stem = os.path.splitext(os.path.basename(hint))[0]
+            if stem:
+                return stem
     part = getattr(document, "part", None)
     package = getattr(part, "package", None) if part is not None else None
     for source in (package, part, document):
@@ -1682,6 +1689,18 @@ def _document_filename_stem(document: "Document") -> Optional[str]:
 
 
 def _check_missing_document_title(document: "Document") -> Iterable[Finding]:
+    """``missing-document-title`` (info, autofix-from-filename).
+
+    Fires when ``document.core_properties.title`` is empty *and* a
+    filename hint is available. The hint comes from (in priority
+    order): ``document._loaded_from_path`` (set automatically by the
+    :func:`docx.Document` factory when loaded from disk),
+    ``document._lint_filename`` (legacy back-compat name),
+    :func:`lint`'s ``source_path=`` kwarg, or a path attribute on the
+    package / part. When no hint is available the finding is
+    suppressed (issue #648 — emitting a permanent info finding the
+    caller can't act on is just noise).
+    """
     try:
         title = document.core_properties.title
     except Exception:  # pragma: no cover - defensive
@@ -1695,7 +1714,7 @@ def _check_missing_document_title(document: "Document") -> Iterable[Finding]:
         # emitting a permanent ``info`` finding the user can't address.
         # When a hint becomes available (loaded via ``Document(path)``,
         # passed via ``lint(..., source_path=...)``, or set directly on
-        # ``document._lint_filename``) the finding fires with the
+        # ``document._loaded_from_path``) the finding fires with the
         # autofix attached.
         return
     yield Finding(
