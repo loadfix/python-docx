@@ -403,6 +403,29 @@ class DescribeTrailingWhitespace:
         report.autofix(rules=["trailing-whitespace"])
         assert document.paragraphs[0].text == "hello"
 
+    def it_flags_a_paragraph_with_trailing_whitespace(
+        self, document: DocumentCls
+    ):
+        # Regression — body paragraph ending in three spaces still trips
+        # the rule after the verbatim-style exemption refactor (#649).
+        document.add_paragraph("foo   ")
+        report = lint(document)
+        assert "trailing-whitespace" in [f.rule for f in report.findings]
+
+    def it_does_not_flag_a_code_styled_paragraph_with_trailing_whitespace(
+        self, document: DocumentCls
+    ):
+        # Verbatim / preformatted styles render the author's text as-is
+        # — trailing whitespace there is load-bearing, not drift. The
+        # template lacks a built-in ``Code`` style, so we register one
+        # under the ``Code`` name first. Closes #649.
+        document.styles.add_style("Code", 1)  # WD_STYLE_TYPE.PARAGRAPH
+        document.add_paragraph("foo   ", style="Code")
+        report = lint(document)
+        assert "trailing-whitespace" not in [
+            f.rule for f in report.findings
+        ]
+
 
 # ---------------------------------------------------------------------------
 # tab-instead-of-indent
@@ -1742,6 +1765,54 @@ class DescribeOverLongParagraph:
         assert finding.details["char_count"] == 1500
         assert finding.details["threshold"] == 1000
         assert finding.details["char_count"] > finding.details["threshold"]
+
+    def it_flags_an_over_long_body_paragraph(self, document: DocumentCls):
+        # Regression — a long body paragraph still trips the rule even
+        # after the per-style exemption refactor (#649).
+        document.add_paragraph("x" * 1500)
+        report = lint(document)
+        assert "over-long-paragraph" in [f.rule for f in report.findings]
+
+    def it_does_not_flag_an_over_long_list_bullet_paragraph(
+        self, document: DocumentCls
+    ):
+        # A deliberately long compound bullet point in ``List Bullet`` is
+        # editorial intent, not drift — silenced by default. Closes #649.
+        document.add_paragraph("y" * 1500, style="List Bullet")
+        report = lint(document)
+        assert "over-long-paragraph" not in [
+            f.rule for f in report.findings
+        ]
+
+    def it_does_not_flag_an_over_long_caption_paragraph(
+        self, document: DocumentCls
+    ):
+        document.add_paragraph("z" * 1500, style="Caption")
+        report = lint(document)
+        assert "over-long-paragraph" not in [
+            f.rule for f in report.findings
+        ]
+
+    def it_respects_over_long_threshold_kwarg(
+        self, document: DocumentCls
+    ):
+        # 1500 chars sits between the kwarg threshold (2000) and the
+        # default (1000) — without the kwarg the rule would fire, with
+        # the kwarg it stays silent.
+        document.add_paragraph("x" * 1500)
+        report = lint(document, over_long_threshold=2000)
+        assert "over-long-paragraph" not in [
+            f.rule for f in report.findings
+        ]
+
+    def it_uses_default_threshold_when_not_specified(
+        self, document: DocumentCls
+    ):
+        # 1100 chars is over the default 1000 — the rule fires without
+        # any kwarg / config override.
+        document.add_paragraph("x" * 1100)
+        report = lint(document)
+        assert "over-long-paragraph" in [f.rule for f in report.findings]
 
 
 # ---------------------------------------------------------------------------

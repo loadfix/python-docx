@@ -4053,6 +4053,22 @@ doc.save("clean.docx")
 report.autofix(rules=["multiple-spaces", "trailing-whitespace"])
 ```
 
+The `over-long-paragraph` rule's threshold is tunable in two ways —
+pass `over_long_threshold=N` directly to `lint()` for the common case,
+or supply a full `LintConfig(over_long_threshold=N, style_exemptions=...)`
+when fine-grained control is needed. Style exemptions tolerate Word's
+numbered variants (`List Bullet` covers `List Bullet 2` /
+`List Continue 3`, `Caption` covers `Caption 2`, …) so a deliberate
+compound bullet point stays silent (#649). The
+`trailing-whitespace` rule exempts verbatim-text styles (`Code`,
+`Preformatted`, `Plain Text`, `HTML Preformatted`, `Macro Text`)
+where trailing whitespace is load-bearing. `[Updated in 2026.06.01]`
+
+```python
+# Loosen the over-long threshold for a long-form report.
+report = lint.lint(doc, over_long_threshold=2000)
+```
+
 The `missing-document-title` rule's autofix sets the core property
 `title` to the document filename's stem. The `Document(path)` factory
 records the load path on the document as the public-ish

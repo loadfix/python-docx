@@ -90,6 +90,30 @@ Unreleased — Hyperlink ergonomics
   Word documents using these template conventions are no longer
   silently ruined by the autofix.
 
+- **``docx.kit.lint`` — ``over-long-paragraph`` + ``trailing-whitespace``
+  per-style exemptions and threshold kwarg** (#649). The
+  ``over-long-paragraph`` rule's exemption matching now tolerates
+  Word's numbered style variants — ``List Bullet`` matches ``List
+  Bullet 2`` / ``List Bullet 3``, ``Caption`` matches ``Caption 2``,
+  etc. — and the default exemption set grows to cover ``List
+  Continue``, ``Endnote Text``, and ``Intense Quote`` alongside the
+  existing list / caption / footnote / quote families. The CenITex
+  baseline regressed a deliberate compound bullet point styled
+  ``List Bullet`` whose 1000+ character body was editorial intent;
+  the prefix-with-trailing-space match silences it without losing
+  the rule's value on body prose. The ``trailing-whitespace`` rule
+  gains a verbatim-style exemption — paragraphs whose style is
+  ``Code`` / ``Preformatted`` / ``Plain Text`` / ``HTML
+  Preformatted`` / ``Macro Text`` (case-insensitive, plus numbered
+  variants) keep their trailing whitespace because in those styles
+  it's load-bearing rather than drift. Two new predicates surface
+  the per-rule logic: ``_is_overlong_exempt_style(paragraph,
+  exemptions)`` and ``_is_trailing_whitespace_exempt_style(paragraph)``.
+  ``lint()`` also accepts a convenience ``over_long_threshold=N``
+  kwarg so callers can tune the most-touched knob without building a
+  full :class:`LintConfig`; the kwarg wins over a config-supplied
+  value when both are passed.
+
 - **Skip empty ``docProps/custom.xml`` on save** (#721). A fresh
   ``Document().save()`` no longer materialises an empty
   ``docProps/custom.xml`` part with the matching

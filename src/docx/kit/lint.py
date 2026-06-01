@@ -44,7 +44,10 @@ Built-in rules (twelve total):
   skipped — that gap is a deliberate template convention. Threshold is
   configurable via the module-level :data:`MULTIPLE_SPACES_MIN_RUN`.
 * ``trailing-whitespace`` (warning, autofix) — paragraph ends with a
-  whitespace character; trims the trailing whitespace.
+  whitespace character; trims the trailing whitespace. Verbatim /
+  preformatted styles (``Code``, ``Preformatted``, ``Plain Text``,
+  ``HTML Preformatted``, ``Macro Text``) where trailing whitespace
+  is load-bearing are exempt. Closes #649.
 * ``tab-instead-of-indent`` (warning, autofix) — body paragraph starts
   with one or more literal ``\\t`` characters; replaces the leading
   tab(s) with a real ``paragraph_format.left_indent`` so the visual
@@ -117,8 +120,11 @@ Built-in rules (twelve total):
 * ``over-long-paragraph`` (info, no-fix) — paragraph longer than the
   configured threshold (default ``1000`` characters). Manual review
   only — splitting may break list / TOC numbering. List / caption /
-  footnote / quote styles are exempt by default; tune via
-  :class:`LintConfig`.
+  footnote / endnote / quote styles are exempt by default (matching
+  is case-insensitive and tolerates Word's numbered variants —
+  ``List Bullet`` covers ``List Bullet 2``, ``Caption`` covers
+  ``Caption 3``, etc.); tune via :class:`LintConfig` or pass
+  ``over_long_threshold=N`` directly to :func:`lint`. Closes #649.
 * ``placeholder-text`` (warning, no-fix) — paragraph still contains a
   known placeholder sentinel. The bundled patterns cover the
   bracket-token forms (``[PLACEHOLDER]``, ``[TBD]``, ``[FILL IN]``),
@@ -282,17 +288,30 @@ DEFAULT_STYLE_EXEMPTIONS: Tuple[str, ...] = (
     "List Bullet",
     "List Number",
     "List Paragraph",
+    "List Continue",
     "Caption",
     "Footnote Text",
+    "Endnote Text",
     "Quote",
+    "Intense Quote",
 )
 """Paragraph style names exempted by default from prose-length heuristics.
 
 These styles legitimately carry long compound content (bulleted
-explanations, captions, quoted blocks, footnote bodies) whose length is
-bounded by editorial intent rather than reading-line ergonomics, so the
-``over-long-paragraph`` rule skips them by default. Override via
-:class:`LintConfig`.
+explanations, captions, quoted blocks, footnote / endnote bodies)
+whose length is bounded by editorial intent rather than reading-line
+ergonomics, so the ``over-long-paragraph`` rule skips them by default.
+
+Match is case-insensitive and tolerates Word's numbered variants —
+``List Bullet`` matches ``List Bullet 2`` / ``List Bullet 3``,
+``Caption`` matches ``Caption 2``, etc. — so deliberate compound
+bulleted explanations stay silent even when authored with a numbered
+list-style. Override via :class:`LintConfig`.
+
+.. versionchanged:: 2026.06.01
+   Added ``List Continue``, ``Endnote Text``, and ``Intense Quote`` to
+   the default exemption set. Match semantics changed from exact-name
+   to prefix-with-trailing-space (Closes #649).
 """
 
 
@@ -438,6 +457,7 @@ def lint(
     *,
     source_path: "Optional[Union[str, os.PathLike[str]]]" = None,
     config: Optional["LintConfig"] = None,
+    over_long_threshold: Optional[int] = None,
 ) -> "LintReport":
     """Run every registered rule against *document* and return a :class:`LintReport`.
 
@@ -445,6 +465,14 @@ def lint(
     style exemptions consulted by the bundled rules. Pass an instance
     of :class:`LintConfig`; pass |None| (the default) to use the
     defaults documented on that class.
+
+    *over_long_threshold* is a convenience shortcut for the most-tuned
+    knob — the ``over-long-paragraph`` character threshold. Pass an
+    ``int`` to override the default (``1000``) without constructing a
+    :class:`LintConfig`. When both *config* and *over_long_threshold*
+    are supplied, the kwarg wins (the supplied config is replaced with
+    a copy whose ``over_long_threshold`` is the kwarg value). Closes
+    #649.
 
     The returned report carries the ``findings`` list (in document
     order, then rule order) and exposes an :meth:`LintReport.autofix`
@@ -461,7 +489,8 @@ def lint(
     .. versionchanged:: 2026.05.31
        Added *source_path* keyword.
     .. versionchanged:: 2026.06.01
-       Added the *config* parameter.
+       Added the *config* parameter and the *over_long_threshold*
+       convenience kwarg.
     """
 
     global _ACTIVE_CONFIG
@@ -469,6 +498,16 @@ def lint(
         raise TypeError(
             "config must be a LintConfig instance or None; got "
             f"{type(config).__name__}"
+        )
+    if over_long_threshold is not None:
+        # Build (or rebuild) a config carrying the kwarg's threshold.
+        # The kwarg wins over a config-supplied value so callers using
+        # the shortcut don't have to remember to drop their config arg.
+        base = config if config is not None else _DEFAULT_CONFIG
+        config = LintConfig(
+            over_long_threshold=int(over_long_threshold),
+            multi_space_minimum=base.multi_space_minimum,
+            style_exemptions=base.style_exemptions,
         )
     previous_config = _ACTIVE_CONFIG
     _ACTIVE_CONFIG = config if config is not None else _DEFAULT_CONFIG
@@ -864,6 +903,21 @@ _STRAIGHT_QUOTES = "\"'"
 
 _OVER_LONG_THRESHOLD = 1000
 
+# Style families whose paragraphs may legitimately end in trailing
+# whitespace (verbatim / preformatted text where the trailing space is
+# load-bearing). Match is case-insensitive against the full style name;
+# any of the listed names — or a prefix variant ending in a digit
+# (``Code 2``) — silences the ``trailing-whitespace`` rule. Closes #649.
+_TRAILING_WHITESPACE_EXEMPT_STYLES: Tuple[str, ...] = (
+    "code",
+    "code block",
+    "preformatted",
+    "preformatted text",
+    "plain text",
+    "html preformatted",
+    "macro text",
+)
+
 # Match http/https/www URLs. Trailing punctuation (``.,;:)]}>"'``) is stripped
 # below so a sentence-ending period or closing parenthesis is not treated as
 # part of the URL — that would produce noisy / inaccurate findings.
@@ -922,6 +976,55 @@ def _is_indented_style(paragraph: "Paragraph") -> bool:
     if not name:
         return False
     return any(token in name for token in _INDENTED_STYLE_TOKENS)
+
+
+def _is_overlong_exempt_style(
+    paragraph: "Paragraph",
+    exemptions: "Optional[Iterable[str]]" = None,
+) -> bool:
+    """Return ``True`` when *paragraph*'s style is exempt from ``over-long-paragraph``.
+
+    Each name in *exemptions* is matched case-insensitively against the
+    paragraph's style name and tolerates Word's numbered variants —
+    ``List Bullet`` matches ``List Bullet 2``, ``Caption`` matches
+    ``Caption 3``, etc. — so a deliberate compound bullet styled
+    ``List Bullet 2`` is recognised the same as a plain ``List
+    Bullet``. When *exemptions* is |None| an empty iterable, no style
+    is exempt (callers can disable the rule's style filter by passing
+    an empty :class:`LintConfig` ``style_exemptions``). Closes #649.
+    """
+    if not exemptions:
+        return False
+    name = _paragraph_style_name(paragraph)
+    if not name:
+        return False
+    for entry in exemptions:
+        base = entry.lower().strip()
+        if not base:
+            continue
+        if name == base or name.startswith(base + " "):
+            return True
+    return False
+
+
+def _is_trailing_whitespace_exempt_style(paragraph: "Paragraph") -> bool:
+    """Return ``True`` when *paragraph*'s style permits trailing whitespace.
+
+    Verbatim / preformatted styles (``Code``, ``Preformatted``,
+    ``Plain Text``, ``HTML Preformatted``, ``Macro Text``) are intended
+    to render the author's text byte-for-byte; trailing whitespace in
+    those paragraphs is load-bearing rather than drift. Match is
+    case-insensitive against the full style name and tolerates numbered
+    variants (``Code 2``) via prefix-with-trailing-space matching.
+    Closes #649.
+    """
+    name = _paragraph_style_name(paragraph)
+    if not name:
+        return False
+    return any(
+        name == base or name.startswith(base + " ")
+        for base in _TRAILING_WHITESPACE_EXEMPT_STYLES
+    )
 
 
 def _document_inline_shapes(document: "Document") -> List["InlineShape"]:
@@ -1355,6 +1458,12 @@ def _check_trailing_whitespace(document: "Document") -> Iterable[Finding]:
         if not paragraph.runs:
             continue
         if not _has_trailing_authored_whitespace(paragraph):
+            continue
+        # Verbatim / preformatted styles (Code, Preformatted, Plain
+        # Text, HTML Preformatted, Macro Text) may legitimately end in
+        # trailing whitespace — the rule shouldn't trim it. Closes
+        # #649.
+        if _is_trailing_whitespace_exempt_style(paragraph):
             continue
         yield Finding(
             rule="trailing-whitespace",
@@ -2228,8 +2337,10 @@ def _check_over_long_paragraph(document: "Document") -> Iterable[Finding]:
             continue
         # Skip styles whose long bodies are bounded by editorial intent
         # rather than reading-line ergonomics (lists, captions,
-        # footnotes, quotes, etc.).
-        if exemptions and _paragraph_style_name_raw(paragraph) in exemptions:
+        # footnotes, quotes, etc.). Match numbered variants too —
+        # ``List Bullet 2``, ``Caption 3`` — via the helper predicate
+        # so a deliberate compound bullet is not flagged. Closes #649.
+        if _is_overlong_exempt_style(paragraph, exemptions):
             continue
         yield Finding(
             rule="over-long-paragraph",
