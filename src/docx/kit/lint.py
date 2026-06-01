@@ -56,10 +56,15 @@ Built-in rules (twelve total):
   destroy intentional code samples).
 * ``empty-paragraph`` (info, autofix) — consecutive empty / whitespace-
   only paragraphs; keeps the first, removes the rest. Paragraphs whose
-  XML carries layout / annotation intent (page or column break, tab,
-  drawing, bookmark anchor, comment-range marker, SDT, section
-  properties, ink annotation) are never reported and never auto-fixed,
-  even when their rendered text is empty.
+  XML carries layout / annotation intent (page / column / line break,
+  tab, drawing, picture, embedded object, bookmark anchor, comment-
+  range marker, SDT, section properties, ink annotation, complex /
+  simple field, hyperlink) are never reported and never auto-fixed,
+  even when their rendered text is empty (issue #656). The autofix
+  also honours :attr:`Finding.safe_to_delete` — a caller-built
+  ``Finding`` with ``safe_to_delete=False`` is skipped and a one-line
+  preservation note is appended to
+  :attr:`LintReport.preservation_notes`.
 * ``trailing-empty-paragraph`` (info, autofix) — empty paragraphs at
   the very end of the document; deletes them. Closes the gap left by
   ``empty-paragraph`` (which only catches the second-and-subsequent
@@ -228,6 +233,17 @@ class Finding:
         need to reason about a finding programmatically should prefer
         ``details[...]`` over regex-parsing :attr:`message`. Closes
         #678.
+    safe_to_delete
+        ``True`` (the default) when the autofix may delete the
+        underlying paragraph / element without losing structural
+        intent. Set to ``False`` by rules that detected an "empty"
+        paragraph carrying load-bearing XML (page break, bookmark,
+        section properties, comment anchor, SDT, field, hyperlink,
+        ink, embedded object, etc.).
+        :meth:`LintReport.autofix` skips findings whose
+        ``safe_to_delete`` is ``False`` and records a one-line
+        preservation note in :attr:`LintReport.preservation_notes`.
+        Closes #656.
     """
 
     rule: str
@@ -240,6 +256,7 @@ class Finding:
     details: Mapping[str, Any] = field(
         default_factory=lambda: MappingProxyType({})
     )
+    safe_to_delete: bool = True
 
 
 DEFAULT_STYLE_EXEMPTIONS: Tuple[str, ...] = (
@@ -530,6 +547,15 @@ class LintReport:
     side-channel attribute was scrubbed when :func:`lint` returned.
     """
     config: "LintConfig" = field(default_factory=lambda: _DEFAULT_CONFIG)
+    preservation_notes: List[str] = field(default_factory=list)
+    """One-line messages describing findings whose autofix was skipped
+    because ``Finding.safe_to_delete`` was ``False`` — e.g. an empty-
+    paragraph autofix that would have destroyed a page break or
+    section break.
+
+    Populated by :meth:`autofix` / :meth:`autofix_breakdown` on every
+    invocation (cleared at the start of each call). Closes #656.
+    """
 
     # -- Aggregations -----------------------------------------------------
 
@@ -628,6 +654,10 @@ class LintReport:
         else:
             wanted = None
         breakdown: Dict[str, int] = {}
+        # Reset preservation notes — every autofix invocation publishes
+        # its own list. Callers reading the previous run's notes should
+        # snapshot the list themselves.
+        self.preservation_notes = []
         # Fix in document-reverse order so paragraph_index changes
         # caused by removal don't invalidate later indices.
         ordered = sorted(
@@ -660,6 +690,23 @@ class LintReport:
                     continue
                 rule = _REGISTRY.get(f.rule)
                 if rule is None or rule.autofix is None:
+                    continue
+                # Issue #656: never delete a paragraph the rule itself
+                # flagged as load-bearing. Record a one-line note so
+                # callers can show *why* the autofix was a no-op.
+                if not f.safe_to_delete:
+                    locator = f.location or (
+                        f"paragraph {f.paragraph_index}"
+                        if f.paragraph_index is not None
+                        else f.rule
+                    )
+                    self.preservation_notes.append(
+                        f"preserved {locator}: {f.rule} autofix skipped "
+                        f"because the paragraph carries load-bearing "
+                        f"content (page/section break, bookmark, "
+                        f"comment anchor, SDT, field, hyperlink, ink, "
+                        f"or embedded object)"
+                    )
                     continue
                 try:
                     ok = rule.autofix(self.document, f)
@@ -1269,6 +1316,9 @@ def _check_mixed_quotes(document: "Document") -> Iterable[Finding]:
 # carries load-bearing layout / annotation intent even when its plain text is
 # empty. The empty-paragraph rule must skip such paragraphs — auto-deleting
 # them silently destroys page breaks, bookmarks, comment anchors, etc.
+#
+# Issue #656: this list is the ground truth for "what protects a paragraph
+# from the empty-paragraph autofix". Add to it; do not remove from it.
 _STRUCTURAL_EMPTY_BLOCKERS: Tuple[str, ...] = (
     "br",  # <w:br> — page, column, textWrapping or line breaks
     "tab",  # <w:tab/>
@@ -1281,7 +1331,11 @@ _STRUCTURAL_EMPTY_BLOCKERS: Tuple[str, ...] = (
     "commentRangeEnd",
     "commentReference",
     "sdt",  # <w:sdt> — structured-document-tag (content controls)
+    "sdtContent",  # <w:sdtContent> — content-control body
     "contentPart",  # <w:contentPart> — ink annotations
+    "fldChar",  # <w:fldChar> — complex field begin/separate/end
+    "fldSimple",  # <w:fldSimple> — simple field
+    "hyperlink",  # <w:hyperlink> — anchor or external link
 )
 
 
@@ -1290,11 +1344,11 @@ def _paragraph_has_structural_content(paragraph: "Paragraph") -> bool:
     intent that must not be discarded as "empty drift".
 
     A paragraph whose plain text is empty may still carry a page break, a
-    bookmark anchor, a comment-range marker, an SDT, ink, etc. The
-    ``empty-paragraph`` rule must skip such paragraphs — both at finding
-    time (so the autofix is never offered) and inside the autofix
-    callback (defence in depth, since callers can build :class:`Finding`
-    instances directly via :func:`register_rule`).
+    bookmark anchor, a comment-range marker, an SDT, ink, a field, a
+    hyperlink, etc. The ``empty-paragraph`` rule must skip such
+    paragraphs — both at finding time (so the autofix is never offered)
+    and inside the autofix callback (defence in depth, since callers can
+    build :class:`Finding` instances directly via :func:`register_rule`).
 
     Implementation note: the checks read the underlying ``_p`` element
     via its ``xpath`` helper. That is the same pattern the rest of
@@ -1316,20 +1370,46 @@ def _paragraph_has_structural_content(paragraph: "Paragraph") -> bool:
     return False
 
 
+def _paragraph_is_truly_empty(paragraph: "Paragraph") -> bool:
+    """Return ``True`` when *paragraph* is structurally empty — i.e. safe to
+    delete as "blank-line drift".
+
+    A paragraph is truly empty only when *both* of the following hold:
+
+    1. ``paragraph.text.strip() == ""`` — its rendered plain text is
+       empty (the original loose check).
+    2. The underlying ``<w:p>`` element carries no
+       :data:`_STRUCTURAL_EMPTY_BLOCKERS` and no ``<w:pPr>/<w:sectPr>``
+       — i.e. no page / column / line break, tab, drawing, picture,
+       embedded object, bookmark / comment anchor, SDT, ink, field
+       (simple or complex), hyperlink, or section break.
+
+    Closes #656 — historically, the loose ``text.strip() == ""`` check
+    silently classified paragraphs whose only content was a
+    ``<w:br w:type="page"/>`` (or any other structural sibling) as
+    "empty", and the autofix deleted them, destroying load-bearing
+    page breaks, section breaks, bookmark anchors, etc.
+    """
+
+    text = paragraph.text
+    if text and text.strip():
+        return False
+    if _paragraph_has_structural_content(paragraph):
+        return False
+    return True
+
+
 def _check_empty_paragraph(document: "Document") -> Iterable[Finding]:
     paragraphs = document.paragraphs
     in_run = False
     run_start: Optional[int] = None
     for index, paragraph in enumerate(paragraphs):
-        is_empty = not paragraph.text.strip()
-        # A paragraph whose XML carries a break, bookmark, comment anchor,
-        # SDT, section property, etc. is *not* drift — never offer the
-        # autofix and never count it toward a "consecutive empties" run.
-        if is_empty and _paragraph_has_structural_content(paragraph):
-            in_run = False
-            run_start = None
-            continue
-        if is_empty:
+        # Use the tightened predicate — a paragraph is "empty" only when
+        # both its rendered text is blank *and* it carries no
+        # load-bearing XML (page break, bookmark, comment anchor, SDT,
+        # section properties, field, hyperlink, ink, embedded object).
+        # See ``_paragraph_is_truly_empty`` and #656.
+        if _paragraph_is_truly_empty(paragraph):
             if not in_run:
                 in_run = True
                 run_start = index
@@ -1347,6 +1427,11 @@ def _check_empty_paragraph(document: "Document") -> Iterable[Finding]:
                     location=f"paragraph {index}",
                 )
         else:
+            # Either the paragraph has visible text (breaks the run) or
+            # it carries load-bearing XML — in both cases the run of
+            # consecutive empties stops here. A paragraph carrying
+            # structural content is never a finding and never counts
+            # toward the "consecutive empties" run.
             in_run = False
             run_start = None
 
@@ -1358,11 +1443,13 @@ def _autofix_empty_paragraph(document: "Document", finding: Finding) -> bool:
         paragraph = document.paragraphs[finding.paragraph_index]
     except IndexError:
         return False
-    if paragraph.text.strip():
-        return False
     # Defence in depth: even when a Finding was hand-built by a caller,
     # never delete a paragraph that carries layout / annotation intent.
-    if _paragraph_has_structural_content(paragraph):
+    # The tightened predicate in ``_paragraph_is_truly_empty`` catches
+    # text-bearing paragraphs *and* paragraphs whose only content is a
+    # break, bookmark, comment anchor, SDT, sectPr, field, hyperlink,
+    # ink annotation, or embedded object.
+    if not _paragraph_is_truly_empty(paragraph):
         return False
     try:
         paragraph.delete()

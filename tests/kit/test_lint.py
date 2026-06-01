@@ -486,6 +486,211 @@ class DescribeEmptyParagraph:
         assert len(document.paragraphs) == 3
         assert document.paragraphs[1].has_page_break
 
+    # -- issue #656: tightened-predicate regression coverage -------------
+
+    def it_does_not_flag_a_paragraph_with_a_page_break_as_empty(
+        self, document: DocumentCls
+    ):
+        # Sanity: a single paragraph carrying only a page break, with a
+        # genuine drift blank just before it, must not be reported as
+        # an empty-paragraph finding — the autofix would silently lose
+        # the page break.
+        document.add_paragraph("first")
+        document.add_paragraph("")
+        para = document.add_paragraph()
+        para.add_run().add_break(WD_BREAK.PAGE)
+        document.add_paragraph("last")
+
+        report = lint(document)
+        ep = [f for f in report.findings if f.rule == "empty-paragraph"]
+        assert ep == []
+
+    def it_does_not_flag_a_paragraph_with_a_bookmark_as_empty(
+        self, document: DocumentCls
+    ):
+        # Inject a bare <w:bookmarkStart>/<w:bookmarkEnd> pair into an
+        # otherwise-empty paragraph via direct etree manipulation — the
+        # public API requires a registered Bookmarks owner; this test
+        # is the spec-level check that the predicate catches the raw
+        # XML element regardless of how it got there.
+        from lxml import etree
+
+        from docx.oxml.ns import qn
+
+        document.add_paragraph("first")
+        document.add_paragraph("")
+        anchor = document.add_paragraph()
+        bm_start = etree.SubElement(anchor._p, qn("w:bookmarkStart"))
+        bm_start.set(qn("w:id"), "0")
+        bm_start.set(qn("w:name"), "anchor-1")
+        bm_end = etree.SubElement(anchor._p, qn("w:bookmarkEnd"))
+        bm_end.set(qn("w:id"), "0")
+        document.add_paragraph("last")
+
+        report = lint(document)
+        ep = [f for f in report.findings if f.rule == "empty-paragraph"]
+        assert ep == []
+
+    def it_does_not_flag_a_paragraph_with_a_section_break_as_empty(
+        self, document: DocumentCls
+    ):
+        # A paragraph carrying a <w:pPr>/<w:sectPr> is a section break;
+        # losing it would change the document's section layout.
+        document.add_paragraph("first")
+        document.add_paragraph("")
+        section_para = document.add_paragraph()
+        section_para.insert_section_break()
+        document.add_paragraph("last")
+
+        report = lint(document)
+        ep = [f for f in report.findings if f.rule == "empty-paragraph"]
+        assert ep == []
+
+    def it_still_flags_a_truly_empty_paragraph(
+        self, document: DocumentCls
+    ):
+        # Multiple genuinely-blank paragraphs in a row with no
+        # structural content still produce findings — the tightening
+        # must not regress the rule's primary purpose.
+        document.add_paragraph("first")
+        document.add_paragraph("")
+        document.add_paragraph("")
+        document.add_paragraph("")
+        document.add_paragraph("last")
+
+        report = lint(document)
+        ep = [f for f in report.findings if f.rule == "empty-paragraph"]
+        assert len(ep) == 2
+        # Every finding emitted by the built-in rule defaults to
+        # safe_to_delete=True — these are blank-line drift, no
+        # structural content, fine to delete.
+        assert all(f.safe_to_delete for f in ep)
+
+    def it_autofix_preserves_paragraphs_with_load_bearing_content(
+        self, document: DocumentCls
+    ):
+        # Build a doc with mixed empties: a genuine blank, a page-break
+        # paragraph, a section-break paragraph, and a bookmarked
+        # paragraph. Run autofix end-to-end and assert every load-
+        # bearing paragraph survives, while genuine blank-line drift
+        # is collapsed where appropriate.
+        from lxml import etree
+
+        from docx.oxml.ns import qn
+
+        document.add_paragraph("first")
+        document.add_paragraph("")  # genuine drift
+        document.add_paragraph("")  # genuine drift (this one is removed)
+        # page-break paragraph
+        page_break_para = document.add_paragraph()
+        page_break_para.add_run().add_break(WD_BREAK.PAGE)
+        # section-break paragraph
+        sect_para = document.add_paragraph()
+        sect_para.insert_section_break()
+        # bookmark anchor paragraph
+        bookmark_para = document.add_paragraph()
+        bm_start = etree.SubElement(bookmark_para._p, qn("w:bookmarkStart"))
+        bm_start.set(qn("w:id"), "0")
+        bm_start.set(qn("w:name"), "load-bearing")
+        bm_end = etree.SubElement(bookmark_para._p, qn("w:bookmarkEnd"))
+        bm_end.set(qn("w:id"), "0")
+        document.add_paragraph("last")
+
+        report = lint(document)
+        report.autofix(rules=["empty-paragraph"])
+
+        # The page-break, section-break, and bookmark paragraphs must
+        # all still be present.
+        assert any(p.has_page_break for p in document.paragraphs)
+        assert any(p.has_section_break for p in document.paragraphs)
+        # Bookmark anchors survive — find a paragraph carrying a
+        # <w:bookmarkStart> child.
+        assert any(
+            p._p.xpath(".//w:bookmarkStart") for p in document.paragraphs
+        )
+
+    def it_round_trips_after_autofix(
+        self, document: DocumentCls, tmp_path
+    ):
+        # Save + reopen and verify section breaks (and other load-
+        # bearing structure) survive the autofix → save → reopen path.
+        from io import BytesIO
+
+        from docx import Document
+
+        document.add_paragraph("first")
+        document.add_paragraph("")
+        document.add_paragraph("")
+        sect_para = document.add_paragraph()
+        sect_para.insert_section_break()
+        document.add_paragraph("last")
+
+        report = lint(document)
+        report.autofix(rules=["empty-paragraph"])
+
+        buffer = BytesIO()
+        document.save(buffer)
+        buffer.seek(0)
+        reopened = Document(buffer)
+
+        assert any(p.has_section_break for p in reopened.paragraphs)
+        # The "last" body paragraph survives.
+        assert any(p.text == "last" for p in reopened.paragraphs)
+
+    def it_marks_handcrafted_finding_safe_to_delete_false_for_breaks(
+        self, document: DocumentCls
+    ):
+        # A caller building a Finding by hand with safe_to_delete=False
+        # must have its autofix skipped, and the report should record a
+        # one-line preservation note.
+        document.add_paragraph("first")
+        para = document.add_paragraph()
+        para.add_run().add_break(WD_BREAK.PAGE)
+        document.add_paragraph("last")
+
+        report = LintReport(
+            document=document,
+            findings=[
+                Finding(
+                    rule="empty-paragraph",
+                    severity="info",
+                    message="hand-built",
+                    paragraph_index=1,
+                    autofix_available=True,
+                    autofix_description="forged",
+                    location="paragraph 1",
+                    safe_to_delete=False,
+                ),
+            ],
+        )
+        applied = report.autofix(rules=["empty-paragraph"])
+        assert applied == 0
+        assert len(document.paragraphs) == 3
+        assert document.paragraphs[1].has_page_break
+        assert len(report.preservation_notes) == 1
+        assert "preserved" in report.preservation_notes[0]
+
+
+# ---------------------------------------------------------------------------
+# Finding.safe_to_delete (issue #656)
+# ---------------------------------------------------------------------------
+
+
+class DescribeFindingSafeToDelete:
+    """Issue #656 — Finding.safe_to_delete defaults to True."""
+
+    def it_defaults_to_true(self):
+        finding = Finding(
+            rule="x", severity="info", message="m"
+        )
+        assert finding.safe_to_delete is True
+
+    def it_can_be_set_false_by_a_caller(self):
+        finding = Finding(
+            rule="x", severity="info", message="m", safe_to_delete=False
+        )
+        assert finding.safe_to_delete is False
+
 
 # ---------------------------------------------------------------------------
 # trailing-empty-paragraph
