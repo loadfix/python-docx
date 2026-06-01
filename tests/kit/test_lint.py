@@ -916,6 +916,84 @@ class DescribeMissingDocumentTitle:
         assert mdt.autofix_available is True
         assert "'neat'" in (mdt.autofix_description or "")
 
+    def it_records_load_path_under_loaded_from_path_attr(self, tmp_path):
+        # Issue #648: ``Document(path)`` exposes the load path on the
+        # public-ish ``_loaded_from_path`` attribute (with the legacy
+        # ``_lint_filename`` set in parallel for back-compat).
+        path = tmp_path / "test_no_title.docx"
+        Document().save(str(path))
+        doc = Document(str(path))
+        assert getattr(doc, "_loaded_from_path", None) == str(path)
+        assert getattr(doc, "_lint_filename", None) == str(path)
+
+    def it_autofixes_from_disk_load_at_fixed_tmp_path(self):
+        # Issue #648 repro: ``Document(path)`` autofix wires up
+        # end-to-end against a real on-disk filename.
+        import os as _os
+
+        path = "/tmp/test_no_title.docx"
+        try:
+            Document().save(path)
+            doc = Document(path)
+            doc.core_properties.title = ""
+            report = lint(doc)
+            mdt = next(
+                f for f in report.findings
+                if f.rule == "missing-document-title"
+            )
+            assert mdt.autofix_available is True
+            assert "'test_no_title'" in (mdt.autofix_description or "")
+            applied = report.autofix()
+            assert applied >= 1
+            assert doc.core_properties.title == "test_no_title"
+        finally:
+            try:
+                _os.unlink(path)
+            except OSError:
+                pass
+
+    def it_stays_quiet_for_a_bytesio_load_with_no_filename(self):
+        # Issue #648: when the document was loaded from an in-memory
+        # stream there is no filename to autofix from, so the rule
+        # suppresses the finding rather than emitting a no-op.
+        from io import BytesIO
+
+        buf = BytesIO()
+        Document().save(buf)
+        buf.seek(0)
+        doc = Document(buf)
+        doc.core_properties.title = ""
+        # ``Document(stream)`` does not auto-set either path attribute.
+        assert getattr(doc, "_loaded_from_path", None) is None
+        assert getattr(doc, "_lint_filename", None) is None
+        report = lint(doc)
+        mdt = [
+            f for f in report.findings
+            if f.rule == "missing-document-title"
+        ]
+        assert mdt == []
+
+    def it_reads_legacy_lint_filename_attr_for_back_compat(
+        self, document: DocumentCls
+    ):
+        # Code that wrote to ``_lint_filename`` directly before the
+        # public-ish ``_loaded_from_path`` existed must keep working.
+        document.core_properties.title = ""
+        document._lint_filename = "/some/where/legacy.docx"  # type: ignore[attr-defined]
+        try:
+            report = lint(document)
+            mdt = next(
+                f for f in report.findings
+                if f.rule == "missing-document-title"
+            )
+            assert mdt.autofix_available is True
+            assert "'legacy'" in (mdt.autofix_description or "")
+        finally:
+            try:
+                del document._lint_filename  # type: ignore[attr-defined]
+            except AttributeError:
+                pass
+
 
 # ---------------------------------------------------------------------------
 # over-long-paragraph

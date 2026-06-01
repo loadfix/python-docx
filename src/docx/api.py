@@ -136,10 +136,16 @@ def Document(
         document.extended_properties.clear_all()
     # Capture the load path for downstream tooling (e.g. ``docx.kit.lint``'s
     # ``missing-document-title`` rule, which uses the filename stem as an
-    # autofix source). Stored as a side-channel attribute so it isn't part
-    # of the document's public surface or persisted to the package.
+    # autofix source). Stored as a public-ish side-channel attribute so it
+    # isn't part of the document's persisted package surface but *is*
+    # discoverable by tooling that wants to know where the document came
+    # from. The legacy private ``_lint_filename`` attribute is kept in
+    # parallel for back-compat with code that wrote to it directly before
+    # ``_loaded_from_path`` existed; new readers should prefer
+    # ``_loaded_from_path``. Closes #648.
     if load_path is not None:
         try:
+            document._loaded_from_path = load_path  # type: ignore[attr-defined]
             document._lint_filename = load_path  # type: ignore[attr-defined]
         except Exception:  # pragma: no cover - defensive
             pass
