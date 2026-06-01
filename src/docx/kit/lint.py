@@ -1596,9 +1596,9 @@ def _autofix_leading_spaces_instead_of_indent(
 def _check_mixed_quotes(document: "Document") -> Iterable[Finding]:
     for index, paragraph in enumerate(document.paragraphs):
         text = paragraph.text
-        has_smart = any(ch in _SMART_QUOTES for ch in text)
-        has_straight = any(ch in _STRAIGHT_QUOTES for ch in text)
-        if has_smart and has_straight:
+        smart_count = sum(1 for ch in text if ch in _SMART_QUOTES)
+        straight_count = sum(1 for ch in text if ch in _STRAIGHT_QUOTES)
+        if smart_count and straight_count:
             yield Finding(
                 rule="mixed-quotes",
                 severity="info",
@@ -1609,6 +1609,12 @@ def _check_mixed_quotes(document: "Document") -> Iterable[Finding]:
                 autofix_available=False,
                 autofix_description=None,
                 location=f"paragraph {index}",
+                details=MappingProxyType(
+                    {
+                        "smart_count": smart_count,
+                        "straight_count": straight_count,
+                    }
+                ),
             )
 
 

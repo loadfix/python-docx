@@ -610,6 +610,34 @@ class DescribeMixedQuotes:
         document.add_paragraph("she said “hello”")
         assert "mixed-quotes" not in [f.rule for f in lint(document).findings]
 
+    def it_populates_smart_and_straight_counts_in_finding_details(
+        self, document: DocumentCls
+    ):
+        # 3 smart quotes (“, ”, ’) and 5 straight quotes (2 " + 3 ')
+        document.add_paragraph("“hi” it’s \"a\" 'b' c'")
+        report = lint(document)
+        mq = [f for f in report.findings if f.rule == "mixed-quotes"]
+        assert len(mq) == 1
+        finding = mq[0]
+        assert finding.details["smart_count"] == 3
+        assert finding.details["straight_count"] == 5
+
+    def it_does_not_populate_details_when_no_mixed_quotes(
+        self, document: DocumentCls
+    ):
+        document.add_paragraph("she said “hello” and ‘goodbye’")
+        mq = [f for f in lint(document).findings if f.rule == "mixed-quotes"]
+        assert mq == []
+
+    def it_preserves_legacy_message_text(self, document: DocumentCls):
+        document.add_paragraph("she said “hello” and 'goodbye'")
+        report = lint(document)
+        mq = [f for f in report.findings if f.rule == "mixed-quotes"]
+        assert mq
+        assert mq[0].message == (
+            "paragraph 0 mixes smart (curly) and straight quotes"
+        )
+
 
 # ---------------------------------------------------------------------------
 # empty-paragraph
