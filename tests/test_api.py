@@ -453,8 +453,11 @@ class DescribeCustomPropertiesPartRelPlacement:
     def it_does_not_write_custom_properties_part_for_a_fresh_document(self):
         # -- issue #721: a no-op save of a fresh ``Document()`` should
         # -- not produce a ``docProps/custom.xml`` part, content-type
-        # -- override, or rels entry. --
+        # -- override, or rels entry. Touching ``custom_properties``
+        # -- still materialises the part (as before), but if zero
+        # -- properties are set, the part is pruned at save time. --
         document = DocumentFactoryFn()
+        document.custom_properties  # noqa: B018 — materialise the part
 
         _, names, content_types, root_rels, doc_rels = self._save_and_inspect(document)
 
@@ -468,6 +471,7 @@ class DescribeCustomPropertiesPartRelPlacement:
         # -- properties; the empty-skip must still apply. --
         document = DocumentFactoryFn()
         document.core_properties.author = "x"
+        document.custom_properties  # noqa: B018 — materialise the part
 
         _, names, content_types, root_rels, doc_rels = self._save_and_inspect(document)
 

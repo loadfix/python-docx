@@ -31,6 +31,7 @@ from docx.bind_tokens import (
     apply_bind_tokens,
     get_bound_record,
     get_token_source,
+    has_persisted_marker,
     has_token,
     render,
     reseat_token_source,
@@ -318,3 +319,173 @@ class DescribeNamespaceURI:
     def it_uses_the_documented_loadfix_uri(self):
         # -- changing this URI silently breaks every previously-saved doc --
         assert LFXBIND_NS == "https://loadfix.dev/docx/bind-tokens"
+
+
+# -- issue #733: apply_bind_tokens must be opt-in -------------------------
+
+
+def _saved_document_xml(doc):
+    """Save ``doc`` to BytesIO and return the ``word/document.xml`` payload."""
+    import zipfile
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    zf = zipfile.ZipFile(buf)
+    return zf.read("word/document.xml").decode("utf-8"), buf
+
+
+class DescribeApplyBindTokensGate:
+    """Guard the unconditional resolver run that broke Word compatibility (#733).
+
+    ``apply_bind_tokens`` previously fired on every ``Document.save``. When
+    a run's text contained a brace-quoted identifier like
+    ``{customer-code}``, the resolver appended an
+    ``<lfxbind:src xmlns:lfxbind="...">…</lfxbind:src>`` element with an
+    inline namespace declaration. The fork-internal namespace isn't on
+    the document root and isn't wrapped in ``mc:AlternateContent``, so
+    Microsoft Word rejects the file as malformed. The fix gates the
+    resolver on opt-in: a record must be bound (or a marker must
+    already be persisted from a previous bound save) before the
+    resolver runs.
+    """
+
+    def it_does_not_emit_lfxbind_src_on_a_no_op_round_trip_with_brace_token_prose(
+        self,
+    ):
+        # -- caller has not opted into bind-tokens; prose with brace
+        # -- tokens must round-trip cleanly. --
+        doc = Document()
+        doc.add_paragraph("aws-{customer-code}-{account}-{role}")
+        doc.add_paragraph("plain {token} placeholder in code sample")
+
+        xml, _ = _saved_document_xml(doc)
+
+        assert "lfxbind:src" not in xml
+        assert "lfxbind" not in xml
+
+    def it_does_not_emit_lfxbind_src_when_no_record_is_bound(self):
+        doc = Document()
+        doc.add_paragraph("see {customer.name} below")
+
+        xml, _ = _saved_document_xml(doc)
+
+        assert "lfxbind:src" not in xml
+
+    def it_does_not_corrupt_brace_token_prose_in_runs(self):
+        # -- a run's text content must survive verbatim through save
+        # -- when bind-tokens is not opted into. --
+        original = "aws-{customer-code}-{account}-{role}"
+        doc = Document()
+        doc.add_paragraph(original)
+
+        xml, buf = _saved_document_xml(doc)
+
+        assert original in xml
+        # -- and on reload, the paragraph text matches exactly --
+        reloaded = Document(buf)
+        assert reloaded.paragraphs[0].text == original
+
+    def it_emits_lfxbind_src_when_a_record_has_been_bound(self):
+        # -- regression: don't break the bind-tokens feature for users
+        # -- who actually use it. --
+        doc = Document()
+        set_bound_record(doc, {"customer": {"name": "Acme"}})
+        doc.add_paragraph("Dear {customer.name}")
+
+        xml, _ = _saved_document_xml(doc)
+
+        assert "lfxbind:src" in xml
+        # -- and the prefix is declared on root, not inline on the marker --
+        assert "<lfxbind:src xmlns:lfxbind" not in xml
+
+    def it_round_trips_a_document_with_persisted_lfxbind_src_markers(self):
+        # -- save once with bind active so the doc carries persisted markers --
+        doc = Document()
+        doc.add_paragraph("Dear {customer.name}", bind_to={"customer": {"name": "Acme"}})
+        _, buf = _saved_document_xml(doc)
+
+        # -- reload (no rebind) and save again. The persisted marker must
+        # -- survive: the save-time gate fires on ``has_persisted_marker``
+        # -- so previously-bound documents continue to round-trip
+        # -- through the resolver. --
+        reloaded = Document(buf)
+        # -- pre-flight: the loaded doc has the marker --
+        assert has_persisted_marker(reloaded) is True
+
+        xml2, _ = _saved_document_xml(reloaded)
+
+        assert "lfxbind:src" in xml2
+
+    def it_declares_lfxbind_on_root_not_inline_when_marker_is_emitted(self):
+        # -- the inline form is what triggers Word's namespace-mismatch
+        # -- rejection (#733). When we do emit a marker, the prefix
+        # -- must be hoisted onto the document root. --
+        doc = Document()
+        doc.add_paragraph(
+            "Dear {customer.name}", bind_to={"customer": {"name": "Acme"}}
+        )
+
+        xml, _ = _saved_document_xml(doc)
+
+        # -- inline declaration absent --
+        assert "<lfxbind:src xmlns:lfxbind" not in xml
+        # -- root declares the prefix --
+        body_open = xml.index("<w:body>")
+        root_chunk = xml[:body_open]
+        assert 'xmlns:lfxbind="https://loadfix.dev/docx/bind-tokens"' in root_chunk
+
+
+class DescribeHasPersistedMarker:
+    def it_returns_false_for_a_fresh_document(self):
+        doc = Document()
+        assert has_persisted_marker(doc) is False
+
+    def it_returns_false_for_a_document_with_brace_prose_no_binding(self):
+        doc = Document()
+        doc.add_paragraph("aws-{customer-code}-{role}")
+        assert has_persisted_marker(doc) is False
+
+    def it_returns_true_when_a_marker_has_been_stamped(self):
+        doc = Document()
+        doc.add_paragraph(
+            "Dear {customer.name}", bind_to={"customer": {"name": "Acme"}}
+        )
+        assert has_persisted_marker(doc) is True
+
+    def it_returns_true_after_load_of_a_previously_bound_document(self):
+        doc = Document()
+        doc.add_paragraph(
+            "Dear {customer.name}", bind_to={"customer": {"name": "Acme"}}
+        )
+        reloaded, _ = _roundtrip(doc)
+        assert has_persisted_marker(reloaded) is True
+
+
+class DescribeWriteSourceMarkerDefensiveGuard:
+    """``_write_source_marker`` must suppress writes when root lacks the prefix.
+
+    Belt-and-braces companion to the save-time gate (#733). Even if a
+    future code path tries to stamp a marker without first declaring
+    the ``lfxbind`` prefix on the document root, we suppress rather
+    than emit a Word-incompatible inline ``xmlns:lfxbind``. The
+    public stampers (:func:`reseat_token_source` and the bind-feature
+    :func:`set_bound_record` pathway) hoist the prefix onto root
+    before stamping, so this guard fires only on unexpected paths.
+    """
+
+    def it_suppresses_inline_xmlns_when_root_has_no_lfxbind(self):
+        # pyright: reportPrivateUsage=false
+        from docx.bind_tokens import _write_source_marker
+
+        doc = Document()
+        para = doc.add_paragraph("plain text")
+        r = _first_run(para)
+
+        # -- root does not declare lfxbind --
+        assert doc.element.nsmap.get("lfxbind") is None
+
+        _write_source_marker(r, "Dear {customer.name}")
+
+        # -- guard kicked in: no marker stamped --
+        assert get_token_source(r) is None

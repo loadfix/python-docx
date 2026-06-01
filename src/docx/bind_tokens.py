@@ -287,12 +287,45 @@ def _read_source_marker(parent: etree._Element) -> Optional[str]:
     return src.text or ""
 
 
+def _root_declares_lfxbind(parent: etree._Element) -> bool:
+    """Return |True| when the document root carries the ``lfxbind`` prefix.
+
+    Walks up to the tree's root and checks its ``nsmap`` for our
+    fork-internal prefix. Microsoft Word rejects the saved package
+    when an element references a prefix that is *not* declared at
+    the root and is *not* wrapped in ``mc:AlternateContent`` — see
+    issue #733. The defensive guard in :func:`_write_source_marker`
+    consults this to decide whether emitting the marker is safe; if
+    the root doesn't declare ``lfxbind`` we suppress the marker
+    rather than write it with an inline ``xmlns:lfxbind`` declaration.
+    """
+    if parent is None:
+        return False
+    tree = parent.getroottree()
+    root = tree.getroot() if tree is not None else None
+    if root is None:
+        return False
+    return root.nsmap.get("lfxbind") == LFXBIND_NS
+
+
 def _write_source_marker(parent: etree._Element, source: str) -> None:
     """Append (or update) a ``<lfxbind:src>`` child preserving ``source``.
 
     Any existing marker is overwritten in place so we don't accumulate
     duplicates across repeated saves.
+
+    Defensive guard: when the document root does not declare the
+    ``lfxbind`` prefix, the marker is suppressed rather than written
+    with an inline ``xmlns:lfxbind`` declaration. The inline form is
+    what triggers the namespace mismatch in Microsoft Word's loader
+    (issue #733). Skipping the write-back is the safe degradation —
+    callers who never opted into bind tokens get a Word-clean save;
+    callers who did opted in via ``Document.bind`` /
+    ``set_bound_record`` and the gate in :meth:`Document.save` skips
+    this path entirely for token-less prose.
     """
+    if not _root_declares_lfxbind(parent):
+        return
     src = parent.find(_LFXBIND_SRC_TAG)
     if src is None:
         src = etree.SubElement(  # pyright: ignore[reportUnknownMemberType]
@@ -310,7 +343,13 @@ def reseat_token_source(carrier: etree._Element, source: str) -> None:
     will resolve correctly on the next save. End-user code does not
     need to call this; passing ``bind_to=`` to ``add_paragraph`` and
     letting :func:`apply_bind_tokens` run on save is sufficient.
+
+    Hoists the ``lfxbind`` prefix declaration onto the document root
+    when the carrier is attached to a tree that does not yet declare
+    it — see :func:`_write_source_marker` for the Word-compat
+    rationale (issue #733).
     """
+    _ensure_root_declares_lfxbind_for_element(carrier)
     _write_source_marker(carrier, source)
 
 
@@ -438,6 +477,71 @@ def get_bound_record(document: "Document") -> Any:
     return getattr(document, _BOUND_RECORD_ATTR, None)
 
 
+def has_persisted_marker(document: "Document") -> bool:
+    """Return |True| when the document already carries any ``<lfxbind:src>`` child.
+
+    Used by :meth:`Document.save` to gate :func:`apply_bind_tokens`:
+    when no record has been bound *and* no marker has been previously
+    persisted, the resolver is a no-op and is skipped entirely. This
+    keeps brace-quoted prose like ``aws-{customer-code}-{role}`` in
+    user content from triggering an unconditional Word-incompatible
+    marker emission on every save (issue #733).
+
+    A previously-bound document that already carries persisted markers
+    continues to round-trip them — the gate fires only on the
+    "user never opted into binding" path.
+    """
+    root = _document_root(document)
+    if root is None:
+        return False
+    # -- single ``iter()`` short-circuits on first hit; cheap. --
+    for _ in root.iter(_LFXBIND_SRC_TAG):
+        return True
+    return False
+
+
+def _ensure_root_declares_lfxbind_for_element(element: etree._Element) -> None:
+    """Hoist the ``lfxbind`` prefix declaration onto ``element``'s root.
+
+    No-op when the root already declares the prefix or the element
+    is detached from a tree.
+    """
+    if element is None:
+        return
+    tree = element.getroottree()
+    root = tree.getroot() if tree is not None else None
+    if root is None:
+        return
+    if root.nsmap.get("lfxbind") == LFXBIND_NS:
+        return
+    # -- ``keep_ns_prefixes`` lets us add the declaration to root even
+    # -- when no element currently references it; subsequent marker
+    # -- writes inherit the root declaration instead of declaring
+    # -- inline. --
+    etree.cleanup_namespaces(  # pyright: ignore[reportUnknownMemberType]
+        tree,
+        top_nsmap={"lfxbind": LFXBIND_NS},
+        keep_ns_prefixes=["lfxbind"],
+    )
+
+
+def _ensure_root_declares_lfxbind(document: "Document") -> None:
+    """Hoist the ``lfxbind`` prefix declaration onto the document root.
+
+    When a caller opts into the bind-tokens feature (via
+    :meth:`Document.bind` or ``add_paragraph(..., bind_to=...)``),
+    the ``<lfxbind:src>`` markers stamped onto each token-bearing run
+    must reference a prefix declared at the package root rather than
+    inline on each marker — Microsoft Word rejects the inline form
+    (issue #733). This is a no-op when the root already declares the
+    prefix.
+    """
+    root = _document_root(document)
+    if root is None:
+        return
+    _ensure_root_declares_lfxbind_for_element(root)
+
+
 def set_bound_record(
     document: "Document",
     record: Any,
@@ -447,10 +551,16 @@ def set_bound_record(
 
     A subsequent :meth:`Document.save` runs :func:`apply_bind_tokens`
     against the new record so every token-bearing run is re-resolved.
+
+    Ensures the document root declares the ``lfxbind`` prefix so the
+    save-time source-marker writes inherit the root declaration
+    rather than emit a Word-incompatible inline ``xmlns:lfxbind``
+    (issue #733).
     """
     setattr(document, _BOUND_RECORD_ATTR, record)
     if iteration is not None:
         setattr(document, _BOUND_ITERATION_ATTR, iteration)
+    _ensure_root_declares_lfxbind(document)
 
 
 def apply_bind_tokens(
@@ -484,6 +594,10 @@ def apply_bind_tokens(
     if iteration is None:
         iteration = getattr(document, _BOUND_ITERATION_ATTR, None)
     properties = _build_property_map(document)
+    # -- ensure the lfxbind prefix is declared on root before stamping
+    # -- markers so writes don't emit a Word-incompatible inline
+    # -- ``xmlns:lfxbind`` (issue #733). --
+    _ensure_root_declares_lfxbind_for_element(root)
 
     for carrier in _iter_run_carriers(root):
         if _carrier_t(carrier) is None and _read_source_marker(carrier) is None:
@@ -517,6 +631,7 @@ __all__ = [
     "apply_bind_tokens",
     "get_bound_record",
     "get_token_source",
+    "has_persisted_marker",
     "has_token",
     "render",
     "reseat_token_source",

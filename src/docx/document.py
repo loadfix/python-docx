@@ -3534,10 +3534,30 @@ class Document(ElementProxy):
         # -- run carrying ``{customer.name}`` / ``{date:short}`` /
         # -- ``{property:Title}`` etc. picks up the live bound record.
         # -- Best-effort by contract: a failure must not block save.
+        # --
+        # -- Gate the resolver on opt-in (#733). Running unconditionally
+        # -- on every save stamped a ``<lfxbind:src>`` marker on any run
+        # -- whose prose happened to contain a brace-quoted identifier
+        # -- (e.g. ``aws-{customer-code}-{role}`` in code samples or
+        # -- template instructions), and Microsoft Word rejects the
+        # -- saved package as malformed. The resolver now fires only
+        # -- when a record has been bound (the user opted in via
+        # -- ``Document.bind`` / ``add_paragraph(..., bind_to=...)``)
+        # -- *or* the document already carries a persisted marker
+        # -- from a previous bound save (so the round-trip stays
+        # -- stable for previously-bound documents). --
         try:
-            from docx.bind_tokens import apply_bind_tokens as _apply_bind_tokens
+            from docx.bind_tokens import (
+                apply_bind_tokens as _apply_bind_tokens,
+                get_bound_record as _get_bound_record,
+                has_persisted_marker as _has_persisted_marker,
+            )
 
-            _apply_bind_tokens(self)
+            if (
+                _get_bound_record(self) is not None
+                or _has_persisted_marker(self)
+            ):
+                _apply_bind_tokens(self)
         except Exception:  # pragma: no cover - defensive guard
             pass
 

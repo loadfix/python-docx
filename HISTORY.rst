@@ -3,6 +3,37 @@
 Release History
 ---------------
 
+Unreleased — Word-compatibility fix: gate ``apply_bind_tokens`` on opt-in (#733)
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+- ``Document.save()`` no longer runs ``docx.bind_tokens.apply_bind_tokens``
+  unconditionally. The resolver previously fired on every save and stamped
+  a fork-internal ``<lfxbind:src xmlns:lfxbind="...">…</lfxbind:src>``
+  marker inside any ``<w:r>`` whose text contained a brace-quoted
+  identifier (``{customer-code}``, ``{role}`` in template instructions,
+  ``{var}`` in code samples). The marker's namespace is not declared on
+  the document root and is not wrapped in ``mc:AlternateContent``, so
+  Microsoft Word rejected the saved package as malformed — every saved
+  ``.docx`` containing matching prose became Word-unloadable after a
+  single python-docx round-trip, even when the caller never opted into
+  the bind-tokens feature.
+
+  The resolver now fires only when ``Document.bind`` /
+  ``add_paragraph(..., bind_to=...)`` (or ``set_bound_record``) has bound
+  a record, *or* when the document already carries a ``<lfxbind:src>``
+  marker from a previous bound save (so previously-bound documents
+  continue to round-trip cleanly). For callers who never opted in,
+  brace-quoted prose now round-trips byte-clean. New helper
+  ``docx.bind_tokens.has_persisted_marker(document)`` exposes the
+  second half of the gate. A defensive guard in ``_write_source_marker``
+  also suppresses any marker emission when the document root lacks the
+  ``lfxbind`` prefix declaration — the inline ``xmlns:lfxbind`` form is
+  what triggered Word's namespace-mismatch rejection. When binding is
+  active, ``set_bound_record`` and ``apply_bind_tokens`` now hoist the
+  ``lfxbind`` prefix onto the document root via
+  ``etree.cleanup_namespaces`` so subsequent marker writes inherit the
+  root declaration. Closes #733.
+
 Unreleased — Hyperlink ergonomics
 +++++++++++++++++++++++++++++++++
 
