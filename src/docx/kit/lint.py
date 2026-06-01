@@ -1165,6 +1165,58 @@ def _collapse_cross_run_spaces(
     return fixed_any
 
 
+def _is_intentional_multiple_spaces(
+    paragraph: "Paragraph", match: "re.Match[str]"
+) -> bool:
+    """Return |True| when *match* is an intentional formatting convention.
+
+    The detection regex is shared by both the check and the autofix,
+    but some matches in real-world Word documents are deliberate:
+
+    * Heading-styled paragraphs (``Heading 1`` … ``Heading 9``,
+      ``Title``, ``Subtitle``) routinely use a multi-space gap between
+      a leading numeric prefix and the title — ``4.1  Three-LZA
+      topology`` is a template convention, not a defect.
+
+    * List-styled paragraphs (``List Bullet``, ``List Number``, ``List
+      Paragraph``, ``List Continue``, ``Body Text Indent``, ``Quote``)
+      commonly start with a multi-space hanging indent before a bullet
+      glyph (``    - bullet text``).
+
+    Returning |True| for a given match exempts that match from both
+    flagging and the autofix; mid-sentence defects in the same
+    paragraph remain in scope (issue #645).
+    """
+
+    match_start = match.start()
+
+    # Heading paragraphs whose multi-space match sits immediately after
+    # a leading ``\d+(\.\d+)*`` numeric prefix are using the gap as a
+    # deliberate number-to-title separator.
+    if _heading_level(paragraph) is not None:
+        # ``paragraph.text`` covers hyperlink content the joined-runs
+        # text omits; we want the predicate to see the full prefix.
+        prefix = _HEADING_NUMBERING_GAP_RE.match(paragraph.text)
+        if prefix is not None:
+            # The numbering gap ends one character before the match's
+            # final ``\S`` (which is the first character of the title)
+            # — the gap *is* the run of spaces ending at ``prefix.end()
+            # - 1``. A match whose end aligns with that position (and
+            # whose start sits inside the spaces of the prefix) is the
+            # intentional gap.
+            gap_end = prefix.end() - 1
+            if match.end() == gap_end and match_start < gap_end:
+                return True
+
+    # List- / hanging-indent-styled paragraphs whose match starts at
+    # the very beginning of the paragraph carry the hanging-indent
+    # padding the author typed before the bullet glyph.
+    if _is_indented_style(paragraph) and match_start == 0:
+        return True
+
+    return False
+
+
 def _check_multiple_spaces(document: "Document") -> Iterable[Finding]:
     config = _current_config()
     # Prefer the legacy module-level constant when the caller has tuned
@@ -1179,33 +1231,19 @@ def _check_multiple_spaces(document: "Document") -> Iterable[Finding]:
     else:
         pattern = _multi_space_pattern(config.multi_space_minimum)
     for index, paragraph in enumerate(document.paragraphs):
-        # Hanging-indent styles (List Bullet, List Number, Body Text
-        # Indent, Quote, ...) intentionally start lines with multi-space
-        # padding. The author-typed leading whitespace is the visual
-        # indent; flagging it would invite an autofix that destroys the
-        # hanging indent.
-        if _is_indented_style(paragraph):
-            continue
         joined, spans = _joined_runs_text_with_offsets(paragraph)
         if not joined:
             continue
-        # Heading paragraphs whose double-space sits right after a
-        # leading numeric token (`4.1  Title`) are using the spacing as
-        # a deliberate gap between number and title — skip when that's
-        # the only multi-space pattern in the paragraph.
-        if _heading_level(paragraph) is not None:
-            # Use the full paragraph text (which may include hyperlink
-            # content) for the heading-numbering predicate; the
-            # remainder check uses the joined-runs string so it stays
-            # consistent with the detection space below.
-            full_text = paragraph.text
-            if _HEADING_NUMBERING_GAP_RE.match(full_text):
-                remainder = _HEADING_NUMBERING_GAP_RE.sub(
-                    lambda m: m.group(0)[-1], joined, count=1
-                )
-                if pattern.search(remainder) is None:
-                    continue
-        match = pattern.search(joined)
+        # Walk every match and emit the first non-exempt one. The
+        # per-match predicate (issue #645) lets an intentional heading
+        # numbering gap coexist with a real mid-sentence defect in the
+        # same paragraph — only the latter fires.
+        match: "Optional[re.Match[str]]" = None
+        for candidate in pattern.finditer(joined):
+            if _is_intentional_multiple_spaces(paragraph, candidate):
+                continue
+            match = candidate
+            break
         if match is None:
             continue
         affected = _runs_for_match(spans, match.start(), match.end())
@@ -1255,14 +1293,21 @@ def _autofix_multiple_spaces(document: "Document", finding: Finding) -> bool:
         paragraph = document.paragraphs[finding.paragraph_index]
     except IndexError:
         return False
-    # Collapse every multi-space run in the paragraph (greedy ``  +``
-    # pattern), now operating on the joined-runs string so cross-run
-    # double-spaces are caught alongside in-run ones. Iterating in
-    # right-to-left order keeps span offsets stable across edits.
+    # Collapse every non-exempt multi-space run in the paragraph
+    # (greedy ``  +`` pattern), operating on the joined-runs string so
+    # cross-run double-spaces are caught alongside in-run ones. The
+    # per-match exemption predicate (issue #645) leaves intentional
+    # heading numbering gaps and list hanging-indent padding alone.
+    # Iterating in right-to-left order keeps span offsets stable
+    # across edits.
     fixed_any = False
     while True:
         joined, _spans = _joined_runs_text_with_offsets(paragraph)
-        matches = list(_MULTI_SPACE_RE.finditer(joined))
+        matches = [
+            m
+            for m in _MULTI_SPACE_RE.finditer(joined)
+            if not _is_intentional_multiple_spaces(paragraph, m)
+        ]
         if not matches:
             break
         # Process the right-most match first; left-side offsets are

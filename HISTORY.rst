@@ -75,6 +75,21 @@ Unreleased — Hyperlink ergonomics
   (``paragraph N mixes smart (curly) and straight quotes``) is
   preserved unchanged for back-compat with rendered reports.
 
+- **``docx.kit.lint`` — ``multiple-spaces`` exempts intentional
+  formatting** (#645). Heading-styled paragraphs (`Heading 1` …
+  `Heading 9`, `Title`, `Subtitle`) whose multi-space run sits
+  immediately after a leading ``\d+(\.\d+)*`` numeric prefix
+  (e.g. ``4.1  Three-LZA topology``) and List-styled paragraphs
+  (`List Bullet`, `List Number`, `List Paragraph`, `List Continue`,
+  `Body Text Indent`, `Quote`) whose match starts at the very
+  beginning of the paragraph (a hanging indent before the bullet
+  glyph) no longer fire. The exemption is per-match, not
+  per-paragraph: a heading that combines an intentional numbering
+  gap with a mid-sentence double-space defect still flags the
+  defect, and the autofix repairs only the non-exempt run. Real
+  Word documents using these template conventions are no longer
+  silently ruined by the autofix.
+
 - **Skip empty ``docProps/custom.xml`` on save** (#721). A fresh
   ``Document().save()`` no longer materialises an empty
   ``docProps/custom.xml`` part with the matching

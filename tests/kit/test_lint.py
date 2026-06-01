@@ -288,6 +288,94 @@ class DescribeMultipleSpaces:
         bold_runs = [r for r in reopened_para.runs if r.bold]
         assert any(r.text == "emphasized " for r in bold_runs)
 
+    # -- intentional formatting exemption (issue #645) --
+
+    def it_does_not_flag_double_space_after_heading_numbering(
+        self, document: DocumentCls
+    ):
+        # `4.1  Three-LZA topology` — the two-space numbering gap is
+        # a deliberate template convention. Lower the threshold to 2
+        # so the bare 2-space case would otherwise fire.
+        from docx.kit import lint as lint_mod
+
+        document.add_heading("4.1  Three-LZA topology", level=2)
+        original = lint_mod.MULTIPLE_SPACES_MIN_RUN
+        lint_mod.MULTIPLE_SPACES_MIN_RUN = 2
+        try:
+            report = lint(document)
+        finally:
+            lint_mod.MULTIPLE_SPACES_MIN_RUN = original
+        assert "multiple-spaces" not in [
+            f.rule for f in report.findings
+        ]
+
+    def it_does_not_flag_double_space_in_list_paragraph_hanging_indent(
+        self, document: DocumentCls
+    ):
+        # `    - bullet text` on a `List Bullet`-styled paragraph: the
+        # leading whitespace is the intentional hanging indent before
+        # the bullet glyph, never a multi-space defect.
+        from docx.kit import lint as lint_mod
+
+        para = document.add_paragraph("    - bullet text")
+        para.style = document.styles["List Bullet"]
+        original = lint_mod.MULTIPLE_SPACES_MIN_RUN
+        lint_mod.MULTIPLE_SPACES_MIN_RUN = 2
+        try:
+            report = lint(document)
+        finally:
+            lint_mod.MULTIPLE_SPACES_MIN_RUN = original
+        assert "multiple-spaces" not in [
+            f.rule for f in report.findings
+        ]
+
+    def it_still_flags_mid_sentence_double_spaces_in_a_heading(
+        self, document: DocumentCls
+    ):
+        # The exemption is per-match, not per-paragraph: a heading
+        # with no leading numeric prefix and a mid-sentence double
+        # space is still a real defect.
+        from docx.kit import lint as lint_mod
+
+        document.add_heading("Section title  with bug", level=2)
+        original = lint_mod.MULTIPLE_SPACES_MIN_RUN
+        lint_mod.MULTIPLE_SPACES_MIN_RUN = 2
+        try:
+            report = lint(document)
+        finally:
+            lint_mod.MULTIPLE_SPACES_MIN_RUN = original
+        assert "multiple-spaces" in [f.rule for f in report.findings]
+
+    def it_still_flags_double_spaces_in_body_paragraph(
+        self, document: DocumentCls
+    ):
+        # Regression: body paragraphs (no heading style, no list
+        # style) keep firing on multi-space runs above the threshold.
+        from docx.kit import lint as lint_mod
+
+        document.add_paragraph("foo  bar")
+        original = lint_mod.MULTIPLE_SPACES_MIN_RUN
+        lint_mod.MULTIPLE_SPACES_MIN_RUN = 2
+        try:
+            report = lint(document)
+        finally:
+            lint_mod.MULTIPLE_SPACES_MIN_RUN = original
+        assert "multiple-spaces" in [f.rule for f in report.findings]
+
+    def it_autofix_collapses_only_non_exempt_runs(
+        self, document: DocumentCls
+    ):
+        # Heading with both an intentional numbering gap AND a
+        # mid-sentence multi-space defect: the autofix must preserve
+        # the numbering gap and only collapse the defect.
+        document.add_heading(
+            "4.1  Three-LZA   topology", level=2
+        )
+        report = lint(document)
+        assert "multiple-spaces" in [f.rule for f in report.findings]
+        report.autofix(rules=["multiple-spaces"])
+        assert document.paragraphs[0].text == "4.1  Three-LZA topology"
+
 
 # ---------------------------------------------------------------------------
 # trailing-whitespace
