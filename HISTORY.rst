@@ -46,6 +46,39 @@ Unreleased — ``docx.kit.lint`` walks every story (#673)
   ``autofix_available=False`` — the autofix path is body-only in
   this PR; cross-story autofixes are a follow-up. Closes #673.
 
+Unreleased — ``docx.kit.lint`` — structured locator + quantitative fields on ``Finding.details`` (#675)
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+- Every built-in rule that historically buried a locator or
+  quantitative datum inside the human-readable ``message`` /
+  ``location`` strings now exposes the same data as a structured
+  field on ``Finding.details``. Callers driving autofixes or
+  building structured reports can read ``finding.details[...]``
+  instead of regex-parsing the message prose. Specifically:
+
+  - ``tab-instead-of-indent`` — ``details["tab_count"]``.
+  - ``trailing-whitespace`` — ``details["trailing_count"]``.
+  - ``inconsistent-heading-levels`` — adds
+    ``details["actual_level"]`` and ``details["expected_level"]``
+    alongside the existing ``level`` / ``previous_level`` /
+    ``skipped`` fields.
+  - ``empty-paragraph`` — ``details["consecutive_count"]`` and
+    ``details["run_start"]`` for the trailing run of empties.
+  - ``missing-alt-text`` — adds ``details["shape_index"]`` (the
+    first occurrence's index) and ``details["cnvpr_id"]`` (the
+    ``wp:docPr/@id`` integer) alongside the existing
+    ``occurrence_count`` / ``additional_locations`` fields.
+  - ``bare-url`` — ``details["url"]`` (one finding per match).
+  - ``excessive-font-size-variation`` — ``details["distinct_sizes"]``
+    (the sorted tuple of distinct point sizes) and
+    ``details["threshold"]``.
+  - ``placeholder-text`` — adds ``details["placeholder_text"]`` as
+    a key alias for the existing ``details["placeholder"]`` so the
+    naming aligns with the other locator-fields rules.
+
+  The ``message`` strings are unchanged so callers that still string-
+  parse keep working. Closes #675.
+
 Unreleased — Docs: rewrite ``bind_tokens`` module docstring to match MCE reality (#735)
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

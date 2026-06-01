@@ -1543,6 +1543,38 @@ def _has_trailing_authored_whitespace(paragraph: "Paragraph") -> bool:
     return False
 
 
+def _trailing_authored_whitespace_count(paragraph: "Paragraph") -> int:
+    """Return the count of literal trailing whitespace characters on *paragraph*.
+
+    Mirrors :func:`_has_trailing_authored_whitespace`'s semantics —
+    structural ``<w:tab/>`` / ``<w:br/>`` decode artifacts are
+    excluded; only literal author-typed space / non-breaking space
+    characters at the very end of the paragraph count.
+    """
+
+    count = 0
+    for run in reversed(paragraph.runs):
+        text = run.text
+        if text == "":
+            continue
+        cleaned = text.rstrip("\t\n")
+        if not cleaned:
+            # Run is entirely structural — keep looking left.
+            continue
+        # Walk this run from the right counting whitespace, stopping
+        # at the first non-whitespace character. There can't be more
+        # trailing whitespace beyond a non-whitespace boundary, so we
+        # break out of the outer loop too once we hit one.
+        for ch in reversed(cleaned):
+            if ch.isspace():
+                count += 1
+            else:
+                return count
+        # Whole run was trailing whitespace — keep walking left in
+        # case the previous run also tails into whitespace.
+    return count
+
+
 def _check_trailing_whitespace(document: "Document") -> Iterable[Finding]:
     # Cross-story walk (closes #673): any story may carry trailing
     # whitespace — a footer with ``Page  X of  Y `` is the headline
@@ -1563,6 +1595,7 @@ def _check_trailing_whitespace(document: "Document") -> Iterable[Finding]:
         if _is_trailing_whitespace_exempt_style(paragraph):
             continue
         prefix = _location_message_prefix(location, body_index)
+        trailing_count = _trailing_authored_whitespace_count(paragraph)
         yield Finding(
             rule="trailing-whitespace",
             severity="warning",
@@ -1573,6 +1606,10 @@ def _check_trailing_whitespace(document: "Document") -> Iterable[Finding]:
                 "trim trailing whitespace" if body_index is not None else None
             ),
             location=prefix,
+            # Issue #675: structured trailing-whitespace count so a
+            # caller can size a fix or rank by severity (one stray
+            # space vs. five) without parsing the message.
+            details=MappingProxyType({"trailing_count": trailing_count}),
         )
 
 
@@ -1687,6 +1724,10 @@ def _check_tab_instead_of_indent(document: "Document") -> Iterable[Finding]:
                 else None
             ),
             location=prefix,
+            # Issue #675: surface the leading-tab count as structured
+            # data so callers don't have to regex-parse the message
+            # to size a downstream autofix's compensating indent.
+            details=MappingProxyType({"tab_count": tab_count}),
         )
 
 
@@ -1994,13 +2035,15 @@ def _check_empty_paragraph(document: "Document") -> Iterable[Finding]:
     # non-body) so the message stays sensible.
     in_run = False
     run_start_locator: Optional[str] = None
+    run_start_index: Optional[int] = None
     current_location: Optional[str] = None
-    for _global_index, paragraph, location, body_index in (
+    for global_index, paragraph, location, body_index in (
         _iter_all_paragraphs_indexed(document)
     ):
         if location != current_location:
             in_run = False
             run_start_locator = None
+            run_start_index = None
             current_location = location
         prefix = _location_message_prefix(location, body_index)
         # Use the tightened predicate — a paragraph is "empty" only when
@@ -2012,7 +2055,9 @@ def _check_empty_paragraph(document: "Document") -> Iterable[Finding]:
             if not in_run:
                 in_run = True
                 run_start_locator = prefix
+                run_start_index = global_index
             else:
+                start = run_start_index if run_start_index is not None else global_index
                 yield Finding(
                     rule="empty-paragraph",
                     severity="info",
@@ -2028,6 +2073,17 @@ def _check_empty_paragraph(document: "Document") -> Iterable[Finding]:
                         else None
                     ),
                     location=prefix,
+                    # Issue #675: ``consecutive_count`` is the size of
+                    # the empty-paragraph run as observed up to (and
+                    # including) this finding. ``run_start`` exposes
+                    # the start index so callers can address the whole
+                    # run without re-walking.
+                    details=MappingProxyType(
+                        {
+                            "consecutive_count": global_index - start + 1,
+                            "run_start": start,
+                        }
+                    ),
                 )
         else:
             # Either the paragraph has visible text (breaks the run) or
@@ -2037,6 +2093,7 @@ def _check_empty_paragraph(document: "Document") -> Iterable[Finding]:
             # toward the "consecutive empties" run.
             in_run = False
             run_start_locator = None
+            run_start_index = None
 
 
 def _autofix_empty_paragraph(document: "Document", finding: Finding) -> bool:
@@ -2102,6 +2159,12 @@ def _check_inconsistent_heading_levels(document: "Document") -> Iterable[Finding
                         "level": level,
                         "previous_level": previous_level,
                         "skipped": level - previous_level - 1,
+                        # Issue #675: expose the raw locator pair so
+                        # callers can act on "what level was expected"
+                        # vs "what level was found" without re-deriving
+                        # from the message string.
+                        "actual_level": level,
+                        "expected_level": previous_level + 1,
                     }
                 ),
             )
@@ -2216,6 +2279,30 @@ def _check_trailing_heading(document: "Document") -> Iterable[Finding]:
         )
 
 
+def _shape_cnvpr_id(shape: "InlineShape") -> Optional[int]:
+    """Return the ``wp:docPr/@id`` attribute on *shape*, or ``None``.
+
+    Issue #675 — expose the document-level non-visual drawing-property
+    id (the ``cNvPr`` integer Word uses to cross-reference shapes) so
+    a downstream caller can correlate a lint finding with the exact
+    shape in the saved XML without re-walking the inline shape list.
+    """
+
+    inline = getattr(shape, "_inline", None)
+    if inline is None:
+        return None
+    docPr = getattr(inline, "docPr", None)
+    if docPr is None:
+        return None
+    raw = getattr(docPr, "id", None)
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        return None
+
+
 def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
     # Cross-story walk (closes #673). Pictures can live in any story —
     # a header logo and a footnote diagram both deserve alt text.
@@ -2250,6 +2337,9 @@ def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
     # ``Finding.details["additional_locations"]``.
     seen: Dict[str, List[Tuple[int, str]]] = {}
     deferred: List[Tuple[int, str, str, str]] = []
+    # Issue #675: track the cNvPr id of each shape's first occurrence
+    # so the deferred-emit pass can pick it up without re-walking.
+    first_cnvpr_id: Dict[str, Optional[int]] = {}
     for shape_index, (shape, location) in enumerate(picture_pairs):
         alt = getattr(shape, "alt_text", None)
         title = getattr(shape, "title", None)
@@ -2266,11 +2356,13 @@ def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
             locator = f"inline image {shape_index}"
         else:
             locator = f"{location} image {shape_index}"
+        cnvpr_id = _shape_cnvpr_id(shape)
         identity = _shape_identity(shape)
         if identity is not None:
             existing = seen.get(identity)
             if existing is None:
                 seen[identity] = [(shape_index, locator)]
+                first_cnvpr_id[identity] = cnvpr_id
                 deferred.append((shape_index, identity, severity, locator))
             else:
                 existing.append((shape_index, locator))
@@ -2288,6 +2380,11 @@ def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
                 {
                     "occurrence_count": 1,
                     "additional_locations": (),
+                    # Issue #675: structured locator fields so callers
+                    # can target the exact shape without parsing the
+                    # message or location string.
+                    "shape_index": shape_index,
+                    "cnvpr_id": cnvpr_id,
                 }
             ),
         )
@@ -2317,6 +2414,13 @@ def _check_missing_alt_text(document: "Document") -> Iterable[Finding]:
                 {
                     "occurrence_count": count,
                     "additional_locations": additional,
+                    # Issue #675: ``shape_index`` carries the first
+                    # occurrence (the canonical locator); ``cnvpr_id``
+                    # is its ``wp:docPr/@id`` (or ``None`` when the
+                    # shape has no docPr — chart / SmartArt edge
+                    # cases).
+                    "shape_index": first_index,
+                    "cnvpr_id": first_cnvpr_id.get(identity),
                 }
             ),
         )
@@ -2753,6 +2857,11 @@ def _check_bare_url(document: "Document") -> Iterable[Finding]:
                 autofix_available=False,
                 autofix_description=None,
                 location=prefix,
+                # Issue #675: surface the matched URL as a structured
+                # field so callers can wrap it / build a manifest of
+                # bare URLs without re-running the URL regex on the
+                # message string.
+                details=MappingProxyType({"url": url}),
             )
 
 
@@ -2782,9 +2891,14 @@ def _check_placeholder_text(document: "Document") -> Iterable[Finding]:
                 # Issue #681: surface the matched placeholder and a
                 # stable category tag so consumers can group findings
                 # without regex-parsing the message.
+                # Issue #675: also surface the matched text under
+                # ``placeholder_text`` to align the key naming with
+                # the other locator-fields rules; ``placeholder``
+                # remains for back-compat.
                 details=MappingProxyType(
                     {
                         "placeholder": match.group(0),
+                        "placeholder_text": match.group(0),
                         "category": category,
                     }
                 ),
@@ -2843,6 +2957,15 @@ def _check_excessive_font_size_variation(
         autofix_available=False,
         autofix_description=None,
         location="document body",
+        # Issue #675: surface the sorted distinct point sizes and the
+        # firing threshold so callers can drive a "consolidate sizes"
+        # operation without parsing the message string.
+        details=MappingProxyType(
+            {
+                "distinct_sizes": tuple(float(s) for s in sorted_sizes),
+                "threshold": _EXCESSIVE_FONT_SIZE_THRESHOLD,
+            }
+        ),
     )
 
 

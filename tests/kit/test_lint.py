@@ -426,6 +426,19 @@ class DescribeTrailingWhitespace:
             f.rule for f in report.findings
         ]
 
+    def it_populates_trailing_count_in_finding_details(
+        self, document: DocumentCls
+    ):
+        # Issue #675: a structured trailing-whitespace count so callers
+        # can rank by severity (one stray space vs. five) without
+        # parsing the message string.
+        document.add_paragraph("hello   ")
+        report = lint(document)
+        finding = next(
+            f for f in report.findings if f.rule == "trailing-whitespace"
+        )
+        assert finding.details["trailing_count"] == 3
+
 
 # ---------------------------------------------------------------------------
 # tab-instead-of-indent
@@ -561,6 +574,19 @@ class DescribeTabInsteadOfIndent:
         # Two tabs == two tab-stops of indent (72pt).
         assert reopened.paragraphs[0].runs[0].text == "hello"
         assert reopened.paragraphs[0].paragraph_format.left_indent == Pt(72)
+
+    def it_populates_tab_count_in_finding_details(
+        self, document: DocumentCls
+    ):
+        # Issue #675: ``tab_count`` lets a caller size a fix without
+        # parsing the message string.
+        para = document.add_paragraph()
+        para.add_run("\t\t\thello")
+        report = lint(document)
+        finding = next(
+            f for f in report.findings if f.rule == "tab-instead-of-indent"
+        )
+        assert finding.details["tab_count"] == 3
 
 
 # ---------------------------------------------------------------------------
@@ -775,6 +801,25 @@ class DescribeEmptyParagraph:
         report = lint(document)
         ep = [f for f in report.findings if f.rule == "empty-paragraph"]
         assert len(ep) == 2
+
+    def it_populates_consecutive_count_in_finding_details(
+        self, document: DocumentCls
+    ):
+        # Issue #675: ``consecutive_count`` is the size of the empty-
+        # paragraph run as observed up to (and including) the finding,
+        # so a UI can rank "long runs of empties" without re-walking.
+        document.add_paragraph("first")
+        document.add_paragraph("")  # run starts here (silent)
+        document.add_paragraph("")  # finding 1: count 2
+        document.add_paragraph("")  # finding 2: count 3
+        document.add_paragraph("second")
+        report = lint(document)
+        ep = [f for f in report.findings if f.rule == "empty-paragraph"]
+        assert len(ep) == 2
+        assert ep[0].details["consecutive_count"] == 2
+        assert ep[1].details["consecutive_count"] == 3
+        assert ep[0].details["run_start"] == 1
+        assert ep[1].details["run_start"] == 1
 
     def it_removes_consecutive_empties_on_autofix_keeping_one(
         self, document: DocumentCls
@@ -1262,6 +1307,24 @@ class DescribeInconsistentHeadingLevels:
         # 1 -> 5 skipped levels 2, 3, 4 (count 3).
         assert finding.details["skipped"] == 3
 
+    def it_populates_expected_and_actual_level_in_finding_details(
+        self, document: DocumentCls
+    ):
+        # Issue #675: ``actual_level`` / ``expected_level`` give a
+        # caller the locator pair without re-deriving from ``level`` /
+        # ``previous_level`` (which are kept for back-compat).
+        document.add_heading("First", level=1)
+        document.add_heading("Skipped", level=3)
+        report = lint(document)
+        finding = next(
+            f
+            for f in report.findings
+            if f.rule == "inconsistent-heading-levels"
+        )
+        assert finding.details["actual_level"] == 3
+        assert finding.details["expected_level"] == 2
+        assert finding.details["previous_level"] == 1
+
 
 class DescribeTrailingHeading:
     """Issue #644 — heading at end of document with no body content."""
@@ -1503,6 +1566,27 @@ class DescribeMissingAltText:
         for finding in ma:
             assert finding.details["occurrence_count"] == 1
             assert finding.details["additional_locations"] == ()
+
+    def it_populates_shape_index_and_cnvpr_id_in_finding_details(
+        self, document: DocumentCls
+    ):
+        # Issue #675: ``shape_index`` and ``cnvpr_id`` are structured
+        # locator fields that don't require parsing the message or
+        # the ``location`` string. ``cnvpr_id`` is the
+        # ``wp:docPr/@id`` integer Word uses to cross-reference the
+        # shape; the auto-assigned id is a positive integer
+        # (typically starting at 1).
+        document.add_picture("tests/test_files/python-icon.png")
+        document.add_picture("tests/test_files/monty-truth.png")
+        report = lint(document)
+        ma = [f for f in report.findings if f.rule == "missing-alt-text"]
+        assert len(ma) == 2
+        # First finding points at the first inline shape.
+        assert ma[0].details["shape_index"] == 0
+        # cnvpr_id mirrors the docPr/@id of the first inline shape.
+        expected_id = document.inline_shapes[0]._inline.docPr.id
+        assert ma[0].details["cnvpr_id"] == expected_id
+        assert ma[1].details["shape_index"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -1903,6 +1987,20 @@ class DescribePlaceholderText:
         assert finding.details["placeholder"] == expected_placeholder
         assert finding.details["category"] == expected_category
 
+    def it_populates_placeholder_text_alias_in_finding_details(
+        self, document: DocumentCls
+    ):
+        # Issue #675: the ``placeholder_text`` key aligns the naming
+        # with the other locator-fields rules; ``placeholder`` is kept
+        # for back-compat (#681 callers still read it).
+        document.add_paragraph("Author note <replace me>")
+        report = lint(document)
+        finding = next(
+            f for f in report.findings if f.rule == "placeholder-text"
+        )
+        assert finding.details["placeholder_text"] == "<replace me>"
+        assert finding.details["placeholder"] == "<replace me>"
+
 
 # ---------------------------------------------------------------------------
 # table-without-header-row
@@ -2112,6 +2210,18 @@ class DescribeBareUrl:
         bu = next(f for f in report.findings if f.rule == "bare-url")
         assert bu.paragraph_index == 1
 
+    def it_populates_url_in_finding_details(self, document: DocumentCls):
+        # Issue #675: rule emits one finding per URL match, with the
+        # matched URL as a structured field — no need to re-run the
+        # URL regex on the message.
+        document.add_paragraph(
+            "First https://a.example.com and second http://b.example.com."
+        )
+        report = lint(document)
+        bu = [f for f in report.findings if f.rule == "bare-url"]
+        urls = [f.details["url"] for f in bu]
+        assert urls == ["https://a.example.com", "http://b.example.com"]
+
 
 # ---------------------------------------------------------------------------
 # excessive-font-size-variation
@@ -2272,6 +2382,33 @@ class DescribeExcessiveFontSizeVariation:
         assert len(findings) == 1
         assert "5 distinct" in findings[0].message
         assert "11, 12, 13, 14, 15 pt" in findings[0].message
+
+    def it_populates_distinct_sizes_and_threshold_in_finding_details(
+        self, document: DocumentCls
+    ):
+        # Issue #675: surface the sorted distinct point sizes and the
+        # firing threshold so callers can drive a "consolidate sizes"
+        # operation without re-walking the document.
+        for i, sz in enumerate((9, 10, 11, 12, 14)):
+            self._add_sized_paragraph(document, f"body{i}", sz)
+        report = lint(document)
+        finding = next(
+            f
+            for f in report.findings
+            if f.rule == "excessive-font-size-variation"
+        )
+        assert finding.details["distinct_sizes"] == (
+            9.0,
+            10.0,
+            11.0,
+            12.0,
+            14.0,
+        )
+        # Threshold is exclusive — the rule fires when ``len(distinct) > threshold``.
+        assert finding.details["threshold"] == 4
+        assert len(finding.details["distinct_sizes"]) > finding.details[
+            "threshold"
+        ]
 
 
 # ---------------------------------------------------------------------------
