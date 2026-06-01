@@ -453,6 +453,142 @@ class DescribeTabInsteadOfIndent:
 
 
 # ---------------------------------------------------------------------------
+# leading-spaces-instead-of-indent
+# ---------------------------------------------------------------------------
+
+
+class DescribeLeadingSpacesInsteadOfIndent:
+
+    def it_flags_paragraph_with_4_leading_spaces(
+        self, document: DocumentCls
+    ):
+        document.add_paragraph("    hello")
+        report = lint(document)
+        rules = [f.rule for f in report.findings]
+        assert "leading-spaces-instead-of-indent" in rules
+        finding = next(
+            f
+            for f in report.findings
+            if f.rule == "leading-spaces-instead-of-indent"
+        )
+        assert finding.severity == "info"
+        assert finding.autofix_available is True
+        assert finding.autofix_description
+        assert finding.details["space_count"] == 4
+
+    def it_flags_paragraph_with_8_leading_spaces(
+        self, document: DocumentCls
+    ):
+        document.add_paragraph("        hello")
+        report = lint(document)
+        finding = next(
+            f
+            for f in report.findings
+            if f.rule == "leading-spaces-instead-of-indent"
+        )
+        assert "8 leading space" in finding.message
+        assert finding.details["space_count"] == 8
+
+    def it_does_not_flag_paragraph_with_3_leading_spaces(
+        self, document: DocumentCls
+    ):
+        # Below the default threshold (4) — three leading spaces are
+        # common in body prose continuation lines and intentionally
+        # silent.
+        document.add_paragraph("   hello")
+        report = lint(document)
+        assert "leading-spaces-instead-of-indent" not in [
+            f.rule for f in report.findings
+        ]
+
+    def it_does_not_flag_heading_paragraph_with_leading_spaces(
+        self, document: DocumentCls
+    ):
+        h = document.add_heading("First", level=1)
+        h.runs[0].text = "    " + h.runs[0].text
+        report = lint(document)
+        assert "leading-spaces-instead-of-indent" not in [
+            f.rule for f in report.findings
+        ]
+
+    def it_does_not_flag_list_paragraph_with_leading_spaces(
+        self, document: DocumentCls
+    ):
+        # Hanging-indent list styles legitimately lead with whitespace
+        # padding before the bullet glyph; defer to the same skip-list
+        # ``tab-instead-of-indent`` and ``multiple-spaces`` use.
+        try:
+            para = document.add_paragraph(style="List Bullet")
+        except KeyError:
+            pytest.skip("default template lacks 'List Bullet' style")
+        para.add_run("    bullet item")
+        report = lint(document)
+        assert "leading-spaces-instead-of-indent" not in [
+            f.rule for f in report.findings
+        ]
+
+    def it_autofix_strips_spaces_and_sets_compensating_indent(
+        self, document: DocumentCls
+    ):
+        para = document.add_paragraph()
+        para.add_run("    hello")
+        report = lint(document)
+        applied = report.autofix(
+            rules=["leading-spaces-instead-of-indent"]
+        )
+        assert applied == 1
+        assert document.paragraphs[0].runs[0].text == "hello"
+        # Four spaces == one tab-stop (36pt) of left_indent — same
+        # 0.5-inch-per-block multiple ``tab-instead-of-indent`` uses.
+        assert (
+            document.paragraphs[0].paragraph_format.left_indent == Pt(36)
+        )
+
+    def it_autofix_layers_on_existing_indent(
+        self, document: DocumentCls
+    ):
+        para = document.add_paragraph()
+        para.paragraph_format.left_indent = Pt(18)
+        para.add_run("    hello")
+        report = lint(document)
+        report.autofix(rules=["leading-spaces-instead-of-indent"])
+        # Existing 18pt + one block (36pt) == 54pt.
+        assert (
+            document.paragraphs[0].paragraph_format.left_indent == Pt(54)
+        )
+
+    def it_round_trips_through_save(self, document: DocumentCls):
+        from io import BytesIO
+
+        para = document.add_paragraph()
+        para.add_run("        hello")
+        report = lint(document)
+        assert (
+            report.autofix(rules=["leading-spaces-instead-of-indent"])
+            == 1
+        )
+
+        buf = BytesIO()
+        document.save(buf)
+        buf.seek(0)
+        reopened = Document(buf)
+        # Eight spaces == two blocks == 72pt of left_indent.
+        assert reopened.paragraphs[0].runs[0].text == "hello"
+        assert (
+            reopened.paragraphs[0].paragraph_format.left_indent == Pt(72)
+        )
+
+    def it_does_not_fire_when_no_leading_spaces(
+        self, document: DocumentCls
+    ):
+        document.add_paragraph("hello world")
+        report = lint(document)
+        assert "leading-spaces-instead-of-indent" not in [
+            f.rule for f in report.findings
+        ]
+
+
+# ---------------------------------------------------------------------------
 # mixed-quotes
 # ---------------------------------------------------------------------------
 

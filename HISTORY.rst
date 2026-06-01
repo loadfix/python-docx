@@ -66,6 +66,18 @@ Unreleased — Hyperlink ergonomics
   needs to reason about the affected span. The new
   ``_collapse_cross_run_spaces`` helper is the underlying primitive.
 
+- **``docx.kit.lint`` — new ``leading-spaces-instead-of-indent``
+  rule** — sibling to ``tab-instead-of-indent`` for authors who fake
+  an indent with the spacebar (common from web / markdown copy-paste).
+  Fires on body paragraphs whose first run starts with four-or-more
+  leading ``ASCII space`` characters (configurable via the module-
+  level ``LEADING_SPACES_MIN_RUN``); severity ``info``. The autofix
+  strips the leading spaces and stamps a compensating
+  ``paragraph_format.left_indent`` of 36 pt (≈ 0.5 inch) per
+  threshold-wide block, layered on top of any existing direct
+  indent. Skips the same heading / TOC / list / hanging-indent
+  paragraphs the tab variant skips. Closes #676.
+
 - **``Document.iter_all_paragraphs()`` /
   ``Document.iter_all_runs()`` / ``Document.iter_all_pictures()``** —
   promote the previously-private ``docx.search._iter_all_paragraphs``

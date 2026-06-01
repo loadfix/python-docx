@@ -3998,6 +3998,16 @@ inline images without alt text, paragraphs mixing font families, an
 empty document `title` core property, paragraphs longer than 1000
 characters, and leftover `[PLACEHOLDER]` / `[TBD]` / `Lorem ipsum`
 sentinels. Each `Finding` carries `rule` / `severity`
+
+double spaces, trailing whitespace, leading tabs, leading
+space-runs faking an indent (default threshold 4 spaces — see
+`leading-spaces-instead-of-indent`, the sibling of
+`tab-instead-of-indent` for keyboards-first authors, #676), mixed
+straight / smart quotes, consecutive empty paragraphs, skipped
+heading levels, inline images without alt text, paragraphs mixing
+font families, an empty document `title` core property, paragraphs
+longer than 1000 characters, and leftover `[PLACEHOLDER]` / `[TBD]`
+/ `Lorem ipsum` sentinels. Each `Finding` carries `rule` / `severity`
 (`error` / `warning` / `info`) / `message` / `paragraph_index` /
 `autofix_available` / `autofix_description` / `safe_to_delete`.
 Stage one is read-only;

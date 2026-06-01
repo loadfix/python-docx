@@ -51,6 +51,14 @@ Built-in rules (twelve total):
   indent survives. Skips heading and list paragraphs, where a leading
   tab is typically a list/numbering leader, not an author-typed
   indent.
+* ``leading-spaces-instead-of-indent`` (info, autofix) — body
+  paragraph starts with four-or-more literal space characters
+  (configurable via :data:`LEADING_SPACES_MIN_RUN`); replaces the
+  leading space-run with a real ``paragraph_format.left_indent`` so
+  the visual indent survives. Same heading / list / hanging-indent
+  skip-list as ``tab-instead-of-indent``. Sibling of that rule for
+  authors who fake an indent with the spacebar (common from web /
+  markdown copy-paste). Closes #676.
 * ``mixed-quotes`` (info, no-fix) — paragraph mixes "smart" and
   "straight" quote characters (manual review — auto-converting can
   destroy intentional code samples).
@@ -1457,6 +1465,134 @@ def _autofix_tab_instead_of_indent(document: "Document", finding: Finding) -> bo
     return True
 
 
+# Threshold for ``leading-spaces-instead-of-indent``. Authors who fake an
+# indent with the spacebar typically tap it four times (the standard
+# tab-equivalent in web / markdown source); two-or-three spaces are
+# common in body prose (quoted dialogue, continuation lines) and
+# routinely intentional. Four-or-more is the unambiguous "fake tab"
+# threshold the issue (#676) settles on.
+LEADING_SPACES_MIN_RUN = 4
+"""Minimum consecutive leading-space count before
+``leading-spaces-instead-of-indent`` fires.
+
+Default is 4 — the common "fake tab" width on web / markdown input.
+Lower the threshold to 2 to flag every double-space leader; raise it
+to 8 to only catch the deepest fakes.
+"""
+
+
+def _leading_space_count(text: str) -> int:
+    """Return the number of leading ASCII-space characters in *text*."""
+    count = 0
+    for ch in text:
+        if ch == " ":
+            count += 1
+        else:
+            break
+    return count
+
+
+def _check_leading_spaces_instead_of_indent(
+    document: "Document",
+) -> Iterable[Finding]:
+    threshold = max(2, int(LEADING_SPACES_MIN_RUN))
+    for index, paragraph in enumerate(document.paragraphs):
+        # Use the first run's text — ``paragraph.text`` flattens
+        # ``<w:tab/>`` to ``\t`` and would mis-attribute leading
+        # whitespace on a paragraph whose first run starts with a tab.
+        runs = paragraph.runs
+        if not runs:
+            continue
+        first_text = runs[0].text
+        if not first_text:
+            continue
+        space_count = _leading_space_count(first_text)
+        if space_count < threshold:
+            continue
+        # Skip the same structural carriers as ``tab-instead-of-indent``:
+        # heading / TOC paragraphs (where leading whitespace is part of
+        # the rendered numbering leader) and list paragraphs (whose
+        # indent is controlled by ``w:numPr``).
+        if _is_heading_or_toc(paragraph) or _is_list_paragraph(paragraph):
+            continue
+        # Hanging-indent body styles (``List Paragraph``, ``Body Text
+        # Indent``, ``Quote``) intentionally lead with multi-space
+        # padding — defer to ``multiple-spaces``'s skip-list so the
+        # two rules stay in sync.
+        if _is_indented_style(paragraph):
+            continue
+        plural = "s" if space_count != 1 else ""
+        yield Finding(
+            rule="leading-spaces-instead-of-indent",
+            severity="info",
+            message=(
+                f"paragraph {index} starts with {space_count} leading "
+                f"space{plural}"
+            ),
+            paragraph_index=index,
+            autofix_available=True,
+            autofix_description=(
+                "replace leading space-run with paragraph left-indent"
+            ),
+            location=f"paragraph {index}",
+            details=MappingProxyType(
+                {
+                    "space_count": space_count,
+                    "threshold": threshold,
+                }
+            ),
+        )
+
+
+def _autofix_leading_spaces_instead_of_indent(
+    document: "Document", finding: Finding
+) -> bool:
+    # Local import — mirrors ``_autofix_tab_instead_of_indent``; keeps
+    # ``docx.shared`` out of module import time.
+    from docx.shared import Emu, Pt
+
+    if finding.paragraph_index is None:
+        return False
+    try:
+        paragraph = document.paragraphs[finding.paragraph_index]
+    except IndexError:
+        return False
+    runs = paragraph.runs
+    if not runs:
+        return False
+    # Defence in depth: re-check the skip conditions in case the
+    # document was edited between ``lint()`` and ``autofix()``, or a
+    # caller fabricated a Finding by hand.
+    if _is_heading_or_toc(paragraph) or _is_list_paragraph(paragraph):
+        return False
+    if _is_indented_style(paragraph):
+        return False
+    threshold = max(2, int(LEADING_SPACES_MIN_RUN))
+    first_run = runs[0]
+    original = first_run.text
+    space_count = _leading_space_count(original)
+    if space_count < threshold:
+        return False
+    stripped = original[space_count:]
+    first_run.text = stripped
+    # Each ``threshold``-wide block of leading spaces converts to one
+    # tab-stop's worth of left_indent — i.e. the same 0.5 inch (36 pt)
+    # multiple ``tab-instead-of-indent`` uses. A run shorter than the
+    # threshold is dropped (the rule only fires above threshold), but
+    # a partial block (e.g. 6 spaces with threshold 4) only counts as
+    # one block — the leftover two spaces would re-enter the body text
+    # if we credited them as a stop. Use floor division so the indent
+    # never overshoots what the author appears to have intended.
+    blocks = space_count // threshold
+    if blocks <= 0:
+        return False
+    pf = paragraph.paragraph_format
+    existing = pf.left_indent
+    addition = Pt(_TAB_INDENT_PT * blocks)
+    pf.left_indent = Emu(int(existing or 0) + int(addition))
+    return True
+
+
 def _check_mixed_quotes(document: "Document") -> Iterable[Finding]:
     for index, paragraph in enumerate(document.paragraphs):
         text = paragraph.text
@@ -2348,6 +2484,7 @@ BUILTIN_RULES: Tuple[str, ...] = (
     "multiple-spaces",
     "trailing-whitespace",
     "tab-instead-of-indent",
+    "leading-spaces-instead-of-indent",
     "mixed-quotes",
     "empty-paragraph",
     "trailing-empty-paragraph",
@@ -2385,6 +2522,11 @@ def _install_builtin_rules() -> None:
         "tab-instead-of-indent",
         _check_tab_instead_of_indent,
         _autofix_tab_instead_of_indent,
+    )
+    register_rule(
+        "leading-spaces-instead-of-indent",
+        _check_leading_spaces_instead_of_indent,
+        _autofix_leading_spaces_instead_of_indent,
     )
     register_rule("mixed-quotes", _check_mixed_quotes)
     register_rule(
