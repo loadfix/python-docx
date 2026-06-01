@@ -51,6 +51,21 @@ Unreleased — Hyperlink ergonomics
   following heading is the next section title, not body content for
   this one.
 
+- **``docx.kit.lint`` — ``multiple-spaces`` detects cross-run double
+  spaces** (#657). The detector and autofix now operate on the joined
+  text of a paragraph's runs instead of scanning each run in
+  isolation, so the common bold/italic mid-phrase pattern (``"emphasized "``
+  + ``" text"``) — whose joined ``paragraph.text`` shows a visible
+  double space but whose individual runs each carry only a single
+  trailing/leading space — is flagged and fixable. The autofix
+  follows a deterministic tie-break rule: the surviving single space
+  lands in the *first* run that contributed a space, so the
+  formatting (bold, italic, font) of the run that "owned" the gap is
+  preserved. The new ``Finding.details`` payload exposes
+  ``run_indices``, ``match_start``, and ``match_end`` for tooling that
+  needs to reason about the affected span. The new
+  ``_collapse_cross_run_spaces`` helper is the underlying primitive.
+
 - **``Document.iter_all_paragraphs()`` /
   ``Document.iter_all_runs()`` / ``Document.iter_all_pictures()``** —
   promote the previously-private ``docx.search._iter_all_paragraphs``

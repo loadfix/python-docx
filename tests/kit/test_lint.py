@@ -182,6 +182,112 @@ class DescribeMultipleSpaces:
         assert finding.details["run_index"] == 0
         assert finding.details["space_count"] == 5
 
+    # -- cross-run double-spaces (issue #657) --
+
+    def it_flags_double_space_at_run_boundary(self, document: DocumentCls):
+        # Two adjacent runs whose joined text contains a visible double
+        # space — the classic bold/italic mid-phrase pattern. Lower the
+        # threshold to 2 so the bare 2-space case fires; the same code
+        # path handles 3+ spaces with the default threshold.
+        from docx.kit import lint as lint_mod
+
+        para = document.add_paragraph()
+        r1 = para.add_run("emphasized ")
+        r1.bold = True
+        para.add_run(" text")
+        assert "  " in para.text
+        original = lint_mod.MULTIPLE_SPACES_MIN_RUN
+        lint_mod.MULTIPLE_SPACES_MIN_RUN = 2
+        try:
+            report = lint(document)
+        finally:
+            lint_mod.MULTIPLE_SPACES_MIN_RUN = original
+        assert "multiple-spaces" in [f.rule for f in report.findings]
+
+    def it_collapses_double_space_at_run_boundary_via_autofix(
+        self, document: DocumentCls
+    ):
+        # Tie-break rule: the surviving single space lands in the first
+        # run that contributed a space (run A's trailing space wins;
+        # run B's leading space drops). The first run's bold formatting
+        # must survive the edit.
+        from docx.kit import lint as lint_mod
+
+        para = document.add_paragraph()
+        r1 = para.add_run("emphasized ")
+        r1.bold = True
+        para.add_run(" text")
+        original = lint_mod.MULTIPLE_SPACES_MIN_RUN
+        lint_mod.MULTIPLE_SPACES_MIN_RUN = 2
+        try:
+            report = lint(document)
+            applied = report.autofix(rules=["multiple-spaces"])
+        finally:
+            lint_mod.MULTIPLE_SPACES_MIN_RUN = original
+        assert applied >= 1
+        assert para.text == "emphasized text"
+        # The first run (A) keeps its trailing single space and its
+        # bold formatting; the second run loses its leading space.
+        assert para.runs[0].text == "emphasized "
+        assert para.runs[0].bold is True
+        assert para.runs[1].text == "text"
+
+    def it_handles_run_boundary_with_more_than_two_spaces_split(
+        self, document: DocumentCls
+    ):
+        # `"a "` + `"  b"` joins to `"a   b"` (three spaces straddling
+        # the boundary). Default threshold (3) catches it; the autofix
+        # collapses to a single space following the tie-break rule.
+        para = document.add_paragraph()
+        r1 = para.add_run("a ")
+        r1.italic = True
+        para.add_run("  b")
+        report = lint(document)
+        assert "multiple-spaces" in [f.rule for f in report.findings]
+        report.autofix(rules=["multiple-spaces"])
+        assert para.text == "a b"
+        assert para.runs[0].text == "a "
+        assert para.runs[0].italic is True
+        assert para.runs[1].text == "b"
+
+    def it_still_flags_within_run_double_spaces(
+        self, document: DocumentCls
+    ):
+        # Regression — single run with 3+ spaces still fires and the
+        # autofix collapses the run in place (the affected-runs list
+        # has a single element, so the boundary code path collapses
+        # to today's behaviour).
+        document.add_paragraph("foo   bar")  # one run, three spaces
+        report = lint(document)
+        assert "multiple-spaces" in [f.rule for f in report.findings]
+        report.autofix(rules=["multiple-spaces"])
+        assert document.paragraphs[0].text == "foo bar"
+
+    def it_round_trips_after_autofix(self, document: DocumentCls, tmp_path):
+        # The bold formatting on the first run must survive a
+        # save/reopen cycle after the autofix.
+        from docx.kit import lint as lint_mod
+
+        para = document.add_paragraph()
+        r1 = para.add_run("emphasized ")
+        r1.bold = True
+        para.add_run(" text")
+        original = lint_mod.MULTIPLE_SPACES_MIN_RUN
+        lint_mod.MULTIPLE_SPACES_MIN_RUN = 2
+        try:
+            report = lint(document)
+            report.autofix(rules=["multiple-spaces"])
+        finally:
+            lint_mod.MULTIPLE_SPACES_MIN_RUN = original
+        path = tmp_path / "round-trip.docx"
+        document.save(str(path))
+        reopened = Document(str(path))
+        reopened_para = reopened.paragraphs[-1]
+        assert reopened_para.text == "emphasized text"
+        # The first run survives with its bold formatting intact.
+        bold_runs = [r for r in reopened_para.runs if r.bold]
+        assert any(r.text == "emphasized " for r in bold_runs)
+
 
 # ---------------------------------------------------------------------------
 # trailing-whitespace

@@ -1036,13 +1036,135 @@ def _document_has_a11y_intent(
 # ---------------------------------------------------------------------------
 
 
+def _joined_runs_text_with_offsets(
+    paragraph: "Paragraph",
+) -> Tuple[str, List[Tuple[int, int, int]]]:
+    """Return the joined text of *paragraph*'s top-level runs and a span map.
+
+    The span map is a list of ``(run_index, start, end)`` tuples giving
+    the half-open ``[start, end)`` slice of the joined string occupied
+    by each run. ``end - start`` equals ``len(run.text)``. Empty runs
+    contribute an empty span at the boundary so callers can still
+    locate insertion points consistently.
+
+    This is the coordinate system used by ``multiple-spaces`` for
+    cross-run detection (issue #657): the joined string lets the
+    pattern see double-spaces that straddle a run boundary, and the
+    span map lets the autofix translate matches back into per-run
+    edits.
+    """
+
+    parts: List[str] = []
+    spans: List[Tuple[int, int, int]] = []
+    cursor = 0
+    for run_index, run in enumerate(paragraph.runs):
+        text = run.text
+        spans.append((run_index, cursor, cursor + len(text)))
+        parts.append(text)
+        cursor += len(text)
+    return "".join(parts), spans
+
+
+def _runs_for_match(
+    spans: Sequence[Tuple[int, int, int]],
+    match_start: int,
+    match_end: int,
+) -> List[int]:
+    """Return the indices of runs whose span overlaps ``[match_start, match_end)``.
+
+    A zero-length run sitting exactly on the boundary is excluded — it
+    has no characters to edit. The result is in ascending run-index
+    order.
+    """
+
+    hits: List[int] = []
+    for run_index, start, end in spans:
+        if start >= match_end:
+            break
+        if end <= match_start:
+            continue
+        if start == end:  # empty run, no characters to mutate
+            continue
+        hits.append(run_index)
+    return hits
+
+
+def _collapse_cross_run_spaces(
+    paragraph: "Paragraph",
+    match_start: int,
+    match_end: int,
+) -> bool:
+    """Collapse a run of spaces spanning ``[match_start, match_end)`` to one space.
+
+    The match positions are in the joined-runs coordinate space (see
+    :func:`_joined_runs_text_with_offsets`). The surviving single space
+    lands in the *first* run that contributed at least one space — i.e.
+    trailing-space-in-A wins, leading-space(s)-in-B drop. This rule is
+    deterministic and preserves the formatting of the run that already
+    "owned" the gap.
+
+    Returns ``True`` when at least one run's text was rewritten.
+    """
+
+    runs = paragraph.runs
+    if not runs:
+        return False
+    _, spans = _joined_runs_text_with_offsets(paragraph)
+    affected = _runs_for_match(spans, match_start, match_end)
+    if not affected:
+        return False
+
+    # Find the first affected run that actually contributes a space to
+    # the matched region. This is where the surviving single space will
+    # live; every other affected run drops its spaces in the matched
+    # region entirely.
+    survivor: Optional[int] = None
+    for run_index in affected:
+        _, start, end = spans[run_index]
+        seg_start = max(start, match_start) - start
+        seg_end = min(end, match_end) - start
+        segment = runs[run_index].text[seg_start:seg_end]
+        if any(ch == " " for ch in segment):
+            survivor = run_index
+            break
+    if survivor is None:  # pragma: no cover - defensive
+        return False
+
+    fixed_any = False
+    for run_index in affected:
+        _, start, end = spans[run_index]
+        seg_start = max(start, match_start) - start
+        seg_end = min(end, match_end) - start
+        run = runs[run_index]
+        original = run.text
+        before = original[:seg_start]
+        segment = original[seg_start:seg_end]
+        after = original[seg_end:]
+        if run_index == survivor:
+            replacement = " "
+        else:
+            replacement = ""
+        # Only rewrite when this run actually carried spaces in the
+        # matched region — leaves runs whose overlap is non-space text
+        # untouched (defensive; the matcher is space-only so this is
+        # belt-and-braces).
+        if not any(ch == " " for ch in segment) and replacement == segment:
+            continue
+        new_text = before + replacement + after
+        if new_text != original:
+            run.text = new_text
+            fixed_any = True
+    return fixed_any
+
+
 def _check_multiple_spaces(document: "Document") -> Iterable[Finding]:
     config = _current_config()
     # Prefer the legacy module-level constant when the caller has tuned
     # it past the default; otherwise honour the LintConfig setting. This
     # keeps the existing ``MULTIPLE_SPACES_MIN_RUN`` override path
-    # (``(?<=\S)`` interior-only matching) working for callers who never
-    # adopt ``LintConfig``.
+    # working for callers who never adopt ``LintConfig``. The legacy
+    # pattern is interior-only (``(?<=\S)``) — applied to the joined
+    # runs string so cross-run double-spaces become detectable (#657).
     legacy_n = max(2, int(MULTIPLE_SPACES_MIN_RUN))
     if legacy_n != 2:
         pattern = _multi_space_re()
@@ -1056,47 +1178,66 @@ def _check_multiple_spaces(document: "Document") -> Iterable[Finding]:
         # hanging indent.
         if _is_indented_style(paragraph):
             continue
+        joined, spans = _joined_runs_text_with_offsets(paragraph)
+        if not joined:
+            continue
         # Heading paragraphs whose double-space sits right after a
         # leading numeric token (`4.1  Title`) are using the spacing as
         # a deliberate gap between number and title — skip when that's
         # the only multi-space pattern in the paragraph.
         if _heading_level(paragraph) is not None:
+            # Use the full paragraph text (which may include hyperlink
+            # content) for the heading-numbering predicate; the
+            # remainder check uses the joined-runs string so it stays
+            # consistent with the detection space below.
             full_text = paragraph.text
             if _HEADING_NUMBERING_GAP_RE.match(full_text):
-                # If the only multi-space run in the paragraph is the
-                # numbering gap, treat as intentional. Detect by
-                # stripping that prefix and checking the remainder.
                 remainder = _HEADING_NUMBERING_GAP_RE.sub(
-                    lambda m: m.group(0)[-1], full_text, count=1
+                    lambda m: m.group(0)[-1], joined, count=1
                 )
                 if pattern.search(remainder) is None:
                     continue
-        for run_index, run in enumerate(paragraph.runs):
-            text = run.text
-            if not text:
-                continue
-            match = pattern.search(text)
-            if match is None:
-                continue
-            yield Finding(
-                rule="multiple-spaces",
-                severity="warning",
-                message=(
-                    f"paragraph {index} run {run_index} contains "
-                    f"{len(match.group(0))} consecutive spaces"
-                ),
-                paragraph_index=index,
-                autofix_available=True,
-                autofix_description="collapse runs of spaces to a single space",
-                location=f"paragraph {index} run {run_index}",
-                details=MappingProxyType(
-                    {
-                        "run_index": run_index,
-                        "space_count": len(match.group(0)),
-                    }
-                ),
+        match = pattern.search(joined)
+        if match is None:
+            continue
+        affected = _runs_for_match(spans, match.start(), match.end())
+        first_run = affected[0] if affected else 0
+        location = (
+            f"paragraph {index} run {first_run}"
+            if len(affected) <= 1
+            else (
+                f"paragraph {index} runs {affected[0]}-{affected[-1]}"
             )
-            break  # one finding per run is enough; autofix collapses all
+        )
+        if len(affected) <= 1:
+            message = (
+                f"paragraph {index} run {first_run} contains "
+                f"{len(match.group(0))} consecutive spaces"
+            )
+        else:
+            message = (
+                f"paragraph {index} contains "
+                f"{len(match.group(0))} consecutive spaces "
+                f"spanning runs {affected[0]}-{affected[-1]}"
+            )
+        yield Finding(
+            rule="multiple-spaces",
+            severity="warning",
+            message=message,
+            paragraph_index=index,
+            autofix_available=True,
+            autofix_description="collapse runs of spaces to a single space",
+            location=location,
+            details=MappingProxyType(
+                {
+                    "run_index": first_run,
+                    "space_count": len(match.group(0)),
+                    "match_start": match.start(),
+                    "match_end": match.end(),
+                    "run_indices": tuple(affected),
+                }
+            ),
+        )
 
 
 def _autofix_multiple_spaces(document: "Document", finding: Finding) -> bool:
@@ -1106,12 +1247,24 @@ def _autofix_multiple_spaces(document: "Document", finding: Finding) -> bool:
         paragraph = document.paragraphs[finding.paragraph_index]
     except IndexError:
         return False
+    # Collapse every multi-space run in the paragraph (greedy ``  +``
+    # pattern), now operating on the joined-runs string so cross-run
+    # double-spaces are caught alongside in-run ones. Iterating in
+    # right-to-left order keeps span offsets stable across edits.
     fixed_any = False
-    for run in paragraph.runs:
-        new_text = _MULTI_SPACE_RE.sub(" ", run.text)
-        if new_text != run.text:
-            run.text = new_text
-            fixed_any = True
+    while True:
+        joined, _spans = _joined_runs_text_with_offsets(paragraph)
+        matches = list(_MULTI_SPACE_RE.finditer(joined))
+        if not matches:
+            break
+        # Process the right-most match first; left-side offsets are
+        # unaffected by a later edit.
+        match = matches[-1]
+        if not _collapse_cross_run_spaces(
+            paragraph, match.start(), match.end()
+        ):
+            break
+        fixed_any = True
     return fixed_any
 
 
