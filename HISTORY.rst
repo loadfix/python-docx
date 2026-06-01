@@ -6,6 +6,27 @@ Release History
 Unreleased — Hyperlink ergonomics
 +++++++++++++++++++++++++++++++++
 
+- **``Document.iter_all_paragraphs()`` /
+  ``Document.iter_all_runs()`` / ``Document.iter_all_pictures()``** —
+  promote the previously-private ``docx.search._iter_all_paragraphs``
+  walker to a documented public surface (#662). Each method yields
+  ``(item, location)`` tuples covering every story in the document —
+  body, body-level table cells, every non-inherited
+  header / footer on every section, plus the footnote / endnote /
+  comment parts — paired with a stable ``location`` tag drawn from
+  the same vocabulary used by ``docx.search.search_all_paragraphs``
+  (``"body"``, ``"table:0:row:1:col:2"``,
+  ``"header:section0:primary"``, ``"footer:section0:even_page"``,
+  ``"footnote:2"``, ``"endnote:3"``, ``"comment:5"``). All three
+  methods share keyword-only ``include_tables=`` /
+  ``include_headers_footers=`` / ``include_footnotes=`` /
+  ``include_endnotes=`` / ``include_comments=`` flags; the body group
+  is always yielded. Foundation for the cross-story ``lint()`` walker
+  in #673. The lower-level ``docx.search.iter_all_paragraph_groups``
+  building block is also public; the underscore alias
+  ``_iter_all_paragraphs`` is retained as a deprecated forwarder for
+  third-party callers.
+
 - **``Document.from_html(source, clean=True)`` /
   ``Document.from_html_string(html, clean=True)``** — read-side
   companion to ``Document.to_html()`` (#95). Stdlib-only HTML parser

@@ -2514,6 +2514,70 @@ document.save("out.docx")
 
 ---
 
+## Cross-story iteration
+
+`Document.paragraphs`, `Document.tables`, and `Document.inline_shapes`
+only cover the body story — they silently miss content nested inside
+table cells, headers, footers, footnotes, endnotes, and comments. The
+`iter_all_*` family of methods walks every story in the document and
+yields each item paired with a stable `location` tag that identifies
+which story (and which table cell, section, etc.) the item came from.
+`[Added in 2026.05.dev0]` (closes #662 — foundation for #673).
+
+```python
+from docx import Document
+
+doc = Document()
+doc.add_paragraph("body")
+doc.add_table(rows=1, cols=1).cell(0, 0).text = "in a table"
+doc.sections[0].header.paragraphs[0].text = "in a header"
+
+# Every paragraph in every story
+for paragraph, location in doc.iter_all_paragraphs():
+    print(location, paragraph.text)
+# body            body
+# table:0:row:0:col:0    in a table
+# header:section0:primary    in a header
+
+# Every visible run (descends through hyperlinks, fields, content controls)
+for run, location in doc.iter_all_runs():
+    print(location, repr(run.text))
+
+# Every inline + floating picture, body / tables / headers / footers / ...
+for picture, location in doc.iter_all_pictures():
+    print(location, picture.alt_text)
+```
+
+The location-tag vocabulary is stable and shared with
+`docx.search.search_all_paragraphs` (and the upcoming cross-story
+`lint()` walker in #673). The full set of tag shapes is:
+
+- `"body"` — the document body story.
+- `"table:<t>:row:<r>:col:<c>"` — a top-level body table cell. Tables
+  nested inside other stories (headers, footers, ...) or inside body
+  table cells are not descended into; the cell's own paragraphs are
+  always visited.
+- `"header:section<i>:primary"` / `"header:section<i>:even_page"` /
+  `"header:section<i>:first_page"` — section headers; sections that
+  inherit (linked-to-previous) are not re-emitted.
+- `"footer:section<i>:primary"` / `even_page` / `first_page` — likewise
+  for footers.
+- `"footnote:<id>"` / `"endnote:<id>"` / `"comment:<id>"` — note /
+  comment story, keyed by the id of the underlying part entry.
+
+All three `iter_all_*` methods share the same keyword-only flags so
+callers can prune story groups they don't care about
+(`include_tables=`, `include_headers_footers=`, `include_footnotes=`,
+`include_endnotes=`, `include_comments=`, all default-`True`). The
+body group is always yielded.
+
+- `Document.iter_all_paragraphs(*, include_tables=True, include_headers_footers=True, include_footnotes=True, include_endnotes=True, include_comments=True)` — yields `(Paragraph, location)`. `[Added in 2026.05.dev0]`
+- `Document.iter_all_runs(*, include_tables=True, ...)` — yields `(Run, location)` over `Paragraph.all_runs` (descends through hyperlinks / fields / SDT / smartTag wrappers). `[Added in 2026.05.dev0]`
+- `Document.iter_all_pictures(*, include_tables=True, ...)` — yields `(InlineShape | FloatingImage, location)` for every inline and floating picture in every story. `[Added in 2026.05.dev0]`
+- `docx.search.iter_all_paragraph_groups(document, *, ...)` — lower-level building block: yields `(list[Paragraph], location)` per story group. The previously-private `_iter_all_paragraphs` underscore alias is retained for backwards compatibility and will be removed in a future release. `[Added in 2026.05.dev0]`
+
+---
+
 ## CSS-selector queries
 
 `Document.select(selector)` and `Document.select_one(selector)` return
