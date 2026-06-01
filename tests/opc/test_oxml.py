@@ -126,8 +126,11 @@ class DescribeCT_Relationships:
         # -- Shared runtime emits double-quoted XML declaration attributes
         # -- to match Microsoft Office output; pre-0.2 docx relied on
         # -- lxml's single-quoted default. --
+        # -- ooxml-opc 0.2.1+ emits CRLF after the XML declaration to match
+        # -- Microsoft Office's canonical prolog terminator; required for
+        # -- byte-identical round-trip of Office-authored packages.
         expected_xml = (
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n'
             '<Relationships xmlns="http://schemas.openxmlformats.org/package'
             '/2006/relationships"/>'.encode("utf-8")
         )
